@@ -20,7 +20,7 @@
     "db:fresh": "tsx scripts/db-reset.ts && drizzle-kit migrate",
     "db:validate:sessao-operacao": "tsx scripts/validate-sessao-operacao-migration.ts",
     "db:validate:sessao-pausas": "tsx scripts/validate-sessao-pausas-migration.ts",
-    "postinstall": "puppeteer browsers install chrome"
+    "postinstall": "node -e \"if (process.env.PUPPETEER_SKIP_DOWNLOAD !== 'true') { require('child_process').execSync('puppeteer browsers install chrome', { stdio: 'inherit' }) }\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",
