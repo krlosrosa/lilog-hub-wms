@@ -15,6 +15,9 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY apps/pwa/package.json ./apps/pwa/
+COPY apps/pwa-lideranca/package.json ./apps/pwa-lideranca/
 COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
