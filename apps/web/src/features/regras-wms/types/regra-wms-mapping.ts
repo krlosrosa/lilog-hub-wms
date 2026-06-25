@@ -1,5 +1,3 @@
-s
-
 import type { Acao, CampoCondicao, Condicao, OperadorCondicao, RegraWms } from '@/features/regras-wms/types/regra-wms.schema';
 import type {
   EngineNestedCondition,

@@ -3,12 +3,13 @@ import { notFound } from 'next/navigation';
 import { DocumentacaoModuloView } from '@/features/documentacao';
 import { getDocModulo } from '@/features/documentacao/content';
 
-export default function DocumentacaoModuloPage({
+export default async function DocumentacaoModuloPage({
   params,
 }: {
-  params: { modulo: string };
+  params: Promise<{ modulo: string }>;
 }) {
-  const modulo = getDocModulo(params.modulo);
+  const { modulo: moduloSlug } = await params;
+  const modulo = getDocModulo(moduloSlug);
 
   if (!modulo) {
     notFound();

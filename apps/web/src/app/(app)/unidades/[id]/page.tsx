@@ -1,9 +1,11 @@
 import { FilialDetalheView } from '@/features/filiais';
 
-export default function UnidadeDetalhePage({
+export default async function UnidadeDetalhePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  return <FilialDetalheView filialId={params.id} />;
+  const { id } = await params;
+
+  return <FilialDetalheView filialId={id} />;
 }

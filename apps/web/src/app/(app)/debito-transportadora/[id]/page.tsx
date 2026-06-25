@@ -1,9 +1,11 @@
 import { DebitoDetalheView } from '@/features/debito-transportadora';
 
-export default function DebitoDetalhePage({
+export default async function DebitoDetalhePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  return <DebitoDetalheView debitoId={params.id} />;
+  const { id } = await params;
+
+  return <DebitoDetalheView debitoId={id} />;
 }

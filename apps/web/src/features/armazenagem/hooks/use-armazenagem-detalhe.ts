@@ -89,7 +89,7 @@ export function useArmazenagemDetalhe(demandaId: string) {
           enderecoSugeridoId,
         );
 
-        const [enriched] = await Promise.all([enrichItemArmazenagem(updated)]);
+        const enriched = await enrichItemArmazenagem(updated as ItemArmazenagemView);
 
         setDemanda((prev) =>
           prev

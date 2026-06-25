@@ -109,8 +109,16 @@ export function useArmazenagemPainel() {
         })),
       );
 
-      const itensEnriquecidos = await Promise.all(
-        itensBrutos.map((item) => enrichItemArmazenagem(item)),
+      const itensEnriquecidos: ItemArmazenagemPainelRow[] = await Promise.all(
+        itensBrutos.map(async (item) => {
+          const enriched = await enrichItemArmazenagem(item);
+
+          return {
+            ...enriched,
+            demandaStatus: item.demandaStatus,
+            recebimentoId: item.recebimentoId,
+          };
+        }),
       );
 
       setItens(itensEnriquecidos);
@@ -229,11 +237,11 @@ export function useArmazenagemPainel() {
           enderecoSugeridoId,
         );
 
-        const enriched = await enrichItemArmazenagem({
-          ...updated,
+        const enriched: ItemArmazenagemPainelRow = {
+          ...(await enrichItemArmazenagem(updated as ItemArmazenagemView)),
           demandaStatus: itemSelecionado.demandaStatus,
           recebimentoId: itemSelecionado.recebimentoId,
-        });
+        };
 
         atualizarItem(enriched);
 
@@ -315,11 +323,11 @@ export function useArmazenagemPainel() {
             endereco.id,
           );
 
-          const enriched = await enrichItemArmazenagem({
-            ...updated,
+          const enriched: ItemArmazenagemPainelRow = {
+            ...(await enrichItemArmazenagem(updated as ItemArmazenagemView)),
             demandaStatus: item.demandaStatus,
             recebimentoId: item.recebimentoId,
-          });
+          };
 
           enderecosUsados.add(endereco.id);
           atualizarItem(enriched);

@@ -63,11 +63,11 @@ export function useProdutoForm(options?: UseProdutoFormOptions) {
 
     let ativo = true;
 
-    async function carregarProduto() {
+    async function carregarProduto(currentId: string) {
       setIsLoading(true);
 
       try {
-        const produto = await getProduto(produtoId);
+        const produto = await getProduto(currentId);
 
         if (!ativo) {
           return;
@@ -93,7 +93,7 @@ export function useProdutoForm(options?: UseProdutoFormOptions) {
       }
     }
 
-    void carregarProduto();
+    void carregarProduto(produtoId);
 
     return () => {
       ativo = false;

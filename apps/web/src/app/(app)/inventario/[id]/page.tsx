@@ -1,9 +1,11 @@
 import { InventarioDetalheView } from '@/features/inventario';
 
-export default function InventarioDetalhePage({
+export default async function InventarioDetalhePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  return <InventarioDetalheView inventarioId={params.id} />;
+  const { id } = await params;
+
+  return <InventarioDetalheView inventarioId={id} />;
 }

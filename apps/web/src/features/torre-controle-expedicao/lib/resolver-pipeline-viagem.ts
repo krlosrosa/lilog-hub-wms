@@ -67,11 +67,7 @@ function isProcessoStatus(valor: unknown): valor is ProcessoStatus {
 export function isEtapaHorario(
   etapa: PipelineDetalheEtapa,
 ): etapa is PipelineDetalheEtapaHorario {
-  return (
-    etapa.modo === 'horario' ||
-    etapa.key === 'viagem_inicio' ||
-    etapa.key === 'viagem_fim'
-  );
+  return etapa.modo === 'horario';
 }
 
 export function montarPipelineDetalheTransporte(

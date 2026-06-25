@@ -12,22 +12,27 @@ module.exports = function mockStubLoader(source) {
   const lines = [];
   const exportConstRegex = /export const ([A-Z0-9_]+)/g;
   const exportFunctionRegex = /export (?:async )?function ([A-Za-z0-9_]+)/g;
-  const exportedNames = new Set();
+  const exportedConsts = new Set();
+  const exportedFunctions = new Set();
 
-  for (const regex of [exportConstRegex, exportFunctionRegex]) {
-    let match = regex.exec(source);
-    while (match) {
-      exportedNames.add(match[1]);
-      match = regex.exec(source);
-    }
+  let match = exportConstRegex.exec(source);
+  while (match) {
+    exportedConsts.add(match[1]);
+    match = exportConstRegex.exec(source);
+  }
+
+  match = exportFunctionRegex.exec(source);
+  while (match) {
+    exportedFunctions.add(match[1]);
+    match = exportFunctionRegex.exec(source);
   }
 
   function extractConstExport(name) {
-    const match = source.match(
+    const extracted = source.match(
       new RegExp(`export const ${name}[\\s\\S]*?=([\\s\\S]*?);\\n`),
     );
 
-    return match ? `export const ${name} = ${match[1]};` : null;
+    return extracted ? `export const ${name} = ${extracted[1]};` : null;
   }
 
   function isObjectMock(name) {
@@ -54,20 +59,12 @@ module.exports = function mockStubLoader(source) {
       name.endsWith('_FOOTER_KPI') ||
       name.endsWith('_PRONTOS') ||
       name.endsWith('_OPERADORES') ||
-      name.endsWith('_TAG') ||
-      name.endsWith('_METRICAS')
+      name.endsWith('_TAG')
     );
   }
 
-  for (const name of exportedNames) {
-    if (name.startsWith('MOCK_')) {
-      lines.push(
-        `export const ${name} = ${isObjectMock(name) ? '{}' : '[]'};`,
-      );
-      continue;
-    }
-
-    if (
+  function shouldPassthroughConst(name) {
+    return (
       name.startsWith('DEFAULT_') ||
       name.endsWith('_OPCOES') ||
       name.endsWith('_PADRAO') ||
@@ -83,7 +80,22 @@ module.exports = function mockStubLoader(source) {
       name === 'NIVEL_IMPRESSAO_OPCOES' ||
       name === 'ZONA_FILTRO_OPCOES' ||
       name === 'STATUS_FILTRO_TONE'
-    ) {
+    );
+  }
+
+  function isMockConst(name) {
+    return name.startsWith('MOCK_') || name.endsWith('_MOCK');
+  }
+
+  for (const name of exportedConsts) {
+    if (isMockConst(name)) {
+      lines.push(
+        `export const ${name} = ${isObjectMock(name) ? '{}' : '[]'};`,
+      );
+      continue;
+    }
+
+    if (shouldPassthroughConst(name)) {
       const extracted = extractConstExport(name);
       if (extracted) {
         lines.push(extracted);
@@ -91,11 +103,32 @@ module.exports = function mockStubLoader(source) {
       continue;
     }
 
-    if (/^(get|buscar|listar|calcular|resolver|criar|add|remove|clone|montar|filtrar)/i.test(name)) {
-      lines.push(
-        `export function ${name}(..._args: unknown[]) { return undefined; }`,
-      );
+    lines.push(`export const ${name} = ${isObjectMock(name) ? '{}' : '[]'};`);
+  }
+
+  for (const name of exportedFunctions) {
+    const returnsCollection =
+      /^build/i.test(name) ||
+      /^listar/i.test(name) ||
+      /^getDemandasMockStore/i.test(name);
+
+    const returnsObject =
+      /^calcular/i.test(name) ||
+      /^clone/i.test(name) ||
+      /^montar/i.test(name) ||
+      /^resolver/i.test(name);
+
+    if (returnsCollection) {
+      lines.push(`export function ${name}(..._args) { return []; }`);
+      continue;
     }
+
+    if (returnsObject) {
+      lines.push(`export function ${name}(..._args) { return {}; }`);
+      continue;
+    }
+
+    lines.push(`export function ${name}(..._args) { return undefined; }`);
   }
 
   if (lines.length === 0) {

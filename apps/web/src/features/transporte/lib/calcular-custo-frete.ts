@@ -306,7 +306,7 @@ export function calcularCustoFreteInsights(
         valor: item.custoFrete.totalAdicionais,
         detalhe: resolverTransportadora(item),
       })),
-    { label: '—', valor: 0 },
+    { label: '—', valor: 0, detalhe: '—' },
   );
 
   const contestados = items.filter(

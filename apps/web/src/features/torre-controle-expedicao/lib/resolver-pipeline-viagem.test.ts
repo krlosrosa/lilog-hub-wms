@@ -21,6 +21,7 @@ function criarTransporteBase(
     tempoRestanteSaidaMin: 30,
     tempoRestanteSaidaSeg: 30 * 60,
     tempoEstimadoFinalizarMin: 0,
+    tempoEstimadoFinalizarSeg: 0,
     nivelRisco: 'baixo',
     scoreCriticidade: 0,
     mapasTotal: 2,
