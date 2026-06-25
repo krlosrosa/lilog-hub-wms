@@ -20,8 +20,7 @@ COPY packages/typescript-config/package.json ./packages/typescript-config/
 COPY packages/ui/package.json ./packages/ui/
 
 RUN pnpm --version \
-  && pnpm fetch --filter pwa-lideranca... \
-  && pnpm install --offline --frozen-lockfile --ignore-scripts --filter pwa-lideranca...
+  && pnpm install --frozen-lockfile --ignore-scripts --filter pwa-lideranca...
 
 FROM deps AS builder
 

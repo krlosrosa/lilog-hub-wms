@@ -14,6 +14,7 @@ RUN apt-get update \
 
 WORKDIR /app
 
+ENV CI=true
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
@@ -28,8 +29,7 @@ COPY packages/typescript-config/package.json ./packages/typescript-config/
 COPY packages/ui/package.json ./packages/ui/
 
 RUN pnpm --version \
-  && pnpm fetch \
-  && pnpm install --offline --frozen-lockfile --ignore-scripts
+  && pnpm install --frozen-lockfile --ignore-scripts
 
 # Código-fonte na imagem — necessário quando não há bind-mount (Portainer)
 COPY apps ./apps

@@ -1,0 +1,162 @@
+# =============================================================================
+# PRODUÇÃO — use ESTE arquivo no Portainer (Compose path).
+# NÃO use docker-compose.dev.yml (é só para desenvolvimento local).
+# =============================================================================
+
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: lilog-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      NODE_OPTIONS: '--max-old-space-size=768'
+      PORT: ${PORT:-3001}
+      DATABASE_URL: ${DATABASE_URL}
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_USERNAME: ${REDIS_USERNAME:-}
+      RAVEX_BASE_URL: ${RAVEX_BASE_URL}
+      RAVEX_USERNAME: ${RAVEX_USERNAME}
+      RAVEX_PASSWORD: ${RAVEX_PASSWORD}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_API_TOKEN: ${R2_API_TOKEN:-}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_TOKEN_ID: ${R2_TOKEN_ID:-}
+      R2_REGION: ${R2_REGION:-auto}
+      R2_S3_ENDPOINT: ${R2_S3_ENDPOINT:-}
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-}
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+    depends_on:
+      redis:
+        condition: service_started
+    networks:
+      - proxy
+      - internal
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1024M
+        reservations:
+          memory: 512M
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lilog-api.rule=Host(`${API_HOST}`)
+      - traefik.http.routers.lilog-api.service=lilog-api
+      - traefik.http.routers.lilog-api.tls.certresolver=letsencrypt
+      - traefik.http.services.lilog-api.loadbalancer.server.port=3001
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    container_name: lilog-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    networks:
+      - proxy
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 768M
+        reservations:
+          memory: 384M
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lilog-web.rule=Host(`${WEB_HOST}`)
+      - traefik.http.routers.lilog-web.service=lilog-web
+      - traefik.http.routers.lilog-web.tls.certresolver=letsencrypt
+      - traefik.http.services.lilog-web.loadbalancer.server.port=3000
+
+  pwa:
+    build:
+      context: .
+      dockerfile: Dockerfile.pwa
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_API_PORT: ${VITE_API_PORT:-443}
+    container_name: lilog-pwa
+    restart: unless-stopped
+    networks:
+      - proxy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lilog-pwa.rule=Host(`${PWA_HOST}`)
+      - traefik.http.routers.lilog-pwa.service=lilog-pwa
+      - traefik.http.routers.lilog-pwa.tls.certresolver=letsencrypt
+      - traefik.http.services.lilog-pwa.loadbalancer.server.port=80
+
+  pwa-lideranca:
+    build:
+      context: .
+      dockerfile: Dockerfile.pwa-lideranca
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_API_PORT: ${VITE_API_PORT:-443}
+    container_name: lilog-pwa-lideranca
+    restart: unless-stopped
+    networks:
+      - proxy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lilog-pwa-lideranca.rule=Host(`${PWA_LIDERANCA_HOST}`)
+      - traefik.http.routers.lilog-pwa-lideranca.service=lilog-pwa-lideranca
+      - traefik.http.routers.lilog-pwa-lideranca.tls.certresolver=letsencrypt
+      - traefik.http.services.lilog-pwa-lideranca.loadbalancer.server.port=80
+
+  redis:
+    image: redis:7-alpine
+    container_name: lilog-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 320M
+        reservations:
+          memory: 128M
+
+networks:
+  proxy:
+    external: true
+  internal:
+    driver: bridge
+
+volumes:
+  redis_data:
