@@ -1,0 +1,342 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1780926252498,
+      "tag": "0000_good_the_liberteens",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780956424335,
+      "tag": "0001_wild_maximus",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780972045176,
+      "tag": "0002_lyrical_the_call",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781003106094,
+      "tag": "0003_numerous_talon",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781010000000,
+      "tag": "0004_saldos_documento_ref",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781008845422,
+      "tag": "0005_clammy_snowbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781813290346,
+      "tag": "0006_volatile_killraven",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781900000000,
+      "tag": "0007_vw_transportes",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781817612672,
+      "tag": "0008_free_monster_badoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781819679091,
+      "tag": "0009_motionless_silver_surfer",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781835348333,
+      "tag": "0010_youthful_santa_claus",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1781840000000,
+      "tag": "0011_perfil_pagamento_transportes",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1781867440495,
+      "tag": "0012_motionless_sabretooth",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1781870000000,
+      "tag": "0013_add_itinerario_perfis_tarifas_faixas_km",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1781870593453,
+      "tag": "0014_petite_nuke",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1781873274203,
+      "tag": "0015_optimal_valkyrie",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1781876078889,
+      "tag": "0016_kind_grandmaster",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1781910000000,
+      "tag": "0017_remessa_itens_data_fabricacao",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1781920000000,
+      "tag": "0018_mapa_lotes",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1781930000000,
+      "tag": "0019_legal_maestro",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1781940000000,
+      "tag": "0020_mapa_grupo_processo",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1781950000000,
+      "tag": "0021_mapa_grupos_lote_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1781986346838,
+      "tag": "0022_pink_thing",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1782004248821,
+      "tag": "0023_gray_obadiah_stane",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1782091959011,
+      "tag": "0024_youthful_zzzax",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1782094598571,
+      "tag": "0025_master_data_enderecos",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1782095341316,
+      "tag": "0026_broad_stepford_cuckoos",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1782140575540,
+      "tag": "0027_brown_wasp",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1782141714442,
+      "tag": "0028_useful_next_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1782143000000,
+      "tag": "0029_sessao_funcionario_id_demandas",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1782144000000,
+      "tag": "0030_torre_controle_views",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1782145000000,
+      "tag": "0031_torre_controle_turno_peso",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1782146000000,
+      "tag": "0032_corte_operacional",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1782147000000,
+      "tag": "0033_torre_controle_meta_atraso",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1782148000000,
+      "tag": "0034_transporte_prioridade",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1782149000000,
+      "tag": "0035_torre_controle_prioridade",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1782150000000,
+      "tag": "0036_mapas_pendentes_iniciado_em",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1782151000000,
+      "tag": "0037_status_transporte_operacional",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1782152000000,
+      "tag": "0038_fix_turno_peso_por_transporte",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1782153000000,
+      "tag": "0039_transporte_viagem_ravex",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1782154000000,
+      "tag": "0040_status_transporte_viagem",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1782155000000,
+      "tag": "0041_fix_tempo_esperado_min_view",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1782156000000,
+      "tag": "0042_mapas_pendentes_tempo_segundos",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1782157000000,
+      "tag": "0043_transporte_tempo_restante_seg",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1782158000000,
+      "tag": "0044_demanda_operacional_funcionarios",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1782159000000,
+      "tag": "0045_transporte_doca_lacre",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1782160000000,
+      "tag": "0046_expedicao_cliente_especial",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1782161000000,
+      "tag": "0047_transporte_itinerario",
+      "breakpoints": true
+    }
+  ]
+}

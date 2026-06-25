@@ -1,0 +1,43 @@
+export type UserStatusApi =
+  | 'ativo'
+  | 'bloqueado'
+  | 'pendente'
+  | 'inativo';
+
+export type UserRoleApi = 'admin' | 'manager' | 'operator';
+
+export type UserApi = {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRoleApi;
+  status: UserStatusApi;
+  funcionarioId: number | null;
+  createdAt: string;
+};
+
+export type ListUsersApiResponse = {
+  items: UserApi[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
+export type CreateUserPayload = {
+  id: number;
+  name: string;
+  email: string;
+  password: string;
+  role: UserRoleApi;
+  status?: UserStatusApi;
+  funcionarioId: number;
+};
+
+export type UpdateUserPayload = {
+  name?: string;
+  email?: string;
+  password?: string;
+  role?: UserRoleApi;
+  status?: UserStatusApi;
+  funcionarioId?: number | null;
+};

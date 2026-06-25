@@ -1,0 +1,2 @@
+ALTER TABLE "transporte"."transportadora_placas" ADD COLUMN "perfil_tarifa_id" uuid;--> statement-breakpoint
+ALTER TABLE "transporte"."transportadora_placas" ADD CONSTRAINT "transportadora_placas_perfil_tarifa_id_perfis_tarifas_id_fk" FOREIGN KEY ("perfil_tarifa_id") REFERENCES "transporte"."perfis_tarifas"("id") ON DELETE set null ON UPDATE no action;

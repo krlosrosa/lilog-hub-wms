@@ -1,0 +1,22 @@
+{
+  "name": "lilog-hub",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:lideranca": "turbo run dev --filter=pwa-lideranca --filter=api",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,jsx,json,md,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,jsx,json,md,css}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.7.5",
+    "turbo": "^2.8.8",
+    "typescript": "~5.8.3"
+  },
+  "packageManager": "pnpm@10.18.3",
+  "engines": {
+    "node": ">=22"
+  }
+}

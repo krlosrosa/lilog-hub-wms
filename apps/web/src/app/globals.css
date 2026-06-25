@@ -1,0 +1,209 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* shadcn core — Lilog-Hub light */
+    --background: 270 100% 99%;
+    --foreground: 240 5% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 5% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 5% 11%;
+    --primary: 239 22% 46%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 271 35% 44%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 270 9% 92%;
+    --muted-foreground: 248 7% 46%;
+    --accent: 158 100% 21%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 250 8% 82%;
+    --input: 250 8% 82%;
+    --ring: 239 22% 46%;
+    --radius: 0.5rem;
+
+    /* Lilog-Hub extended */
+    --primary-container: 240 100% 94%;
+    --on-primary-container: 238 57% 18%;
+    --secondary-container: 278 100% 94%;
+    --on-secondary-container: 274 57% 15%;
+    --tertiary: 158 100% 21%;
+    --on-tertiary: 0 0% 100%;
+    --tertiary-container: 152 100% 81%;
+    --on-tertiary-container: 159 100% 7%;
+    --surface-lowest: 270 14% 97%;
+    --surface-low: 270 9% 95%;
+    --surface: 270 100% 99%;
+    --surface-high: 270 9% 92%;
+    --surface-highest: 270 7% 88%;
+    --surface-bright: 270 100% 99%;
+    --outline: 252 5% 47%;
+    --outline-variant: 250 8% 82%;
+    --glass-bg: rgb(254 251 255 / 0.7);
+    --status-active: 158 100% 21%;
+    --surface-tint: 239 22% 46%;
+    --inverse-primary: 239 22% 46%;
+
+    /* Overridden by `next/font` Inter variable on `<html>` when configured */
+    --font-sans:
+      ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+      'Segoe UI Symbol';
+
+    --font-mono:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+      monospace;
+  }
+
+  .dark {
+    /* shadcn core — Lilog-Hub Premium dark */
+    --background: 240 5% 8%;
+    --foreground: 300 5% 89%;
+    --card: 240 6% 10%;
+    --card-foreground: 300 5% 89%;
+    --popover: 240 6% 10%;
+    --popover-foreground: 300 5% 89%;
+    --primary: 239 100% 87%;
+    --primary-foreground: 238 44% 26%;
+    --secondary: 272 100% 86%;
+    --secondary-foreground: 271 48% 25%;
+    --muted: 240 2% 17%;
+    --muted-foreground: 250 8% 79%;
+    --accent: 157 75% 72%;
+    --accent-foreground: 158 32% 12%;
+    --destructive: 6 100% 84%;
+    --destructive-foreground: 357 100% 21%;
+    --border: 240 4% 16%;
+    --input: 270 1% 11%;
+    --ring: 239 100% 87%;
+
+    /* Lilog-Hub extended */
+    --primary-container: 239 100% 87%;
+    --on-primary-container: 237 25% 40%;
+    --secondary-container: 274 35% 34%;
+    --on-secondary-container: 277 67% 79%;
+    --tertiary: 157 85% 74%;
+    --on-tertiary: 159 100% 11%;
+    --tertiary-container: 158 32% 20%;
+    --on-tertiary-container: 157 75% 72%;
+    --surface-lowest: 240 7% 6%;
+    --surface-low: 270 1% 11%;
+    --surface: 240 6% 10%;
+    --surface-high: 240 2% 17%;
+    --surface-highest: 270 3% 21%;
+    --surface-bright: 240 2% 23%;
+    --outline: 252 5% 58%;
+    --outline-variant: 240 4% 16%;
+    --glass-bg: rgb(24 24 27 / 0.7);
+    --status-active: 157 75% 72%;
+    --status-active-subtle: 158 32% 20%;
+    --tertiary-subtle: 158 28% 18%;
+    --accent-subtle: 157 30% 18%;
+    --surface-tint: 239 100% 87%;
+    --inverse-primary: 239 22% 46%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .blueprint-grid {
+    background-color: hsl(var(--background));
+    background-image:
+      linear-gradient(to right, hsl(var(--outline-variant) / 0.35) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--outline-variant) / 0.35) 1px, transparent 1px),
+      linear-gradient(to right, hsl(var(--outline-variant) / 0.2) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--outline-variant) / 0.2) 1px, transparent 1px);
+    background-size: 8px 8px, 8px 8px, 40px 40px, 40px 40px;
+  }
+
+  .blueprint-grid-minor {
+    background-image:
+      linear-gradient(to right, hsl(var(--outline-variant) / 0.25) 0.5px, transparent 0.5px),
+      linear-gradient(to bottom, hsl(var(--outline-variant) / 0.25) 0.5px, transparent 0.5px);
+    background-size: 8px 8px;
+  }
+
+  .glass-panel {
+    backdrop-filter: blur(8px);
+    background: var(--glass-bg);
+    border: 1px solid hsl(var(--outline-variant));
+  }
+
+  @keyframes dashboard-marquee {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  .animate-dashboard-marquee {
+    animation: dashboard-marquee 45s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-dashboard-marquee {
+      animation: none;
+    }
+  }
+
+  .dashboard-tv-screen {
+    scrollbar-color: hsl(var(--outline-variant) / 0.5) transparent;
+  }
+
+  /* Badges verdes: opacidade /10 quase some no dark — usa fill sólido sutil */
+  .dark .bg-status-active\/10,
+  .dark .bg-status-active\/15 {
+    background-color: hsl(var(--status-active-subtle));
+  }
+
+  .dark .bg-tertiary\/10,
+  .dark .bg-tertiary\/15,
+  .dark .bg-tertiary\/20 {
+    background-color: hsl(var(--tertiary-subtle));
+  }
+
+  .dark .bg-accent\/10,
+  .dark .bg-accent\/15,
+  .dark .bg-accent\/20 {
+    background-color: hsl(var(--accent-subtle));
+  }
+
+  .dark .bg-tertiary-container\/15,
+  .dark .bg-tertiary-container\/20,
+  .dark .bg-tertiary-container\/30 {
+    background-color: hsl(var(--tertiary-container));
+  }
+}
+
+@layer components {
+  dialog.lilog-dialog-modal::backdrop {
+    background-color: hsl(var(--background) / 0.72);
+    backdrop-filter: blur(12px);
+  }
+
+  /* Native <dialog> evita ficar centrado apenas com Tailwind quando o UA aplica margem própria. */
+  dialog.lilog-dialog-modal[open] {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    margin: 0;
+    max-height: min(calc(100dvh - 2rem), 90vh);
+    width: min(28rem, calc(100vw - 2rem));
+    translate: -50% -50%;
+    border-width: 1px;
+  }
+}

@@ -1,0 +1,242 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* PWA M3 light — Kinetic Logic System */
+    --background: 225 100% 99%;
+    --foreground: 213 63% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 213 63% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 213 63% 12%;
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 218 100% 42%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 100% 97%;
+    --muted-foreground: 240 4% 28%;
+    --accent: 218 100% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5% 79%;
+    --input: 240 5% 79%;
+    --ring: 218 100% 42%;
+    --radius: 0.5rem;
+
+    --primary-container: 222 40% 13%;
+    --on-primary-container: 225 15% 55%;
+    --secondary-container: 224 88% 57%;
+    --on-secondary-container: 270 100% 99%;
+    --tertiary: 0 0% 0%;
+    --on-tertiary: 0 0% 100%;
+    --tertiary-container: 210 9% 11%;
+    --on-tertiary-container: 210 2% 51%;
+    --surface-lowest: 0 0% 100%;
+    --surface-low: 220 100% 97%;
+    --surface: 225 100% 99%;
+    --surface-high: 220 100% 93%;
+    --surface-highest: 220 100% 91%;
+    --surface-bright: 225 100% 99%;
+    --surface-container: 220 100% 95%;
+    --surface-container-low: 220 100% 97%;
+    --surface-container-lowest: 0 0% 100%;
+    --surface-container-high: 220 100% 93%;
+    --surface-container-highest: 220 100% 91%;
+    --surface-variant: 220 100% 91%;
+    --outline: 240 2% 47%;
+    --outline-variant: 240 5% 79%;
+    --on-surface: 213 63% 12%;
+    --on-surface-variant: 240 4% 28%;
+    --on-background: 213 63% 12%;
+    --error-container: 6 100% 92%;
+    --on-error-container: 357 100% 29%;
+    --surface-tint: 225 15% 40%;
+    --inverse-primary: 225 30% 81%;
+    --warning: 38 92% 50%;
+    --warning-container: 48 96% 89%;
+    --on-warning-container: 22 78% 31%;
+
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .dark {
+    --background: 213 40% 8%;
+    --foreground: 220 100% 96%;
+    --card: 213 35% 10%;
+    --card-foreground: 220 100% 96%;
+    --popover: 213 35% 10%;
+    --popover-foreground: 220 100% 96%;
+    --primary: 225 30% 81%;
+    --primary-foreground: 222 40% 13%;
+    --secondary: 224 100% 86%;
+    --secondary-foreground: 218 100% 42%;
+    --muted: 213 20% 15%;
+    --muted-foreground: 240 5% 70%;
+    --accent: 224 100% 86%;
+    --accent-foreground: 218 100% 42%;
+    --destructive: 6 100% 84%;
+    --destructive-foreground: 357 100% 21%;
+    --border: 213 15% 20%;
+    --input: 213 15% 20%;
+    --ring: 224 100% 86%;
+
+    --primary-container: 222 40% 13%;
+    --on-primary-container: 225 15% 55%;
+    --secondary-container: 224 88% 57%;
+    --on-secondary-container: 270 100% 99%;
+    --surface-lowest: 213 40% 6%;
+    --surface-low: 213 20% 11%;
+    --surface: 213 35% 10%;
+    --surface-high: 213 15% 17%;
+    --surface-highest: 213 10% 21%;
+    --surface-bright: 213 10% 23%;
+    --surface-container: 213 35% 12%;
+    --surface-container-low: 213 20% 11%;
+    --surface-container-lowest: 213 40% 6%;
+    --surface-container-high: 213 15% 17%;
+    --surface-container-highest: 213 10% 21%;
+    --surface-variant: 213 15% 17%;
+    --outline: 240 5% 58%;
+    --outline-variant: 213 15% 20%;
+    --on-surface: 220 100% 96%;
+    --on-surface-variant: 240 5% 70%;
+    --on-background: 220 100% 96%;
+    --error-container: 357 100% 21%;
+    --on-error-container: 6 100% 84%;
+    --inverse-primary: 225 30% 81%;
+    --warning: 38 92% 50%;
+    --warning-container: 22 78% 31%;
+    --on-warning-container: 48 96% 89%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    height: 100dvh;
+  }
+
+  html,
+  body {
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  #root {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  input,
+  textarea,
+  [contenteditable='true'] {
+    user-select: text;
+  }
+
+  /* iOS dá zoom na página ao focar inputs com font-size < 16px */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not(
+      [type='hidden']
+    ),
+  textarea,
+  select {
+    font-size: 1rem;
+    touch-action: manipulation;
+  }
+}
+
+@layer components {
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+
+  .glass-header {
+    background: hsl(var(--surface) / 0.8);
+    backdrop-filter: blur(12px);
+  }
+
+  .exception-glow {
+    box-shadow: 0 0 15px hsl(var(--warning) / 0.15);
+  }
+}
+
+@layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .scroll-native {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .numeric-input::-webkit-inner-spin-button,
+  .numeric-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .numeric-input {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .page-enter {
+    animation: pageFadeIn 220ms ease-out forwards;
+  }
+
+  .page-exit {
+    animation: pageFadeOut 180ms ease-in forwards;
+  }
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pageFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}

@@ -1,0 +1,47 @@
+# Dependencies & build outputs
+node_modules
+**/node_modules
+dist
+**/dist
+.next
+**/.next
+.turbo
+**/.turbo
+coverage
+**/coverage
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Git & IDE
+.git
+.gitignore
+.cursor
+.vscode
+*.md
+!README.md
+
+# Docs & examples (not needed in image)
+docs
+exemplos
+pages_html
+
+# Logs & temp
+*.log
+npm-debug.log*
+pnpm-debug.log*
+cookies.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker (avoid recursive context)
+Dockerfile*
+docker-compose*.yml
+.dockerignore

@@ -1,0 +1,23 @@
+{
+  "name": "@lilog/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "files": ["index.js", "next.mjs", "react-library.mjs"],
+  "exports": {
+    ".": "./index.js",
+    "./next": "./next.mjs",
+    "./react-library": "./react-library.mjs"
+  },
+  "peerDependencies": {
+    "eslint": "^9",
+    "typescript": ">=5"
+  },
+  "dependencies": {
+    "@eslint/eslintrc": "^3.2.2",
+    "@eslint/js": "^9.39.2",
+    "eslint-config-next": "^15.5.11",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^16.5.0",
+    "typescript-eslint": "^8.47.1"
+  }
+}

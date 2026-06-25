@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+.pnpm-debug.log*
+
+# Turborepo
+.turbo
+
+# Build outputs
+dist
+.next
+out
+storybook-static
+*.tsbuildinfo
+
+# Local dev file storage (API sem R2)
+apps/api/.local-storage
+
+# Misc
+coverage
+.vercel
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs
+
+# Debug
+.npm
+.pnpm-store
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE (optional noisy local state)
+.idea
+*.sw?
+
+# Yarn / npm caches (even if unused)
+.yarn/*
+!.yarn/patches
+
+#other
+.cursor
+pages_html
+docs
+exemplos
+

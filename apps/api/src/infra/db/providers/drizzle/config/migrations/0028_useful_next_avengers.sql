@@ -1,0 +1,3 @@
+ALTER TABLE "expedicao"."mapa_grupos" ADD COLUMN "funcionario_id" integer;--> statement-breakpoint
+ALTER TABLE "expedicao"."mapa_grupos" ADD CONSTRAINT "mapa_grupos_funcionario_id_funcionarios_id_fk" FOREIGN KEY ("funcionario_id") REFERENCES "auth"."funcionarios"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "mapa_grupos_funcionario_id_idx" ON "expedicao"."mapa_grupos" USING btree ("funcionario_id");

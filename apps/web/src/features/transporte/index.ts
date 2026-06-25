@@ -1,0 +1,11 @@
+export { AlocacaoPlacaView } from '@/features/transporte/views/alocacao-placa-view';
+export { GerarMapasView } from '@/features/transporte/views/gerar-mapas-view';
+export { ImpressaoMapaSeparacaoView } from '@/features/transporte/views/impressao-mapa-separacao-view';
+export { ImprimirMapasView } from '@/features/transporte/views/imprimir-mapas-view';
+export { PortalTransportadorView } from '@/features/transporte/views/portal-transportador-view';
+export { CustosFreteView } from '@/features/transporte/views/custos-frete-view';
+export { CustoFreteDashboardView } from '@/features/transporte/views/custo-frete-dashboard-view';
+export { CustoFreteDetalheView } from '@/features/transporte/views/custo-frete-detalhe-view';
+export { PerfisTarifasView } from '@/features/transporte/views/perfis-tarifas-view';
+export { TransportadorasView } from '@/features/transporte/views/transportadoras-view';
+export { PlacasView } from '@/features/transporte/views/placas-view';

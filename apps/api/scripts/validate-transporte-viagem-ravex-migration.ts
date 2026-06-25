@@ -1,0 +1,96 @@
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import postgres from 'postgres';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const envPath = resolve(__dirname, '../.env');
+
+function loadEnv(): void {
+  const content = readFileSync(envPath, 'utf-8');
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+    const key = trimmed.slice(0, eqIndex).trim();
+    let value = trimmed.slice(eqIndex + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+}
+
+async function main() {
+  loadEnv();
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('DATABASE_URL não configurada');
+  }
+
+  const sql = postgres(url, { max: 1 });
+
+  try {
+    const columns = await sql`
+      SELECT column_name, data_type, is_nullable
+      FROM information_schema.columns
+      WHERE table_schema = 'expedicao'
+        AND table_name = 'transportes'
+        AND column_name IN (
+          'viagem_id',
+          'viagem_inicio_em',
+          'viagem_fim_em',
+          'anomalia'
+        )
+      ORDER BY column_name
+    `;
+
+    const migration0039 = await sql`
+      SELECT id, hash, created_at
+      FROM drizzle.__drizzle_migrations
+      WHERE created_at = 1782153000000
+    `;
+
+    const expected = [
+      { column_name: 'anomalia', data_type: 'character varying', is_nullable: 'YES' },
+      { column_name: 'viagem_fim_em', data_type: 'timestamp with time zone', is_nullable: 'YES' },
+      { column_name: 'viagem_id', data_type: 'integer', is_nullable: 'YES' },
+      { column_name: 'viagem_inicio_em', data_type: 'timestamp with time zone', is_nullable: 'YES' },
+    ];
+
+    const columnsOk =
+      columns.length === expected.length &&
+      expected.every((expectedColumn) =>
+        columns.some(
+          (column) =>
+            column.column_name === expectedColumn.column_name &&
+            column.data_type === expectedColumn.data_type &&
+            column.is_nullable === expectedColumn.is_nullable,
+        ),
+      );
+
+    const ok = columnsOk && migration0039.length === 1;
+
+    console.log('--- Validação migration 0039_transporte_viagem_ravex ---');
+    console.log('Colunas encontradas:', columns);
+    console.log('Migration 0039 registrada:', migration0039);
+    console.log('Resultado:', ok ? 'OK' : 'FALHOU');
+
+    if (!ok) {
+      process.exit(1);
+    }
+  } finally {
+    await sql.end();
+  }
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

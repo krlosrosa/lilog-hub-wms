@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html class="dark" lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>FranchiseOS WMS - Mapa do Armazém (PixiJS)</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"></script>
+  <style>
+    body { background:#131315; color:#e5e1e4; font-family:'Inter',sans-serif; overflow:hidden; }
+    .glass-panel { background:rgba(24,24,27,0.7); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.05); }
+    .mono { font-family:'JetBrains Mono',monospace; }
+    .custom-scrollbar::-webkit-scrollbar { width:4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background:#1f1f21; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background:#46464f; border-radius:10px; }
+    #pixi-container { cursor:grab; }
+    #pixi-container.dragging { cursor:grabbing; }
+    #pixi-container.editor-mode { cursor:crosshair; }
+    .legend-dot { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+    .route-toggle-btn { font-size:11px; padding:4px 10px; border-radius:6px; transition:all 0.15s; }
+    .route-toggle-btn.active { background:#ffb86c; color:#1a1200; font-weight:600; }
+    .route-toggle-btn:not(.active) { background:#2a2a2c; color:#c7c5d0; }
+    .route-stop-row { cursor:pointer; transition:background 0.15s; }
+    .route-stop-row:hover { background:rgba(255,184,108,0.08); }
+    .route-stop-row.active { background:rgba(255,184,108,0.15); border-left:2px solid #ffb86c; }
+    .editor-tool-btn { font-size:10px; padding:4px 8px; border-radius:6px; background:#2a2a2c; color:#c7c5d0; border:1px solid #46464f; transition:all 0.15s; display:flex; align-items:center; gap:4px; }
+    .editor-tool-btn.active { background:#e1dfff; color:#292b5e; border-color:#e1dfff; font-weight:600; }
+    .editor-tool-btn:hover { background:#353437; }
+    .editor-tool-btn.active:hover { background:#c0c1ff; }
+    dialog::backdrop { background:rgba(0,0,0,0.6); }
+    dialog { background:#1f1f21; color:#e5e1e4; border:1px solid #46464f; border-radius:12px; padding:0; max-width:560px; width:95vw; }
+    .wizard-input { background:#2a2a2c; border:1px solid #46464f; border-radius:6px; padding:6px 10px; font-size:12px; width:100%; color:#e5e1e4; }
+    .step-tab { font-size:11px; padding:6px 12px; border-radius:6px; cursor:pointer; border:1px solid #46464f; }
+    .step-tab.active { background:#e1dfff; color:#292b5e; border-color:#e1dfff; font-weight:600; }
+    .step-tab.done { border-color:#6ffbbe; color:#6ffbbe; }
+    .level-chip { padding:4px 8px; border-radius:6px; font-size:10px; cursor:pointer; border:1px solid #46464f; }
+    .level-chip.armazenagem { background:rgba(225,223,255,0.15); border-color:#e1dfff; }
+    .level-chip.passagem { background:rgba(70,70,79,0.5); border-color:#918f9a; color:#918f9a; }
+    dialog.wide { max-width:680px; }
+    .rua-row { background:#2a2a2c; border-radius:8px; padding:10px; border:1px solid #46464f; }
+  </style>
+  <script id="tailwind-config">
+    tailwind.config = { darkMode:"class", theme:{ extend:{ colors:{
+      "surface-container":"#1f1f21","surface":"#131315","on-surface":"#e5e1e4","primary":"#e1dfff",
+      "secondary":"#ddb7ff","tertiary":"#6ffbbe","error":"#ffb4ab","outline-variant":"#46464f",
+      "surface-container-high":"#2a2a2c","on-surface-variant":"#c7c5d0","background":"#131315","route-amber":"#ffb86c"
+    }}}};
+  </script>
+</head>
+<body class="bg-background text-on-surface h-screen flex flex-col">
+
+  <header class="glass-panel flex items-center justify-between px-4 py-3 shrink-0 z-10">
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary text-2xl">warehouse</span>
+        <div>
+          <h1 id="warehouse-title" class="text-sm font-bold text-primary leading-tight">Mapa do Armazém</h1>
+          <p class="text-[10px] text-on-surface-variant">WMS · PixiJS</p>
+        </div>
+      </div>
+      <div class="h-6 w-px bg-outline-variant hidden sm:block"></div>
+      <div class="hidden sm:flex items-center gap-2">
+        <label class="text-xs text-on-surface-variant">Zona:</label>
+        <select id="zone-filter" class="bg-surface-container-high border border-outline-variant rounded-lg text-xs px-3 py-1.5 text-on-surface"></select>
+      </div>
+      <div class="h-6 w-px bg-outline-variant hidden md:block"></div>
+      <div id="route-controls" class="hidden md:flex items-center gap-2">
+        <span class="text-xs text-on-surface-variant">Rota:</span>
+        <div class="flex rounded-lg overflow-hidden border border-outline-variant">
+          <button id="btn-route-normal" class="route-toggle-btn">Normal</button>
+          <button id="btn-route-optimized" class="route-toggle-btn active">Otimizada</button>
+        </div>
+        <button id="btn-regenerate-route" class="p-1.5 rounded-lg bg-surface-container-high border border-outline-variant" title="Gerar nova rota">
+          <span class="material-symbols-outlined text-base">refresh</span>
+        </button>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <button id="btn-config-layout" class="px-3 py-1.5 rounded-lg bg-primary text-[#292b5e] text-xs font-semibold flex items-center gap-1 border border-primary" title="Configurar armazém">
+        <span class="material-symbols-outlined text-base">tune</span>
+        <span class="hidden sm:inline">Configurar</span>
+      </button>
+      <button id="btn-edit-layout" class="p-2 rounded-lg bg-surface-container-high hover:bg-surface-container border border-outline-variant hidden" title="Editor avançado (grade)">
+        <span class="material-symbols-outlined text-lg">edit</span>
+      </button>
+      <button id="btn-import-json" class="p-2 rounded-lg bg-surface-container-high hover:bg-surface-container border border-outline-variant" title="Importar JSON">
+        <span class="material-symbols-outlined text-lg">upload_file</span>
+      </button>
+      <button id="btn-export-json" class="p-2 rounded-lg bg-surface-container-high hover:bg-surface-container border border-outline-variant" title="Exportar JSON">
+        <span class="material-symbols-outlined text-lg">download</span>
+      </button>
+      <input type="file" id="file-import" accept=".json" class="hidden">
+      <div class="h-6 w-px bg-outline-variant mx-1"></div>
+      <button id="btn-zoom-out" class="p-2 rounded-lg bg-surface-container-high border border-outline-variant"><span class="material-symbols-outlined text-lg">remove</span></button>
+      <span id="zoom-label" class="mono text-xs text-on-surface-variant w-12 text-center">100%</span>
+      <button id="btn-zoom-in" class="p-2 rounded-lg bg-surface-container-high border border-outline-variant"><span class="material-symbols-outlined text-lg">add</span></button>
+      <button id="btn-reset-view" class="p-2 rounded-lg bg-surface-container-high border border-outline-variant"><span class="material-symbols-outlined text-lg">center_focus_strong</span></button>
+    </div>
+  </header>
+
+  <div class="flex flex-1 min-h-0">
+    <aside id="left-panel" class="w-[300px] shrink-0 glass-panel border-r border-outline-variant flex flex-col overflow-hidden">
+      <div id="route-section" class="p-4 border-b border-outline-variant flex flex-col min-h-0 flex-1 overflow-hidden">
+        <h2 class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2">Rota de Separação</h2>
+        <div id="route-summary" class="text-xs mb-3"><p class="mono font-semibold text-route-amber">— paradas · — total</p><p id="route-savings" class="text-tertiary text-[10px]"></p></div>
+        <div id="route-stops-list" class="flex-1 overflow-y-auto custom-scrollbar space-y-1 text-xs mb-3"></div>
+        <div id="route-hint" class="bg-surface-container-high rounded-lg p-3 text-[10px] text-on-surface-variant border border-outline-variant/50"></div>
+        <button id="btn-regenerate-route-panel" class="mt-2 w-full py-2 rounded-lg bg-surface-container-high border border-outline-variant text-xs flex items-center justify-center gap-1">
+          <span class="material-symbols-outlined text-sm">route</span> Gerar nova rota
+        </button>
+      </div>
+      <div class="p-4 border-b border-outline-variant shrink-0">
+        <h2 class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3">Legenda</h2>
+        <div class="grid grid-cols-2 gap-1.5 text-xs">
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#6ffbbe"></span>Livre</div>
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#e1dfff"></span>Ocupado</div>
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#ddb7ff"></span>Reservado</div>
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#ffb4ab"></span>Bloqueado</div>
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#c0c1ff"></span>Doca</div>
+          <div class="flex items-center gap-2"><span class="legend-dot rounded-full" style="background:#ffb86c"></span>Ponto coleta</div>
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#46464f"></span>Passagem</div>
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#4edea3"></span>Porta</div>
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#583876"></span>Câmara</div>
+        </div>
+      </div>
+      <div class="p-4 max-h-[180px] overflow-y-auto custom-scrollbar shrink-0">
+        <h2 class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2">Detalhe</h2>
+        <div id="location-detail" class="text-xs"><p class="text-on-surface-variant italic">Clique em uma parada ou posição.</p></div>
+      </div>
+    </aside>
+
+    <main id="pixi-container" class="flex-1 relative bg-[#0e0e10] overflow-hidden">
+      <div id="editor-toolbar" class="hidden absolute top-3 left-1/2 -translate-x-1/2 z-30 glass-panel rounded-xl px-3 py-2 flex flex-wrap items-center gap-1.5 max-w-[95%]">
+        <button class="editor-tool-btn active" data-tool="rack"><span class="material-symbols-outlined text-sm">shelves</span>Estante</button>
+        <button class="editor-tool-btn" data-tool="aisle"><span class="material-symbols-outlined text-sm">alt_route</span>Corredor</button>
+        <button class="editor-tool-btn" data-tool="dock"><span class="material-symbols-outlined text-sm">local_shipping</span>Doca</button>
+        <button class="editor-tool-btn" data-tool="staging"><span class="material-symbols-outlined text-sm">inventory</span>Staging</button>
+        <button class="editor-tool-btn" data-tool="exit"><span class="material-symbols-outlined text-sm">output</span>Saída</button>
+        <button class="editor-tool-btn" data-tool="erase"><span class="material-symbols-outlined text-sm">delete</span>Apagar</button>
+        <div class="w-px h-6 bg-outline-variant mx-1"></div>
+        <button id="btn-editor-save" class="editor-tool-btn !bg-tertiary !text-[#005236] !border-tertiary font-semibold"><span class="material-symbols-outlined text-sm">save</span>Salvar</button>
+        <button id="btn-editor-export" class="editor-tool-btn"><span class="material-symbols-outlined text-sm">download</span>Exportar</button>
+        <button id="btn-editor-cancel" class="editor-tool-btn"><span class="material-symbols-outlined text-sm">close</span>Cancelar</button>
+      </div>
+      <div id="hover-tooltip" class="hidden absolute pointer-events-none z-20 glass-panel rounded-lg px-3 py-2 text-xs mono shadow-lg"></div>
+      <div id="canvas-hint" class="absolute bottom-3 right-3 glass-panel rounded-lg px-3 py-2 text-[10px] text-on-surface-variant z-10"></div>
+    </main>
+  </div>
+
+  <!-- Configurador em etapas -->
+  <dialog id="wizard-dialog" class="wide">
+    <div class="p-6">
+      <h2 class="text-lg font-bold text-primary mb-1">Configurar Armazém</h2>
+      <p class="text-xs text-on-surface-variant mb-4">Câmaras → Corredores (2 lados) → Portas entre câmaras</p>
+
+      <div class="flex gap-2 mb-4">
+        <button type="button" class="step-tab active" data-step="1">1. Câmaras</button>
+        <button type="button" class="step-tab" data-step="2">2. Corredores</button>
+        <button type="button" class="step-tab" data-step="3">3. Portas</button>
+      </div>
+
+      <!-- Step 1: Câmaras -->
+      <div id="step-1" class="space-y-3">
+        <div class="flex justify-between items-center">
+          <label class="text-xs font-semibold text-on-surface-variant uppercase">Câmaras do armazém</label>
+          <button type="button" id="btn-add-chamber" class="text-xs text-tertiary flex items-center gap-1"><span class="material-symbols-outlined text-sm">add</span>Adicionar</button>
+        </div>
+        <div id="chambers-list" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar"></div>
+        <div>
+          <label class="text-xs text-on-surface-variant">Nome do armazém</label>
+          <input id="wiz-name" class="wizard-input mt-1" value="Armazém Principal">
+        </div>
+      </div>
+
+      <!-- Step 2: Corredores -->
+      <div id="step-2" class="space-y-3 hidden">
+        <div class="flex gap-2 items-end">
+          <div class="flex-1">
+            <label class="text-xs text-on-surface-variant">Câmara</label>
+            <select id="corr-chamber-select" class="wizard-input mt-1"></select>
+          </div>
+          <button type="button" id="btn-add-corridor" class="px-3 py-2 rounded-lg bg-surface-container-high border border-outline-variant text-xs whitespace-nowrap">+ Corredor</button>
+        </div>
+        <div id="corridors-list" class="space-y-2 max-h-56 overflow-y-auto custom-scrollbar"></div>
+        <p class="text-[10px] text-on-surface-variant">Cada corredor tem <strong>dois lados</strong> (esquerdo e direito). Defina a numeração: sequencial (1,2,3), ímpar (1,3,5) ou par (2,4,6).</p>
+      </div>
+
+      <!-- Step 3: Portas -->
+      <div id="step-3" class="space-y-3 hidden">
+        <div class="flex justify-between items-center">
+          <label class="text-xs font-semibold text-on-surface-variant uppercase">Portas entre câmaras</label>
+          <button type="button" id="btn-add-door" class="text-xs text-tertiary flex items-center gap-1"><span class="material-symbols-outlined text-sm">add</span>Adicionar porta</button>
+        </div>
+        <div id="doors-list" class="space-y-2 max-h-56 overflow-y-auto custom-scrollbar"></div>
+        <p class="text-[10px] text-on-surface-variant">Uma câmara pode se conectar a várias outras. Defina a <strong>direção da porta</strong> (horizontal ou vertical) conforme o layout físico.</p>
+      </div>
+
+      <div class="flex justify-between mt-5">
+        <button type="button" id="wiz-prev" class="px-3 py-2 text-xs rounded-lg border border-outline-variant hidden">← Anterior</button>
+        <div class="flex gap-2 ml-auto">
+          <button type="button" id="wiz-next" class="px-4 py-2 rounded-lg bg-surface-container-high border border-outline-variant text-xs">Próximo →</button>
+          <button id="wiz-generate" class="hidden px-5 py-2 rounded-lg bg-tertiary text-[#005236] text-sm font-bold flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-base">play_arrow</span> Gerar mapa
+          </button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Configurar níveis da posição (clique no mapa) -->
+  <dialog id="level-config-dialog">
+    <div class="p-5 w-80">
+      <h3 class="text-sm font-bold text-primary mb-1">Configurar Níveis</h3>
+      <p id="level-config-title" class="text-xs text-on-surface-variant mb-3 mono">—</p>
+      <p class="text-[10px] text-on-surface-variant mb-3">Clique em cada nível para alternar entre <strong>Armazenagem</strong> (produto) e <strong>Passagem</strong> (sem produto).</p>
+      <div id="level-chips" class="flex flex-wrap gap-2 mb-4"></div>
+      <div class="flex gap-2 justify-end">
+        <button id="level-config-close" class="px-3 py-1.5 text-xs rounded-lg bg-tertiary text-[#005236] font-semibold">Salvar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Rack config mini-modal (editor avançado) -->
+  <dialog id="rack-dialog">
+    <div class="p-5 w-72">
+      <h3 class="text-sm font-bold text-primary mb-3">Configurar Estante</h3>
+      <div class="space-y-3">
+        <div><label class="text-xs text-on-surface-variant">Label</label><input id="rack-label" class="wizard-input mt-1"></div>
+        <div><label class="text-xs text-on-surface-variant">Zona</label><input id="rack-zone" class="wizard-input mt-1" maxlength="2"></div>
+        <div><label class="text-xs text-on-surface-variant">Níveis (1–5)</label><input id="rack-levels" type="number" min="1" max="5" class="wizard-input mt-1" value="3"></div>
+      </div>
+      <div class="flex gap-2 mt-4 justify-end">
+        <button id="rack-cancel" class="px-3 py-1.5 text-xs rounded-lg border border-outline-variant">Cancelar</button>
+        <button id="rack-confirm" class="px-3 py-1.5 text-xs rounded-lg bg-tertiary text-[#005236] font-semibold">Confirmar</button>
+      </div>
+    </div>
+  </dialog>
+
+<script>
+(function () {
+  'use strict';
+
+  const COLORS = {
+    livre:0x6ffbbe, ocupado:0xe1dfff, reservado:0xddb7ff, bloqueado:0xffb4ab, doca:0xc0c1ff,
+    floor:0x1b1b1d, aisle:0x27272a, staging:0x2a2a2c, border:0x46464f, label:0x918f9a,
+    highlight:0xffffff, route:0xffb86c, wall:0x353437, exit:0x583876, grid:0x27272a,
+    passagem:0x46464f, door:0x4edea3, chamber:0x583876,
+  };
+  const PICK_TIME_SEC = 30, SEC_PER_UNIT = 0.15, STOP_COUNT = 10;
+  const STATUS_LABELS = { livre:'Livre', ocupado:'Ocupado', reservado:'Reservado', bloqueado:'Bloqueado' };
+  const DOCK_LABELS = { livre:'Livre', em_uso:'Em uso', aguardando:'Aguardando' };
+  const DOCK_COLORS = { livre:'#6ffbbe', em_uso:'#e1dfff', aguardando:'#ddb7ff' };
+  const SKUS = ['SKU-8842-A','SKU-1209-B','SKU-5531-C','SKU-9901-D','SKU-3344-E','SKU-7720-F','SKU-6612-G','SKU-4488-H','SKU-2290-I','SKU-1155-J'];
+  const CELL_SIZE = 56, MARGIN = 40, LEVEL_H = 10, SPINE_X = MARGIN + 25;
+
+  let currentLayout = null;
+  let editorElements = [];
+  let appMode = 'view';
+  let editorTool = 'rack';
+  let pendingRackCell = null;
+  let dragEditorEl = null;
+  let dragOffset = { x:0, y:0 };
+  let locations = [], allCells = [], docks = [];
+  let pickRoutes = { normal:[], optimized:[] };
+  let routeMode = 'optimized', activeStopIndex = null;
+  let stagingOrigin = { x:0, y:0 }, expeditionPoint = { x:0, y:0 };
+  let layoutSize = { totalWidth:800, totalHeight:600 };
+  let ZONE_ORDER = [], zoneDirections = {};
+  let app, worldContainer, locationLayer, routeLayer, editorLayer;
+  let scale = 1, isDragging = false, dragStart = { x:0, y:0 }, panStart = { x:0, y:0 };
+  let hoveredCell = null, selectedCell = null, currentZoneFilter = 'all';
+  let hasInitialLayout = false;
+  let warehouseConfig = null;
+  let wizardStep = 1;
+  let levelConfigTarget = null;
+
+  function uid() { return 'el-' + Math.random().toString(36).slice(2, 9); }
+
+  function defaultWarehouseConfig() {
+    const camId = uid();
+    const corrId = uid();
+    return {
+      name: 'Armazém Principal',
+      chambers: [{ id: camId, name: 'Câmara Principal' }],
+      corridors: [{
+        id: corrId, chamberId: camId, label: 'Corredor 1',
+        positionsLeft: 4, positionsRight: 4, levels: 3,
+        addressingLeft: 'sequential', addressingRight: 'even',
+        levelTypes: {},
+      }],
+      connections: [],
+    };
+  }
+
+  function addressNumber(index, mode) {
+    if (mode === 'odd') return index * 2 + 1;
+    if (mode === 'even') return (index + 1) * 2;
+    return index + 1;
+  }
+
+  function levelTypeKey(side, posIndex, level) { return `${side}-${posIndex}-${level}`; }
+
+  function getLevelType(rack, posIndex, level) {
+    const key = levelTypeKey(rack.side, posIndex ?? rack.positionIndex, level);
+    return rack.levelTypes?.[key] || 'armazenagem';
+  }
+
+  function validateLayout(json) {
+    if (!json || typeof json !== 'object') return false;
+    if (!Array.isArray(json.elements)) return false;
+    if (!json.gridCols || !json.gridRows || !json.cellSize) return false;
+    return json.elements.every(e => e.type && typeof e.x === 'number' && typeof e.y === 'number');
+  }
+
+  function directionDelta(dir) {
+    return ({ east: { col: 1, row: 0 }, west: { col: -1, row: 0 }, south: { col: 0, row: 1 }, north: { col: 0, row: -1 } })[dir] || { col: 1, row: 0 };
+  }
+
+  function oppositeDirection(dir) {
+    return ({ east: 'west', west: 'east', north: 'south', south: 'north' })[dir] || 'west';
+  }
+
+  function computeChamberGridPositions(chambers, connections) {
+    const positions = new Map();
+    if (!chambers.length) return positions;
+
+    positions.set(chambers[0].id, { col: 0, row: 0 });
+    const queue = [chambers[0].id];
+    const visited = new Set([chambers[0].id]);
+
+    while (queue.length) {
+      const fromId = queue.shift();
+      const fromPos = positions.get(fromId);
+      connections.forEach(conn => {
+        const dir = conn.direction || 'east';
+        let otherId, delta;
+        if (conn.fromChamberId === fromId) {
+          otherId = conn.toChamberId;
+          delta = directionDelta(dir);
+        } else if (conn.toChamberId === fromId) {
+          otherId = conn.fromChamberId;
+          delta = directionDelta(oppositeDirection(dir));
+        } else return;
+
+        if (!visited.has(otherId)) {
+          positions.set(otherId, { col: fromPos.col + delta.col, row: fromPos.row + delta.row });
+          visited.add(otherId);
+          queue.push(otherId);
+        }
+      });
+    }
+
+    let fallbackCol = Math.max(0, ...[...positions.values()].map(p => p.col)) + 1;
+    chambers.forEach(ch => {
+      if (!positions.has(ch.id)) {
+        positions.set(ch.id, { col: fallbackCol++, row: 0 });
+      }
+    });
+    return positions;
+  }
+
+  function buildChamberElements(chamber, cfg, gridX, startY) {
+    const elements = [];
+    const zoneDirections = {};
+    const chamberCorridors = cfg.corridors.filter(c => c.chamberId === chamber.id);
+    if (!chamberCorridors.length) {
+      chamberCorridors.push({
+        id: uid(), chamberId: chamber.id, label: 'Corredor 1',
+        positionsLeft: 3, positionsRight: 3, levels: 3,
+        addressingLeft: 'sequential', addressingRight: 'even', levelTypes: {},
+      });
+    }
+
+    const maxPos = Math.max(...chamberCorridors.map(c => Math.max(c.positionsLeft, c.positionsRight)), 1);
+    let localY = startY;
+
+    chamberCorridors.forEach((corr, corrIdx) => {
+      const maxW = Math.max(corr.positionsLeft, corr.positionsRight);
+      zoneDirections[chamber.id] = corrIdx % 2 === 0 ? 'ltr' : 'rtl';
+
+      for (let p = 0; p < corr.positionsLeft; p++) {
+        const addr = addressNumber(p, corr.addressingLeft);
+        elements.push({
+          id: uid(), type: 'rack', x: gridX + p, y: localY, w: 1, h: 1,
+          label: `${corr.label}-E${String(addr).padStart(2, '0')}`,
+          zone: chamber.id, chamberId: chamber.id, corridorId: corr.id,
+          side: 'left', positionIndex: p, addressNumber: addr,
+          levels: corr.levels, modulo: addr, row: corrIdx, direction: 'ltr',
+          levelTypes: { ...(corr.levelTypes || {}) },
+        });
+      }
+      localY += 1;
+
+      elements.push({
+        id: uid(), type: 'aisle', x: gridX, y: localY, w: maxW, h: 1,
+        label: corr.label, corridorId: corr.id, chamberId: chamber.id,
+      });
+      localY += 1;
+
+      for (let p = 0; p < corr.positionsRight; p++) {
+        const addr = addressNumber(p, corr.addressingRight);
+        elements.push({
+          id: uid(), type: 'rack', x: gridX + p, y: localY, w: 1, h: 1,
+          label: `${corr.label}-D${String(addr).padStart(2, '0')}`,
+          zone: chamber.id, chamberId: chamber.id, corridorId: corr.id,
+          side: 'right', positionIndex: p, addressNumber: addr,
+          levels: corr.levels, modulo: addr, row: corrIdx, direction: 'rtl',
+          levelTypes: { ...(corr.levelTypes || {}) },
+        });
+      }
+      localY += 2;
+    });
+
+    const h = localY - startY;
+    elements.push({
+      id: chamber.id + '-zone', type: 'chamber', x: gridX, y: startY,
+      w: maxPos, h, label: chamber.name, chamberId: chamber.id,
+    });
+
+    return { elements, zoneDirections, bounds: { chamber, x: gridX, y: startY, w: maxPos, h } };
+  }
+
+  function corridorYInChamber(bounds, corridorId, cfg) {
+    if (!corridorId) return bounds.y + Math.floor(bounds.h / 2);
+    const corr = cfg.corridors.find(c => c.id === corridorId);
+    if (!corr || corr.chamberId !== bounds.chamber.id) return bounds.y + Math.floor(bounds.h / 2);
+    const idx = cfg.corridors.filter(c => c.chamberId === bounds.chamber.id).findIndex(c => c.id === corridorId);
+    return bounds.y + idx * 4 + 2;
+  }
+
+  function placeDoorOnEdge(fromB, conn, cfg) {
+    const dir = conn.direction || 'east';
+    const alignY = corridorYInChamber(fromB, conn.corridorId, cfg);
+    const alignX = fromB.x + Math.floor(fromB.w / 2);
+
+    if (dir === 'east') return { x: fromB.x + fromB.w, y: alignY, w: 1, h: 2, orientation: 'vertical', direction: dir };
+    if (dir === 'west') return { x: fromB.x - 1, y: alignY, w: 1, h: 2, orientation: 'vertical', direction: dir };
+    if (dir === 'south') return { x: alignX, y: fromB.y + fromB.h, w: 2, h: 1, orientation: 'horizontal', direction: dir };
+    if (dir === 'north') return { x: alignX, y: fromB.y - 1, w: 2, h: 1, orientation: 'horizontal', direction: dir };
+    return { x: fromB.x + fromB.w, y: alignY, w: 1, h: 2, orientation: 'vertical', direction: 'east' };
+  }
+
+  function buildLayoutFromConfig(openEditor) {
+    const cfg = warehouseConfig;
+    const name = document.getElementById('wiz-name').value || cfg.name || 'Armazém';
+    cfg.name = name;
+
+    const elements = [];
+    let zoneDirections = {};
+    const chambers = cfg.chambers.length ? cfg.chambers : [{ id: uid(), name: 'Câmara 1' }];
+    const connections = cfg.connections || [];
+
+    const stagingY = 1;
+    elements.push({ id: 'staging', type: 'staging', x: 1, y: stagingY, w: 8, h: 1, label: 'Staging' });
+    const contentStartY = stagingY + 2;
+
+    const chamberSizes = new Map();
+    chambers.forEach(ch => {
+      const corrs = cfg.corridors.filter(c => c.chamberId === ch.id);
+      const count = Math.max(corrs.length, 1);
+      const maxPos = Math.max(...corrs.map(c => Math.max(c.positionsLeft, c.positionsRight)), 3);
+      chamberSizes.set(ch.id, { w: maxPos, h: count * 4 });
+    });
+
+    const gridPos = computeChamberGridPositions(chambers, connections);
+    const cols = [...gridPos.values()].map(p => p.col);
+    const rows = [...gridPos.values()].map(p => p.row);
+    const minCol = Math.min(...cols, 0);
+    const maxCol = Math.max(...cols, 0);
+    const minRow = Math.min(...rows, 0);
+    const maxRow = Math.max(...rows, 0);
+
+    const colWidth = new Map();
+    const rowHeight = new Map();
+    for (let c = minCol; c <= maxCol; c++) colWidth.set(c, 0);
+    for (let r = minRow; r <= maxRow; r++) rowHeight.set(r, 0);
+    chambers.forEach(ch => {
+      const p = gridPos.get(ch.id);
+      const sz = chamberSizes.get(ch.id);
+      colWidth.set(p.col, Math.max(colWidth.get(p.col), sz.w));
+      rowHeight.set(p.row, Math.max(rowHeight.get(p.row), sz.h));
+    });
+
+    const colX = new Map();
+    let accX = 1;
+    for (let c = minCol; c <= maxCol; c++) {
+      colX.set(c, accX);
+      accX += colWidth.get(c) + 1;
+    }
+
+    const rowY = new Map();
+    let accY = contentStartY;
+    for (let r = minRow; r <= maxRow; r++) {
+      rowY.set(r, accY);
+      accY += rowHeight.get(r) + 1;
+    }
+
+    const chamberBounds = [];
+    chambers.forEach(ch => {
+      const p = gridPos.get(ch.id);
+      const built = buildChamberElements(ch, cfg, colX.get(p.col), rowY.get(p.row));
+      elements.push(...built.elements);
+      Object.assign(zoneDirections, built.zoneDirections);
+      chamberBounds.push(built.bounds);
+    });
+
+    connections.forEach((conn, i) => {
+      const fromB = chamberBounds.find(b => b.chamber.id === conn.fromChamberId);
+      if (!fromB) return;
+      const door = placeDoorOnEdge(fromB, conn, cfg);
+      elements.push({
+        id: conn.id || uid(), type: 'door',
+        x: door.x, y: door.y, w: door.w, h: door.h,
+        label: conn.label || `Porta ${i + 1}`,
+        fromChamberId: conn.fromChamberId, toChamberId: conn.toChamberId,
+        corridorId: conn.corridorId || null,
+        direction: door.direction, orientation: door.orientation,
+      });
+    });
+
+    const gridY = accY + 1;
+    elements.push({ id: 'exit', type: 'exit', x: 1, y: gridY, w: 3, h: 1, label: 'Expedição' });
+
+    const layout = {
+      name, gridCols: accX + 2, gridRows: gridY + 2, cellSize: CELL_SIZE,
+      elements, zoneDirections,
+      config: JSON.parse(JSON.stringify(cfg)),
+    };
+
+    document.getElementById('wizard-dialog').close();
+    if (openEditor) {
+      currentLayout = layout;
+      editorElements = JSON.parse(JSON.stringify(layout.elements));
+      layoutSize = computeLayoutSize(layout);
+      hasInitialLayout = true;
+      enterEditorMode();
+    } else {
+      applyLayout(layout, false);
+    }
+    return layout;
+  }
+
+  function buildLayoutFromWizard(opts) {
+    return buildLayoutFromConfig(opts && opts.openEditor);
+  }
+
+  function gridToPx(el) {
+    return { x:MARGIN+el.x*CELL_SIZE, y:MARGIN+el.y*CELL_SIZE, w:el.w*CELL_SIZE, h:el.h*CELL_SIZE };
+  }
+
+  function pxToGrid(px, py) {
+    return { gx:Math.floor((px-MARGIN)/CELL_SIZE), gy:Math.floor((py-MARGIN)/CELL_SIZE) };
+  }
+
+  function randomStatus() {
+    const r = Math.random();
+    if (r < 0.35) return 'livre';
+    if (r < 0.75) return 'ocupado';
+    if (r < 0.90) return 'reservado';
+    return 'bloqueado';
+  }
+
+  function findNearestAisleY(rackEl, elements) {
+    const aisles = elements.filter(e => e.type === 'aisle');
+    let best = null, bestDist = Infinity;
+    aisles.forEach(a => {
+      const ax = gridToPx(a);
+      const rx = gridToPx(rackEl);
+      const aisleCenterY = ax.y + ax.h / 2;
+      const dist = Math.abs(aisleCenterY - (rx.y + rx.h / 2));
+      if (dist < bestDist) { bestDist = dist; best = aisleCenterY; }
+    });
+    return best || (gridToPx(rackEl).y + gridToPx(rackEl).h + 8);
+  }
+
+  function generateLocationsFromLayout(layout) {
+    const locs = [];
+    const racks = layout.elements.filter(e => e.type === 'rack');
+    ZONE_ORDER = [...new Set(racks.map(r => r.zone))].sort();
+    zoneDirections = layout.zoneDirections || {};
+    if (layout.config) warehouseConfig = JSON.parse(JSON.stringify(layout.config));
+
+    racks.forEach(rack => {
+      const px = gridToPx(rack);
+      const aisleY = findNearestAisleY(rack, layout.elements);
+      const levels = rack.levels || 3;
+      const chamber = warehouseConfig?.chambers?.find(c => c.id === rack.chamberId);
+      for (let level = 1; level <= levels; level++) {
+        const levelType = getLevelType(rack, rack.positionIndex, level);
+        const isPassagem = levelType === 'passagem';
+        const status = isPassagem ? 'passagem' : randomStatus();
+        locs.push({
+          id: `${rack.label}-N${level}`, zone: rack.zone, rua: chamber?.name || rack.zone,
+          modulo: rack.modulo || rack.addressNumber || 1, nivel: level, row: rack.row || 0,
+          side: rack.side, positionIndex: rack.positionIndex, levelType,
+          status, pickable: !isPassagem && (status === 'ocupado' || status === 'reservado'),
+          sku: isPassagem || status === 'livre' ? null : SKUS[Math.floor(Math.random() * SKUS.length)],
+          qty: isPassagem || status === 'livre' ? 0 : Math.floor(Math.random() * 500) + 1,
+          x: px.x, y: px.y, width: px.w, height: px.h, aisleY, rackId: rack.id,
+          corridorId: rack.corridorId, chamberId: rack.chamberId,
+        });
+      }
+    });
+    return locs;
+  }
+
+  function computeLayoutSize(layout) {
+    return {
+      totalWidth: MARGIN*2 + layout.gridCols*CELL_SIZE,
+      totalHeight: MARGIN*2 + layout.gridRows*CELL_SIZE,
+    };
+  }
+
+  function resolveAnchors(layout) {
+    const staging = layout.elements.find(e => e.type === 'staging');
+    const exit = layout.elements.find(e => e.type === 'exit');
+    if (staging) {
+      const p = gridToPx(staging);
+      stagingOrigin = { x:p.x+p.w/2, y:p.y+p.h/2 };
+    } else stagingOrigin = { x:MARGIN+100, y:MARGIN+40 };
+    if (exit) {
+      const p = gridToPx(exit);
+      expeditionPoint = { x:p.x+p.w/2, y:p.y+p.h/2 };
+    } else expeditionPoint = { x:MARGIN+100, y:layoutSize.totalHeight-MARGIN-40 };
+
+    docks = layout.elements.filter(e => e.type === 'dock').map((d,i) => ({
+      id:d.id, label:d.label||`Doca ${i+1}`,
+      status:['em_uso','livre','aguardando'][i%3], ...gridToPx(d),
+    }));
+  }
+
+  function updateZoneFilter() {
+    const sel = document.getElementById('zone-filter');
+    const labels = warehouseConfig?.chambers?.length
+      ? warehouseConfig.chambers.map(c => ({ id: c.id, name: c.name }))
+      : ZONE_ORDER.map(z => ({ id: z, name: `Rua ${z}` }));
+    sel.innerHTML = '<option value="all">Todas</option>' +
+      labels.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+
+  function applyLayout(layoutJson, enterEditor) {
+    if (!validateLayout(layoutJson)) { alert('JSON de layout inválido.'); return; }
+    currentLayout = JSON.parse(JSON.stringify(layoutJson));
+    editorElements = JSON.parse(JSON.stringify(layoutJson.elements));
+    layoutSize = computeLayoutSize(currentLayout);
+    locations = generateLocationsFromLayout(currentLayout);
+    resolveAnchors(currentLayout);
+    updateZoneFilter();
+    document.getElementById('warehouse-title').textContent = currentLayout.name || 'Mapa do Armazém';
+    hasInitialLayout = true;
+
+    if (enterEditor) enterEditorMode();
+    else {
+      exitEditorMode();
+      document.getElementById('btn-edit-layout').classList.remove('hidden');
+      rebuildWarehouse();
+      generatePickOrder();
+      setRouteMode(routeMode);
+      centerView();
+    }
+  }
+
+  function rebuildWarehouse() {
+    allCells.length = 0;
+    if (worldContainer) worldContainer.removeChildren();
+    drawWarehouse();
+  }
+
+  function getCellCenter(loc) { return { x:loc.x+loc.width/2, y:loc.y+loc.height/2 }; }
+  function getPickableLocations() {
+    return locations.filter(l => l.pickable || (l.levelType !== 'passagem' && (l.status === 'ocupado' || l.status === 'reservado')));
+  }
+
+  function pickLowestLevelPerBay(candidates) {
+    const byBay = new Map();
+    candidates.forEach(loc => {
+      const key = `${loc.zone}-${loc.modulo}-${loc.rackId||loc.row}`;
+      const ex = byBay.get(key);
+      if (!ex || loc.nivel < ex.nivel) byBay.set(key, loc);
+    });
+    return [...byBay.values()];
+  }
+
+  function shuffleArray(arr) { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+  function buildOptimizedSequence(candidates) {
+    const bays = pickLowestLevelPerBay(candidates);
+    const result = [];
+    ZONE_ORDER.forEach(zone => {
+      const zb = bays.filter(l => l.zone === zone);
+      const dir = zoneDirections[zone] === 'rtl' ? -1 : 1;
+      zb.sort((a,b) => (a.modulo-b.modulo)*dir);
+      result.push(...zb);
+    });
+    return result.slice(0, STOP_COUNT);
+  }
+
+  function buildNormalSequence(candidates) {
+    return shuffleArray(pickLowestLevelPerBay(candidates)).slice(0, STOP_COUNT);
+  }
+
+  function getAisleYForLoc(loc) { return loc.aisleY || loc.y + loc.height + 8; }
+
+  function distPoints(a,b) { return Math.hypot(a.x-b.x,a.y-b.y); }
+  function dedupePoints(pts) {
+    if (!pts.length) return pts;
+    const out = [pts[0]];
+    for (let i=1;i<pts.length;i++) if (distPoints(out[out.length-1],pts[i])>1) out.push(pts[i]);
+    return out;
+  }
+
+  function routeBetweenPoints(from, to, fromLoc, toLoc) {
+    const pts = [];
+    const fromPick = { x:from.x, y:from.y }, toPick = { x:to.x, y:to.y };
+    const aisleFromY = fromLoc ? getAisleYForLoc(fromLoc) : from.y;
+    const aisleToY = toLoc ? getAisleYForLoc(toLoc) : to.y;
+    if (fromLoc) { pts.push(fromPick); if (Math.abs(fromPick.y-aisleFromY)>1) pts.push({x:fromPick.x,y:aisleFromY}); }
+    else { pts.push(fromPick); if (Math.abs(fromPick.y-aisleFromY)>1) pts.push({x:fromPick.x,y:aisleFromY}); else if (Math.abs(fromPick.x-SPINE_X)>1) pts.push({x:SPINE_X,y:aisleFromY}); }
+    const last = pts[pts.length-1];
+    if (Math.abs(aisleFromY-aisleToY)<1) { if (distPoints(last,{x:toPick.x,y:aisleToY})>1) pts.push({x:toPick.x,y:aisleToY}); }
+    else {
+      if (Math.abs(last.x-SPINE_X)>1) pts.push({x:SPINE_X,y:aisleFromY});
+      pts.push({x:SPINE_X,y:aisleToY});
+      if (Math.abs(toPick.x-SPINE_X)>1) pts.push({x:toPick.x,y:aisleToY});
+    }
+    if (toLoc && Math.abs(toPick.y-aisleToY)>1) pts.push(toPick);
+    else if (!toLoc) pts.push(toPick);
+    return dedupePoints(pts);
+  }
+
+  function pathLengthPx(points) { let l=0; for(let i=1;i<points.length;i++) l+=distPoints(points[i-1],points[i]); return l; }
+
+  function buildFullVisualPath(stops) {
+    const pts = []; let prev = stagingOrigin, prevLoc = null;
+    for (const stop of stops) {
+      const dest = { x:stop.cellX, y:stop.cellY };
+      const seg = routeBetweenPoints(prev, dest, prevLoc, stop.loc);
+      if (pts.length && seg.length && distPoints(pts[pts.length-1],seg[0])<2) seg.shift();
+      pts.push(...seg); prev = dest; prevLoc = stop.loc;
+    }
+    const toExp = routeBetweenPoints(prev, expeditionPoint, prevLoc, null);
+    if (pts.length && toExp.length && distPoints(pts[pts.length-1],toExp[0])<2) toExp.shift();
+    pts.push(...toExp);
+    return dedupePoints(pts);
+  }
+
+  function calcTravelTime(fromLoc, toLoc, fromPoint) {
+    const to = getCellCenter(toLoc);
+    const from = fromLoc ? getCellCenter(fromLoc) : fromPoint;
+    if (!from) return 0;
+    return Math.max(PICK_TIME_SEC/3, Math.round(pathLengthPx(routeBetweenPoints(from,to,fromLoc||null,toLoc))*SEC_PER_UNIT));
+  }
+
+  function buildStopsFromLocs(locs) {
+    let cum=0, prevLoc=null;
+    stagingOrigin = stagingOrigin;
+    return locs.map((loc,i) => {
+      const center = getCellCenter(loc);
+      const travelTimeSec = i===0 ? calcTravelTime(null,loc,stagingOrigin) : calcTravelTime(prevLoc,loc);
+      cum += travelTimeSec + PICK_TIME_SEC;
+      prevLoc = loc;
+      return { stopNum:i+1, locationId:loc.id, zone:loc.zone, modulo:loc.modulo, row:loc.row, nivel:loc.nivel,
+        sku:loc.sku, qtyToPick:Math.min(loc.qty,Math.floor(Math.random()*30)+1),
+        cellX:center.x, cellY:center.y, pickTimeSec:PICK_TIME_SEC, travelTimeSec, cumTimeSec:cum, loc };
+    });
+  }
+
+  function generatePickOrder() {
+    const c = getPickableLocations();
+    pickRoutes = { normal:buildStopsFromLocs(buildNormalSequence(c)), optimized:buildStopsFromLocs(buildOptimizedSequence(c)) };
+  }
+
+  function formatDuration(sec) { const m=Math.floor(sec/60), s=sec%60; return m>0?`${m}min ${String(s).padStart(2,'0')}s`:`${s}s`; }
+  function getActiveRoute() { return pickRoutes[routeMode]||[]; }
+  function getRouteTotalSec(stops) { return stops.length ? stops[stops.length-1].cumTimeSec : 0; }
+  function isCellInRoute(c) { return getActiveRoute().some(s=>s.zone===c.zone&&s.modulo===c.modulo&&(s.loc.rackId?s.loc.rackId===c.rackId:s.row===c.row)); }
+  function getStopForCell(c) { return getActiveRoute().find(s=>s.zone===c.zone&&s.modulo===c.modulo&&(s.loc.rackId?s.loc.rackId===c.rackId:s.row===c.row)); }
+
+  function showLocationDetail(loc, stop) {
+    const color = loc.levelType === 'passagem' ? '#46464f' : '#'+COLORS[loc.status].toString(16).padStart(6,'0');
+    const statusLabel = loc.levelType === 'passagem' ? 'Passagem' : STATUS_LABELS[loc.status];
+    document.getElementById('location-detail').innerHTML = `
+      <div class="bg-surface-container-high rounded-lg p-3 space-y-2">
+        <div class="flex justify-between"><span class="mono font-bold text-primary">${loc.id}</span>
+        <span class="status-badge" style="background:${color}22;color:${color};font-size:10px;padding:2px 8px;border-radius:9999px">${statusLabel}</span></div>
+        ${stop?`<p class="text-route-amber text-xs font-semibold">Parada #${stop.stopNum}</p>`:''}
+        <div class="grid grid-cols-2 gap-1 text-xs">
+          <div><span class="text-on-surface-variant">Câmara</span><p class="font-semibold">${loc.rua}</p></div>
+          <div><span class="text-on-surface-variant">Posição</span><p class="font-semibold">${String(loc.modulo).padStart(2,'0')} (${loc.side==='left'?'Esquerdo':'Direito'})</p></div>
+          <div><span class="text-on-surface-variant">Nível</span><p>N${loc.nivel} · ${loc.levelType==='passagem'?'Passagem':'Armazenagem'}</p></div>
+          <div><span class="text-on-surface-variant">Qtd</span><p class="mono">${stop?stop.qtyToPick:loc.qty||'—'}</p></div>
+        </div>
+        ${loc.sku?`<p class="mono text-secondary text-xs">${loc.sku}</p>`:''}
+        <p class="text-[10px] text-on-surface-variant italic">Clique na posição para configurar níveis</p>
+        ${stop?`<p class="text-[10px] text-on-surface-variant">Acum: ${formatDuration(stop.cumTimeSec)}</p>`:''}
+      </div>`;
+  }
+
+  function updateRoutePanel() {
+    const route = getActiveRoute();
+    const savings = getRouteTotalSec(pickRoutes.normal) - getRouteTotalSec(pickRoutes.optimized);
+    const pct = getRouteTotalSec(pickRoutes.normal) ? Math.round(savings/getRouteTotalSec(pickRoutes.normal)*100) : 0;
+    document.getElementById('route-summary').innerHTML = `<p class="mono font-semibold text-route-amber">${route.length} paradas · ${formatDuration(getRouteTotalSec(route))} total</p>`;
+    const sav = document.getElementById('route-savings');
+    if (routeMode==='optimized' && savings>0) { sav.textContent=`Economia: -${formatDuration(savings)} vs. normal (~${pct}%)`; sav.className='text-tertiary text-[10px]'; }
+    else if (routeMode==='normal' && savings>0) { sav.textContent=`Otimizada economiza ${formatDuration(savings)}`; sav.className='text-on-surface-variant text-[10px]'; }
+    else sav.textContent='';
+    const dirs = ZONE_ORDER.map(z => zoneDirections[z]==='rtl'?'←':'→').join(', ');
+    document.getElementById('route-hint').innerHTML = `<span class="font-semibold text-route-amber">Sugestão:</span> percorra as ruas em serpentina (${dirs}). Reduz ~${Math.max(pct,20)}% vs. ordem aleatória.`;
+    document.getElementById('route-stops-list').innerHTML = route.map((stop,idx) => `
+      <div class="route-stop-row rounded px-2 py-2 ${activeStopIndex===idx?'active':''}" data-idx="${idx}">
+        <div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full bg-route-amber text-[10px] font-bold flex items-center justify-center text-black">${stop.stopNum}</span>
+        <span class="mono font-semibold">${stop.locationId}</span></div>
+        <div class="ml-7 text-on-surface-variant">${stop.sku} · ${stop.qtyToPick}un · ${formatDuration(stop.cumTimeSec)}</div>
+      </div>`).join('');
+    document.querySelectorAll('.route-stop-row').forEach(row => row.onclick = () => focusStop(+row.dataset.idx));
+  }
+
+  function setRouteMode(mode) {
+    routeMode = mode; activeStopIndex = null;
+    ['btn-route-normal','btn-route-optimized'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('active', id.includes(mode==='normal'?'normal':'optimized'));
+    });
+    updateRoutePanel(); redrawAllCells(); drawRouteLayer();
+  }
+
+  function focusStop(idx) {
+    const stop = getActiveRoute()[idx]; if (!stop) return;
+    activeStopIndex = idx; updateRoutePanel();
+    const cell = allCells.find(c => c.rackId === stop.loc.rackId || (c.zone===stop.zone&&c.modulo===stop.modulo));
+    if (cell) { if (selectedCell) redrawCell(selectedCell,false,false); selectedCell=cell; redrawCell(cell,true,true); showLocationDetail(stop.loc,stop); }
+    const c = document.getElementById('pixi-container');
+    scale=1.4; worldContainer.scale.set(scale);
+    worldContainer.x = c.clientWidth/2 - stop.cellX*scale;
+    worldContainer.y = c.clientHeight/2 - stop.cellY*scale;
+    document.getElementById('zoom-label').textContent = Math.round(scale*100)+'%';
+  }
+
+  function exportLayoutJson() {
+    if (!currentLayout) return;
+    const blob = new Blob([JSON.stringify(currentLayout,null,2)],{type:'application/json'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download = (currentLayout.name||'armazem').replace(/\s+/g,'-').toLowerCase()+'.json'; a.click();
+  }
+
+  // --- Editor mode ---
+  function enterEditorMode() {
+    appMode = 'editor';
+    document.getElementById('editor-toolbar').classList.remove('hidden');
+    document.getElementById('left-panel').classList.add('hidden');
+    document.getElementById('route-controls').classList.add('hidden');
+    document.getElementById('pixi-container').classList.add('editor-mode');
+    document.getElementById('canvas-hint').textContent = 'Clique: colocar · Arrastar: mover · Botão direito: apagar';
+    rebuildEditorCanvas();
+  }
+
+  function exitEditorMode() {
+    appMode = 'view';
+    document.getElementById('editor-toolbar').classList.add('hidden');
+    document.getElementById('left-panel').classList.remove('hidden');
+    document.getElementById('route-controls').classList.remove('hidden');
+    document.getElementById('pixi-container').classList.remove('editor-mode');
+    document.getElementById('canvas-hint').textContent = 'Clique na posição: configurar níveis · Scroll: zoom · Arrastar: pan';
+  }
+
+  function rebuildEditorCanvas() {
+    allCells.length = 0;
+    if (worldContainer) worldContainer.removeChildren();
+    drawEditorView();
+    centerView();
+  }
+
+  function drawEditorView() {
+    if (!currentLayout) return;
+    layoutSize = computeLayoutSize(currentLayout);
+    const g = new PIXI.Graphics();
+    worldContainer.addChild(g);
+    g.rect(0,0,layoutSize.totalWidth,layoutSize.totalHeight);
+    g.fill(COLORS.floor);
+
+    for (let gx=0; gx<=currentLayout.gridCols; gx++) {
+      g.moveTo(MARGIN+gx*CELL_SIZE, MARGIN);
+      g.lineTo(MARGIN+gx*CELL_SIZE, MARGIN+currentLayout.gridRows*CELL_SIZE);
+    }
+    for (let gy=0; gy<=currentLayout.gridRows; gy++) {
+      g.moveTo(MARGIN, MARGIN+gy*CELL_SIZE);
+      g.lineTo(MARGIN+currentLayout.gridCols*CELL_SIZE, MARGIN+gy*CELL_SIZE);
+    }
+    g.stroke({ width:0.5, color:COLORS.grid, alpha:0.6 });
+
+    editorLayer = new PIXI.Container();
+    worldContainer.addChild(editorLayer);
+    editorElements.forEach(el => drawEditorElement(el));
+  }
+
+  function elementColor(type) {
+    return { rack:0xe1dfff, aisle:COLORS.aisle, dock:COLORS.doca, staging:COLORS.staging, exit:COLORS.exit, wall:COLORS.wall }[type] || 0x888888;
+  }
+
+  function drawEditorElement(el) {
+    const px = gridToPx(el);
+    const cont = new PIXI.Container();
+    cont.x = px.x; cont.y = px.y;
+    cont.eventMode = 'static';
+    cont.cursor = 'move';
+    cont._elData = el;
+
+    const gfx = new PIXI.Graphics();
+    if (el.type === 'dock') gfx.roundRect(0,0,px.w,px.h,4);
+    else if (el.type === 'exit') gfx.roundRect(0,0,px.w,px.h,4);
+    else gfx.rect(0,0,px.w,px.h);
+    gfx.fill({ color:elementColor(el.type), alpha: el.type==='aisle'?1:0.85 });
+    gfx.stroke({ width:1, color:COLORS.border });
+    cont.addChild(gfx);
+
+    const label = el.label || el.type;
+    const txt = new PIXI.Text({ text:label, style:{ fontFamily:'Inter,sans-serif', fontSize:9, fill:0xc7c5d0 } });
+    txt.x = 4; txt.y = 4;
+    cont.addChild(txt);
+
+    cont.on('pointerdown', (e) => {
+      e.stopPropagation();
+      if (editorTool === 'erase') { removeEditorElement(el.id); return; }
+      dragEditorEl = cont;
+      const w = screenToWorld(e.clientX, e.clientY);
+      dragOffset = { x: w.x - px.x, y: w.y - px.y };
+    });
+
+    editorLayer.addChild(cont);
+  }
+
+  function removeEditorElement(id) {
+    editorElements = editorElements.filter(e => e.id !== id);
+    rebuildEditorCanvas();
+  }
+
+  function placeElement(gx, gy) {
+    if (!currentLayout) return;
+    if (gx < 0 || gy < 0 || gx >= currentLayout.gridCols || gy >= currentLayout.gridRows) return;
+
+    if (editorTool === 'erase') return;
+
+    if (editorTool === 'rack') {
+      pendingRackCell = { gx, gy };
+      document.getElementById('rack-label').value = `R-${gx}-${gy}`;
+      document.getElementById('rack-zone').value = 'A';
+      document.getElementById('rack-levels').value = '3';
+      document.getElementById('rack-dialog').showModal();
+      return;
+    }
+
+    const defaults = {
+      aisle: { w:4, h:1, label:'Corredor' },
+      dock: { w:2, h:1, label:`Doca ${editorElements.filter(e=>e.type==='dock').length+1}` },
+      staging: { w:6, h:1, label:'Staging' },
+      exit: { w:3, h:1, label:'Expedição' },
+      wall: { w:1, h:1, label:'' },
+    };
+    const d = defaults[editorTool] || { w:1, h:1 };
+    editorElements.push({ id:uid(), type:editorTool, x:gx, y:gy, ...d });
+    rebuildEditorCanvas();
+  }
+
+  function saveEditorLayout() {
+    currentLayout.elements = JSON.parse(JSON.stringify(editorElements));
+    const maxX = Math.max(...editorElements.map(e => e.x+e.w), 10);
+    const maxY = Math.max(...editorElements.map(e => e.y+e.h), 10);
+    currentLayout.gridCols = maxX + 2;
+    currentLayout.gridRows = maxY + 2;
+    applyLayout(currentLayout, false);
+  }
+
+  // --- View mode drawing ---
+  function drawWarehouse() {
+    if (!currentLayout) return;
+    const g = new PIXI.Graphics();
+    worldContainer.addChild(g);
+    g.rect(0,0,layoutSize.totalWidth,layoutSize.totalHeight);
+    g.fill(COLORS.floor);
+
+    currentLayout.elements.filter(e => e.type !== 'rack').forEach(el => {
+      const px = gridToPx(el);
+      if (el.type === 'aisle') { g.rect(px.x,px.y,px.w,px.h); g.fill(COLORS.aisle); }
+      else if (el.type === 'staging') { g.rect(px.x,px.y,px.w,px.h); g.fill(COLORS.staging); g.stroke({width:1,color:COLORS.border}); }
+      else if (el.type === 'dock') { g.roundRect(px.x,px.y,px.w,px.h,4); g.fill(COLORS.doca); g.stroke({width:1,color:COLORS.border}); }
+      else if (el.type === 'exit') { g.roundRect(px.x,px.y,px.w,px.h,4); g.fill(COLORS.exit); g.stroke({width:1,color:COLORS.border}); }
+      else if (el.type === 'wall') { g.rect(px.x,px.y,px.w,px.h); g.fill(COLORS.wall); }
+      else if (el.type === 'door') {
+        g.roundRect(px.x, px.y, px.w, px.h, 3);
+        g.fill({ color: COLORS.door, alpha: 0.85 });
+        g.stroke({ width: 2, color: 0xffffff, alpha: 0.4 });
+        const arrow = el.orientation === 'horizontal' ? '↔' : '↕';
+        const arrTxt = new PIXI.Text({ text: arrow, style: { fontFamily: 'Inter,sans-serif', fontSize: 10, fill: 0x005236, fontWeight: '700' } });
+        arrTxt.x = px.x + px.w / 2 - 5;
+        arrTxt.y = px.y + px.h / 2 - 6;
+        worldContainer.addChild(arrTxt);
+      } else if (el.type === 'chamber') {
+        g.rect(px.x, px.y, px.w, px.h);
+        g.fill({ color: COLORS.chamber, alpha: 0.08 });
+        g.stroke({ width: 1, color: COLORS.chamber, alpha: 0.35 });
+      }
+      if (el.label && el.type !== 'chamber') {
+        const lbl = new PIXI.Text({ text: el.label, style: { fontFamily: 'Inter,sans-serif', fontSize: el.type === 'door' ? 8 : 10, fill: el.type === 'door' ? 0x005236 : COLORS.label } });
+        lbl.x = px.x + 4; lbl.y = px.y + px.h / 2 - 6;
+        worldContainer.addChild(lbl);
+      }
+      if (el.type === 'chamber' && el.label) {
+        const lbl = new PIXI.Text({ text: el.label, style: { fontFamily: 'Inter,sans-serif', fontSize: 11, fill: 0xc0c1ff, fontWeight: '600' } });
+        lbl.x = px.x + 6; lbl.y = px.y + 4;
+        worldContainer.addChild(lbl);
+      }
+    });
+
+    locationLayer = new PIXI.Container();
+    worldContainer.addChild(locationLayer);
+
+    const rackGroups = new Map();
+    locations.forEach(loc => {
+      const key = loc.rackId || `${loc.zone}-${loc.modulo}`;
+      if (!rackGroups.has(key)) rackGroups.set(key, []);
+      rackGroups.get(key).push(loc);
+    });
+
+    rackGroups.forEach((locs, key) => {
+      const base = locs[0];
+      const cont = new PIXI.Container();
+      cont.x = base.x; cont.y = base.y;
+      cont.eventMode = 'static'; cont.cursor = 'pointer';
+      const gfx = new PIXI.Graphics();
+      cont.addChild(gfx);
+      locs.forEach(l => { l._cellContainer = cont; });
+
+      const cellData = { container:cont, gfx, locations:locs, zone:base.zone, modulo:base.modulo, row:base.row, rackId:base.rackId };
+      allCells.push(cellData);
+      redrawCell(cellData, false, false);
+
+      cont.on('pointerover', e => { if (isDragging||appMode==='editor') return; hoveredCell=cellData; showTooltip(e,locs.find(l=>l.nivel===1)||locs[0],getStopForCell(cellData)); redrawCell(cellData,true,isCellInRoute(cellData)); });
+      cont.on('pointerout', () => { hoveredCell=null; hideTooltip(); redrawCell(cellData,selectedCell===cellData,isCellInRoute(cellData)); });
+      cont.on('pointerdown', e => {
+        if (appMode === 'editor') return;
+        e.stopPropagation();
+        if (selectedCell) redrawCell(selectedCell, false, isCellInRoute(selectedCell));
+        selectedCell = cellData;
+        redrawCell(cellData, true, isCellInRoute(cellData));
+        openLevelConfig(cellData);
+      });
+      locationLayer.addChild(cont);
+    });
+
+    routeLayer = new PIXI.Container();
+    worldContainer.addChild(routeLayer);
+    drawRouteLayer();
+  }
+
+  function drawDashedLine(gfx, points) {
+    const dashLen=8, gapLen=6;
+    for (let i=0;i<points.length-1;i++) {
+      const p0=points[i], p1=points[i+1], dx=p1.x-p0.x, dy=p1.y-p0.y, dist=Math.hypot(dx,dy);
+      if (dist<1) continue;
+      const steps=Math.floor(dist/(dashLen+gapLen)), ux=dx/dist, uy=dy/dist;
+      for (let s=0;s<=steps;s++) {
+        const t0=s*(dashLen+gapLen), t1=t0+dashLen;
+        if (t0>=dist) break;
+        gfx.moveTo(p0.x+ux*t0,p0.y+uy*t0);
+        gfx.lineTo(p0.x+ux*Math.min(t1,dist),p0.y+uy*Math.min(t1,dist));
+      }
+    }
+    gfx.stroke({ width:2.5, color:COLORS.route, alpha:0.85 });
+  }
+
+  function drawRouteLayer() {
+    if (!routeLayer || appMode==='editor') return;
+    routeLayer.removeChildren();
+    const route = getActiveRoute();
+    if (!route.length) return;
+    const lineGfx = new PIXI.Graphics();
+    drawDashedLine(lineGfx, buildFullVisualPath(route));
+    routeLayer.addChild(lineGfx);
+    const spine = new PIXI.Graphics();
+    spine.moveTo(SPINE_X,stagingOrigin.y); spine.lineTo(SPINE_X,expeditionPoint.y);
+    spine.stroke({ width:1, color:COLORS.border, alpha:0.25 });
+    routeLayer.addChild(spine);
+    route.forEach(stop => {
+      const m = new PIXI.Container(); m.x=stop.cellX; m.y=stop.cellY;
+      const c = new PIXI.Graphics(); c.circle(0,0,12); c.fill(COLORS.route);
+      m.addChild(c);
+      const n = new PIXI.Text({ text:String(stop.stopNum), style:{fontFamily:'JetBrains Mono',fontSize:10,fill:0x1a1200,fontWeight:'700'} });
+      n.anchor.set(0.5); m.addChild(n);
+      routeLayer.addChild(m);
+    });
+  }
+
+  function redrawCell(cellData, highlighted, inRoute) {
+    const { gfx, locations:locs } = cellData;
+    gfx.clear();
+    const px = { w:locs[0].width, h:locs[0].height };
+    locs.sort((a,b)=>b.nivel-a.nivel).forEach((loc,idx) => {
+      const levelY = idx*(LEVEL_H+1);
+      const isPassagem = loc.levelType === 'passagem' || loc.status === 'passagem';
+      const alpha = isPassagem ? 0.7 : (loc.status==='livre'?0.5:1);
+      const dimmed = currentZoneFilter!=='all'&&loc.zone!==currentZoneFilter;
+      const fillColor = isPassagem ? COLORS.passagem : COLORS[loc.status];
+      gfx.rect(2,levelY+2,px.w-4,LEVEL_H);
+      gfx.fill({ color:fillColor, alpha:dimmed?0.15:alpha });
+    });
+    gfx.rect(0,0,px.w,px.h);
+    if (highlighted) gfx.stroke({ width:2, color:COLORS.highlight });
+    else if (inRoute) gfx.stroke({ width:2, color:COLORS.route });
+    else gfx.stroke({ width:1, color:COLORS.border });
+  }
+
+  function redrawAllCells() { allCells.forEach(c => redrawCell(c, selectedCell===c||hoveredCell===c, isCellInRoute(c))); }
+  function applyZoneFilter() { allCells.forEach(c => { c.container.alpha = currentZoneFilter==='all'||c.zone===currentZoneFilter?1:0.25; redrawCell(c,selectedCell===c||hoveredCell===c,isCellInRoute(c)); }); }
+  function showTooltip(e,loc,stop) {
+    const t = document.getElementById('hover-tooltip');
+    t.classList.remove('hidden');
+    t.textContent = stop ? `#${stop.stopNum} ${loc.id} · ${stop.qtyToPick}un` : `${loc.id} · ${loc.levelType === 'passagem' ? 'Passagem' : STATUS_LABELS[loc.status]}`;
+    const r = app.canvas.getBoundingClientRect();
+    t.style.left = (e.clientX-r.left+12)+'px'; t.style.top = (e.clientY-r.top+12)+'px';
+  }
+  function hideTooltip() { document.getElementById('hover-tooltip').classList.add('hidden'); }
+
+  function setZoom(s) { scale=Math.max(0.3,Math.min(3,s)); worldContainer.scale.set(scale); document.getElementById('zoom-label').textContent=Math.round(scale*100)+'%'; }
+  function centerView() {
+    const c = document.getElementById('pixi-container');
+    scale = Math.min(c.clientWidth/layoutSize.totalWidth, c.clientHeight/layoutSize.totalHeight)*0.9;
+    worldContainer.scale.set(scale);
+    worldContainer.x = (c.clientWidth-layoutSize.totalWidth*scale)/2;
+    worldContainer.y = (c.clientHeight-layoutSize.totalHeight*scale)/2;
+    document.getElementById('zoom-label').textContent = Math.round(scale*100)+'%';
+  }
+
+  function screenToWorld(cx, cy) {
+    const r = app.canvas.getBoundingClientRect();
+    return { x:(cx-r.left-worldContainer.x)/scale, y:(cy-r.top-worldContainer.y)/scale };
+  }
+
+  function onWheel(e) {
+    e.preventDefault();
+    const r = app.canvas.getBoundingClientRect();
+    const mx=e.clientX-r.left, my=e.clientY-r.top;
+    const wp = { x:(mx-worldContainer.x)/scale, y:(my-worldContainer.y)/scale };
+    const ns = Math.max(0.3,Math.min(3, scale*(e.deltaY>0?0.9:1.1)));
+    worldContainer.x = mx-wp.x*ns; worldContainer.y = my-wp.y*ns;
+    scale=ns; worldContainer.scale.set(scale);
+    document.getElementById('zoom-label').textContent=Math.round(scale*100)+'%';
+  }
+
+  function onMouseDown(e) {
+    if (appMode === 'editor') {
+      if (e.button === 2) return;
+      if (dragEditorEl) return;
+      const w = screenToWorld(e.clientX, e.clientY);
+      const { gx, gy } = pxToGrid(w.x, w.y);
+      if (editorTool !== 'erase') placeElement(gx, gy);
+      return;
+    }
+    if (e.button !== 0) return;
+    isDragging = true;
+    dragStart = { x:e.clientX, y:e.clientY };
+    panStart = { x:worldContainer.x, y:worldContainer.y };
+    document.getElementById('pixi-container').classList.add('dragging');
+    hideTooltip();
+  }
+
+  function onMouseMove(e) {
+    if (appMode === 'editor' && dragEditorEl) {
+      const w = screenToWorld(e.clientX, e.clientY);
+      const el = dragEditorEl._elData;
+      const newGx = Math.max(0, Math.floor((w.x - dragOffset.x - MARGIN) / CELL_SIZE));
+      const newGy = Math.max(0, Math.floor((w.y - dragOffset.y - MARGIN) / CELL_SIZE));
+      el.x = newGx;
+      el.y = newGy;
+      const px = gridToPx(el);
+      dragEditorEl.x = px.x;
+      dragEditorEl.y = px.y;
+      return;
+    }
+    if (!isDragging) return;
+    worldContainer.x = panStart.x + (e.clientX - dragStart.x);
+    worldContainer.y = panStart.y + (e.clientY - dragStart.y);
+  }
+
+  function onMouseUp() {
+    if (dragEditorEl) { dragEditorEl = null; return; }
+    isDragging = false;
+    document.getElementById('pixi-container').classList.remove('dragging');
+  }
+
+  function onContextMenu(e) {
+    if (appMode !== 'editor') return;
+    e.preventDefault();
+    const w = screenToWorld(e.clientX, e.clientY);
+    const { gx, gy } = pxToGrid(w.x, w.y);
+    const hit = editorElements.find(el => gx>=el.x && gx<el.x+el.w && gy>=el.y && gy<el.y+el.h);
+    if (hit) removeEditorElement(hit.id);
+  }
+
+  function onResize() { app.renderer.resize(document.getElementById('pixi-container').clientWidth, document.getElementById('pixi-container').clientHeight); }
+
+  // --- Wizard / Config UI ---
+  function renderChambersList() {
+    const list = document.getElementById('chambers-list');
+    list.innerHTML = warehouseConfig.chambers.map((c, i) => `
+      <div class="flex gap-2 items-center bg-surface-container-high rounded-lg p-2 border border-outline-variant">
+        <span class="text-xs text-on-surface-variant w-5">${i + 1}.</span>
+        <input class="wizard-input flex-1 chamber-name" data-id="${c.id}" value="${c.name}" placeholder="Nome da câmara">
+        ${warehouseConfig.chambers.length > 1 ? `<button type="button" class="btn-remove-chamber text-on-surface-variant hover:text-red-400" data-id="${c.id}"><span class="material-symbols-outlined text-sm">delete</span></button>` : ''}
+      </div>`).join('');
+    list.querySelectorAll('.chamber-name').forEach(inp => {
+      inp.oninput = () => {
+        const ch = warehouseConfig.chambers.find(x => x.id === inp.dataset.id);
+        if (ch) ch.name = inp.value;
+      };
+    });
+    list.querySelectorAll('.btn-remove-chamber').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.dataset.id;
+        warehouseConfig.chambers = warehouseConfig.chambers.filter(c => c.id !== id);
+        warehouseConfig.corridors = warehouseConfig.corridors.filter(c => c.chamberId !== id);
+        warehouseConfig.connections = warehouseConfig.connections.filter(c => c.fromChamberId !== id && c.toChamberId !== id);
+        renderChambersList();
+        renderCorridorChamberSelect();
+        renderCorridorsList();
+        renderDoorsList();
+      };
+    });
+  }
+
+  function renderCorridorChamberSelect() {
+    const sel = document.getElementById('corr-chamber-select');
+    sel.innerHTML = warehouseConfig.chambers.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+
+  function renderCorridorsList() {
+    const chamberId = document.getElementById('corr-chamber-select').value || warehouseConfig.chambers[0]?.id;
+    const list = document.getElementById('corridors-list');
+    const corridors = warehouseConfig.corridors.filter(c => c.chamberId === chamberId);
+    const addrOpts = (v) => ['sequential', 'odd', 'even'].map(m =>
+      `<option value="${m}" ${v === m ? 'selected' : ''}>${m === 'sequential' ? 'Sequencial' : m === 'odd' ? 'Ímpar' : 'Par'}</option>`).join('');
+
+    list.innerHTML = corridors.length ? corridors.map((c, i) => `
+      <div class="rua-row space-y-2" data-id="${c.id}">
+        <div class="flex gap-2 items-center">
+          <input class="wizard-input flex-1 corr-label" data-id="${c.id}" value="${c.label}" placeholder="Nome do corredor">
+          <button type="button" class="btn-remove-corr text-on-surface-variant hover:text-red-400" data-id="${c.id}"><span class="material-symbols-outlined text-sm">delete</span></button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div><label class="text-on-surface-variant">Pos. esquerda</label><input type="number" min="1" max="20" class="wizard-input corr-pos-left" data-id="${c.id}" value="${c.positionsLeft}"></div>
+          <div><label class="text-on-surface-variant">Pos. direita</label><input type="number" min="1" max="20" class="wizard-input corr-pos-right" data-id="${c.id}" value="${c.positionsRight}"></div>
+          <div><label class="text-on-surface-variant">Níveis</label><input type="number" min="1" max="5" class="wizard-input corr-levels" data-id="${c.id}" value="${c.levels}"></div>
+          <div><label class="text-on-surface-variant">Num. esquerda</label><select class="wizard-input corr-addr-left" data-id="${c.id}">${addrOpts(c.addressingLeft)}</select></div>
+          <div class="col-span-2"><label class="text-on-surface-variant">Num. direita</label><select class="wizard-input corr-addr-right" data-id="${c.id}">${addrOpts(c.addressingRight)}</select></div>
+        </div>
+        <p class="text-[10px] text-on-surface-variant">Ex: esquerda ímpar (1,3,5) + direita par (2,4,6)</p>
+      </div>`).join('') : '<p class="text-xs text-on-surface-variant italic">Nenhum corredor nesta câmara. Clique "+ Corredor".</p>';
+
+    const bind = (cls, field, parser) => {
+      list.querySelectorAll('.' + cls).forEach(el => {
+        el.oninput = el.onchange = () => {
+          const corr = warehouseConfig.corridors.find(x => x.id === el.dataset.id);
+          if (!corr) return;
+          corr[field] = parser ? parser(el.value) : el.value;
+        };
+      });
+    };
+    bind('corr-label', 'label');
+    bind('corr-pos-left', 'positionsLeft', v => Math.min(20, Math.max(1, parseInt(v, 10) || 1)));
+    bind('corr-pos-right', 'positionsRight', v => Math.min(20, Math.max(1, parseInt(v, 10) || 1)));
+    bind('corr-levels', 'levels', v => Math.min(5, Math.max(1, parseInt(v, 10) || 1)));
+    bind('corr-addr-left', 'addressingLeft');
+    bind('corr-addr-right', 'addressingRight');
+    list.querySelectorAll('.btn-remove-corr').forEach(btn => {
+      btn.onclick = () => {
+        warehouseConfig.corridors = warehouseConfig.corridors.filter(c => c.id !== btn.dataset.id);
+        renderCorridorsList();
+      };
+    });
+  }
+
+  function renderDoorsList() {
+    const list = document.getElementById('doors-list');
+    const chamberOpts = (sel) => warehouseConfig.chambers.map(c =>
+      `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${c.name}</option>`).join('');
+    const corrOpts = (sel) => '<option value="">—</option>' + warehouseConfig.corridors.map(c => {
+      const ch = warehouseConfig.chambers.find(x => x.id === c.chamberId);
+      return `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${ch?.name || ''} · ${c.label}</option>`;
+    }).join('');
+    const dirOpts = (sel) => [
+      { v: 'east', l: '→ Direita (horizontal)' },
+      { v: 'west', l: '← Esquerda (horizontal)' },
+      { v: 'south', l: '↓ Inferior (vertical)' },
+      { v: 'north', l: '↑ Superior (vertical)' },
+    ].map(o => `<option value="${o.v}" ${o.v === (sel || 'east') ? 'selected' : ''}>${o.l}</option>`).join('');
+
+    list.innerHTML = (warehouseConfig.connections.length ? warehouseConfig.connections : []).map((conn, i) => `
+      <div class="flex flex-wrap gap-2 items-end bg-surface-container-high rounded-lg p-2 border border-outline-variant" data-id="${conn.id}">
+        <div class="flex-1 min-w-[110px]"><label class="text-[10px] text-on-surface-variant">De</label><select class="wizard-input door-from" data-id="${conn.id}">${chamberOpts(conn.fromChamberId)}</select></div>
+        <div class="flex-1 min-w-[110px]"><label class="text-[10px] text-on-surface-variant">Para</label><select class="wizard-input door-to" data-id="${conn.id}">${chamberOpts(conn.toChamberId)}</select></div>
+        <div class="flex-1 min-w-[150px]"><label class="text-[10px] text-on-surface-variant">Direção da porta</label><select class="wizard-input door-direction" data-id="${conn.id}">${dirOpts(conn.direction)}</select></div>
+        <div class="flex-1 min-w-[130px]"><label class="text-[10px] text-on-surface-variant">No corredor</label><select class="wizard-input door-corr" data-id="${conn.id}">${corrOpts(conn.corridorId)}</select></div>
+        <div class="flex-1 min-w-[90px]"><label class="text-[10px] text-on-surface-variant">Nome</label><input class="wizard-input door-label" data-id="${conn.id}" value="${conn.label || ''}" placeholder="Porta ${i + 1}"></div>
+        <button type="button" class="btn-remove-door text-on-surface-variant hover:text-red-400 pb-2" data-id="${conn.id}"><span class="material-symbols-outlined text-sm">delete</span></button>
+      </div>`).join('') || '<p class="text-xs text-on-surface-variant italic">Nenhuma porta. Adicione conexões entre câmaras.</p>';
+
+    const upd = (id, field, val) => {
+      const conn = warehouseConfig.connections.find(c => c.id === id);
+      if (conn) conn[field] = val;
+    };
+    list.querySelectorAll('.door-from').forEach(el => el.onchange = () => upd(el.dataset.id, 'fromChamberId', el.value));
+    list.querySelectorAll('.door-to').forEach(el => el.onchange = () => upd(el.dataset.id, 'toChamberId', el.value));
+    list.querySelectorAll('.door-direction').forEach(el => el.onchange = () => upd(el.dataset.id, 'direction', el.value));
+    list.querySelectorAll('.door-corr').forEach(el => el.onchange = () => upd(el.dataset.id, 'corridorId', el.value || null));
+    list.querySelectorAll('.door-label').forEach(el => el.oninput = () => upd(el.dataset.id, 'label', el.value));
+    list.querySelectorAll('.btn-remove-door').forEach(btn => {
+      btn.onclick = () => {
+        warehouseConfig.connections = warehouseConfig.connections.filter(c => c.id !== btn.dataset.id);
+        renderDoorsList();
+      };
+    });
+  }
+
+  function setWizardStep(step) {
+    wizardStep = step;
+    [1, 2, 3].forEach(n => {
+      document.getElementById('step-' + n).classList.toggle('hidden', n !== step);
+      const tab = document.querySelector(`.step-tab[data-step="${n}"]`);
+      tab.classList.toggle('active', n === step);
+      tab.classList.toggle('done', n < step);
+    });
+    document.getElementById('wiz-prev').classList.toggle('hidden', step === 1);
+    document.getElementById('wiz-next').classList.toggle('hidden', step === 3);
+    document.getElementById('wiz-generate').classList.toggle('hidden', step !== 3);
+    if (step === 2) { renderCorridorChamberSelect(); renderCorridorsList(); }
+    if (step === 3) renderDoorsList();
+  }
+
+  function openLevelConfig(cellData) {
+    const loc = cellData.locations[0];
+    const rackEl = currentLayout.elements.find(e => e.id === loc.rackId);
+    if (!rackEl) return;
+    levelConfigTarget = { cellData, rackEl };
+    document.getElementById('level-config-title').textContent =
+      `${loc.id.split('-N')[0]} · ${loc.side === 'left' ? 'Esquerdo' : 'Direito'} · Pos ${String(loc.modulo).padStart(2, '0')}`;
+
+    const chips = document.getElementById('level-chips');
+    chips.innerHTML = cellData.locations.sort((a, b) => a.nivel - b.nivel).map(locItem => {
+      const lt = getLevelType(rackEl, rackEl.positionIndex, locItem.nivel);
+      return `<button type="button" class="level-chip ${lt}" data-level="${locItem.nivel}">N${locItem.nivel}: ${lt === 'passagem' ? 'Passagem' : 'Armazenagem'}</button>`;
+    }).join('');
+
+    chips.querySelectorAll('.level-chip').forEach(chip => {
+      chip.onclick = () => {
+        const level = parseInt(chip.dataset.level, 10);
+        const key = levelTypeKey(rackEl.side, rackEl.positionIndex, level);
+        if (!rackEl.levelTypes) rackEl.levelTypes = {};
+        const next = rackEl.levelTypes[key] === 'passagem' ? 'armazenagem' : 'passagem';
+        rackEl.levelTypes[key] = next;
+
+        const corr = warehouseConfig?.corridors?.find(c => c.id === rackEl.corridorId);
+        if (corr) {
+          if (!corr.levelTypes) corr.levelTypes = {};
+          corr.levelTypes[key] = next;
+        }
+        if (currentLayout.config) {
+          const cfgRack = currentLayout.elements.find(e => e.id === rackEl.id);
+          if (cfgRack) cfgRack.levelTypes = { ...rackEl.levelTypes };
+        }
+
+        cellData.locations.forEach(l => {
+          if (l.nivel === level) {
+            l.levelType = next;
+            l.status = next === 'passagem' ? 'passagem' : randomStatus();
+            l.pickable = next !== 'passagem' && (l.status === 'ocupado' || l.status === 'reservado');
+            l.sku = l.pickable ? SKUS[Math.floor(Math.random() * SKUS.length)] : null;
+            l.qty = l.pickable ? Math.floor(Math.random() * 500) + 1 : 0;
+          }
+        });
+        chip.className = `level-chip ${next}`;
+        chip.textContent = `N${level}: ${next === 'passagem' ? 'Passagem' : 'Armazenagem'}`;
+        redrawCell(cellData, true, isCellInRoute(cellData));
+        showLocationDetail(cellData.locations.find(l => l.nivel === level), getStopForCell(cellData));
+      };
+    });
+
+    showLocationDetail(loc, getStopForCell(cellData));
+    document.getElementById('level-config-dialog').showModal();
+  }
+
+  function showWizard() {
+    if (!warehouseConfig) warehouseConfig = defaultWarehouseConfig();
+    if (currentLayout?.config) warehouseConfig = JSON.parse(JSON.stringify(currentLayout.config));
+    document.getElementById('wiz-name').value = warehouseConfig.name || 'Armazém Principal';
+    renderChambersList();
+    setWizardStep(1);
+    document.getElementById('wizard-dialog').showModal();
+  }
+
+  async function initPixi() {
+    const container = document.getElementById('pixi-container');
+    app = new PIXI.Application();
+    await app.init({ width:container.clientWidth, height:container.clientHeight, backgroundColor:0x131315, antialias:true, resolution:devicePixelRatio||1, autoDensity:true });
+    container.insertBefore(app.canvas, container.firstChild);
+    worldContainer = new PIXI.Container();
+    app.stage.addChild(worldContainer);
+
+    app.canvas.addEventListener('wheel', onWheel, { passive:false });
+    app.canvas.addEventListener('mousedown', onMouseDown);
+    app.canvas.addEventListener('contextmenu', onContextMenu);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('resize', onResize);
+
+    document.getElementById('btn-zoom-in').onclick = () => setZoom(scale*1.2);
+    document.getElementById('btn-zoom-out').onclick = () => setZoom(scale/1.2);
+    document.getElementById('btn-reset-view').onclick = centerView;
+    document.getElementById('zone-filter').onchange = e => { currentZoneFilter=e.target.value; applyZoneFilter(); };
+    document.getElementById('btn-route-normal').onclick = () => setRouteMode('normal');
+    document.getElementById('btn-route-optimized').onclick = () => setRouteMode('optimized');
+    document.getElementById('btn-regenerate-route').onclick = () => { generatePickOrder(); setRouteMode(routeMode); };
+    document.getElementById('btn-regenerate-route-panel').onclick = () => { generatePickOrder(); setRouteMode(routeMode); };
+
+    document.getElementById('btn-config-layout').onclick = showWizard;
+    document.getElementById('btn-edit-layout').onclick = () => {
+      if (!currentLayout) { showWizard(); return; }
+      editorElements = JSON.parse(JSON.stringify(currentLayout.elements));
+      enterEditorMode();
+    };
+    document.getElementById('btn-export-json').onclick = exportLayoutJson;
+    document.getElementById('btn-import-json').onclick = () => document.getElementById('file-import').click();
+    document.getElementById('file-import').onchange = e => {
+      const file = e.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => { try { applyLayout(JSON.parse(ev.target.result), false); } catch { alert('JSON inválido.'); } };
+      reader.readAsText(file);
+      e.target.value = '';
+    };
+
+    document.getElementById('btn-editor-save').onclick = saveEditorLayout;
+    document.getElementById('btn-editor-export').onclick = () => { currentLayout.elements = [...editorElements]; exportLayoutJson(); };
+    document.getElementById('btn-editor-cancel').onclick = () => { if (hasInitialLayout) { exitEditorMode(); rebuildWarehouse(); centerView(); } else showWizard(); };
+
+    document.querySelectorAll('.editor-tool-btn[data-tool]').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.editor-tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        editorTool = btn.dataset.tool;
+      };
+    });
+
+    document.getElementById('btn-add-chamber').onclick = () => {
+      warehouseConfig.chambers.push({ id: uid(), name: `Câmara ${warehouseConfig.chambers.length + 1}` });
+      renderChambersList();
+      renderCorridorChamberSelect();
+    };
+    document.getElementById('corr-chamber-select').onchange = renderCorridorsList;
+    document.getElementById('btn-add-corridor').onclick = () => {
+      const chamberId = document.getElementById('corr-chamber-select').value || warehouseConfig.chambers[0]?.id;
+      const n = warehouseConfig.corridors.filter(c => c.chamberId === chamberId).length;
+      warehouseConfig.corridors.push({
+        id: uid(), chamberId, label: `Corredor ${n + 1}`,
+        positionsLeft: 4, positionsRight: 4, levels: 3,
+        addressingLeft: 'sequential', addressingRight: 'even', levelTypes: {},
+      });
+      renderCorridorsList();
+    };
+    document.getElementById('btn-add-door').onclick = () => {
+      const chambers = warehouseConfig.chambers;
+      if (chambers.length < 2) { alert('Adicione pelo menos 2 câmaras para conectar com portas.'); return; }
+      warehouseConfig.connections.push({
+        id: uid(), fromChamberId: chambers[0].id, toChamberId: chambers[1].id,
+        corridorId: warehouseConfig.corridors[0]?.id || null,
+        direction: 'east',
+        label: `Porta ${warehouseConfig.connections.length + 1}`,
+      });
+      renderDoorsList();
+    };
+    document.querySelectorAll('.step-tab').forEach(tab => {
+      tab.onclick = () => setWizardStep(parseInt(tab.dataset.step, 10));
+    });
+    document.getElementById('wiz-prev').onclick = () => setWizardStep(Math.max(1, wizardStep - 1));
+    document.getElementById('wiz-next').onclick = () => setWizardStep(Math.min(3, wizardStep + 1));
+    document.getElementById('wiz-generate').onclick = () => buildLayoutFromConfig(false);
+    document.getElementById('level-config-close').onclick = () => {
+      document.getElementById('level-config-dialog').close();
+      generatePickOrder();
+      setRouteMode(routeMode);
+    };
+
+    document.getElementById('rack-cancel').onclick = () => document.getElementById('rack-dialog').close();
+    document.getElementById('rack-confirm').onclick = () => {
+      if (!pendingRackCell) return;
+      const zone = document.getElementById('rack-zone').value.toUpperCase() || 'A';
+      editorElements.push({
+        id:uid(), type:'rack', x:pendingRackCell.gx, y:pendingRackCell.gy, w:1, h:1,
+        label:document.getElementById('rack-label').value,
+        zone, levels:parseInt(document.getElementById('rack-levels').value,10)||3,
+        modulo: pendingRackCell.gx, row:0,
+      });
+      pendingRackCell = null;
+      document.getElementById('rack-dialog').close();
+      rebuildEditorCanvas();
+    };
+
+    showWizard();
+  }
+
+  initPixi().catch(console.error);
+})();
+</script>
+</body>
+</html>
