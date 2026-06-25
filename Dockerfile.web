@@ -4,10 +4,14 @@
 # =============================================================================
 
 FROM node:22-bookworm-slim AS base
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@10.18.3 --activate
 WORKDIR /app
 
 FROM base AS deps
+ENV CI=true
 
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/api/package.json ./apps/api/
@@ -20,7 +24,8 @@ COPY packages/typescript-config/package.json ./packages/typescript-config/
 COPY packages/ui/package.json ./packages/ui/
 
 RUN pnpm --version \
-  && pnpm install --frozen-lockfile --ignore-scripts --filter web...
+  && pnpm fetch --frozen-lockfile \
+  && pnpm install --offline --frozen-lockfile --ignore-scripts --filter web...
 
 FROM deps AS builder
 

@@ -16,7 +16,7 @@ fi
 
 if [ ! -d node_modules/.pnpm ] || [ ! -f node_modules/.modules.yaml ]; then
   echo "Installing dependencies..."
-  pnpm install --frozen-lockfile
+  pnpm install --frozen-lockfile --ignore-scripts
   pnpm --filter @lilog/contracts build
 fi
 
