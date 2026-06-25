@@ -1,5 +1,9 @@
 version: '3.8'
 
+# ATENÇÃO — Portainer em PRODUÇÃO: use docker-compose.yml (NÃO este arquivo).
+# Este compose é para desenvolvimento local (1 container com todos os apps).
+# Em produção: api + web + pwa + pwa-lideranca + redis via docker-compose.yml.
+#
 # Desenvolvimento — código embutido na imagem (funciona no Portainer após rebuild).
 # Para hot-reload local, use também docker-compose.dev.local.yml:
 #   docker compose -f docker-compose.dev.yml -f docker-compose.dev.local.yml up --build
