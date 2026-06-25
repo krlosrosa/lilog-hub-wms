@@ -1,0 +1,11 @@
+# Override local — monta o código do host para hot-reload.
+# Usage: docker compose -f docker-compose.dev.yml -f docker-compose.dev.local.yml up --build
+
+services:
+  devrunner:
+    volumes:
+      - .:/app
+      - dev_node_modules:/app/node_modules
+
+volumes:
+  dev_node_modules:

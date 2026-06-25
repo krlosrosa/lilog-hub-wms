@@ -1,5 +1,11 @@
 version: '3.8'
 
+# Desenvolvimento — código embutido na imagem (funciona no Portainer após rebuild).
+# Para hot-reload local, use também docker-compose.dev.local.yml:
+#   docker compose -f docker-compose.dev.yml -f docker-compose.dev.local.yml up --build
+#
+# No Portainer (produção), prefira docker-compose.yml.
+
 services:
   devrunner:
     build:
@@ -7,9 +13,6 @@ services:
       dockerfile: Dockerfile.dev
     container_name: lilog-dev
     restart: unless-stopped
-    volumes:
-      - .:/app
-      - dev_node_modules:/app/node_modules
     ports:
       - '3001:3001'
       - '3000:3000'
@@ -52,5 +55,4 @@ services:
       - redis_dev_data:/data
 
 volumes:
-  dev_node_modules:
   redis_dev_data:
