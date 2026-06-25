@@ -45,5 +45,6 @@ import { UnidadeModule } from './unidade.module.js';
       useClass: ConfiguracaoOperacionalService,
     },
   ],
+  exports: [CONFIGURACAO_OPERACIONAL_REPOSITORY],
 })
 export class OperacionalModule {}

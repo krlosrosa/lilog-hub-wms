@@ -22,7 +22,6 @@ import { ListPreRecebimentosUseCase } from '../../application/usecases/recebimen
 import { ListRecebimentosUseCase } from '../../application/usecases/recebimento/list-recebimentos.usecase.js';
 import { UpdatePreRecebimentoUseCase } from '../../application/usecases/recebimento/update-pre-recebimento.usecase.js';
 import { CONFERENCIA_REPOSITORY } from '../../domain/repositories/recebimento/conferencia.repository.js';
-import { USER_REPOSITORY } from '../../domain/repositories/user/user.repository.js';
 import { PRE_RECEBIMENTO_REPOSITORY } from '../../domain/repositories/recebimento/pre-recebimento.repository.js';
 import { RECEBIMENTO_AVARIA_REPOSITORY } from '../../domain/repositories/recebimento/recebimento-avaria.repository.js';
 import { RECEBIMENTO_REPOSITORY } from '../../domain/repositories/recebimento/recebimento.repository.js';
@@ -48,7 +47,6 @@ import { ListRecebimentosController } from '../../presentation/controllers/receb
 import { UpdatePreRecebimentoController } from '../../presentation/controllers/recebimento/update-pre-recebimento.controller.js';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard.js';
 import { ConferenciaService } from '../db/recebimento/conferencia.service.js';
-import { UserService } from '../db/user/user.service.js';
 import { PreRecebimentoService } from '../db/recebimento/pre-recebimento.service.js';
 import { RecebimentoAvariaService } from '../db/recebimento/recebimento-avaria.service.js';
 import { RecebimentoService } from '../db/recebimento/recebimento.service.js';
@@ -61,6 +59,7 @@ import { ArmazenagemModule } from './armazenagem.module.js';
 import { FuncionarioModule } from './funcionario.module.js';
 import { ProdutoModule } from './produto.module.js';
 import { UnidadeModule } from './unidade.module.js';
+import { UserModule } from './user.module.js';
 
 @Module({
   imports: [
@@ -73,6 +72,7 @@ import { UnidadeModule } from './unidade.module.js';
     CncModule,
     EstoqueModule,
     ArmazenagemModule,
+    UserModule,
   ],
   controllers: [
     ListOperadorDemandasController,
@@ -134,10 +134,6 @@ import { UnidadeModule } from './unidade.module.js';
     {
       provide: RECEBIMENTO_AVARIA_REPOSITORY,
       useClass: RecebimentoAvariaService,
-    },
-    {
-      provide: USER_REPOSITORY,
-      useClass: UserService,
     },
   ],
 })

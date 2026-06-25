@@ -10,6 +10,8 @@ import { AuditLogModule } from './infra/modules/audit-log.module.js';
 
 import { BullModuleConfig } from './infra/modules/bull.module.js';
 
+import { CacheModuleConfig } from './infra/modules/cache.module.js';
+
 import { MovementRecordModule } from './infra/modules/movement-record.module.js';
 
 import { UnidadeModule } from './infra/modules/unidade.module.js';
@@ -73,6 +75,8 @@ import { DrizzleModule } from './infra/db/providers/drizzle/drizzle.module.js';
     DrizzleModule,
 
     BullModuleConfig,
+
+    CacheModuleConfig,
 
     AuthModule,
 

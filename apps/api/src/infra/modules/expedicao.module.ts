@@ -27,7 +27,6 @@ import { CLIENTE_ESPECIAL_REPOSITORY } from '../../domain/repositories/expedicao
 import { CONFIGURACAO_IMPRESSAO_REPOSITORY } from '../../domain/repositories/configuracao-impressao/configuracao-impressao.repository.js';
 import { MAPA_LOTE_REPOSITORY } from '../../domain/repositories/expedicao/mapa-lote.repository.js';
 import { TORRE_CONTROLE_REPOSITORY } from '../../domain/repositories/expedicao/torre-controle.repository.js';
-import { TRANSPORTE_REPOSITORY } from '../../domain/repositories/expedicao/transporte.repository.js';
 import { UPLOAD_LOTE_REPOSITORY } from '../../domain/repositories/expedicao/upload-lote.repository.js';
 import { AtualizarConfiguracaoImpressaoController } from '../../presentation/controllers/configuracao-impressao/atualizar-configuracao-impressao.controller.js';
 import { CriarConfiguracaoImpressaoController } from '../../presentation/controllers/configuracao-impressao/criar-configuracao-impressao.controller.js';
@@ -59,15 +58,22 @@ import { ConfiguracaoImpressaoService } from '../db/configuracao-impressao/confi
 import { MapaLoteService } from '../db/expedicao/mapa-lote.service.js';
 import { UploadLoteService } from '../db/expedicao/upload-lote.service.js';
 import { TorreControleService } from '../db/expedicao/torre-controle/torre-controle.service.js';
-import { TransporteService } from '../db/expedicao/transporte.service.js';
 import { AuthModule } from './auth.module.js';
 import { DocaModule } from './doca.module.js';
 import { ProdutoModule } from './produto.module.js';
 import { UnidadeModule } from './unidade.module.js';
+import { ExpedicaoCoreModule } from './expedicao-core.module.js';
 import { ExpedicaoTransporteQueueModule } from './expedicao-transporte-queue.module.js';
 
 @Module({
-  imports: [AuthModule, UnidadeModule, ProdutoModule, DocaModule, ExpedicaoTransporteQueueModule],
+  imports: [
+    AuthModule,
+    UnidadeModule,
+    ProdutoModule,
+    DocaModule,
+    ExpedicaoCoreModule,
+    ExpedicaoTransporteQueueModule,
+  ],
   controllers: [
     CriarUploadLoteController,
     ListarTransportesController,
@@ -126,10 +132,6 @@ import { ExpedicaoTransporteQueueModule } from './expedicao-transporte-queue.mod
     {
       provide: TORRE_CONTROLE_REPOSITORY,
       useClass: TorreControleService,
-    },
-    {
-      provide: TRANSPORTE_REPOSITORY,
-      useClass: TransporteService,
     },
     {
       provide: MAPA_LOTE_REPOSITORY,

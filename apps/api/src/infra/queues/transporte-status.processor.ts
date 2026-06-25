@@ -12,7 +12,7 @@ import {
   type SincronizarViagemRavexJobData,
 } from './expedicao-transporte.queue.js';
 
-@Processor(EXPEDICAO_TRANSPORTE_QUEUE)
+@Processor(EXPEDICAO_TRANSPORTE_QUEUE, { concurrency: 3 })
 export class TransporteStatusProcessor extends WorkerHost {
   private readonly logger = new Logger(TransporteStatusProcessor.name);
 

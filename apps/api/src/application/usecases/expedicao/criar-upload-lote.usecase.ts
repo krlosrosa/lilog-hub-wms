@@ -7,7 +7,6 @@ import {
   normalizarQuantidadeRemessaItem,
 } from '../../services/expedicao/normalizar-quantidade-remessa-item.js';
 import { parseRemessasXlsx } from '../../services/expedicao/parse-remessas-xlsx.js';
-import { isProdutoUuid } from '../../services/expedicao/resolver-endereco-produto-slotting.js';
 import {
   UPLOAD_LOTE_REPOSITORY,
   type IUploadLoteRepository,
@@ -123,16 +122,7 @@ export class CriarUploadLoteUseCase {
       ),
     ];
 
-    const produtos = await Promise.all(
-      skus.map(async (sku) => ({
-        sku,
-        produto: await this.resolverProdutoPorCodigoRemessa(sku),
-      })),
-    );
-
-    const produtoPorSku = new Map<string, ProdutoRecord | null>(
-      produtos.map(({ sku, produto }) => [sku, produto]),
-    );
+    const produtoPorSku = await this.produtoRepository.findByCodigosRemessa(skus);
 
     const skusInvalidos = new Set<string>();
 
@@ -150,32 +140,6 @@ export class CriarUploadLoteUseCase {
     }
 
     return remessasResolvidas;
-  }
-
-  private async resolverProdutoPorCodigoRemessa(
-    codigo: string,
-  ): Promise<ProdutoRecord | null> {
-    const normalizado = codigo.trim();
-    if (!normalizado) {
-      return null;
-    }
-
-    const porSku = await this.produtoRepository.findBySku(normalizado);
-    if (porSku) {
-      return porSku;
-    }
-
-    const porProdutoId =
-      await this.produtoRepository.findByProdutoId(normalizado);
-    if (porProdutoId) {
-      return porProdutoId;
-    }
-
-    if (isProdutoUuid(normalizado)) {
-      return this.produtoRepository.findById(normalizado.toLowerCase());
-    }
-
-    return null;
   }
 
   private resolverItem(

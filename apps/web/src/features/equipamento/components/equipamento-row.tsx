@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import {
   Button,
   DropdownMenu,
@@ -37,7 +38,9 @@ type EquipamentoRowProps = {
   equipamento: EquipamentoListaItem;
 };
 
-export function EquipamentoRow({ equipamento }: EquipamentoRowProps) {
+export const EquipamentoRow = memo(function EquipamentoRow({
+  equipamento,
+}: EquipamentoRowProps) {
   const detalheHref = `/equipamento/${equipamento.id}`;
 
   return (
@@ -169,4 +172,4 @@ export function EquipamentoRow({ equipamento }: EquipamentoRowProps) {
       </td>
     </tr>
   );
-}
+});

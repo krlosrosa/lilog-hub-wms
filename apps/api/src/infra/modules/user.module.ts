@@ -44,6 +44,6 @@ import { AuthModule } from './auth.module.js';
       useClass: FuncionarioService,
     },
   ],
-  exports: [CreateUserUseCase],
+  exports: [CreateUserUseCase, USER_REPOSITORY, FUNCIONARIO_REPOSITORY],
 })
 export class UserModule {}

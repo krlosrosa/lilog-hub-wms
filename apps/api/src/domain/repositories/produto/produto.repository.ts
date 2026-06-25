@@ -51,6 +51,7 @@ export interface IProdutoRepository {
   findById(id: string): Promise<ProdutoRecord | null>;
   findBySku(sku: string): Promise<ProdutoRecord | null>;
   findByProdutoId(produtoId: string): Promise<ProdutoRecord | null>;
+  findByCodigosRemessa(codigos: string[]): Promise<Map<string, ProdutoRecord | null>>;
   create(data: CreateProdutoInput): Promise<ProdutoRecord>;
   bulkCreate(items: CreateProdutoInput[]): Promise<{ importados: number; duplicados: number }>;
   update(id: string, data: UpdateProdutoInput): Promise<ProdutoRecord | null>;

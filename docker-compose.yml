@@ -9,8 +9,10 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
+      NODE_OPTIONS: '--max-old-space-size=768'
       PORT: ${PORT:-3001}
       DATABASE_URL: ${DATABASE_URL}
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
       JWT_SECRET: ${JWT_SECRET}
       CORS_ORIGIN: ${CORS_ORIGIN}
       REDIS_HOST: ${REDIS_HOST:-redis}
@@ -37,6 +39,13 @@ services:
     networks:
       - proxy
       - internal
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1024M
+        reservations:
+          memory: 512M
     labels:
       - traefik.enable=true
       - traefik.http.routers.lilog-api.rule=Host(`${API_HOST}`)
@@ -57,6 +66,13 @@ services:
       PORT: 3000
     networks:
       - proxy
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 768M
+        reservations:
+          memory: 384M
     labels:
       - traefik.enable=true
       - traefik.http.routers.lilog-web.rule=Host(`${WEB_HOST}`)
@@ -75,6 +91,11 @@ services:
     restart: unless-stopped
     networks:
       - proxy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     labels:
       - traefik.enable=true
       - traefik.http.routers.lilog-pwa.rule=Host(`${PWA_HOST}`)
@@ -93,6 +114,11 @@ services:
     restart: unless-stopped
     networks:
       - proxy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     labels:
       - traefik.enable=true
       - traefik.http.routers.lilog-pwa-lideranca.rule=Host(`${PWA_LIDERANCA_HOST}`)
@@ -104,11 +130,22 @@ services:
     image: redis:7-alpine
     container_name: lilog-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     networks:
       - internal
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 320M
+        reservations:
+          memory: 128M
 
 networks:
   proxy:

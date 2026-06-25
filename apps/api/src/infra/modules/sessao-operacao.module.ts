@@ -20,7 +20,6 @@ import { ListSessaoFuncionariosUseCase } from '../../application/usecases/sessao
 import { ListSessoesUseCase } from '../../application/usecases/sessao-operacao/list-sessoes.usecase.js';
 import { RemoveEscalaFuncionarioUseCase } from '../../application/usecases/sessao-operacao/remove-escala-funcionario.usecase.js';
 import { UpdateSessaoFuncionarioPresencaUseCase } from '../../application/usecases/sessao-operacao/update-sessao-funcionario-presenca.usecase.js';
-import { FUNCIONARIO_REPOSITORY } from '../../domain/repositories/funcionario/funcionario.repository.js';
 import { SESSAO_OPERACAO_REPOSITORY } from '../../domain/repositories/sessao-operacao/sessao-operacao.repository.js';
 import { AbrirSessaoController } from '../../presentation/controllers/sessao-operacao/abrir-sessao.controller.js';
 import { AddEquipeFuncionarioController } from '../../presentation/controllers/sessao-operacao/add-equipe-funcionario.controller.js';
@@ -43,12 +42,12 @@ import { ListSessoesController } from '../../presentation/controllers/sessao-ope
 import { RemoveEscalaFuncionarioController } from '../../presentation/controllers/sessao-operacao/remove-escala-funcionario.controller.js';
 import { UpdateSessaoFuncionarioPresencaController } from '../../presentation/controllers/sessao-operacao/update-sessao-funcionario-presenca.controller.js';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard.js';
-import { FuncionarioService } from '../db/funcionario/funcionario.service.js';
 import { SessaoOperacaoService } from '../db/sessao-operacao/sessao-operacao.service.js';
 import { AuthModule } from './auth.module.js';
+import { FuncionarioModule } from './funcionario.module.js';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, FuncionarioModule],
   controllers: [
     ListEscalasController,
     ListEquipesController,
@@ -96,10 +95,6 @@ import { AuthModule } from './auth.module.js';
     {
       provide: SESSAO_OPERACAO_REPOSITORY,
       useClass: SessaoOperacaoService,
-    },
-    {
-      provide: FUNCIONARIO_REPOSITORY,
-      useClass: FuncionarioService,
     },
   ],
   exports: [SESSAO_OPERACAO_REPOSITORY],

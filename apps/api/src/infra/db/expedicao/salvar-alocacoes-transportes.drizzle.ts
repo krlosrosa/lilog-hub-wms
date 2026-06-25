@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type {
   SalvarAlocacoesTransportesInput,
@@ -39,40 +39,69 @@ export async function salvarAlocacoesTransportesDb(
   const now = new Date();
 
   await db.transaction(async (tx) => {
-    for (const alocacao of alocacoesValidas) {
-      await tx
-        .update(transportes)
-        .set({
-          status: 'alocado',
-          placa: alocacao.placa,
-          transportadora: alocacao.transportadora,
-          motorista: alocacao.motorista?.trim() || null,
-          perfilPagamentoId: alocacao.perfilPagamentoId ?? null,
-          perfilPagamentoNome: alocacao.perfilPagamentoNome?.trim() || null,
-          freteSemCusto: alocacao.semCusto ?? false,
-          itinerario: alocacao.itinerario?.trim() || null,
-          nivelPrioridade: alocacao.nivelPrioridade ?? null,
-          horarioExpectativaSaida: alocacao.horarioExpectativaSaida
+    const valueRows = alocacoesValidas.map(
+      (alocacao) => sql`(
+        ${alocacao.transporteId}::uuid,
+        ${'alocado'},
+        ${alocacao.placa},
+        ${alocacao.transportadora},
+        ${alocacao.motorista?.trim() || null},
+        ${alocacao.perfilPagamentoId ?? null},
+        ${alocacao.perfilPagamentoNome?.trim() || null},
+        ${alocacao.semCusto ?? false},
+        ${alocacao.itinerario?.trim() || null},
+        ${alocacao.nivelPrioridade ?? null},
+        ${
+          alocacao.horarioExpectativaSaida
             ? new Date(alocacao.horarioExpectativaSaida)
-            : null,
-          ...(alocacao.cidade !== undefined
-            ? { cidade: alocacao.cidade.trim() }
-            : {}),
-          ...(alocacao.bairro !== undefined
-            ? { bairro: alocacao.bairro?.trim() || null }
-            : {}),
-          ...(alocacao.isPrioridade !== undefined
-            ? { isPrioridade: alocacao.isPrioridade }
-            : {}),
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(transportes.id, alocacao.transporteId),
-            eq(transportes.unidadeId, input.unidadeId),
-          ),
-        );
-    }
+            : null
+        },
+        ${alocacao.cidade !== undefined ? alocacao.cidade.trim() : null},
+        ${alocacao.bairro !== undefined ? alocacao.bairro?.trim() || null : null},
+        ${alocacao.isPrioridade ?? null},
+        ${now}
+      )`,
+    );
+
+    await tx.execute(sql`
+      UPDATE ${transportes} AS t
+      SET
+        status = v.status,
+        placa = v.placa,
+        transportadora = v.transportadora,
+        motorista = v.motorista,
+        perfil_pagamento_id = v.perfil_pagamento_id,
+        perfil_pagamento_nome = v.perfil_pagamento_nome,
+        frete_sem_custo = v.frete_sem_custo,
+        itinerario = v.itinerario,
+        nivel_prioridade = v.nivel_prioridade,
+        horario_expectativa_saida = v.horario_expectativa_saida,
+        cidade = COALESCE(v.cidade, t.cidade),
+        bairro = COALESCE(v.bairro, t.bairro),
+        is_prioridade = COALESCE(v.is_prioridade, t.is_prioridade),
+        updated_at = v.updated_at
+      FROM (
+        VALUES ${sql.join(valueRows, sql`, `)}
+      ) AS v(
+        id,
+        status,
+        placa,
+        transportadora,
+        motorista,
+        perfil_pagamento_id,
+        perfil_pagamento_nome,
+        frete_sem_custo,
+        itinerario,
+        nivel_prioridade,
+        horario_expectativa_saida,
+        cidade,
+        bairro,
+        is_prioridade,
+        updated_at
+      )
+      WHERE t.id = v.id
+        AND t.unidade_id = ${input.unidadeId}
+    `);
   });
 
   return { atualizados: alocacoesValidas.length };

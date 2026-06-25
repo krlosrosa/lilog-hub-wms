@@ -2,13 +2,14 @@ import 'reflect-metadata';
 
 import { RequestMethod } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { JwtService } from '@nestjs/jwt';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import {
-  FastifyAdapter,
-} from '@nestjs/platform-fastify';
+import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import compress from '@fastify/compress';
 import fastifyCookie from '@fastify/cookie';
+import helmet from '@fastify/helmet';
 import fastifyMultipart from '@fastify/multipart';
 import { cleanupOpenApiDoc, ZodValidationPipe } from 'nestjs-zod';
 
@@ -44,6 +45,8 @@ async function bootstrap() {
     new FastifyAdapter(),
   );
 
+  app.enableShutdownHooks();
+
   const configService = app.get(ConfigService);
 
   app.setGlobalPrefix('api', {
@@ -52,6 +55,9 @@ async function bootstrap() {
       { path: 'queues/(.*)', method: RequestMethod.ALL },
     ],
   });
+
+  await app.register(compress, { encodings: ['gzip', 'br'] });
+  await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(fastifyCookie);
   await app.register(fastifyMultipart, {
     limits: {
@@ -67,6 +73,7 @@ async function bootstrap() {
       done(null, body);
     },
   );
+
   const rawOrigins = configService.get<string>(
     'CORS_ORIGIN',
     'http://localhost:3000,http://localhost:5174,http://localhost:5175',
@@ -74,6 +81,35 @@ async function bootstrap() {
   const allowedOrigins = rawOrigins.split(',').map((o) => o.trim());
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
   const isDevelopment = nodeEnv !== 'production';
+
+  if (!isDevelopment) {
+    const jwtService = app.get(JwtService);
+
+    fastify.addHook('onRequest', async (request, reply) => {
+      if (!request.url.startsWith('/queues')) {
+        return;
+      }
+
+      const cookies = request.cookies as Record<string, string> | undefined;
+      const bearer = request.headers.authorization?.replace(/^Bearer\s+/i, '');
+      const token = cookies?.access_token ?? bearer;
+
+      if (!token) {
+        reply.code(401).send({ message: 'Unauthorized' });
+        return;
+      }
+
+      try {
+        const payload = await jwtService.verifyAsync<{ role?: string }>(token);
+
+        if (payload.role !== 'admin') {
+          reply.code(403).send({ message: 'Forbidden' });
+        }
+      } catch {
+        reply.code(401).send({ message: 'Unauthorized' });
+      }
+    });
+  }
 
   app.enableCors({
     origin: (origin, cb) => {
@@ -94,38 +130,42 @@ async function bootstrap() {
   app.useGlobalPipes(new ZodValidationPipe());
   app.useGlobalInterceptors(app.get(AuditInterceptor));
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Lilog Hub API')
-    .setDescription(
-      'API do Sistema Logístico Lilog Hub — estoque, expedição, transporte e operações de centro de distribuição.',
-    )
-    .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'Authorization',
-        in: 'header',
-      },
-      'access-token',
-    )
-    .build();
+  if (isDevelopment) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Lilog Hub API')
+      .setDescription(
+        'API do Sistema Logístico Lilog Hub — estoque, expedição, transporte e operações de centro de distribuição.',
+      )
+      .setVersion('1.0')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          name: 'Authorization',
+          in: 'header',
+        },
+        'access-token',
+      )
+      .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, cleanupOpenApiDoc(document), {
-    swaggerOptions: {
-      persistAuthorization: true,
-      tagsSorter: 'alpha',
-      operationsSorter: 'alpha',
-    },
-  });
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, cleanupOpenApiDoc(document), {
+      swaggerOptions: {
+        persistAuthorization: true,
+        tagsSorter: 'alpha',
+        operationsSorter: 'alpha',
+      },
+    });
+  }
 
   const port = configService.get<number>('PORT', 3001);
   await app.listen(port, '0.0.0.0');
 
   console.log(`API running on http://localhost:${port}/api`);
-  console.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  if (isDevelopment) {
+    console.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  }
   console.log(`Bull Board at http://localhost:${port}/queues`);
 }
 

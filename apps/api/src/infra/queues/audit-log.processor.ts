@@ -9,7 +9,7 @@ import {
   type RegistrarAuditJobData,
 } from './audit-log.queue.js';
 
-@Processor(AUDIT_LOG_QUEUE)
+@Processor(AUDIT_LOG_QUEUE, { concurrency: 5 })
 export class AuditLogProcessor extends WorkerHost {
   private readonly logger = new Logger(AuditLogProcessor.name);
 

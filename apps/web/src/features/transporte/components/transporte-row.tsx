@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import {
   Button,
   DropdownMenu,
@@ -139,7 +140,7 @@ type TransporteRowProps = {
   onExcluir?: (transporte: TransporteGrupo) => void;
 };
 
-export function TransporteRow({
+export const TransporteRow = memo(function TransporteRow({
   transporte,
   selecionado,
   expandido,
@@ -539,4 +540,4 @@ export function TransporteRow({
       )}
     </>
   );
-}
+});

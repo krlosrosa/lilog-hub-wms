@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 
 import { cn } from '@lilog/ui';
@@ -26,7 +27,7 @@ type ConferenciaRowProps = {
   onToggleExpand: (itemId: string) => void;
 };
 
-export function ConferenciaRow({
+export const ConferenciaRow = memo(function ConferenciaRow({
   item,
   isExpanded,
   onToggleExpand,
@@ -200,4 +201,4 @@ export function ConferenciaRow({
       ) : null}
     </>
   );
-}
+});

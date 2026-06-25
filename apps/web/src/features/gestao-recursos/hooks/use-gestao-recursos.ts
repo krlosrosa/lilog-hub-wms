@@ -33,6 +33,7 @@ import {
   iniciarSessaoFuncionarioPausa,
 } from '@/features/sessao-operacao/lib/sessao-operacao-api';
 import { ApiClientError } from '@/lib/api';
+import { useVisibleInterval } from '@/lib/use-visible-interval';
 
 const POLL_INTERVAL_MS = 30_000;
 const LIVE_TICK_MS = 1_000;
@@ -345,25 +346,23 @@ export function useGestaoRecursos(options?: {
     void loadRecursosFromApi();
   }, [loadRecursosFromApi]);
 
-  useEffect(() => {
-    if (!sessaoAtiva) return;
-
-    const interval = setInterval(() => {
+  useVisibleInterval(
+    () => {
       void loadRecursosFromApi();
-    }, POLL_INTERVAL_MS);
+    },
+    POLL_INTERVAL_MS,
+    Boolean(sessaoAtiva),
+  );
 
-    return () => clearInterval(interval);
-  }, [sessaoAtiva, loadRecursosFromApi]);
-
-  useEffect(() => {
-    if (!lastApiResponse) return;
-
-    const interval = setInterval(() => {
-      applyApiResponse(lastApiResponse, new Date());
-    }, LIVE_TICK_MS);
-
-    return () => clearInterval(interval);
-  }, [lastApiResponse, applyApiResponse]);
+  useVisibleInterval(
+    () => {
+      if (lastApiResponse) {
+        applyApiResponse(lastApiResponse, new Date());
+      }
+    },
+    LIVE_TICK_MS,
+    Boolean(lastApiResponse),
+  );
 
   useEffect(() => {
     if (!sessaoAtiva) {

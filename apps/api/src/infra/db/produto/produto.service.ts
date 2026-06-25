@@ -21,6 +21,7 @@ import {
   findProdutoByProdutoIdDb,
   findProdutoBySkuDb,
 } from './find-produto.drizzle.js';
+import { findProdutosByCodigosRemessaDb } from './find-produtos-by-codigos-remessa.drizzle.js';
 import { listProdutosDb } from './list-produtos.drizzle.js';
 import { updateProdutoDb } from './update-produto.drizzle.js';
 
@@ -44,6 +45,10 @@ export class ProdutoService implements IProdutoRepository {
 
   findByProdutoId(produtoId: string) {
     return findProdutoByProdutoIdDb(this.db, produtoId);
+  }
+
+  findByCodigosRemessa(codigos: string[]) {
+    return findProdutosByCodigosRemessaDb(this.db, codigos);
   }
 
   create(data: CreateProdutoInput) {

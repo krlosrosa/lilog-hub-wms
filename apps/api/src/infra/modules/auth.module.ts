@@ -41,6 +41,6 @@ import { USER_REPOSITORY } from '../../domain/repositories/user/user.repository.
     ListMyUnidadesUseCase,
     { provide: USER_REPOSITORY, useClass: UserService },
   ],
-  exports: [JwtModule, PassportModule, JwtStrategy],
+  exports: [JwtModule, PassportModule, JwtStrategy, USER_REPOSITORY],
 })
 export class AuthModule {}

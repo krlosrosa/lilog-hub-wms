@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useUnidadeContext } from '@/contexts/unidade-context';
 import { ApiClientError } from '@/lib/api';
+import { useVisibleInterval } from '@/lib/use-visible-interval';
 import { listTransportes } from '@/features/transporte/lib/expedicao-api';
 import { mapTransportesApiToGrupos } from '@/features/transporte/lib/map-transporte-api';
 import { ordenarTransportesPorCriticidade } from '@/features/torre-controle-expedicao/lib/calcular-criticidade';
@@ -245,14 +246,11 @@ export function useTorreControleExpedicao() {
     void carregarSnapshot(uploadLoteIdRef.current);
   }, [carregarSnapshot]);
 
-  useEffect(() => {
-    if (!autoRefresh || isLoading || fonteDados !== 'api') {
-      return;
-    }
-
-    const timer = window.setInterval(refresh, REFRESH_INTERVAL_MS);
-    return () => window.clearInterval(timer);
-  }, [autoRefresh, fonteDados, isLoading, refresh]);
+  useVisibleInterval(
+    refresh,
+    REFRESH_INTERVAL_MS,
+    autoRefresh && !isLoading && fonteDados === 'api',
+  );
 
   const transportesRisco = useMemo(
     () => ordenarTransportesPorCriticidade(snapshot.transportes),

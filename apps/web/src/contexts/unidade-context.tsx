@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react';
@@ -103,10 +104,13 @@ export function UnidadeProvider({ children }: { children: ReactNode }) {
     setUnidadeSelecionada(null);
   }, []);
 
+  const value = useMemo(
+    () => ({ unidadeSelecionada, isResolved, setUnidade, clearUnidade }),
+    [unidadeSelecionada, isResolved, setUnidade, clearUnidade],
+  );
+
   return (
-    <UnidadeContext.Provider
-      value={{ unidadeSelecionada, isResolved, setUnidade, clearUnidade }}
-    >
+    <UnidadeContext.Provider value={value}>
       {children}
     </UnidadeContext.Provider>
   );
