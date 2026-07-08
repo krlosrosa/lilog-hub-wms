@@ -41,6 +41,9 @@ COPY apps ./apps
 COPY packages ./packages
 COPY scripts ./scripts
 
+# Recria symlinks de node_modules nos workspaces após o COPY apps (sem isso, next/vite não são encontrados)
+RUN pnpm install --offline --frozen-lockfile --ignore-scripts
+
 RUN pnpm --filter @lilog/contracts build
 
 COPY scripts/docker-dev-entrypoint.sh /usr/local/bin/docker-dev-entrypoint.sh

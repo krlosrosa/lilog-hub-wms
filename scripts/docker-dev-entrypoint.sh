@@ -15,6 +15,18 @@ if [ ! -f package.json ]; then
 fi
 
 if [ ! -d node_modules/.pnpm ] || [ ! -f node_modules/.modules.yaml ]; then
+  need_install=true
+else
+  need_install=false
+  for app in api web pwa pwa-lideranca portal-terceiros; do
+    if [ -f "apps/$app/package.json" ] && [ ! -e "apps/$app/node_modules" ]; then
+      need_install=true
+      break
+    fi
+  done
+fi
+
+if [ "$need_install" = true ]; then
   echo "Installing dependencies..."
   pnpm install --frozen-lockfile --ignore-scripts
   pnpm --filter @lilog/contracts build
