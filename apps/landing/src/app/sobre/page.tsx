@@ -1,7 +1,13 @@
 import type { Metadata } from 'next';
 
 import { PageShell } from '@/components/page-shell';
-import { SITE_NAME } from '@/lib/site-config';
+import {
+  COMPANY_ADDRESS_DISPLAY,
+  CONTACT_EMAIL,
+  CONTACT_PHONE,
+  CONTACT_PHONE_DISPLAY,
+  SITE_NAME,
+} from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Sobre',
@@ -63,6 +69,36 @@ export default function SobrePage() {
             em gestão logística, WMS e automação de processos operacionais para clientes
             profissionais.
           </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold text-foreground">Informações da empresa</h2>
+          <dl className="space-y-2 text-sm">
+            <div>
+              <dt className="font-medium text-foreground">Razão social / Produto</dt>
+              <dd>{SITE_NAME}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-foreground">Endereço</dt>
+              <dd>{COMPANY_ADDRESS_DISPLAY}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-foreground">E-mail</dt>
+              <dd>
+                <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">
+                  {CONTACT_EMAIL}
+                </a>
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-foreground">Telefone</dt>
+              <dd>
+                <a href={`tel:${CONTACT_PHONE}`} className="text-primary hover:underline">
+                  {CONTACT_PHONE_DISPLAY}
+                </a>
+              </dd>
+            </div>
+          </dl>
         </section>
       </div>
     </PageShell>

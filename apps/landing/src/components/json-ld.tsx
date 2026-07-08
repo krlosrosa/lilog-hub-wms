@@ -1,4 +1,9 @@
 import {
+  COMPANY_ADDRESS_CITY,
+  COMPANY_ADDRESS_COUNTRY,
+  COMPANY_ADDRESS_STATE,
+  COMPANY_ADDRESS_STREET,
+  COMPANY_ADDRESS_ZIP,
   CONTACT_EMAIL,
   CONTACT_PHONE,
   SITE_DESCRIPTION,
@@ -16,6 +21,16 @@ export function JsonLd() {
     logo: `${SITE_URL}/favicon.svg`,
     description: SITE_DESCRIPTION,
     email: CONTACT_EMAIL,
+    telephone: CONTACT_PHONE,
+    areaServed: COMPANY_ADDRESS_COUNTRY,
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: COMPANY_ADDRESS_STREET,
+      addressLocality: COMPANY_ADDRESS_CITY,
+      addressRegion: COMPANY_ADDRESS_STATE,
+      postalCode: COMPANY_ADDRESS_ZIP,
+      addressCountry: COMPANY_ADDRESS_COUNTRY,
+    },
     contactPoint: [
       {
         '@type': 'ContactPoint',

@@ -2,7 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { PageShell } from '@/components/page-shell';
-import { CONTACT_EMAIL, SITE_NAME } from '@/lib/site-config';
+import {
+  COMPANY_ADDRESS_DISPLAY,
+  CONTACT_EMAIL,
+  CONTACT_PHONE_DISPLAY,
+  SITE_NAME,
+} from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Termos de Uso',
@@ -29,7 +34,26 @@ export default function TermosDeUsoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">2. Descrição do serviço</h2>
+          <h2 className="text-lg font-semibold text-foreground">2. Identificação da empresa</h2>
+          <p>
+            Estes Termos de Uso são oferecidos pela {SITE_NAME}, com as seguintes
+            informações de identificação:
+          </p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>Empresa / Produto: {SITE_NAME}</li>
+            <li>Endereço: {COMPANY_ADDRESS_DISPLAY}</li>
+            <li>
+              E-mail:{' '}
+              <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">
+                {CONTACT_EMAIL}
+              </a>
+            </li>
+            <li>Telefone: {CONTACT_PHONE_DISPLAY}</li>
+          </ul>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-foreground">3. Descrição do serviço</h2>
           <p>
             A {SITE_NAME} oferece software SaaS para gestão logística e operações de
             armazém, incluindo módulos de recebimento, armazenagem, inventário, expedição
@@ -38,7 +62,7 @@ export default function TermosDeUsoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">3. Uso permitido</h2>
+          <h2 className="text-lg font-semibold text-foreground">4. Uso permitido</h2>
           <p>O usuário compromete-se a:</p>
           <ul className="list-disc space-y-2 pl-5">
             <li>Utilizar a plataforma apenas para fins empresariais legítimos</li>
@@ -49,7 +73,7 @@ export default function TermosDeUsoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">4. Propriedade intelectual</h2>
+          <h2 className="text-lg font-semibold text-foreground">5. Propriedade intelectual</h2>
           <p>
             Todo o conteúdo, marca, software e documentação da {SITE_NAME} são protegidos
             por direitos de propriedade intelectual. É vedada a reprodução não autorizada.
@@ -57,7 +81,7 @@ export default function TermosDeUsoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">5. Disponibilidade</h2>
+          <h2 className="text-lg font-semibold text-foreground">6. Disponibilidade</h2>
           <p>
             Empregamos esforços comerciais razoáveis para manter a plataforma disponível.
             Manutenções programadas ou indisponibilidades temporárias podem ocorrer, com
@@ -66,7 +90,7 @@ export default function TermosDeUsoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">6. Limitação de responsabilidade</h2>
+          <h2 className="text-lg font-semibold text-foreground">7. Limitação de responsabilidade</h2>
           <p>
             A {SITE_NAME} não se responsabiliza por danos indiretos decorrentes do uso
             indevido da plataforma ou de integrações não autorizadas, dentro dos limites
@@ -75,7 +99,7 @@ export default function TermosDeUsoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">7. Privacidade</h2>
+          <h2 className="text-lg font-semibold text-foreground">8. Privacidade</h2>
           <p>
             O tratamento de dados pessoais é regido pela nossa{' '}
             <Link
@@ -89,7 +113,7 @@ export default function TermosDeUsoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">8. Contato</h2>
+          <h2 className="text-lg font-semibold text-foreground">9. Contato</h2>
           <p>
             Para questões sobre estes termos:{' '}
             <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">

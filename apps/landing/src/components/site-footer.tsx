@@ -1,6 +1,14 @@
 import Link from 'next/link';
 
-import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_PHONE_DISPLAY, NAV_LINKS, SITE_NAME, SITE_TAGLINE } from '@/lib/site-config';
+import {
+  COMPANY_ADDRESS_DISPLAY,
+  CONTACT_EMAIL,
+  CONTACT_PHONE,
+  CONTACT_PHONE_DISPLAY,
+  NAV_LINKS,
+  SITE_NAME,
+  SITE_TAGLINE,
+} from '@/lib/site-config';
 
 export function SiteFooter() {
   const currentYear = new Date().getFullYear();
@@ -54,6 +62,7 @@ export function SiteFooter() {
                   {CONTACT_PHONE_DISPLAY}
                 </a>
               </li>
+              <li>{COMPANY_ADDRESS_DISPLAY}</li>
               <li>Segmento: Business and Economy / Software Empresarial</li>
               <li>Público-alvo: empresas de logística e operações de armazém</li>
             </ul>

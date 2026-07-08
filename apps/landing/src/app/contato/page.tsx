@@ -1,7 +1,14 @@
 import type { Metadata } from 'next';
 
 import { PageShell } from '@/components/page-shell';
-import { ADMIN_URL, CONTACT_EMAIL, CONTACT_PHONE, CONTACT_PHONE_DISPLAY, SITE_NAME } from '@/lib/site-config';
+import {
+  ADMIN_URL,
+  COMPANY_ADDRESS_DISPLAY,
+  CONTACT_EMAIL,
+  CONTACT_PHONE,
+  CONTACT_PHONE_DISPLAY,
+  SITE_NAME,
+} from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Contato',
@@ -46,6 +53,10 @@ export default function ContatoPage() {
                   {CONTACT_PHONE_DISPLAY}
                 </a>
               </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-foreground">Endereço</dt>
+              <dd className="text-muted-foreground">{COMPANY_ADDRESS_DISPLAY}</dd>
             </div>
             <div>
               <dt className="font-medium text-foreground">Segmento</dt>

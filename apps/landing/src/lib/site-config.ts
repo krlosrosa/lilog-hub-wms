@@ -30,6 +30,14 @@ export const CONTACT_PHONE = '+5521979617942';
 
 export const CONTACT_PHONE_DISPLAY = '+55 21 97961-7942';
 
+export const COMPANY_ADDRESS_STREET = 'Rua Frei Mauro Chagas, 49';
+export const COMPANY_ADDRESS_CITY = 'Duque de Caxias';
+export const COMPANY_ADDRESS_STATE = 'RJ';
+export const COMPANY_ADDRESS_ZIP = '25040-020';
+export const COMPANY_ADDRESS_COUNTRY = 'BR';
+export const COMPANY_ADDRESS_DISPLAY =
+  'Rua Frei Mauro Chagas, 49 — Duque de Caxias, RJ, 25040-020';
+
 export const ADMIN_URL =
   process.env.NEXT_PUBLIC_ADMIN_URL ?? 'https://admin.logistica-processo.com';
 
