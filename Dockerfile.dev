@@ -26,6 +26,7 @@ COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY apps/pwa/package.json ./apps/pwa/
 COPY apps/pwa-lideranca/package.json ./apps/pwa-lideranca/
+COPY apps/portal-terceiros/package.json ./apps/portal-terceiros/
 COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
@@ -45,7 +46,7 @@ RUN pnpm --filter @lilog/contracts build
 COPY scripts/docker-dev-entrypoint.sh /usr/local/bin/docker-dev-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-dev-entrypoint.sh
 
-EXPOSE 3000 3001 5174 5175
+EXPOSE 3000 3001 3002 5174 5175
 
 ENTRYPOINT ["docker-dev-entrypoint.sh"]
 CMD ["pnpm", "dev"]
