@@ -29,7 +29,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   transpilePackages: ['@lilog/ui'],
   experimental: {
     optimizePackageImports: ['@lilog/ui', 'lucide-react'],
