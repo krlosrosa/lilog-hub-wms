@@ -48,6 +48,19 @@ function isDevCorsOrigin(origin: string): boolean {
   }
 }
 
+/** Staging/dev no Docker: frontends em https://*.logistica-processo.com (porta 443). */
+function isLogisticaStagingOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return (
+      url.protocol === 'https:' &&
+      url.hostname.endsWith('.logistica-processo.com')
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
@@ -125,7 +138,8 @@ async function bootstrap() {
       if (
         !origin ||
         allowedOrigins.includes(origin) ||
-        (isDevelopment && isDevCorsOrigin(origin))
+        (isDevelopment && isDevCorsOrigin(origin)) ||
+        (isDevelopment && isLogisticaStagingOrigin(origin))
       ) {
         cb(null, true);
       } else {
