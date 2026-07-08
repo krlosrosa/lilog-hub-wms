@@ -1,10 +1,13 @@
 import { getEndereco } from '@/features/enderecos/lib/endereco-api';
 import { getProduto } from '@/features/produto/lib/produto-api';
 
-import type { ItemArmazenagemView } from '../types/armazenagem.api';
+import type {
+  ItemArmazenagemApi,
+  ItemArmazenagemView,
+} from '../types/armazenagem.api';
 
 export async function enrichItemArmazenagem(
-  item: ItemArmazenagemView,
+  item: ItemArmazenagemApi,
 ): Promise<ItemArmazenagemView> {
   const [produto, enderecoSugerido, enderecoConfirmado] = await Promise.all([
     getProduto(item.produtoId).catch(() => null),

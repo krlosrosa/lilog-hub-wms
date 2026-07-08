@@ -83,6 +83,7 @@ export function useRegraEnderecamentoCadastro({
       return;
     }
 
+    const id = regraId;
     let cancelled = false;
 
     async function carregarRegra() {
@@ -90,7 +91,7 @@ export function useRegraEnderecamentoCadastro({
       setNotFound(false);
 
       try {
-        const response = await getRegraEnderecamento(regraId);
+        const response = await getRegraEnderecamento(id);
         if (cancelled) {
           return;
         }

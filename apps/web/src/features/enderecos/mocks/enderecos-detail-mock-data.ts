@@ -15,7 +15,6 @@ import type {
 
 export const MOCK_CONFIGURACAO_DEFAULT: EnderecoConfiguracaoFormValues = {
   enderecoMascarado: 'A 004 0001 05',
-  centroId: '00000000-0000-0000-0000-000000000001',
   zona: 'A',
   rua: '004',
   posicao: '0001',

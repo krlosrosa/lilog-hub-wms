@@ -79,7 +79,10 @@ export type ListDemandasArmazenagemApiResponse = {
   limit: number;
 };
 
-export type ItemArmazenagemView = ItemArmazenagemApi & {
+export type ItemArmazenagemView = Omit<
+  ItemArmazenagemApi,
+  'produtoSku' | 'produtoNome' | 'enderecoSugeridoLabel'
+> & {
   produtoSku?: string;
   produtoNome?: string;
   unitizadorCodigo?: string | null;

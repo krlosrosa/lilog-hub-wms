@@ -164,7 +164,7 @@ export function ProdutoEnderecoFormModal({
   }, [open, editingItem, defaultCentroId, form]);
 
   useEffect(() => {
-    if (!open || !centroId) {
+    if (!open || !unidadeId) {
       setEnderecoOpcoes([]);
       return;
     }
@@ -173,7 +173,7 @@ export function ProdutoEnderecoFormModal({
 
     setCarregandoEnderecos(true);
     void Promise.all(
-      tipos.map((tipo) => listEnderecos({ centroId, tipo, limit: 100 })),
+      tipos.map((tipo) => listEnderecos({ unidadeId, tipo, limit: 100 })),
     )
       .then((responses) => {
         const seen = new Set<string>();
@@ -195,7 +195,7 @@ export function ProdutoEnderecoFormModal({
         setEnderecoOpcoes([]);
       })
       .finally(() => setCarregandoEnderecos(false));
-  }, [open, centroId, papel]);
+  }, [open, unidadeId, papel]);
 
   useEffect(() => {
     if (!open || isEdit) return;
