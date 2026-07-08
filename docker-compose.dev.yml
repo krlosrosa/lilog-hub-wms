@@ -57,7 +57,7 @@ services:
       - proxy
     labels:
       - traefik.enable=true
-      - traefik.http.routers.portal-terceiros.rule=Host(`${PORTAL_HOST:-portal.seudominio.com.br}`)
+      - traefik.http.routers.portal-terceiros.rule=Host(`${PORTAL_HOST}`)
       - traefik.http.routers.portal-terceiros.service=portal-terceiros
       - traefik.http.routers.portal-terceiros.entrypoints=websecure
       - traefik.http.routers.portal-terceiros.tls.certresolver=cloudflare

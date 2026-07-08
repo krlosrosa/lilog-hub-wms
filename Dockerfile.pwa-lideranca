@@ -29,7 +29,7 @@ RUN pnpm --version \
 
 FROM deps AS builder
 
-ARG VITE_API_URL=https://api.seudominio.com.br/api
+ARG VITE_API_URL=https://api-dev.logistica-processo.com/api
 ARG VITE_API_PORT=443
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_API_PORT=$VITE_API_PORT
