@@ -3,7 +3,8 @@ version: '3.8'
 # Produção — builds por serviço (sem infra neste compose: Redis/Traefik já existentes).
 #
 # Portainer: use "Web editor" ou Git com compose path = docker-compose-prod.yml
-# Defina DATABASE_URL, JWT_SECRET etc. nas env vars da stack.
+# Defina DATABASE_URL, JWT_SECRET etc. nas env vars da stack (não precisa de .env no servidor).
+# O env_file abaixo é opcional (required: false) — serve só se você criar .env manualmente via SSH.
 #
 # Servidor com pouca RAM: build um serviço por vez via SSH antes do deploy:
 #   docker compose -f docker-compose-prod.yml build api
@@ -19,7 +20,8 @@ services:
     container_name: lilog-api-prod
     restart: unless-stopped
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
       NODE_OPTIONS: '--max-old-space-size=768'
@@ -72,7 +74,8 @@ services:
     container_name: lilog-web-prod
     restart: unless-stopped
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -105,7 +108,8 @@ services:
     container_name: lilog-pwa-prod
     restart: unless-stopped
     env_file:
-      - .env
+      - path: .env
+        required: false
     networks:
       - proxy
     deploy:
@@ -132,7 +136,8 @@ services:
     container_name: lilog-pwa-lideranca-prod
     restart: unless-stopped
     env_file:
-      - .env
+      - path: .env
+        required: false
     networks:
       - proxy
     deploy:
@@ -158,7 +163,8 @@ services:
     container_name: lilog-portal-prod
     restart: unless-stopped
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
       PORT: 3002
