@@ -1,0 +1,7 @@
+http:
+  middlewares:
+    traefik-auth:
+      basicAuth:
+        users:
+          # admin / changeme — troque: htpasswd -nb admin sua-senha
+          - "admin:$$apr1$$8EVjn/nj$$GiLUZqcbueyyiU5H8.6o51"

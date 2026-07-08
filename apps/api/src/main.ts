@@ -170,13 +170,21 @@ async function bootstrap() {
   }
 
   const port = configService.get<number>('PORT', 3001);
+  const apiPublicUrl = configService.get<string>('API_PUBLIC_URL');
+  const swaggerPublicUrl = configService.get<string>('SWAGGER_PUBLIC_URL');
+  const bullBoardPublicUrl = configService.get<string>('BULL_BOARD_PUBLIC_URL');
   await app.listen(port, '0.0.0.0');
 
-  console.log(`API running on http://localhost:${port}/api`);
+  const localApi = `http://localhost:${port}/api`;
+  console.log(`API running on ${apiPublicUrl ? `${apiPublicUrl}/api` : localApi}`);
   if (isDevelopment) {
-    console.log(`Swagger docs at http://localhost:${port}/api/docs`);
+    console.log(
+      `Swagger docs at ${swaggerPublicUrl ?? `http://localhost:${port}/api/docs`}`,
+    );
   }
-  console.log(`Bull Board at http://localhost:${port}/queues`);
+  console.log(
+    `Bull Board at ${bullBoardPublicUrl ?? `http://localhost:${port}/queues`}`,
+  );
 }
 
 bootstrap();

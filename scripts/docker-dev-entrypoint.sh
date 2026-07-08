@@ -19,10 +19,15 @@ export DATABASE_URL="${DATABASE_URL:-postgres://user:pass@host.docker.internal:5
 export JWT_SECRET="${JWT_SECRET:-supersecret}"
 export PORT="${PORT:-3001}"
 export NODE_ENV="${NODE_ENV:-development}"
-export CORS_ORIGIN="${CORS_ORIGIN:-http://localhost:3000,http://localhost:5174,http://localhost:5175}"
+export API_PUBLIC_URL="${API_PUBLIC_URL:-http://localhost:3001}"
+export SWAGGER_PUBLIC_URL="${SWAGGER_PUBLIC_URL:-${API_PUBLIC_URL}/api/docs}"
+export BULL_BOARD_PUBLIC_URL="${BULL_BOARD_PUBLIC_URL:-${API_PUBLIC_URL}/queues}"
+export PWA_BASE_URL="${PWA_BASE_URL:-http://localhost:5174}"
+export CORS_ORIGIN="${CORS_ORIGIN:-http://localhost:3000,http://localhost:3002,http://localhost:5174,http://localhost:5175}"
 export REDIS_HOST="${REDIS_HOST:-redis}"
 export REDIS_PORT="${REDIS_PORT:-6379}"
 export PUPPETEER_SKIP_DOWNLOAD="${PUPPETEER_SKIP_DOWNLOAD:-true}"
+export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}"
 
 # NestJS (ConfigModule) lê .env em apps/api — sincroniza env do container
 mkdir -p apps/api
@@ -32,6 +37,10 @@ JWT_SECRET=${JWT_SECRET}
 PORT=${PORT}
 NODE_ENV=${NODE_ENV}
 CORS_ORIGIN=${CORS_ORIGIN}
+API_PUBLIC_URL=${API_PUBLIC_URL}
+SWAGGER_PUBLIC_URL=${SWAGGER_PUBLIC_URL}
+BULL_BOARD_PUBLIC_URL=${BULL_BOARD_PUBLIC_URL}
+PWA_BASE_URL=${PWA_BASE_URL}
 REDIS_HOST=${REDIS_HOST}
 REDIS_PORT=${REDIS_PORT}
 REDIS_PASSWORD=${REDIS_PASSWORD:-}
@@ -45,6 +54,15 @@ R2_BUCKET_NAME=${R2_BUCKET_NAME:-}
 R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
 PUPPETEER_SKIP_DOWNLOAD=${PUPPETEER_SKIP_DOWNLOAD}
 EOF
+
+echo "Lilog Hub — URLs públicas:"
+echo "  API:         ${API_PUBLIC_URL}/api"
+echo "  Swagger:     ${SWAGGER_PUBLIC_URL}"
+echo "  Bull Board:  ${BULL_BOARD_PUBLIC_URL}"
+echo "  Web:         https://${WEB_HOST:-admin-dev.logistica-processo.com}"
+echo "  PWA:         https://${PWA_HOST:-pwa-dev.logistica-processo.com}"
+echo "  Liderança:   https://${PWA_LIDERANCA_HOST:-lideranca-dev.logistica-processo.com}"
+echo "  Portal:      https://${PORTAL_HOST:-portal-dev.logistica-processo.com}"
 
 if [ -z "$DATABASE_URL" ]; then
   echo "ERROR: DATABASE_URL is empty."
