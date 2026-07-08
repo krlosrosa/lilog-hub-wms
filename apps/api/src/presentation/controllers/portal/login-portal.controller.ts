@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { LoginPortalUseCase } from '../../../application/usecases/usuario-terceiro/login-portal.usecase.js';
 import { ApiErrorResponses } from '../../../shared/decorators/api-responses.decorator.js';
 import { Auditable } from '../../../shared/decorators/auditable.decorator.js';
+import { getSessionCookieOptions } from '../../../shared/auth/session-cookie.options.js';
 
 const LoginPortalBodySchema = z.object({
   email: z.string().email(),
@@ -14,14 +15,6 @@ const LoginPortalBodySchema = z.object({
 });
 
 class LoginPortalBodyDto extends createZodDto(LoginPortalBodySchema) {}
-
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  sameSite: 'lax' as const,
-  path: '/',
-  secure: process.env.NODE_ENV === 'production',
-  maxAge: 60 * 60 * 24,
-};
 
 @ApiTags('Portal Auth')
 @Controller('portal/auth')
@@ -46,7 +39,7 @@ export class LoginPortalController {
   ) {
     const { token, user } = await this.loginPortalUseCase.execute(body);
 
-    reply.setCookie('portal_access_token', token, COOKIE_OPTIONS);
+    reply.setCookie('portal_access_token', token, getSessionCookieOptions());
 
     return { user };
   }

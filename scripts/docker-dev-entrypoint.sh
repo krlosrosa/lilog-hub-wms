@@ -24,10 +24,29 @@ export SWAGGER_PUBLIC_URL="${SWAGGER_PUBLIC_URL:-${API_PUBLIC_URL}/api/docs}"
 export BULL_BOARD_PUBLIC_URL="${BULL_BOARD_PUBLIC_URL:-${API_PUBLIC_URL}/queues}"
 export PWA_BASE_URL="${PWA_BASE_URL:-http://localhost:5174}"
 export CORS_ORIGIN="${CORS_ORIGIN:-http://localhost:3000,http://localhost:3002,http://localhost:5174,http://localhost:5175}"
+
+# Monta CORS HTTPS a partir dos hosts Traefik quando definidos
+append_cors_host() {
+  host="$1"
+  if [ -n "$host" ]; then
+    origin="https://${host}"
+    case ",${CORS_ORIGIN}," in
+      *,"${origin}",*) ;;
+      *) CORS_ORIGIN="${CORS_ORIGIN},${origin}" ;;
+    esac
+  fi
+}
+append_cors_host "${WEB_HOST:-}"
+append_cors_host "${PWA_HOST:-}"
+append_cors_host "${PWA_LIDERANCA_HOST:-}"
+append_cors_host "${PORTAL_HOST:-}"
+append_cors_host "${API_HOST:-}"
 export REDIS_HOST="${REDIS_HOST:-redis}"
 export REDIS_PORT="${REDIS_PORT:-6379}"
 export PUPPETEER_SKIP_DOWNLOAD="${PUPPETEER_SKIP_DOWNLOAD:-true}"
 export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}"
+export COOKIE_DOMAIN="${COOKIE_DOMAIN:-}"
+export COOKIE_SECURE="${COOKIE_SECURE:-}"
 
 # NestJS (ConfigModule) lê .env em apps/api — sincroniza env do container
 mkdir -p apps/api
@@ -41,6 +60,8 @@ API_PUBLIC_URL=${API_PUBLIC_URL}
 SWAGGER_PUBLIC_URL=${SWAGGER_PUBLIC_URL}
 BULL_BOARD_PUBLIC_URL=${BULL_BOARD_PUBLIC_URL}
 PWA_BASE_URL=${PWA_BASE_URL}
+COOKIE_DOMAIN=${COOKIE_DOMAIN:-}
+COOKIE_SECURE=${COOKIE_SECURE:-}
 REDIS_HOST=${REDIS_HOST}
 REDIS_PORT=${REDIS_PORT}
 REDIS_PASSWORD=${REDIS_PASSWORD:-}

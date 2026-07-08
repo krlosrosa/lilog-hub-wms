@@ -4,6 +4,7 @@ import type { FastifyReply } from 'fastify';
 
 import { ApiErrorResponses } from '../../../shared/decorators/api-responses.decorator.js';
 import { Auditable } from '../../../shared/decorators/auditable.decorator.js';
+import { getSessionCookieClearOptions } from '../../../shared/auth/session-cookie.options.js';
 
 @ApiTags('Portal Auth')
 @Controller('portal/auth')
@@ -21,6 +22,6 @@ export class LogoutPortalController {
     operationId: 'logoutPortal',
   })
   handle(@Res({ passthrough: true }) reply: FastifyReply) {
-    reply.clearCookie('portal_access_token', { path: '/' });
+    reply.clearCookie('portal_access_token', getSessionCookieClearOptions());
   }
 }

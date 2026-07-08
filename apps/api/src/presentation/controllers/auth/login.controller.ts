@@ -7,6 +7,10 @@ import { z } from 'zod';
 import { LoginUseCase } from '../../../application/usecases/auth/login.usecase.js';
 import { ApiErrorResponses } from '../../../shared/decorators/api-responses.decorator.js';
 import { Auditable } from '../../../shared/decorators/auditable.decorator.js';
+import {
+  getSessionCookieClearOptions,
+  getSessionCookieOptions,
+} from '../../../shared/auth/session-cookie.options.js';
 
 const LoginBodySchema = z.object({
   id: z.coerce.number().int().positive(),
@@ -14,14 +18,6 @@ const LoginBodySchema = z.object({
 });
 
 class LoginBodyDto extends createZodDto(LoginBodySchema) {}
-
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  sameSite: 'lax' as const,
-  path: '/',
-  secure: process.env.NODE_ENV === 'production',
-  maxAge: 60 * 60 * 24, // 1 day in seconds
-};
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -39,7 +35,7 @@ export class LoginController {
   ) {
     const { token, user } = await this.loginUseCase.execute(body);
 
-    reply.setCookie('access_token', token, COOKIE_OPTIONS);
+    reply.setCookie('access_token', token, getSessionCookieOptions());
 
     return { user };
   }

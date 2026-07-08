@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { VerificarCodigoPortalUseCase } from '../../../application/usecases/portal/verificar-codigo-portal.usecase.js';
 import { ApiErrorResponses } from '../../../shared/decorators/api-responses.decorator.js';
 import { Auditable } from '../../../shared/decorators/auditable.decorator.js';
+import { getSessionCookieOptions } from '../../../shared/auth/session-cookie.options.js';
 
 const VerificarCodigoPortalBodySchema = z.object({
   email: z.string().email(),
@@ -16,14 +17,6 @@ const VerificarCodigoPortalBodySchema = z.object({
 class VerificarCodigoPortalBodyDto extends createZodDto(
   VerificarCodigoPortalBodySchema,
 ) {}
-
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  sameSite: 'lax' as const,
-  path: '/',
-  secure: process.env.NODE_ENV === 'production',
-  maxAge: 60 * 60 * 24,
-};
 
 @ApiTags('Portal Auth')
 @Controller('portal/auth')
@@ -50,7 +43,7 @@ export class VerificarCodigoPortalController {
   ) {
     const result = await this.verificarCodigoPortalUseCase.execute(body);
 
-    reply.setCookie('portal_access_token', result.token, COOKIE_OPTIONS);
+    reply.setCookie('portal_access_token', result.token, getSessionCookieOptions());
 
     return {
       email: result.email,

@@ -38,6 +38,8 @@ services:
       SWAGGER_PUBLIC_URL: ${SWAGGER_PUBLIC_URL:-https://api-dev.logistica-processo.com/api/docs}
       BULL_BOARD_PUBLIC_URL: ${BULL_BOARD_PUBLIC_URL:-https://api-dev.logistica-processo.com/queues}
       PWA_BASE_URL: ${PWA_BASE_URL:-https://pwa-dev.logistica-processo.com}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-.logistica-processo.com}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
       PUPPETEER_SKIP_DOWNLOAD: 'true'
     depends_on:
       redis:
