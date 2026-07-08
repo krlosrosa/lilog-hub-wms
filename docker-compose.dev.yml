@@ -17,6 +17,9 @@ services:
       dockerfile: Dockerfile.dev
     container_name: lilog-dev
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     ports:
       - '3001:3001'
       - '3000:3000'
