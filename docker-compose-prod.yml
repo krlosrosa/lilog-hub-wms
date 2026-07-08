@@ -1,0 +1,160 @@
+version: '3.8'
+
+# Produção — builds por serviço (sem infra neste compose: Redis/Traefik já existentes).
+# Usage: docker compose -f docker-compose-prod.yml up --build
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: lilog-api-prod
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: '--max-old-space-size=768'
+      PORT: 3001
+      # --- Hosts Traefik (defina no .env ou use os defaults) ---
+      API_HOST: ${API_HOST:-api-dev.logistica-processo.com}
+      WEB_HOST: ${WEB_HOST:-admin-dev.logistica-processo.com}
+      PWA_HOST: ${PWA_HOST:-pwa-dev.logistica-processo.com}
+      PWA_LIDERANCA_HOST: ${PWA_LIDERANCA_HOST:-lideranca-dev.logistica-processo.com}
+      PORTAL_HOST: ${PORTAL_HOST:-portal-dev.logistica-processo.com}
+      # --- URLs públicas (API, Swagger, Bull Board / filas) ---
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-https://api-dev.logistica-processo.com}
+      SWAGGER_PUBLIC_URL: ${SWAGGER_PUBLIC_URL:-https://api-dev.logistica-processo.com/api/docs}
+      BULL_BOARD_PUBLIC_URL: ${BULL_BOARD_PUBLIC_URL:-https://api-dev.logistica-processo.com/queues}
+      PWA_BASE_URL: ${PWA_BASE_URL:-https://pwa-dev.logistica-processo.com}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-.logistica-processo.com}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      # --- API ---
+      DATABASE_URL: ${DATABASE_URL:-postgres://user:pass@host.docker.internal:5432/lilog}
+      JWT_SECRET: ${JWT_SECRET:-supersecret}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://admin-dev.logistica-processo.com,https://pwa-dev.logistica-processo.com,https://lideranca-dev.logistica-processo.com,https://portal-dev.logistica-processo.com}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_USERNAME: ${REDIS_USERNAME:-}
+      RAVEX_BASE_URL: ${RAVEX_BASE_URL:-}
+      RAVEX_USERNAME: ${RAVEX_USERNAME:-}
+      RAVEX_PASSWORD: ${RAVEX_PASSWORD:-}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_API_TOKEN: ${R2_API_TOKEN:-}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lilog-api-prod.rule=Host(`${API_HOST}`)
+      - traefik.http.routers.lilog-api-prod.service=lilog-api-prod
+      - traefik.http.routers.lilog-api-prod.entrypoints=websecure
+      - traefik.http.routers.lilog-api-prod.tls=true
+      - traefik.http.routers.lilog-api-prod.tls.certresolver=cloudflare
+      - traefik.http.services.lilog-api-prod.loadbalancer.server.port=3001
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-dev.logistica-processo.com/api}
+    container_name: lilog-web-prod
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-dev.logistica-processo.com/api}
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lilog-web-prod.rule=Host(`${WEB_HOST}`)
+      - traefik.http.routers.lilog-web-prod.service=lilog-web-prod
+      - traefik.http.routers.lilog-web-prod.entrypoints=websecure
+      - traefik.http.routers.lilog-web-prod.tls=true
+      - traefik.http.routers.lilog-web-prod.tls.certresolver=cloudflare
+      - traefik.http.services.lilog-web-prod.loadbalancer.server.port=3000
+
+  pwa:
+    build:
+      context: .
+      dockerfile: Dockerfile.pwa
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api-dev.logistica-processo.com/api}
+        VITE_API_PORT: ${VITE_API_PORT:-443}
+    container_name: lilog-pwa-prod
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lilog-pwa-prod.rule=Host(`${PWA_HOST}`)
+      - traefik.http.routers.lilog-pwa-prod.service=lilog-pwa-prod
+      - traefik.http.routers.lilog-pwa-prod.entrypoints=websecure
+      - traefik.http.routers.lilog-pwa-prod.tls=true
+      - traefik.http.routers.lilog-pwa-prod.tls.certresolver=cloudflare
+      - traefik.http.services.lilog-pwa-prod.loadbalancer.server.port=80
+
+  pwa-lideranca:
+    build:
+      context: .
+      dockerfile: Dockerfile.pwa-lideranca
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api-dev.logistica-processo.com/api}
+        VITE_API_PORT: ${VITE_API_PORT:-443}
+    container_name: lilog-pwa-lideranca-prod
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lilog-pwa-lideranca-prod.rule=Host(`${PWA_LIDERANCA_HOST}`)
+      - traefik.http.routers.lilog-pwa-lideranca-prod.service=lilog-pwa-lideranca-prod
+      - traefik.http.routers.lilog-pwa-lideranca-prod.entrypoints=websecure
+      - traefik.http.routers.lilog-pwa-lideranca-prod.tls=true
+      - traefik.http.routers.lilog-pwa-lideranca-prod.tls.certresolver=cloudflare
+      - traefik.http.services.lilog-pwa-lideranca-prod.loadbalancer.server.port=80
+
+  portal:
+    build:
+      context: .
+      dockerfile: Dockerfile.portal
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-dev.logistica-processo.com/api}
+    container_name: lilog-portal-prod
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-dev.logistica-processo.com/api}
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lilog-portal-prod.rule=Host(`${PORTAL_HOST}`)
+      - traefik.http.routers.lilog-portal-prod.service=lilog-portal-prod
+      - traefik.http.routers.lilog-portal-prod.entrypoints=websecure
+      - traefik.http.routers.lilog-portal-prod.tls=true
+      - traefik.http.routers.lilog-portal-prod.tls.certresolver=cloudflare
+      - traefik.http.services.lilog-portal-prod.loadbalancer.server.port=3002
+
+networks:
+  proxy:
+    external: true
