@@ -63,6 +63,47 @@ services:
       - traefik.http.routers.lilog-api.tls.certresolver=cloudflare
       - traefik.http.services.lilog-api.loadbalancer.server.port=3001
 
+  landing:
+    build:
+      context: .
+      dockerfile: Dockerfile.landing
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://logistica-processo.com}
+        NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_ADMIN_URL:-https://admin.logistica-processo.com}
+    container_name: lilog-landing
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://logistica-processo.com}
+      NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_ADMIN_URL:-https://admin.logistica-processo.com}
+    networks:
+      - proxy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 256M
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lilog-landing.rule=Host(`${LANDING_HOST:-logistica-processo.com}`)
+      - traefik.http.routers.lilog-landing.service=lilog-landing
+      - traefik.http.routers.lilog-landing.entrypoints=websecure
+      - traefik.http.routers.lilog-landing.tls=true
+      - traefik.http.routers.lilog-landing.tls.certresolver=cloudflare
+      - traefik.http.routers.lilog-landing-www.rule=Host(`${LANDING_WWW_HOST:-www.logistica-processo.com}`)
+      - traefik.http.routers.lilog-landing-www.service=lilog-landing
+      - traefik.http.routers.lilog-landing-www.entrypoints=websecure
+      - traefik.http.routers.lilog-landing-www.tls=true
+      - traefik.http.routers.lilog-landing-www.tls.certresolver=cloudflare
+      - traefik.http.routers.lilog-landing-www.middlewares=redirect-www-to-apex@file
+      - traefik.http.services.lilog-landing.loadbalancer.server.port=3003
+
   web:
     build:
       context: .

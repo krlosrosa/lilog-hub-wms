@@ -5,3 +5,9 @@ http:
         users:
           # admin / changeme — troque: htpasswd -nb admin sua-senha
           - "admin:$$apr1$$8EVjn/nj$$GiLUZqcbueyyiU5H8.6o51"
+
+    redirect-www-to-apex:
+      redirectRegex:
+        regex: "^(.*)$"
+        replacement: "https://logistica-processo.com${1}"
+        permanent: true

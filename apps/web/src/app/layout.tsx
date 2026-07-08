@@ -15,8 +15,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Lilog-Hub',
-  description: 'Logistica',
+  title: 'LiLog Admin — Sistema de Gestão Logística',
+  description: 'Painel administrativo para operações de armazém e logística.',
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
