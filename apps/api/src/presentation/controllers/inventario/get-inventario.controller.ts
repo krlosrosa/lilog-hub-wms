@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import {
   InventarioDetalheResponseDto,
+  toInventarioDivergenciaResponse,
   toInventarioResponse,
 } from '../../../application/dtos/inventario/inventario.dto.js';
 import { GetInventarioDetalheUseCase } from '../../../application/usecases/inventario/inventario.usecases.js';
@@ -42,8 +43,10 @@ export class GetInventarioController {
       itensTotal: detalhe.itensTotal,
       acuraciaPercent: detalhe.acuraciaPercent,
       divergenciasCount: detalhe.divergenciasCount,
+      ajustesPendentesCount: detalhe.ajustesPendentesCount,
       startedAt: base.startedAt ?? null,
       setoresProgresso: detalhe.setoresProgresso,
+      divergencias: detalhe.divergencias.map(toInventarioDivergenciaResponse),
     };
   }
 }

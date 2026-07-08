@@ -14,15 +14,49 @@ import { CONTAGEM_DEV_OPERATOR_ID } from './contagem-dev.constants.js';
 const SubmitContagemCegaBodySchema = z
   .object({
     enderecoArmazenagem: z.string().min(1),
-    codigoProduto: z.string().min(1),
+    enderecoVazio: z.boolean().default(false),
+    codigoProduto: z.string().optional(),
     quantidadeCaixas: z.coerce.number().int().min(0),
     quantidadeUnidades: z.coerce.number().int().min(0),
-    lote: z.string().min(1),
-    peso: z.coerce.number().positive(),
+    lote: z.string().optional(),
+    peso: z.coerce.number().optional(),
   })
-  .refine((data) => data.quantidadeCaixas > 0 || data.quantidadeUnidades > 0, {
-    message: 'Informe caixas ou unidades',
-    path: ['quantidadeUnidades'],
+  .superRefine((data, ctx) => {
+    if (data.enderecoVazio) {
+      return;
+    }
+
+    if (!data.codigoProduto?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Informe o código do produto',
+        path: ['codigoProduto'],
+      });
+    }
+
+    if (!data.lote?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Informe o lote',
+        path: ['lote'],
+      });
+    }
+
+    if (data.peso == null || data.peso <= 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Informe o peso',
+        path: ['peso'],
+      });
+    }
+
+    if (data.quantidadeCaixas <= 0 && data.quantidadeUnidades <= 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Informe caixas ou unidades',
+        path: ['quantidadeUnidades'],
+      });
+    }
   });
 
 class SubmitContagemCegaBodyDto extends createZodDto(

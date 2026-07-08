@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { formatIdentificadorViagemRavex } from '../../services/expedicao/format-identificador-viagem-ravex.js';
 import { resolverStatusViagemRavex } from '../../services/expedicao/resolver-status-viagem-ravex.js';
 import { TransporteEventPublisher } from '../../services/transporte-event.publisher.js';
+import { GerarDemandaDevolucaoViagemUseCase } from '../devolucao/gerar-demanda-devolucao-viagem.usecase.js';
 import {
   TRANSPORTE_REPOSITORY,
   type AtualizarViagemRavexInput,
@@ -39,6 +40,8 @@ export class SincronizarViagemRavexUseCase {
     private readonly ravexViagemClient: RavexViagemClient,
     @Inject(TransporteEventPublisher)
     private readonly transporteEventPublisher: TransporteEventPublisher,
+    @Inject(GerarDemandaDevolucaoViagemUseCase)
+    private readonly gerarDemandaDevolucaoViagemUseCase: GerarDemandaDevolucaoViagemUseCase,
   ) {}
 
   async execute(data: SincronizarViagemRavexJobData): Promise<void> {
@@ -66,6 +69,9 @@ export class SincronizarViagemRavexUseCase {
         break;
       case 'verificar_anomalias':
         await this.handleVerificarAnomalias(context, data);
+        break;
+      case 'gerar_demanda_devolucao':
+        await this.handleGerarDemandaDevolucao(context, data);
         break;
     }
   }
@@ -189,7 +195,14 @@ export class SincronizarViagemRavexUseCase {
     }
 
     const anomalias = await this.ravexViagemClient.listAnomalias(context.viagemId);
-    const descricao = anomalias[0]?.motivo?.descricao ?? null;
+    const descricao =
+      [
+        ...new Set(
+          anomalias
+            .map((anomalia) => anomalia.motivo?.descricao?.trim())
+            .filter(Boolean),
+        ),
+      ].join('; ') || null;
 
     if (descricao) {
       await this.transporteRepository.atualizarViagemRavex({
@@ -198,6 +211,25 @@ export class SincronizarViagemRavexUseCase {
         anomalia: descricao,
       });
     }
+
+    if (anomalias.length > 0) {
+      await this.schedulePhase('gerar_demanda_devolucao', data);
+    }
+  }
+
+  private async handleGerarDemandaDevolucao(
+    context: TransporteViagemRavexRecord,
+    data: SincronizarViagemRavexJobData,
+  ): Promise<void> {
+    if (!context.viagemId) {
+      return;
+    }
+
+    await this.gerarDemandaDevolucaoViagemUseCase.execute({
+      transporteId: data.transporteId,
+      unidadeId: data.unidadeId,
+      viagemId: context.viagemId,
+    });
   }
 
   private async advanceAfterViagemLoaded(

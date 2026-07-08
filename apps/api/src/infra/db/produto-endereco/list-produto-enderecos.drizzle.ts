@@ -73,7 +73,7 @@ export async function listProdutoEnderecosDb(
       centro: centros,
     })
     .from(produtoEnderecos)
-    .innerJoin(produtos, eq(produtoEnderecos.produtoId, produtos.id))
+    .innerJoin(produtos, eq(produtoEnderecos.produtoId, produtos.produtoId))
     .innerJoin(enderecos, eq(produtoEnderecos.enderecoId, enderecos.id))
     .innerJoin(centros, eq(produtoEnderecos.centroId, centros.id))
     .innerJoin(unidades, eq(centros.unidadeId, unidades.id));
@@ -81,7 +81,7 @@ export async function listProdutoEnderecosDb(
   const [countRow] = await db
     .select({ total: count() })
     .from(produtoEnderecos)
-    .innerJoin(produtos, eq(produtoEnderecos.produtoId, produtos.id))
+    .innerJoin(produtos, eq(produtoEnderecos.produtoId, produtos.produtoId))
     .innerJoin(enderecos, eq(produtoEnderecos.enderecoId, enderecos.id))
     .innerJoin(centros, eq(produtoEnderecos.centroId, centros.id))
     .where(whereClause);

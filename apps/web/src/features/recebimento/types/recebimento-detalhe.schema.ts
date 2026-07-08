@@ -32,6 +32,14 @@ export const conferenciaAvariaSchema = z.object({
 
 export type ConferenciaAvaria = z.infer<typeof conferenciaAvariaSchema>;
 
+export const loteDetalheItemSchema = z.object({
+  lote: z.string().nullable(),
+  qtdEsperada: z.number(),
+  qtdRecebida: z.number(),
+});
+
+export type LoteDetalheItem = z.infer<typeof loteDetalheItemSchema>;
+
 export const conferenciaItemSchema = z.object({
   id: z.string(),
   produtoId: z.string(),
@@ -43,6 +51,7 @@ export const conferenciaItemSchema = z.object({
   qtdFisica: z.number(),
   status: conferenciaStatusSchema,
   avarias: z.array(conferenciaAvariaSchema),
+  lotesDetalhe: z.array(loteDetalheItemSchema).default([]),
 });
 
 export type ConferenciaItem = z.infer<typeof conferenciaItemSchema>;
@@ -67,16 +76,6 @@ export const inspecaoTermicaSchema = z.object({
 
 export type InspecaoTermica = z.infer<typeof inspecaoTermicaSchema>;
 
-/** Processo paralelo ao status logístico do veículo (ex.: em conferência). */
-export const processoInternoRecebimentoSchema = z.enum([
-  'nao-iniciado',
-  'conferindo',
-  'finalizado',
-]);
-
-export type ProcessoInternoRecebimento = z.infer<
-  typeof processoInternoRecebimentoSchema
->;
 
 export const recebimentoDetalheSchema = z.object({
   id: z.string(),
@@ -89,7 +88,6 @@ export const recebimentoDetalheSchema = z.object({
   transportador: z.string(),
   documentacaoOk: z.boolean(),
   status: recebimentoStatusSchema,
-  processoAtual: processoInternoRecebimentoSchema,
   inspecao: inspecaoTermicaSchema,
   fotos: z.array(fotoEvidenciaSchema),
   fotoTotalInformado: z.number().int().nonnegative(),
@@ -99,6 +97,16 @@ export const recebimentoDetalheSchema = z.object({
   recebimentoId: z.string().uuid().nullable().optional(),
   preRecebimentoSituacao: z.string().optional(),
   recebimentoSituacao: z.string().nullable().optional(),
+  modoUnitizacao: z
+    .enum(['bipar_palete_no_recebimento', 'gerar_etiqueta_na_armazenagem'])
+    .nullable()
+    .optional(),
+  /** True quando itens conferidos já possuem palete bipado no PWA. */
+  temPaletesBipados: z.boolean().optional(),
 });
 
 export type RecebimentoDetalhe = z.infer<typeof recebimentoDetalheSchema>;
+
+export function canReabrirRecebimento(status: RecebimentoDetalhe['status']): boolean {
+  return status === 'conferido';
+}

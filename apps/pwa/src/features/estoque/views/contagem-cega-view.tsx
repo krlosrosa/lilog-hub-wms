@@ -27,6 +27,7 @@ import { ContagemEnderecoList } from '../components/contagem-endereco-list';
 import { SEED_INVENTORY_DEMANDS } from '../data/contagem-seed';
 import { useContagemEnderecos } from '../hooks/use-contagem-enderecos';
 import { useContagemCega } from '../hooks/use-contagem-cega';
+import { useValidarSkuContagem } from '../hooks/use-validar-sku-contagem';
 import { useContagemEnderecosComAvaria } from '../hooks/use-contagem-avarias-endereco';
 import {
   ENDERECO_DIVERGENTE_MSG,
@@ -47,8 +48,8 @@ function findInitialEnderecoIndex(enderecos: { status: string }[]) {
 }
 
 const MOCK_DEMAND_PROGRESS: Record<string, { counted: number; total: number }> = {
-  'INV-2024-001': { counted: 12, total: 48 },
-  'INV-2024-005': { counted: 3, total: 22 },
+  '550e8400-e29b-41d4-a716-446655440001': { counted: 12, total: 48 },
+  '550e8400-e29b-41d4-a716-446655440005': { counted: 3, total: 22 },
 };
 
 function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 }) {
@@ -492,6 +493,7 @@ export function ContagemCegaView({ demandaId }: ContagemCegaViewProps) {
       peso: 0,
     });
     setEnderecoVazio(false);
+    resetValidation();
   }
 
   useEffect(() => {
@@ -520,12 +522,23 @@ export function ContagemCegaView({ demandaId }: ContagemCegaViewProps) {
   const lote = watch('lote');
   const peso = watch('peso');
 
+  const {
+    validation: skuValidation,
+    isSkuValid,
+    isSkuValidating,
+    codigoInvalido,
+    skuStepError,
+    resetValidation,
+    validateNow,
+  } = useValidarSkuContagem(enderecoVazio ? '' : (codigo ?? ''));
+
   const enderecoInformado = endereco?.trim() ?? '';
   const enderecoConfere = enderecosConferem(enderecoInformado, activeEndereco);
   const enderecoDivergente =
     Boolean(enderecoInformado) && !enderecoConfere;
   const isEnderecoValid = enderecoConfere;
-  const isCodigoValid = Boolean(codigo?.trim());
+  const codigoInformado = codigo?.trim() ?? '';
+  const isCodigoValid = isSkuValid;
 
   const hasQuantidade =
     (Number(quantidadeCaixas) || 0) > 0 || (Number(quantidadeUnidades) || 0) > 0;
@@ -550,7 +563,10 @@ export function ContagemCegaView({ demandaId }: ContagemCegaViewProps) {
   const enderecoStepError = enderecoDivergente
     ? ENDERECO_DIVERGENTE_MSG
     : formState.errors.enderecoArmazenagem?.message;
-  const canAdvanceStep2 = enderecoVazio || isCodigoValid;
+  const canAdvanceStep2 =
+    enderecoVazio || (isSkuValid && !isSkuValidating);
+  const codigoStepError =
+    skuStepError ?? formState.errors.codigoProduto?.message;
   const canConfirmStep3 = contagemComplete && !isSubmitting;
   const enderecosComAvaria = useContagemEnderecosComAvaria(demandaId);
   const enderecoAtivo =
@@ -562,6 +578,17 @@ export function ContagemCegaView({ demandaId }: ContagemCegaViewProps) {
     if (!scanTarget) return;
     setValue(scanTarget, value, { shouldValidate: true, shouldDirty: true });
     setScanTarget(null);
+
+    if (scanTarget === 'codigoProduto') {
+      void validateNow(value).then((produto) => {
+        if (produto) {
+          setValue('codigoProduto', produto.sku, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }
+      });
+    }
   }
 
   function handleSelectEndereco(enderecoSelecionado: string) {
@@ -587,6 +614,17 @@ export function ContagemCegaView({ demandaId }: ContagemCegaViewProps) {
       await actions.onConfirmarEnderecoVazio(enderecoAtivo);
       return;
     }
+
+    const produto = await validateNow(codigoInformado);
+    if (!produto) {
+      hapticMedium();
+      return;
+    }
+
+    setValue('codigoProduto', produto.sku, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
     setFlowStep(3);
   }
 
@@ -771,9 +809,24 @@ export function ContagemCegaView({ demandaId }: ContagemCegaViewProps) {
                 placeholder="Aguardando scanner..."
                 registerProps={register('codigoProduto')}
                 isValid={isCodigoValid}
+                hasMismatch={codigoInvalido}
                 onScanClick={() => setScanTarget('codigoProduto')}
-                error={formState.errors.codigoProduto?.message}
+                canSubmitOnEnter={canAdvanceStep2}
+                onEnter={() => void handleProximoStep2()}
+                enterKeyHint="go"
+                error={codigoStepError}
               />
+              {skuValidation.status === 'validating' && (
+                <p className="mt-2 flex items-center gap-2 text-label-sm text-on-surface-variant">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  Validando SKU...
+                </p>
+              )}
+              {skuValidation.status === 'valid' && (
+                <p className="mt-2 truncate text-label-sm text-secondary">
+                  {skuValidation.produto.descricao}
+                </p>
+              )}
             </article>
 
             <button
@@ -786,6 +839,7 @@ export function ContagemCegaView({ demandaId }: ContagemCegaViewProps) {
                 setEnderecoVazio(next);
                 if (next) {
                   setValue('codigoProduto', '', { shouldDirty: true });
+                  resetValidation();
                 }
               }}
               className={cn(
@@ -845,8 +899,15 @@ export function ContagemCegaView({ demandaId }: ContagemCegaViewProps) {
               <div className="min-w-0 flex-1">
                 <p className="text-label-sm text-on-surface-variant">Produto</p>
                 <p className="truncate font-mono text-body-md font-semibold text-on-surface">
-                  {codigo?.trim()}
+                  {skuValidation.status === 'valid'
+                    ? skuValidation.produto.sku
+                    : codigoInformado}
                 </p>
+                {skuValidation.status === 'valid' && (
+                  <p className="truncate text-label-sm text-on-surface-variant">
+                    {skuValidation.produto.descricao}
+                  </p>
+                )}
               </div>
               <p className="shrink-0 font-mono text-label-sm text-on-surface-variant">
                 {enderecoAtivo}

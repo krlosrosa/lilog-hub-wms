@@ -9,9 +9,9 @@ export type TeamMemberItemProps = {
 };
 
 const RING_BY_TONE = {
-  primary: 'border-primary/35 bg-primary/20',
-  secondary: 'border-secondary/35 bg-secondary/20',
-  accent: 'border-accent/35 bg-accent/20',
+  primary: 'border-primary/35 bg-primary/15',
+  secondary: 'border-secondary/35 bg-secondary/15',
+  accent: 'border-accent/35 bg-accent/15',
 };
 
 const NAME_BY_TONE = {
@@ -22,10 +22,10 @@ const NAME_BY_TONE = {
 
 export function TeamMemberItem({ membro }: TeamMemberItemProps) {
   return (
-    <div className="flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-muted/40 md:gap-4 md:p-3">
+    <div className="flex items-center gap-2 rounded-md px-1.5 py-1.5 transition-colors hover:bg-surface-highest/40">
       <div
         className={cn(
-          'relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border text-xs font-bold md:size-10',
+          'flex size-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold',
           NAME_BY_TONE[membro.tone],
           RING_BY_TONE[membro.tone],
         )}
@@ -34,23 +34,23 @@ export function TeamMemberItem({ membro }: TeamMemberItemProps) {
           <span aria-hidden>{membro.nome.charAt(0)}</span>
         ) : null}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="truncate text-sm font-semibold leading-tight text-foreground">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[11px] font-semibold leading-tight text-foreground">
           {membro.nome}
         </p>
-        <p className="truncate text-caption text-muted-foreground">{membro.papel}</p>
+        <p className="truncate text-[10px] text-muted-foreground">{membro.papel}</p>
       </div>
       <div className="text-right">
         <p
           className={cn(
-            'text-caption font-bold tabular-nums md:text-sm',
+            'text-[10px] font-bold tabular-nums',
             NAME_BY_TONE[membro.tone],
           )}
         >
           {membro.itensCount} itens
         </p>
-        <p className="text-caption text-muted-foreground">
-          {membro.segundosPorItem}s / item
+        <p className="text-[10px] text-muted-foreground">
+          {membro.segundosPorItem}s/item
         </p>
       </div>
     </div>

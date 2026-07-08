@@ -18,7 +18,7 @@ export async function findProdutoEnderecoByIdDb(db: DrizzleClient, id: string) {
       centro: centros,
     })
     .from(produtoEnderecos)
-    .innerJoin(produtos, eq(produtoEnderecos.produtoId, produtos.id))
+    .innerJoin(produtos, eq(produtoEnderecos.produtoId, produtos.produtoId))
     .innerJoin(enderecos, eq(produtoEnderecos.enderecoId, enderecos.id))
     .innerJoin(centros, eq(produtoEnderecos.centroId, centros.id))
     .where(eq(produtoEnderecos.id, id))

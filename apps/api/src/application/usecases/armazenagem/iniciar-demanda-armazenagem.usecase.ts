@@ -37,6 +37,10 @@ export class IniciarDemandaArmazenagemUseCase {
       throw new BadRequestException('Demanda cancelada não pode ser iniciada');
     }
 
+    if (demanda.status === 'aguardando_validacao') {
+      throw new BadRequestException('Endereço ainda não validado pelo ADM');
+    }
+
     if (demanda.status === 'em_andamento') {
       return demanda;
     }

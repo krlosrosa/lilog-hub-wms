@@ -1,7 +1,7 @@
 import type { ProdutoResult } from '../types/consulta-produto.schema';
 
 export const SEED_CONSULTA_PRODUTO: ProdutoResult = {
-  id: '982341',
+  produtoId: '982341',
   nome: 'Picanha Premium',
   sku: 'SKU-7821-B',
   categoria: 'Premium Cold Chain',

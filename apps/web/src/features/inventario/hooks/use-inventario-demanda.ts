@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { toast } from 'sonner';
@@ -9,14 +9,14 @@ import {
   deleteDemanda,
   iniciarInventario,
   listDemandas,
-  mapDemandaToUiItem,
+  mapDemandaToProgressoItem,
 } from '@/features/inventario/lib/inventario-api';
-import type { DemandaContagemItem } from '@/features/inventario/types/inventario-lista.schema';
+import type { DemandaProgressoItem } from '@/features/inventario/types/inventario-detalhe.schema';
 
 export function useInventarioDemanda(inventarioId: string) {
   const router = useRouter();
 
-  const [demandas, setDemandas] = useState<DemandaContagemItem[]>([]);
+  const [demandas, setDemandas] = useState<DemandaProgressoItem[]>([]);
   const [filtroTipo, setFiltroTipo] = useState<'todas' | 'cega' | 'validacao'>(
     'todas',
   );
@@ -27,7 +27,7 @@ export function useInventarioDemanda(inventarioId: string) {
     setCarregando(true);
     try {
       const items = await listDemandas(inventarioId);
-      setDemandas(items.map(mapDemandaToUiItem));
+      setDemandas(items.map(mapDemandaToProgressoItem));
     } catch {
       toast.error('Não foi possível carregar as demandas');
     } finally {
@@ -39,26 +39,50 @@ export function useInventarioDemanda(inventarioId: string) {
     void carregar();
   }, [carregar]);
 
-  const demandasFiltradas =
-    filtroTipo === 'todas'
-      ? demandas
-      : demandas.filter((d) => d.tipo === filtroTipo);
+  const demandasFiltradas = useMemo(
+    () =>
+      filtroTipo === 'todas'
+        ? demandas
+        : demandas.filter((d) => d.tipo === filtroTipo),
+    [demandas, filtroTipo],
+  );
 
-  const resumo = (() => {
+  const resumo = useMemo(() => {
     const total = demandas.length;
     const cega = demandas.filter((d) => d.tipo === 'cega').length;
     const validacao = demandas.filter((d) => d.tipo === 'validacao').length;
+    const concluidas = demandas.filter((d) => d.status === 'concluida').length;
+    const emAndamento = demandas.filter((d) => d.status === 'em_andamento').length;
+    const progressoMedio =
+      total > 0
+        ? Math.round(
+            demandas.reduce((acc, d) => acc + d.progressPercent, 0) / total,
+          )
+        : 0;
 
     const avatares = demandas.slice(0, 3).map((d, i) => ({
       key: `${d.id}-av-${i}`,
       inicial: d.responsavelNome.charAt(0),
     }));
 
-    return { total, cega, validacao, avatares, extras: Math.max(0, total - 3) };
-  })();
+    return {
+      total,
+      cega,
+      validacao,
+      concluidas,
+      emAndamento,
+      progressoMedio,
+      avatares,
+      extras: Math.max(0, total - 3),
+    };
+  }, [demandas]);
 
   const irParaNovaDemanda = () => {
     router.push(`/inventario/${inventarioId}/demandas/nova`);
+  };
+
+  const voltarDetalhe = () => {
+    router.push(`/inventario/${inventarioId}`);
   };
 
   const removerDemanda = async (id: string) => {
@@ -71,10 +95,6 @@ export function useInventarioDemanda(inventarioId: string) {
     }
   };
 
-  const voltarCadastro = () => {
-    router.push('/inventario/novo');
-  };
-
   const salvarEIniciar = async () => {
     setSalvando(true);
     try {
@@ -82,7 +102,7 @@ export function useInventarioDemanda(inventarioId: string) {
       toast.success('Inventário iniciado', {
         description: `${demandas.length} demanda(s) registrada(s).`,
       });
-      router.push('/inventario');
+      router.push(`/inventario/${inventarioId}`);
     } catch (error) {
       toast.error('Não foi possível iniciar o inventário', {
         description:
@@ -100,7 +120,7 @@ export function useInventarioDemanda(inventarioId: string) {
     resumo,
     irParaNovaDemanda,
     removerDemanda,
-    voltarCadastro,
+    voltarDetalhe,
     salvarEIniciar,
     salvando,
     carregando,

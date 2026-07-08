@@ -118,3 +118,48 @@ export type ListSessoesApiResponse = {
   page: number;
   limit: number;
 };
+
+export type DevolucaoAlocacaoFuncaoApi = 'lider' | 'conferente' | 'auxiliar';
+
+export type DevolucaoAlocacaoEtapaApi =
+  | 'aguardando'
+  | 'checklist'
+  | 'conferencia'
+  | 'finalizacao'
+  | 'concluida';
+
+export type DemandaDevolucaoStatusApi =
+  | 'rascunho'
+  | 'aberta'
+  | 'em_analise'
+  | 'em_execucao'
+  | 'concluida'
+  | 'cancelada';
+
+export type DemandaDevolucaoRecursoApi = {
+  id: string;
+  demandaId: string;
+  codigoDemanda: string;
+  status: DemandaDevolucaoStatusApi;
+  etapa: DevolucaoAlocacaoEtapaApi;
+  totalNfs: number;
+  totalItens: number;
+  pesoDevolvido: number;
+  cliente: string | null;
+  placa: string | null;
+  transporteId: string | null;
+  sessaoFuncionarioId: string;
+  funcionarioId: number;
+  funcao: DevolucaoAlocacaoFuncaoApi;
+  atribuidoEm: string;
+  inicioEm: string | null;
+  tempoEsperadoMinutos: number;
+};
+
+export type RecursosDevolucaoSessaoApiResponse = {
+  sessaoId: string;
+  unidadeId: string;
+  funcionarios: RecursosSessaoFuncionarioApi[];
+  alocacoes: DemandaDevolucaoRecursoApi[];
+  kpis: RecursosSessaoKpiApi[];
+};

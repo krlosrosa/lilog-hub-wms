@@ -3,7 +3,7 @@ import {
   isApiConfigured,
   request,
 } from '@/lib/offline/api-client';
-import { mapProdutoApiResponse } from '@/lib/offline/produto-cache';
+import { mapProdutoApiResponse, type ProdutoApiResponse } from '@/lib/offline/produto-cache';
 
 import type {
   AuthMeApi,
@@ -49,16 +49,17 @@ export async function fetchConferenciaContext(
 
 export async function searchProduto(term: string): Promise<ProdutoApi | null> {
   const params = new URLSearchParams({ search: term, limit: '5', page: '1' });
-  const result = await request<{ items: ProdutoApi[] }>(
+  const result = await request<{ items: ProdutoApiResponse[] }>(
     `/produtos?${params.toString()}`,
   );
   const normalized = term.trim().toLowerCase();
-  const exact = result.items.find(
+  const items = result.items.map((item) => mapProdutoApiResponse(item));
+  const exact = items.find(
     (item) =>
       item.sku.toLowerCase() === normalized ||
       item.ean?.toLowerCase() === normalized,
   );
-  return exact ?? result.items[0] ?? null;
+  return exact ?? items[0] ?? null;
 }
 
 export async function fetchAllProdutos(): Promise<ProdutoApi[]> {
@@ -72,7 +73,7 @@ export async function fetchAllProdutos(): Promise<ProdutoApi[]> {
       limit: '100',
     });
     const result = await request<{
-      items: Array<ProdutoApi & { produtoId?: string }>;
+      items: ProdutoApiResponse[];
       total: number;
     }>(`/produtos?${params.toString()}`);
 
@@ -97,6 +98,44 @@ export async function conferirItem(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     },
+  );
+}
+
+export async function removerConferenciaItem(
+  recebimentoId: string,
+  produtoId: string,
+) {
+  return request<{ produtoId: string; removedCount: number }>(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/itens/${encodeURIComponent(produtoId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export async function removerLinhaConferenciaRecebimento(
+  recebimentoId: string,
+  itemId: string,
+) {
+  return request<{ itemId: string; removed: true; produtoId?: string }>(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/itens-linha/${encodeURIComponent(itemId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export async function removerPaleteConferenciaRecebimento(
+  recebimentoId: string,
+  unitizadorCodigo: string,
+  produtoId?: string,
+) {
+  const params = produtoId
+    ? `?produtoId=${encodeURIComponent(produtoId)}`
+    : '';
+  return request<{
+    unitizadorCodigo: string;
+    unitizadorId: string;
+    removedCount: number;
+  }>(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/paletes/${encodeURIComponent(unitizadorCodigo)}${params}`,
+    { method: 'DELETE' },
   );
 }
 
@@ -128,12 +167,6 @@ export async function listAvarias(recebimentoId: string) {
   return result.items ?? [];
 }
 
-export async function checkinVeiculo(preRecebimentoId: string) {
-  return request<{ id: string; situacao: string }>(
-    `/pre-recebimentos/${encodeURIComponent(preRecebimentoId)}/checkin`,
-    { method: 'PUT' },
-  );
-}
 
 export async function iniciarRecebimento(payload: IniciarRecebimentoPayload) {
   return request<RecebimentoApi>('/recebimentos', {

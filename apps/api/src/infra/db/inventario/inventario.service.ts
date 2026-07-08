@@ -6,12 +6,15 @@ import type {
   DemandaFiltros,
   SubmitContagemAvariaInput,
   SubmitContagemCegaInput,
-  SubmitContagemValidacaoInput,
 } from '../../../domain/model/inventario/inventario.model.js';
 import type {
+  CreateDivergenciaInput,
+  CreateDivergenciaRecontagemInput,
   IInventarioRepository,
   InventarioRecord,
   ListInventariosFilter,
+  UpdateDivergenciaContagemInput,
+  UpdateDivergenciaStatusInput,
 } from '../../../domain/repositories/inventario/inventario.repository.js';
 import {
   DRIZZLE_PROVIDER,
@@ -27,12 +30,32 @@ import {
   listAllContagemDemandasDb,
   listDemandasForOperatorDb,
   markDemandaEnderecoEmAndamentoDb,
+  activateDemandaContagemDb,
+  concluirDemandaContagemSeCompletaDb,
 } from './demanda-crud.drizzle.js';
 import {
   submitContagemAvariaDb,
   submitContagemCegaDb,
   submitContagemValidacaoDb,
+  type SubmitContagemValidacaoDbInput,
 } from './contagem-submit.drizzle.js';
+import {
+  createDivergenciasDb,
+  findDivergenciaByIdDb,
+  listDivergenciasByInventarioDb,
+  updateDivergenciaContagemDb,
+  updateDivergenciaStatusDb,
+} from './inventario-divergencias-crud.drizzle.js';
+import {
+  listContagensValidacaoParaReconciliacaoDb,
+  listInventarioDivergenciasDb,
+} from './inventario-divergencias.drizzle.js';
+import {
+  createDivergenciaRecontagemDb,
+  findRecontagemAbertaByDemandaDb,
+  findRecontagemAbertaByDivergenciaDb,
+  listRecontagensComContagemPendenteReconciliacaoDb,
+} from './inventario-divergencia-recontagens.drizzle.js';
 import {
   createInventarioDb,
   findInventarioByIdDb,
@@ -88,8 +111,17 @@ export class InventarioService implements IInventarioRepository {
     return resolveDemandaEnderecosDb(this.db, centroId, filtros);
   }
 
-  findEnderecosByIdsForCentro(centroId: string, enderecoIds: string[]) {
-    return findEnderecosByIdsForCentroDb(this.db, centroId, enderecoIds);
+  findEnderecosByIdsForCentro(
+    centroId: string,
+    enderecoIds: string[],
+    skuBusca?: string,
+  ) {
+    return findEnderecosByIdsForCentroDb(
+      this.db,
+      centroId,
+      enderecoIds,
+      skuBusca,
+    );
   }
 
   createDemanda(data: CreateDemandaContagemInput, enderecoIds: string[]) {
@@ -124,11 +156,16 @@ export class InventarioService implements IInventarioRepository {
     return findDemandaEnderecoByIdDb(this.db, demandaId, itemId);
   }
 
-  submitContagemCega(input: SubmitContagemCegaInput) {
+  submitContagemCega(
+    input: SubmitContagemCegaInput & {
+      produtoId?: string | null;
+      saldoEnderecoId?: string | null;
+    },
+  ) {
     return submitContagemCegaDb(this.db, input);
   }
 
-  submitContagemValidacao(input: SubmitContagemValidacaoInput) {
+  submitContagemValidacao(input: SubmitContagemValidacaoDbInput) {
     return submitContagemValidacaoDb(this.db, input);
   }
 
@@ -138,5 +175,60 @@ export class InventarioService implements IInventarioRepository {
 
   markDemandaEnderecoEmAndamento(itemId: string) {
     return markDemandaEnderecoEmAndamentoDb(this.db, itemId);
+  }
+
+  activateDemandaContagem(demandaId: string) {
+    return activateDemandaContagemDb(this.db, demandaId);
+  }
+
+  listInventarioDivergencias(inventarioId: string) {
+    return listInventarioDivergenciasDb(this.db, inventarioId);
+  }
+
+  listContagensValidacaoParaReconciliacao(inventarioId: string) {
+    return listContagensValidacaoParaReconciliacaoDb(this.db, inventarioId);
+  }
+
+  createDivergencias(items: CreateDivergenciaInput[]) {
+    return createDivergenciasDb(this.db, items);
+  }
+
+  listDivergenciasByInventario(inventarioId: string) {
+    return listDivergenciasByInventarioDb(this.db, inventarioId);
+  }
+
+  findDivergenciaById(id: string) {
+    return findDivergenciaByIdDb(this.db, id);
+  }
+
+  updateDivergenciaStatus(id: string, data: UpdateDivergenciaStatusInput) {
+    return updateDivergenciaStatusDb(this.db, id, data);
+  }
+
+  updateDivergenciaContagem(id: string, data: UpdateDivergenciaContagemInput) {
+    return updateDivergenciaContagemDb(this.db, id, data);
+  }
+
+  findRecontagemAbertaByDivergencia(divergenciaId: string) {
+    return findRecontagemAbertaByDivergenciaDb(this.db, divergenciaId);
+  }
+
+  findRecontagemAbertaByDemanda(demandaId: string) {
+    return findRecontagemAbertaByDemandaDb(this.db, demandaId);
+  }
+
+  createDivergenciaRecontagem(input: CreateDivergenciaRecontagemInput) {
+    return createDivergenciaRecontagemDb(this.db, input);
+  }
+
+  concluirDemandaContagemSeCompleta(demandaId: string) {
+    return concluirDemandaContagemSeCompletaDb(this.db, demandaId);
+  }
+
+  listRecontagensComContagemPendenteReconciliacao(inventarioId: string) {
+    return listRecontagensComContagemPendenteReconciliacaoDb(
+      this.db,
+      inventarioId,
+    );
   }
 }

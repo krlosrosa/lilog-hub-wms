@@ -42,6 +42,26 @@ export type DemandaEnderecoStatus = z.infer<typeof DemandaEnderecoStatusSchema>;
 export const ContagemTipoSchema = z.enum(['cega', 'validacao']);
 export type ContagemTipo = z.infer<typeof ContagemTipoSchema>;
 
+export const DivergenciaInventarioTipoSchema = z.enum([
+  'falta',
+  'sobra',
+  'endereco_vazio',
+  'anomalia',
+]);
+export type DivergenciaInventarioTipo = z.infer<
+  typeof DivergenciaInventarioTipoSchema
+>;
+
+export const DivergenciaInventarioStatusSchema = z.enum([
+  'pendente',
+  'aprovada',
+  'reprovada',
+  'aplicada',
+]);
+export type DivergenciaInventarioStatus = z.infer<
+  typeof DivergenciaInventarioStatusSchema
+>;
+
 export const DemandaFiltrosSchema = z
   .object({
     enderecoIds: z.array(z.uuid()).default([]),
@@ -84,17 +104,56 @@ export type CreateDemandaContagemInput = z.infer<
   typeof CreateDemandaContagemInputSchema
 >;
 
-export const SubmitContagemCegaInputSchema = z.object({
-  demandaId: z.uuid(),
-  demandaEnderecoId: z.uuid(),
-  operatorId: z.number().int().positive(),
-  enderecoArmazenagem: z.string().min(1),
-  codigoProduto: z.string().min(1),
-  quantidadeCaixas: z.number().int().min(0),
-  quantidadeUnidades: z.number().int().min(0),
-  lote: z.string().min(1),
-  peso: z.number().positive(),
-});
+export const SubmitContagemCegaInputSchema = z
+  .object({
+    demandaId: z.uuid(),
+    demandaEnderecoId: z.uuid(),
+    operatorId: z.number().int().positive(),
+    enderecoArmazenagem: z.string().min(1),
+    enderecoVazio: z.boolean().default(false),
+    codigoProduto: z.string().optional(),
+    quantidadeCaixas: z.number().int().min(0),
+    quantidadeUnidades: z.number().int().min(0),
+    lote: z.string().optional(),
+    peso: z.number().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.enderecoVazio) {
+      return;
+    }
+
+    if (!data.codigoProduto?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Informe o código do produto',
+        path: ['codigoProduto'],
+      });
+    }
+
+    if (!data.lote?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Informe o lote',
+        path: ['lote'],
+      });
+    }
+
+    if (data.peso == null || data.peso <= 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Informe o peso',
+        path: ['peso'],
+      });
+    }
+
+    if (data.quantidadeCaixas <= 0 && data.quantidadeUnidades <= 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Informe caixas ou unidades',
+        path: ['quantidadeUnidades'],
+      });
+    }
+  });
 export type SubmitContagemCegaInput = z.infer<
   typeof SubmitContagemCegaInputSchema
 >;
@@ -107,11 +166,14 @@ export const SubmitContagemValidacaoInputSchema = z.object({
   sscc: z.string().optional(),
   enderecoVazio: z.boolean().default(false),
   anomaliaEncontrada: z.boolean().default(false),
+  correspondeAoEsperado: z.boolean().default(false),
   quantidadeCaixas: z.number().int().min(0),
   quantidadeUnidades: z.number().int().min(0),
   lote: z.string().optional(),
   peso: z.number().min(0).optional(),
   codigoProduto: z.string().default(''),
+  produtoId: z.string().optional(),
+  saldoEnderecoId: z.uuid().optional(),
 });
 export type SubmitContagemValidacaoInput = z.infer<
   typeof SubmitContagemValidacaoInputSchema
@@ -159,4 +221,15 @@ export function enderecosConferem(
   const a = normalizeEndereco(informado);
   const b = normalizeEndereco(designado);
   return a.length > 0 && b.length > 0 && a === b;
+}
+
+const OPEN_RECONTAGEM_DEMANDA_STATUSES: DemandaContagemStatus[] = [
+  'aguardando_inicio',
+  'em_andamento',
+];
+
+export function isDemandaRecontagemAberta(
+  status: DemandaContagemStatus,
+): boolean {
+  return OPEN_RECONTAGEM_DEMANDA_STATUSES.includes(status);
 }

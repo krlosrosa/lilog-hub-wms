@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   GerarMapasConfigSchema,
   GerarMapasResponseSchema,
+  TransporteCodigoSchema,
 } from './gerar-mapas.dto.js';
 
 export const MapaLoteResumoGrupoSchema = z.object({
@@ -14,7 +15,7 @@ export const MapaLoteResumoGrupoSchema = z.object({
 });
 
 export const MapaLoteResumoTransporteSchema = z.object({
-  transporteId: z.string().uuid(),
+  transporteId: TransporteCodigoSchema,
   rota: z.string(),
   placa: z.string().nullable(),
   mapaGeradoEmAnterior: z.iso.datetime().nullable().optional(),
@@ -42,7 +43,7 @@ export const MapaLoteResumoSchema = z.object({
 
 export const SalvarMapasBodySchema = z.object({
   unidadeId: z.string().min(1).max(50),
-  transporteIds: z.array(z.string().uuid()).min(1),
+  transporteIds: z.array(TransporteCodigoSchema).min(1),
   config: GerarMapasConfigSchema,
   configuracaoImpressaoId: z.string().uuid().optional(),
 });
@@ -61,9 +62,9 @@ export class SalvarMapasResponseDto extends createZodDto(
 export const ListarMapasLotesQuerySchema = z.object({
   unidadeId: z.string().min(1).max(50),
   transporteIds: z
-    .union([z.string().uuid(), z.array(z.string().uuid())])
+    .union([TransporteCodigoSchema, z.array(TransporteCodigoSchema)])
     .transform((value) => (Array.isArray(value) ? value : [value]))
-    .pipe(z.array(z.string().uuid()).min(1)),
+    .pipe(z.array(TransporteCodigoSchema).min(1)),
 });
 
 export class ListarMapasLotesQueryDto extends createZodDto(
@@ -77,7 +78,7 @@ export const MapaLoteListItemSchema = z.object({
   configuracaoImpressaoId: z.string().uuid().nullable(),
   criadoPor: z.number().int().nullable(),
   createdAt: z.iso.datetime(),
-  transporteIds: z.array(z.string().uuid()),
+  transporteIds: z.array(TransporteCodigoSchema),
 });
 
 export const ListarMapasLotesResponseSchema = z.object({

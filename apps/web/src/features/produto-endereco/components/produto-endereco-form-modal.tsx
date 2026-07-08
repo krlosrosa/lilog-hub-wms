@@ -26,7 +26,7 @@ import {
 } from '@/features/produto-endereco/lib/produto-endereco-api';
 import type { ProdutoEnderecoApi } from '@/features/produto-endereco/types/produto-endereco.api';
 import {
-  enderecoTipoParaPapel,
+  enderecoTiposCompativeisComPapel,
   PAPEL_PRODUTO_ENDERECO_LABELS,
   produtoEnderecoFormSchema,
   type ProdutoEnderecoFormValues,
@@ -143,7 +143,6 @@ export function ProdutoEnderecoFormModal({
         ativo: editingItem.ativo,
       });
       setProdutoSelecionado({
-        id: editingItem.produtoId,
         produtoId: editingItem.produto.produtoId,
         sku: editingItem.produto.sku,
         descricao: editingItem.produto.descricao,
@@ -170,17 +169,26 @@ export function ProdutoEnderecoFormModal({
       return;
     }
 
-    const tipo = enderecoTipoParaPapel(papel);
+    const tipos = enderecoTiposCompativeisComPapel(papel);
 
     setCarregandoEnderecos(true);
-    void listEnderecos({ centroId, tipo, limit: 100 })
-      .then((response) => {
-        setEnderecoOpcoes(
-          response.items.map((item) => ({
-            id: item.id,
-            label: item.enderecoMascarado,
-          })),
-        );
+    void Promise.all(
+      tipos.map((tipo) => listEnderecos({ centroId, tipo, limit: 100 })),
+    )
+      .then((responses) => {
+        const seen = new Set<string>();
+        const opcoes: { id: string; label: string }[] = [];
+
+        for (const response of responses) {
+          for (const item of response.items) {
+            if (seen.has(item.id)) continue;
+            seen.add(item.id);
+            opcoes.push({ id: item.id, label: item.enderecoMascarado });
+          }
+        }
+
+        opcoes.sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+        setEnderecoOpcoes(opcoes);
       })
       .catch(() => {
         toast.error('Não foi possível carregar os endereços');
@@ -213,7 +221,7 @@ export function ProdutoEnderecoFormModal({
     (produto: ProdutoApi) => {
       setProdutoSelecionado(produto);
       setProdutoBusca(produto.sku);
-      form.setValue('produtoId', produto.id, { shouldValidate: true });
+      form.setValue('produtoId', produto.produtoId, { shouldValidate: true });
       setProdutoOpcoes([]);
     },
     [form],
@@ -340,7 +348,7 @@ export function ProdutoEnderecoFormModal({
                 {produtoOpcoes.length > 0 && (
                   <ul className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-outline-variant">
                     {produtoOpcoes.map((produto) => (
-                      <li key={produto.id}>
+                      <li key={produto.produtoId}>
                         <button
                           type="button"
                           className="w-full px-3 py-2 text-left text-body-md hover:bg-muted"

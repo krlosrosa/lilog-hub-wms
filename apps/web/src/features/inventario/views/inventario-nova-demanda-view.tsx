@@ -1,10 +1,14 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
+import Link from 'next/link';
+
 import {
-  ArrowLeft,
   CircleHelp,
   FileText,
   Info,
+  Loader2,
   MapPin,
   Save,
   Search,
@@ -22,8 +26,10 @@ import {
   fieldErrorClassName,
   fieldInputClassName,
   fieldLabelClassName,
-  sectionCardClassName,
 } from '@/features/inventario/components/form-field-classes';
+import {
+  ENDERECO_TIPO_LABELS,
+} from '@/features/enderecos/types/enderecos-gestao.schema';
 import { useInventarioNovaDemanda } from '@/features/inventario/hooks/use-inventario-nova-demanda';
 import {
   DEMANDA_PRIORIDADE_LABELS,
@@ -31,11 +37,72 @@ import {
   type DemandaPrioridade,
 } from '@/features/inventario/types/inventario-lista.schema';
 
-const chipPrimaryClassName =
-  'inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-bold text-primary';
+const compactInputClassName = cn(
+  fieldInputClassName,
+  'rounded-lg px-3 py-2 text-xs',
+);
 
-const chipSecondaryClassName =
-  'inline-flex items-center gap-1 rounded-full border border-secondary/20 bg-secondary/10 px-3 py-1 text-[10px] font-bold text-secondary';
+const cardClassName =
+  'rounded-lg border border-outline-variant bg-card p-3 shadow-inner-glow transition-colors hover:border-primary/25 md:p-4';
+
+const filterChipClassName = (active: boolean) =>
+  cn(
+    'rounded-full border px-2 py-px text-[9px] font-medium transition-colors',
+    active
+      ? 'border-primary bg-primary/10 text-primary'
+      : 'border-outline-variant text-muted-foreground hover:border-primary hover:text-primary',
+  );
+
+function FilterChipRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <span className="w-10 shrink-0 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-wrap gap-1">{children}</div>
+    </div>
+  );
+}
+
+function SectionHeader({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon: ReactNode;
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <header className="mb-3 flex items-start justify-between gap-2 border-b border-outline-variant pb-2">
+      <div className="flex min-w-0 items-start gap-2">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-[11px] font-semibold text-foreground">{title}</h2>
+          {description ? (
+            <p className="text-[10px] text-muted-foreground">{description}</p>
+          ) : null}
+        </div>
+      </div>
+      {action}
+    </header>
+  );
+}
+
+const METODO_HINTS: Record<DemandaContagemTipo, string> = {
+  cega: 'Operadores não veem o saldo atual — evita viés de confirmação.',
+  validacao: 'Confirmação do saldo existente — ideal para áreas de alto giro.',
+};
 
 export type InventarioNovaDemandaViewProps = {
   inventarioId: string;
@@ -49,25 +116,37 @@ export function InventarioNovaDemandaView({
     salvando,
     carregandoEnderecos,
     erroEnderecos,
-    filtroCategoria,
-    setFiltroCategoria,
     filtroEndereco,
     setFiltroEndereco,
+    filtroZonas,
+    filtroNiveis,
+    filtroRuas,
+    filtroRuaTexto,
+    setFiltroRuaTexto,
+    filtroTipos,
+    filtroGrupos,
+    temFiltrosAtivos,
     enderecoIdsSelecionados,
-    categoriasSelecionadas,
-    responsavelSelecionado,
     enderecosFiltrados,
     zonasDisponiveis,
-    categoriasFiltradas,
+    niveisDisponiveis,
+    ruasDisponiveis,
+    tiposDisponiveis,
+    gruposDisponiveis,
     toggleEndereco,
     selecionarTodosFiltrados,
     limparEnderecos,
-    selecionarPorZona,
-    adicionarCategoria,
-    removerCategoria,
+    toggleFiltroZona,
+    toggleFiltroNivel,
+    toggleFiltroRua,
+    toggleFiltroTipo,
+    toggleFiltroGrupo,
+    limparFiltros,
     voltarLista,
     confirmarConfiguracao,
     opcoesResponsavel,
+    filtrandoSku,
+    skuFiltroAtivo,
   } = useInventarioNovaDemanda(inventarioId);
 
   const tipo = form.watch('tipo');
@@ -83,62 +162,87 @@ export function InventarioNovaDemandaView({
   };
 
   return (
-    <SidebarMain>
-      <main className="flex-1 px-margin-mobile py-8 md:px-margin-desktop md:pb-12">
-        <div className="mx-auto flex max-w-container flex-col gap-6 md:gap-8">
-          <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={voltarLista}
-                className="rounded-full p-2 transition-colors hover:bg-surface-high"
-                aria-label="Voltar para demandas"
-              >
-                <ArrowLeft className="size-5 text-muted-foreground" aria-hidden />
-              </button>
-              <div>
-                <h1 className="text-headline-lg-mobile font-semibold tracking-tight text-primary md:text-headline-lg">
-                  Configurar Demanda de Inventário
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Criação de nova ordem de contagem cíclica
-                </p>
-              </div>
-            </div>
-            <Button
-              type="submit"
-              form="form-nova-demanda"
-              disabled={salvando}
-              className="gap-2 self-start sm:self-auto"
+    <SidebarMain className="flex min-h-dvh flex-col">
+      <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant bg-glass-bg px-margin-mobile py-2.5 backdrop-blur-glass md:px-margin-desktop">
+        <div className="min-w-0 flex-col gap-0.5">
+          <nav
+            aria-label="Migalhas"
+            className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground"
+          >
+            <Link href="/inventario" className="transition-colors hover:text-primary">
+              Inventário
+            </Link>
+            <span aria-hidden>/</span>
+            <Link
+              href={`/inventario/${inventarioId}`}
+              className="transition-colors hover:text-primary"
             >
-              <Save className="size-4 shrink-0" aria-hidden />
-              {salvando ? 'Salvando…' : 'Salvar Alterações'}
-            </Button>
-          </header>
+              Detalhe
+            </Link>
+            <span aria-hidden>/</span>
+            <span className="font-medium text-foreground">Nova demanda</span>
+          </nav>
+          <h1 className="truncate text-base font-semibold tracking-tight text-foreground">
+            Configurar demanda
+          </h1>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 border-outline-variant text-xs"
+            onClick={voltarLista}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form="form-nova-demanda"
+            disabled={salvando}
+            size="sm"
+            className="h-8 gap-1.5"
+          >
+            {salvando ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                Salvando…
+              </>
+            ) : (
+              <>
+                <Save className="size-3.5 shrink-0" aria-hidden />
+                <span className="hidden sm:inline">Confirmar</span>
+                <span className="sm:hidden">Salvar</span>
+              </>
+            )}
+          </Button>
+        </div>
+      </header>
 
+      <main className="flex-1 bg-surface-lowest px-margin-mobile py-3 md:px-margin-desktop md:py-4">
+        <div className="mx-auto max-w-5xl">
           <form
             id="form-nova-demanda"
             noValidate
-            className="grid grid-cols-12 gap-4 md:gap-6"
+            className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:gap-4"
             onSubmit={confirmarConfiguracao}
           >
-            <section className={cn(sectionCardClassName, 'col-span-12 lg:col-span-7')}>
-              <header className="mb-6 flex items-center gap-2">
-                <Info className="size-6 shrink-0 text-primary" aria-hidden />
-                <h2 className="text-headline-md font-medium text-foreground">
-                  Informações Básicas
-                </h2>
-              </header>
+            <section className={cn(cardClassName, 'lg:col-span-7')}>
+              <SectionHeader
+                icon={<Info className="size-3.5" aria-hidden />}
+                title="Informações básicas"
+                description="Identificação e prioridade da ordem"
+              />
 
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div className="sm:col-span-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1 sm:col-span-2">
                   <label htmlFor="demanda-nome" className={fieldLabelClassName}>
-                    Nome / ID da Demanda
+                    Nome / ID da demanda
                   </label>
                   <input
                     id="demanda-nome"
                     aria-invalid={Boolean(errors.nome)}
-                    className={cn(fieldInputClassName, 'mt-2 rounded-xl')}
+                    className={compactInputClassName}
                     {...form.register('nome')}
                   />
                   {errors.nome?.message ? (
@@ -148,13 +252,13 @@ export function InventarioNovaDemandaView({
                   ) : null}
                 </div>
 
-                <div>
+                <div className="flex flex-col gap-1">
                   <label htmlFor="demanda-prioridade" className={fieldLabelClassName}>
                     Prioridade
                   </label>
                   <select
                     id="demanda-prioridade"
-                    className={cn(fieldInputClassName, 'mt-2 appearance-none rounded-xl')}
+                    className={cn(compactInputClassName, 'appearance-none')}
                     {...form.register('prioridade')}
                   >
                     {(Object.keys(DEMANDA_PRIORIDADE_LABELS) as DemandaPrioridade[]).map(
@@ -167,16 +271,15 @@ export function InventarioNovaDemandaView({
                   </select>
                 </div>
 
-                <div className="flex flex-col justify-end">
+                <div className="flex flex-col justify-end gap-1">
+                  <span className={fieldLabelClassName}>Status</span>
                   <div
                     className={cn(
-                      'flex items-center justify-between rounded-xl border border-outline-variant bg-surface-high p-3 transition-colors',
-                      statusAtivo && 'border-primary/50',
+                      'flex h-[34px] items-center justify-between rounded-lg border border-outline-variant bg-surface-low px-3 transition-colors',
+                      statusAtivo && 'border-primary/40',
                     )}
                   >
-                    <span className="text-label-md font-medium text-foreground">
-                      Status Ativo
-                    </span>
+                    <span className="text-xs font-medium text-foreground">Ativo</span>
                     <button
                       type="button"
                       role="switch"
@@ -187,15 +290,15 @@ export function InventarioNovaDemandaView({
                         })
                       }
                       className={cn(
-                        'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors',
-                        statusAtivo ? 'bg-tertiary-container' : 'bg-surface-variant',
+                        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors',
+                        statusAtivo ? 'bg-primary' : 'bg-muted',
                       )}
                     >
                       <span className="sr-only">Status ativo</span>
                       <span
                         className={cn(
-                          'absolute left-0.5 top-0.5 size-5 rounded-full bg-foreground shadow transition-transform',
-                          statusAtivo && 'translate-x-5',
+                          'absolute left-0.5 top-0.5 size-4 rounded-full bg-background shadow transition-transform',
+                          statusAtivo && 'translate-x-4',
                         )}
                       />
                     </button>
@@ -204,190 +307,235 @@ export function InventarioNovaDemandaView({
               </div>
             </section>
 
-            <section className={cn(sectionCardClassName, 'col-span-12 lg:col-span-5')}>
-              <header className="mb-6 flex items-center gap-2">
-                <Workflow className="size-6 shrink-0 text-primary" aria-hidden />
-                <h2 className="text-headline-md font-medium text-foreground">
-                  Método de Contagem
-                </h2>
-              </header>
+            <section className={cn(cardClassName, 'lg:col-span-5')}>
+              <SectionHeader
+                icon={<Workflow className="size-3.5" aria-hidden />}
+                title="Método de contagem"
+              />
 
-              <div className="space-y-4">
-                <label
-                  className={cn(
-                    'flex cursor-pointer items-start gap-4 rounded-xl border p-4 transition-colors hover:bg-surface-high',
-                    tipo === 'cega'
-                      ? 'border-primary/30 bg-surface-low'
-                      : 'border-outline-variant bg-surface-low',
-                  )}
+              <input type="hidden" {...form.register('tipo')} />
+              <div
+                className="inline-flex w-full gap-1 rounded-lg border border-outline-variant bg-surface-low p-0.5"
+                role="group"
+                aria-label="Método de contagem"
+              >
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={tipo === 'cega' ? 'default' : 'ghost'}
+                  className="h-7 flex-1 gap-1 text-[10px]"
+                  onClick={() => setTipo('cega')}
                 >
-                  <input
-                    type="radio"
-                    name="metodo-contagem"
-                    checked={tipo === 'cega'}
-                    onChange={() => setTipo('cega')}
-                    className="mt-0.5 size-5 shrink-0 accent-primary"
-                  />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          'font-bold',
-                          tipo === 'cega' ? 'text-primary' : 'text-foreground',
-                        )}
-                      >
-                        Contagem Cega
-                      </span>
-                      <span title="Operadores não vêem o saldo atual no sistema.">
-                        <CircleHelp
-                          className="size-3.5 text-muted-foreground"
-                          aria-hidden
-                        />
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Prioriza precisão máxima e evita viés de confirmação.
-                    </p>
-                  </div>
-                </label>
-
-                <label
-                  className={cn(
-                    'flex cursor-pointer items-start gap-4 rounded-xl border p-4 transition-colors hover:bg-surface-high',
-                    tipo === 'validacao'
-                      ? 'border-primary/30 bg-surface-low'
-                      : 'border-outline-variant bg-surface-low',
-                  )}
+                  Contagem cega
+                  <span title="Operadores não veem o saldo atual no sistema.">
+                    <CircleHelp className="size-3 text-muted-foreground" aria-hidden />
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={tipo === 'validacao' ? 'default' : 'ghost'}
+                  className="h-7 flex-1 gap-1 text-[10px]"
+                  onClick={() => setTipo('validacao')}
                 >
-                  <input
-                    type="radio"
-                    name="metodo-contagem"
-                    checked={tipo === 'validacao'}
-                    onChange={() => setTipo('validacao')}
-                    className="mt-0.5 size-5 shrink-0 accent-primary"
-                  />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          'font-bold',
-                          tipo === 'validacao' ? 'text-primary' : 'text-foreground',
-                        )}
-                      >
-                        Validação Direta
-                      </span>
-                      <span title="Operadores confirmam o saldo pré-existente.">
-                        <CircleHelp
-                          className="size-3.5 text-muted-foreground"
-                          aria-hidden
-                        />
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Ideal para conferências rápidas em áreas de alto giro.
-                    </p>
-                  </div>
-                </label>
+                  Validação
+                  <span title="Operadores confirmam o saldo pré-existente.">
+                    <CircleHelp className="size-3 text-muted-foreground" aria-hidden />
+                  </span>
+                </Button>
               </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+                {METODO_HINTS[tipo]}
+              </p>
             </section>
 
-            <section className={cn(sectionCardClassName, 'col-span-12 lg:col-span-8')}>
-              <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <MapPin className="size-6 shrink-0 text-primary" aria-hidden />
-                  <h2 className="text-headline-md font-medium text-foreground">
-                    Endereços de contagem
-                  </h2>
-                </div>
-                <span className="text-sm text-muted-foreground">
-                  {enderecoIdsSelecionados.length} selecionado(s)
-                </span>
-              </header>
+            <section className={cn(cardClassName, 'lg:col-span-8')}>
+              <SectionHeader
+                icon={<MapPin className="size-3.5" aria-hidden />}
+                title="Endereços de contagem"
+                description="Selecione os locais a contar"
+                action={
+                  <span className="shrink-0 rounded-full bg-primary/10 px-2 py-px text-[10px] font-semibold tabular-nums text-primary">
+                    {enderecoIdsSelecionados.length} sel.
+                  </span>
+                }
+              />
 
-              <div className="mb-4 flex flex-wrap gap-2">
-                {zonasDisponiveis.map((zona) => (
-                  <button
-                    key={zona}
-                    type="button"
-                    className="rounded-full border border-outline-variant px-3 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-                    onClick={() => selecionarPorZona(zona)}
-                  >
-                    + Zona {zona}
-                  </button>
-                ))}
+              <div className="mb-3 space-y-1.5 rounded-lg border border-outline-variant bg-surface-low p-2">
+                {zonasDisponiveis.length > 0 ? (
+                  <FilterChipRow label="Zona">
+                    {zonasDisponiveis.map((zona) => (
+                      <button
+                        key={zona}
+                        type="button"
+                        className={filterChipClassName(filtroZonas.includes(zona))}
+                        onClick={() => toggleFiltroZona(zona)}
+                      >
+                        {zona}
+                      </button>
+                    ))}
+                  </FilterChipRow>
+                ) : null}
+
+                {niveisDisponiveis.length > 0 ? (
+                  <FilterChipRow label="Nível">
+                    {niveisDisponiveis.map((nivel) => (
+                      <button
+                        key={nivel}
+                        type="button"
+                        className={filterChipClassName(filtroNiveis.includes(nivel))}
+                        onClick={() => toggleFiltroNivel(nivel)}
+                      >
+                        {nivel}
+                      </button>
+                    ))}
+                  </FilterChipRow>
+                ) : null}
+
+                {ruasDisponiveis.length > 0 && ruasDisponiveis.length <= 20 ? (
+                  <FilterChipRow label="Rua">
+                    {ruasDisponiveis.map((rua) => (
+                      <button
+                        key={rua}
+                        type="button"
+                        className={filterChipClassName(filtroRuas.includes(rua))}
+                        onClick={() => toggleFiltroRua(rua)}
+                      >
+                        {rua}
+                      </button>
+                    ))}
+                  </FilterChipRow>
+                ) : ruasDisponiveis.length > 20 ? (
+                  <FilterChipRow label="Rua">
+                    <input
+                      type="search"
+                      placeholder="Filtrar por rua…"
+                      value={filtroRuaTexto}
+                      onChange={(e) => setFiltroRuaTexto(e.target.value)}
+                      className={cn(compactInputClassName, 'max-w-[8rem]')}
+                    />
+                  </FilterChipRow>
+                ) : null}
+
+                {tiposDisponiveis.length > 0 ? (
+                  <FilterChipRow label="Tipo">
+                    {tiposDisponiveis.map((tipoEndereco) => (
+                      <button
+                        key={tipoEndereco}
+                        type="button"
+                        className={filterChipClassName(
+                          filtroTipos.includes(tipoEndereco),
+                        )}
+                        onClick={() => toggleFiltroTipo(tipoEndereco)}
+                      >
+                        {ENDERECO_TIPO_LABELS[tipoEndereco]}
+                      </button>
+                    ))}
+                  </FilterChipRow>
+                ) : null}
+
+                {gruposDisponiveis.length > 0 ? (
+                  <FilterChipRow label="Grupo">
+                    {gruposDisponiveis.map((grupo) => (
+                      <button
+                        key={grupo}
+                        type="button"
+                        className={filterChipClassName(
+                          filtroGrupos.includes(grupo),
+                        )}
+                        onClick={() => toggleFiltroGrupo(grupo)}
+                      >
+                        {grupo}
+                      </button>
+                    ))}
+                  </FilterChipRow>
+                ) : null}
               </div>
 
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                <div className="relative min-w-[220px] flex-1">
+              <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                <div className="relative min-w-0 flex-1 sm:max-w-xs">
                   <Search
-                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                    className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
                     aria-hidden
                   />
                   <input
                     type="search"
-                    placeholder="Buscar endereço ou zona..."
+                    placeholder="Buscar endereço ou zona…"
                     value={filtroEndereco}
                     onChange={(e) => setFiltroEndereco(e.target.value)}
-                    className={cn(fieldInputClassName, 'rounded-xl pl-9 text-sm')}
+                    className={cn(compactInputClassName, 'pl-8')}
                   />
                 </div>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="h-7 border-outline-variant px-2 text-[10px]"
                   onClick={selecionarTodosFiltrados}
                   disabled={carregandoEnderecos || enderecosFiltrados.length === 0}
                 >
-                  Selecionar filtrados
+                  Todos
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className="h-7 px-2 text-[10px]"
                   onClick={limparEnderecos}
                   disabled={enderecoIdsSelecionados.length === 0}
                 >
-                  Limpar
+                  Limpar sel.
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-[10px]"
+                  onClick={limparFiltros}
+                  disabled={!temFiltrosAtivos}
+                >
+                  Limpar filtros
                 </Button>
               </div>
 
-              <div className="mb-6 max-h-72 overflow-y-auto rounded-xl border border-outline-variant bg-surface-low">
+              <div className="max-h-52 overflow-y-auto rounded-lg border border-outline-variant bg-surface-low">
                 {carregandoEnderecos ? (
-                  <p className="p-4 text-sm text-muted-foreground">
-                    Carregando endereços do centro...
+                  <p className="flex items-center gap-2 p-3 text-[11px] text-muted-foreground">
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    Carregando endereços…
                   </p>
                 ) : erroEnderecos ? (
-                  <p role="alert" className="p-4 text-sm text-destructive">
+                  <p role="alert" className="p-3 text-[11px] text-destructive">
                     {erroEnderecos}
                   </p>
                 ) : enderecosFiltrados.length === 0 ? (
-                  <p className="p-4 text-sm text-muted-foreground">
-                    Nenhum endereço cadastrado para o centro deste inventário.
-                    Cadastre endereços em Operacional &gt; Endereços ou execute{' '}
-                    <code className="rounded bg-surface-high px-1 py-0.5 text-xs">
-                      pnpm --filter api db:seed
-                    </code>{' '}
-                    em desenvolvimento.
+                  <p className="p-3 text-[11px] leading-relaxed text-muted-foreground">
+                    {skuFiltroAtivo
+                      ? 'Nenhum endereço possui saldo do SKU informado.'
+                      : temFiltrosAtivos || filtroEndereco.trim()
+                        ? 'Nenhum endereço corresponde aos filtros aplicados.'
+                        : 'Nenhum endereço cadastrado para o centro deste inventário.'}
                   </p>
                 ) : (
-                  <ul className="divide-y divide-outline-variant">
+                  <ul className="divide-y divide-outline-variant/50">
                     {enderecosFiltrados.map((endereco) => {
                       const checked = enderecoIdsSelecionados.includes(endereco.id);
                       return (
                         <li key={endereco.id}>
-                          <label className="flex cursor-pointer items-start gap-3 p-3 transition-colors hover:bg-surface-high">
+                          <label className="flex cursor-pointer items-center gap-2 px-2 py-1.5 transition-colors hover:bg-surface-highest/50">
                             <input
                               type="checkbox"
-                              className="mt-1 size-4 accent-primary"
+                              className="size-3.5 accent-primary"
                               checked={checked}
                               onChange={() => toggleEndereco(endereco.id)}
                             />
                             <span className="min-w-0 flex-1">
-                              <span className="block font-mono text-sm font-semibold text-foreground">
+                              <span className="block font-mono text-[11px] font-semibold text-foreground">
                                 {endereco.enderecoMascarado}
                               </span>
-                              <span className="text-xs text-muted-foreground">
-                                Zona: {endereco.zona}
+                              <span className="text-[10px] text-muted-foreground">
+                                Zona {endereco.zona} · Rua {endereco.rua} · Nível{' '}
+                                {endereco.nivel} · {ENDERECO_TIPO_LABELS[endereco.tipo]}
                               </span>
                             </span>
                           </label>
@@ -398,126 +546,82 @@ export function InventarioNovaDemandaView({
                 )}
               </div>
               {errors.enderecoIds?.message ? (
-                <p role="alert" className={cn(fieldErrorClassName, 'mb-4')}>
+                <p role="alert" className={cn(fieldErrorClassName, 'mt-1.5')}>
                   {errors.enderecoIds.message}
                 </p>
               ) : null}
 
-              <div className="mb-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div className="mt-3 grid grid-cols-1 gap-3 border-t border-outline-variant pt-3 sm:grid-cols-2">
                 <div>
                   <span className={fieldLabelClassName}>
-                    Intervalo de Racks (opcional)
+                    Intervalo de racks (opcional)
                   </span>
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-1 flex items-center gap-1.5">
                     <input
-                      placeholder="Início (ex: R01)"
-                      className={cn(fieldInputClassName, 'rounded-xl text-sm')}
+                      placeholder="Início"
+                      className={compactInputClassName}
                       {...form.register('rackInicio')}
                     />
-                    <span className="shrink-0 text-muted-foreground">até</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">até</span>
                     <input
-                      placeholder="Fim (ex: R10)"
-                      className={cn(fieldInputClassName, 'rounded-xl text-sm')}
+                      placeholder="Fim"
+                      className={compactInputClassName}
                       {...form.register('rackFim')}
                     />
                   </div>
                 </div>
-              </div>
-
-              <div className="mb-6 grid grid-cols-1 gap-6 border-t border-outline-variant pt-6 sm:grid-cols-2">
-                <div>
-                  <span className={fieldLabelClassName}>Categoria de Produto</span>
-                  <div className="mt-2 flex min-h-[50px] flex-wrap gap-2 rounded-xl border border-outline-variant bg-surface-low p-3">
-                    {categoriasSelecionadas.map((cat) => (
-                      <span key={cat} className={chipSecondaryClassName}>
-                        {cat}
-                        <button
-                          type="button"
-                          className="hover:text-foreground"
-                          aria-label={`Remover ${cat}`}
-                          onClick={() => removerCategoria(cat)}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      value={filtroCategoria}
-                      onChange={(e) => setFiltroCategoria(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && categoriasFiltradas[0]) {
-                          e.preventDefault();
-                          adicionarCategoria(categoriasFiltradas[0]);
-                        }
-                      }}
-                      placeholder="Filtrar categorias..."
-                      className="min-w-[80px] flex-1 border-none bg-transparent text-[10px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0"
-                    />
-                  </div>
-                  {filtroCategoria && categoriasFiltradas.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {categoriasFiltradas.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          className="rounded-full border border-outline-variant px-2 py-0.5 text-[10px] text-muted-foreground hover:border-secondary hover:text-secondary"
-                          onClick={() => adicionarCategoria(cat)}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
 
                 <div>
                   <label htmlFor="demanda-sku" className={fieldLabelClassName}>
-                    Itens Específicos (SKU)
+                    SKU específico
+                    {skuFiltroAtivo ? (
+                      <span className="ml-1.5 font-normal text-primary">
+                        (filtrando endereços com saldo)
+                      </span>
+                    ) : null}
                   </label>
-                  <div className="relative mt-2">
-                    <Search
-                      className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                      aria-hidden
-                    />
+                  <div className="relative mt-1">
+                    {filtrandoSku ? (
+                      <Loader2
+                        className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground"
+                        aria-hidden
+                      />
+                    ) : (
+                      <Search
+                        className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                        aria-hidden
+                      />
+                    )}
                     <input
                       id="demanda-sku"
-                      placeholder="Buscar por SKU ou Nome do Produto..."
-                      className={cn(fieldInputClassName, 'rounded-xl pl-11 text-sm')}
+                      placeholder={
+                        tipo === 'validacao'
+                          ? 'Buscar SKU ou produto…'
+                          : 'Opcional — sem filtro de saldo'
+                      }
+                      className={cn(compactInputClassName, 'pl-8')}
                       {...form.register('skuBusca')}
                     />
                   </div>
                 </div>
               </div>
-
-              <div className="relative h-48 w-full overflow-hidden rounded-xl border border-outline-variant opacity-50 grayscale">
-                <div className="absolute inset-0 bg-gradient-to-br from-surface-high via-surface-low to-surface-high" />
-                <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
-                <div className="absolute inset-0 flex items-end p-4">
-                  <span className="rounded-full bg-primary-container px-3 py-1 text-xs font-bold text-on-primary-container">
-                    Mapa Ativo: Galpão Principal
-                  </span>
-                </div>
-              </div>
             </section>
 
-            <section
-              className={cn(sectionCardClassName, 'col-span-12 h-fit lg:col-span-4')}
-            >
-              <header className="mb-6 flex items-center gap-2">
-                <Users className="size-6 shrink-0 text-primary" aria-hidden />
-                <h2 className="text-headline-md font-medium text-foreground">
-                  Equipe e Responsáveis
-                </h2>
-              </header>
+            <section className={cn(cardClassName, 'h-fit lg:col-span-4')}>
+              <SectionHeader
+                icon={<Users className="size-3.5" aria-hidden />}
+                title="Responsável"
+                description="Operador principal da contagem"
+              />
 
-              <div>
+              <div className="flex flex-col gap-1">
                 <label htmlFor="demanda-responsavel" className={fieldLabelClassName}>
-                  Responsável Geral
+                  Responsável geral
                 </label>
                 <select
                   id="demanda-responsavel"
                   aria-invalid={Boolean(errors.responsavelId)}
-                  className="sr-only"
+                  className={cn(compactInputClassName, 'appearance-none')}
                   {...form.register('responsavelId')}
                 >
                   <option value="">Selecione um responsável</option>
@@ -527,46 +631,6 @@ export function InventarioNovaDemandaView({
                     </option>
                   ))}
                 </select>
-
-                {responsavelSelecionado ? (
-                  <div className="mt-2 flex items-center gap-4 rounded-xl border border-primary/20 bg-surface-high p-4">
-                    <div className="flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-card text-sm font-bold uppercase text-muted-foreground">
-                      {responsavelSelecionado.label.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate font-bold text-foreground">
-                        {responsavelSelecionado.label.split(' (')[0]}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {responsavelSelecionado.label.match(/\(([^)]+)\)/)?.[1] ??
-                          'Operações'}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-2 rounded-xl border border-outline-variant bg-surface-low p-4">
-                    <p className="mb-3 text-sm text-muted-foreground">
-                      Selecione o responsável pela contagem
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      {opcoesResponsavel.map((r) => (
-                        <button
-                          key={r.value}
-                          type="button"
-                          className="rounded-lg border border-outline-variant px-3 py-2 text-left text-sm transition-colors hover:border-primary hover:bg-surface-high"
-                          onClick={() =>
-                            void form.setValue('responsavelId', r.value, {
-                              shouldDirty: true,
-                              shouldValidate: true,
-                            })
-                          }
-                        >
-                          {r.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 {errors.responsavelId?.message ? (
                   <p role="alert" className={fieldErrorClassName}>
                     {errors.responsavelId.message}
@@ -575,25 +639,21 @@ export function InventarioNovaDemandaView({
               </div>
             </section>
 
-            <section className={cn(sectionCardClassName, 'col-span-12')}>
-              <header className="mb-6 flex items-center gap-2">
-                <FileText className="size-6 shrink-0 text-primary" aria-hidden />
-                <h2 className="text-headline-md font-medium text-foreground">
-                  Observações e Instruções
-                </h2>
-              </header>
+            <section className={cn(cardClassName, 'lg:col-span-12')}>
+              <SectionHeader
+                icon={<FileText className="size-3.5" aria-hidden />}
+                title="Observações"
+                description="Instruções para a equipe de contagem"
+              />
 
               <textarea
-                rows={4}
-                placeholder="Insira aqui instruções especiais de manuseio, cuidados com produtos frágeis ou observações para a equipe..."
-                className={cn(
-                  fieldInputClassName,
-                  'resize-none rounded-xl',
-                )}
+                rows={3}
+                placeholder="Instruções de manuseio, cuidados com frágeis ou observações…"
+                className={cn(compactInputClassName, 'resize-none')}
                 {...form.register('observacoes')}
               />
 
-              <div className="mt-4 flex flex-wrap gap-4">
+              <div className="mt-2 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={() =>
@@ -602,35 +662,22 @@ export function InventarioNovaDemandaView({
                     })
                   }
                   className={cn(
-                    'flex items-center gap-2 text-xs transition-colors',
+                    'inline-flex items-center gap-1.5 text-[10px] transition-colors',
                     alertaFragilidade
-                      ? 'text-primary'
+                      ? 'font-medium text-primary'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  <ShieldAlert className="size-4 shrink-0" aria-hidden />
-                  Ativar alerta de fragilidade para SKU eletrônico
+                  <ShieldAlert className="size-3.5 shrink-0" aria-hidden />
+                  Alerta de fragilidade (SKU eletrônico)
                 </button>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Timer className="size-4 shrink-0" aria-hidden />
-                  Estimativa de conclusão: 4h 30min
+                <div className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <Timer className="size-3.5 shrink-0" aria-hidden />
+                  Estimativa: ~4h 30min
                 </div>
               </div>
             </section>
           </form>
-
-          <footer className="flex flex-wrap justify-end gap-3 border-t border-outline-variant/30 pt-6">
-            <Button type="button" variant="outline" onClick={voltarLista}>
-              Descartar
-            </Button>
-            <Button
-              type="submit"
-              form="form-nova-demanda"
-              disabled={salvando}
-            >
-              {salvando ? 'Salvando…' : 'Confirmar Configuração'}
-            </Button>
-          </footer>
         </div>
       </main>
     </SidebarMain>

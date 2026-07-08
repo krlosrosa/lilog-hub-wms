@@ -1,15 +1,28 @@
 import { Module } from '@nestjs/common';
 
 import { RecebimentoEventPublisher } from '../../application/services/recebimento-event.publisher.js';
-import { AprovarRecebimentoUseCase } from '../../application/usecases/recebimento/aprovar-recebimento.usecase.js';
+import { MontarItensAguardandoArmazenagemRecebimentoService } from '../../application/services/recebimento/montar-itens-aguardando-armazenagem-recebimento.service.js';
+import { CarregarEtiquetasGeradasRecebimentoService } from '../../application/services/recebimento/carregar-etiquetas-geradas-recebimento.service.js';
+import { MontarPaletesArmazenagemService } from '../../application/services/armazenagem/montar-paletes-armazenagem.service.js';
+import { SugerirEnderecosPaletesService } from '../../application/services/armazenagem/sugerir-enderecos-paletes.service.js';
 import { CancelPreRecebimentoUseCase } from '../../application/usecases/recebimento/cancel-pre-recebimento.usecase.js';
-import { CheckinVeiculoUseCase } from '../../application/usecases/recebimento/checkin-veiculo.usecase.js';
+import { LiberarConferenciaUseCase } from '../../application/usecases/recebimento/liberar-conferencia.usecase.js';
+import { RecepcionarCarroUseCase } from '../../application/usecases/recebimento/recepcionar-carro.usecase.js';
 import { ConferirItemUseCase } from '../../application/usecases/recebimento/conferir-item.usecase.js';
+import { RemoverConferenciaItemUseCase } from '../../application/usecases/recebimento/remover-conferencia-item.usecase.js';
+import { RemoverLinhaConferenciaRecebimentoUseCase } from '../../application/usecases/recebimento/remover-linha-conferencia-recebimento.usecase.js';
+import { RemovePesagemRecebimentoUseCase } from '../../application/usecases/recebimento/remove-pesagem-recebimento.usecase.js';
+import { RemoverPaleteConferenciaRecebimentoUseCase } from '../../application/usecases/recebimento/remover-palete-conferencia-recebimento.usecase.js';
 import { CreateChecklistRecebimentoUseCase } from '../../application/usecases/recebimento/create-checklist-recebimento.usecase.js';
 import { GetChecklistRecebimentoUseCase } from '../../application/usecases/recebimento/get-checklist-recebimento.usecase.js';
 import { CreatePreRecebimentoUseCase } from '../../application/usecases/recebimento/create-pre-recebimento.usecase.js';
 import { EncerrarConferenciaUseCase } from '../../application/usecases/recebimento/encerrar-conferencia.usecase.js';
+import { ReabrirConferenciaUseCase } from '../../application/usecases/recebimento/reabrir-conferencia.usecase.js';
 import { FinalizarRecebimentoUseCase } from '../../application/usecases/recebimento/finalizar-recebimento.usecase.js';
+import { ImprimirEtiquetasRecebimentoUseCase } from '../../application/usecases/recebimento/imprimir-etiquetas-recebimento.usecase.js';
+import { PreviewPaletesArmazenagemRecebimentoUseCase } from '../../application/usecases/recebimento/preview-paletes-armazenagem-recebimento.usecase.js';
+import { PreviewEnderecosPaletesBipadosRecebimentoUseCase } from '../../application/usecases/recebimento/preview-enderecos-paletes-bipados-recebimento.usecase.js';
+import { SugerirEtiquetasRecebimentoUseCase } from '../../application/usecases/recebimento/sugerir-etiquetas-recebimento.usecase.js';
 import { GetConferenciaContextUseCase } from '../../application/usecases/recebimento/get-conferencia-context.usecase.js';
 import { GetPreRecebimentoUseCase } from '../../application/usecases/recebimento/get-pre-recebimento.usecase.js';
 import { ListOperadorDemandasUseCase } from '../../application/usecases/recebimento/list-operador-demandas.usecase.js';
@@ -21,19 +34,32 @@ import { IniciarRecebimentoUseCase } from '../../application/usecases/recebiment
 import { ListPreRecebimentosUseCase } from '../../application/usecases/recebimento/list-pre-recebimentos.usecase.js';
 import { ListRecebimentosUseCase } from '../../application/usecases/recebimento/list-recebimentos.usecase.js';
 import { UpdatePreRecebimentoUseCase } from '../../application/usecases/recebimento/update-pre-recebimento.usecase.js';
+import {
+  GerarLinkRastreioUseCase,
+  GetRastreioStatusUseCase,
+} from '../../application/usecases/recebimento/gerar-link-rastreio.usecase.js';
 import { CONFERENCIA_REPOSITORY } from '../../domain/repositories/recebimento/conferencia.repository.js';
 import { PRE_RECEBIMENTO_REPOSITORY } from '../../domain/repositories/recebimento/pre-recebimento.repository.js';
 import { RECEBIMENTO_AVARIA_REPOSITORY } from '../../domain/repositories/recebimento/recebimento-avaria.repository.js';
 import { RECEBIMENTO_REPOSITORY } from '../../domain/repositories/recebimento/recebimento.repository.js';
-import { AprovarRecebimentoController } from '../../presentation/controllers/recebimento/aprovar-recebimento.controller.js';
 import { CancelPreRecebimentoController } from '../../presentation/controllers/recebimento/cancel-pre-recebimento.controller.js';
-import { CheckinVeiculoController } from '../../presentation/controllers/recebimento/checkin-veiculo.controller.js';
+import { LiberarConferenciaController } from '../../presentation/controllers/recebimento/liberar-conferencia.controller.js';
+import { RecepcionarCarroController } from '../../presentation/controllers/recebimento/recepcionar-carro.controller.js';
 import { ConferirItemController } from '../../presentation/controllers/recebimento/conferir-item.controller.js';
+import { RemoverConferenciaItemController } from '../../presentation/controllers/recebimento/remover-conferencia-item.controller.js';
+import { RemoverLinhaConferenciaRecebimentoController } from '../../presentation/controllers/recebimento/remover-linha-conferencia-recebimento.controller.js';
+import { RemovePesagemRecebimentoController } from '../../presentation/controllers/recebimento/remove-pesagem-recebimento.controller.js';
+import { RemoverPaleteConferenciaRecebimentoController } from '../../presentation/controllers/recebimento/remover-palete-conferencia-recebimento.controller.js';
 import { CreateChecklistRecebimentoController } from '../../presentation/controllers/recebimento/create-checklist-recebimento.controller.js';
 import { GetChecklistRecebimentoController } from '../../presentation/controllers/recebimento/get-checklist-recebimento.controller.js';
 import { CreatePreRecebimentoController } from '../../presentation/controllers/recebimento/create-pre-recebimento.controller.js';
 import { EncerrarConferenciaController } from '../../presentation/controllers/recebimento/encerrar-conferencia.controller.js';
+import { ReabrirConferenciaController } from '../../presentation/controllers/recebimento/reabrir-conferencia.controller.js';
 import { FinalizarRecebimentoController } from '../../presentation/controllers/recebimento/finalizar-recebimento.controller.js';
+import { ImprimirEtiquetasRecebimentoController } from '../../presentation/controllers/recebimento/imprimir-etiquetas-recebimento.controller.js';
+import { PreviewPaletesArmazenagemRecebimentoController } from '../../presentation/controllers/recebimento/preview-paletes-armazenagem-recebimento.controller.js';
+import { PreviewEnderecosPaletesBipadosRecebimentoController } from '../../presentation/controllers/recebimento/preview-enderecos-paletes-bipados-recebimento.controller.js';
+import { SugerirEtiquetasRecebimentoController } from '../../presentation/controllers/recebimento/sugerir-etiquetas-recebimento.controller.js';
 import { GetConferenciaContextController } from '../../presentation/controllers/recebimento/get-conferencia-context.controller.js';
 import { GetPreRecebimentoController } from '../../presentation/controllers/recebimento/get-pre-recebimento.controller.js';
 import { ListOperadorDemandasController } from '../../presentation/controllers/recebimento/list-operador-demandas.controller.js';
@@ -45,7 +71,10 @@ import { IniciarRecebimentoController } from '../../presentation/controllers/rec
 import { ListPreRecebimentosController } from '../../presentation/controllers/recebimento/list-pre-recebimentos.controller.js';
 import { ListRecebimentosController } from '../../presentation/controllers/recebimento/list-recebimentos.controller.js';
 import { UpdatePreRecebimentoController } from '../../presentation/controllers/recebimento/update-pre-recebimento.controller.js';
+import { GerarLinkRastreioController } from '../../presentation/controllers/recebimento/gerar-link-rastreio.controller.js';
+import { GetRastreioStatusController } from '../../presentation/controllers/recebimento/get-rastreio-status.controller.js';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard.js';
+import { GerarPdfDeHtmlService } from '../pdf/gerar-pdf-de-html.service.js';
 import { ConferenciaService } from '../db/recebimento/conferencia.service.js';
 import { PreRecebimentoService } from '../db/recebimento/pre-recebimento.service.js';
 import { RecebimentoAvariaService } from '../db/recebimento/recebimento-avaria.service.js';
@@ -56,8 +85,12 @@ import { CncModule } from './cnc.module.js';
 import { DocaModule } from './doca.module.js';
 import { EstoqueModule } from './estoque.module.js';
 import { ArmazenagemModule } from './armazenagem.module.js';
+import { EnderecoModule } from './endereco.module.js';
 import { FuncionarioModule } from './funcionario.module.js';
+import { OperacionalModule } from './operacional.module.js';
 import { ProdutoModule } from './produto.module.js';
+import { RecebimentoQueueModule } from './recebimento-queue.module.js';
+import { RegraProcessoModule } from './regra-processo.module.js';
 import { UnidadeModule } from './unidade.module.js';
 import { UserModule } from './user.module.js';
 
@@ -71,7 +104,11 @@ import { UserModule } from './user.module.js';
     FuncionarioModule,
     CncModule,
     EstoqueModule,
+    EnderecoModule,
+    RecebimentoQueueModule,
     ArmazenagemModule,
+    RegraProcessoModule,
+    OperacionalModule,
     UserModule,
   ],
   controllers: [
@@ -85,29 +122,53 @@ import { UserModule } from './user.module.js';
     CreatePreRecebimentoController,
     UpdatePreRecebimentoController,
     CancelPreRecebimentoController,
-    CheckinVeiculoController,
+    LiberarConferenciaController,
+    RecepcionarCarroController,
     IniciarRecebimentoController,
     ConferirItemController,
+    RemoverConferenciaItemController,
+    RemoverLinhaConferenciaRecebimentoController,
+    RemovePesagemRecebimentoController,
+    RemoverPaleteConferenciaRecebimentoController,
     CreateChecklistRecebimentoController,
     GetChecklistRecebimentoController,
     EncerrarConferenciaController,
-    AprovarRecebimentoController,
+    ReabrirConferenciaController,
     FinalizarRecebimentoController,
+    ImprimirEtiquetasRecebimentoController,
+    PreviewPaletesArmazenagemRecebimentoController,
+    PreviewEnderecosPaletesBipadosRecebimentoController,
+    SugerirEtiquetasRecebimentoController,
     GetRecebimentoController,
     RegistrarAvariaController,
+    GerarLinkRastreioController,
+    GetRastreioStatusController,
   ],
   providers: [
     CreatePreRecebimentoUseCase,
     UpdatePreRecebimentoUseCase,
     CancelPreRecebimentoUseCase,
-    CheckinVeiculoUseCase,
+    LiberarConferenciaUseCase,
+    RecepcionarCarroUseCase,
     IniciarRecebimentoUseCase,
     ConferirItemUseCase,
+    RemoverConferenciaItemUseCase,
+    RemoverLinhaConferenciaRecebimentoUseCase,
+    RemovePesagemRecebimentoUseCase,
+    RemoverPaleteConferenciaRecebimentoUseCase,
     CreateChecklistRecebimentoUseCase,
     GetChecklistRecebimentoUseCase,
     EncerrarConferenciaUseCase,
-    AprovarRecebimentoUseCase,
+    ReabrirConferenciaUseCase,
     FinalizarRecebimentoUseCase,
+    ImprimirEtiquetasRecebimentoUseCase,
+    PreviewPaletesArmazenagemRecebimentoUseCase,
+    PreviewEnderecosPaletesBipadosRecebimentoUseCase,
+    SugerirEtiquetasRecebimentoUseCase,
+    MontarItensAguardandoArmazenagemRecebimentoService,
+    CarregarEtiquetasGeradasRecebimentoService,
+    MontarPaletesArmazenagemService,
+    SugerirEnderecosPaletesService,
     ListPreRecebimentosUseCase,
     ListRecebimentosUseCase,
     GetPreRecebimentoUseCase,
@@ -117,7 +178,10 @@ import { UserModule } from './user.module.js';
     GetConferenciaContextUseCase,
     RegistrarAvariaUseCase,
     ListRecebimentoAvariasUseCase,
+    GerarLinkRastreioUseCase,
+    GetRastreioStatusUseCase,
     RecebimentoEventPublisher,
+    GerarPdfDeHtmlService,
     PermissionsGuard,
     {
       provide: PRE_RECEBIMENTO_REPOSITORY,

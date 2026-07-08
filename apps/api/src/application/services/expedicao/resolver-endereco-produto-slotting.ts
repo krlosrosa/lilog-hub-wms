@@ -8,17 +8,6 @@ const PAPEL_PRIORIDADE: Record<ProdutoEnderecoPapel, number> = {
   pulmao: 2,
 };
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-export function isProdutoUuid(value: string | null | undefined): value is string {
-  if (!value?.trim()) {
-    return false;
-  }
-
-  return UUID_REGEX.test(value.trim());
-}
-
 export function normalizarChaveProdutoSlotting(
   value: string | null | undefined,
 ): string | null {
@@ -27,7 +16,7 @@ export function normalizarChaveProdutoSlotting(
     return null;
   }
 
-  return isProdutoUuid(trimmed) ? trimmed.toLowerCase() : trimmed;
+  return trimmed;
 }
 
 function rowParaEnderecoItemMapa(row: ProdutoEnderecoSlottingRow): EnderecoItemMapa {
@@ -97,7 +86,7 @@ export function montarMapaEnderecoPorProdutoCodigo(
   const porChave = new Map<string, ProdutoEnderecoSlottingRow[]>();
 
   rows.forEach((row) => {
-    registrarChave(porChave, row.produtoUuid, row);
+    registrarChave(porChave, row.produtoId, row);
     registrarChave(porChave, row.produtoCodigo, row);
     registrarChave(porChave, row.produtoSku, row);
   });
@@ -112,13 +101,13 @@ export function montarMapaEnderecoPorProdutoCodigo(
 }
 
 export function resolverEnderecoItemMapa(input: {
-  produtoUuid: string | null;
+  produtoId: string | null;
   produtoCodigo: string;
   sku: string;
   enderecoPorProdutoCodigo: Map<string, EnderecoItemMapa | null>;
 }): EnderecoItemMapa | null {
   const chaves = [
-    normalizarChaveProdutoSlotting(input.produtoUuid),
+    normalizarChaveProdutoSlotting(input.produtoId),
     normalizarChaveProdutoSlotting(input.produtoCodigo),
     normalizarChaveProdutoSlotting(input.sku),
   ].filter((chave): chave is string => Boolean(chave));
@@ -133,7 +122,7 @@ export function resolverEnderecoItemMapa(input: {
   return null;
 }
 
-export function coletarProdutoUuidsParaSlotting(input: {
+export function coletarProdutoIdsParaSlotting(input: {
   produtoId: string | null;
   produtoIdResolvido: string | null;
   produtoCodigo: string;
@@ -148,7 +137,7 @@ export function coletarProdutoUuidsParaSlotting(input: {
         input.sku,
       ]
         .map(normalizarChaveProdutoSlotting)
-        .filter(isProdutoUuid),
+        .filter((chave): chave is string => Boolean(chave)),
     ),
   ];
 }

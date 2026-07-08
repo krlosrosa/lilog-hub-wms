@@ -36,7 +36,9 @@ export function PrecisaPausaBanner({ count }: PrecisaPausaBannerProps) {
         </div>
       </div>
       <Button type="button" variant="outline" size="sm" asChild>
-        <Link href="/pausas/registro">Ir para registro de pausas</Link>
+        <Link href="/pausas/registro" target="_blank" rel="noopener noreferrer">
+          Ir para registro de pausas
+        </Link>
       </Button>
     </div>
   );

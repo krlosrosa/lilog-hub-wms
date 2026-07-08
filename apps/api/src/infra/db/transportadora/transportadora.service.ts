@@ -15,6 +15,7 @@ import {
 } from '../providers/drizzle/drizzle.provider.js';
 import { createTransportadoraDb } from './create-transportadora.drizzle.js';
 import { deleteTransportadoraDb } from './delete-transportadora.drizzle.js';
+import { findTransportadoraByEmailDb } from './find-transportadora-by-email.drizzle.js';
 import {
   findTransportadoraByIdDb,
   findTransportadoraByUnidadeAndRavexIdDb,
@@ -34,6 +35,10 @@ export class TransportadoraService implements ITransportadoraRepository {
 
   findById(id: string) {
     return findTransportadoraByIdDb(this.db, id);
+  }
+
+  findByEmail(email: string) {
+    return findTransportadoraByEmailDb(this.db, email);
   }
 
   findByUnidadeAndRavexId(unidadeId: string, idRavexTransportadora: number) {

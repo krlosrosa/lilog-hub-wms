@@ -109,8 +109,11 @@ export async function request<T>(
 
 export async function uploadPhoto(photo: PhotoEntry): Promise<string> {
   const { uploadDocumentToBucket } = await import('./document-upload');
+  const { buildImageUploadName } = await import('@/lib/images/image-mime');
+  const mimeType = photo.mimeType || 'image/webp';
+
   return uploadDocumentToBucket(photo, {
-    nome: `photo-${photo.id ?? Date.now()}.jpg`,
+    nome: buildImageUploadName(`photo-${photo.id ?? Date.now()}`, mimeType),
   });
 }
 
@@ -144,8 +147,31 @@ export async function fetchDemands<T>(unidadeId: string): Promise<T[]> {
   return items.map((item) => mapOperadorDemandaToDemand(item)) as T[];
 }
 
-export async function fetchDevolucaoDemands<T>(): Promise<T[]> {
-  return request<T[]>('/devolucao/demands');
+export async function fetchDevolucaoDemands<T>(unidadeId: string): Promise<T[]> {
+  if (!unidadeId?.trim()) {
+    throw new ApiClientError(
+      'Selecione uma unidade antes de carregar as demandas.',
+    );
+  }
+
+  const { mapDemandasDevolucaoAbertas } = await import(
+    '@/features/devolucao/lib/devolucao-api-mapper'
+  );
+  type ListResponse = import('@/features/devolucao/lib/devolucao-api-mapper').ListarDemandasDevolucaoApiResponse;
+
+  const params = new URLSearchParams({ unidadeId });
+  const response = await request<ListResponse>(
+    `/devolucao/demandas?${params.toString()}`,
+  );
+
+  const { db } = await import('@/lib/offline/db');
+  const existing = await db.devolucaoDemands.toArray();
+  const localByRouteId = new Map(existing.map((demand) => [demand.routeId, demand]));
+
+  return mapDemandasDevolucaoAbertas(
+    response.demandas ?? [],
+    localByRouteId,
+  ) as T[];
 }
 
 export async function fetchInventoryDemands<T>(): Promise<T[]> {
@@ -162,11 +188,12 @@ export async function fetchInventoryDemandEnderecos<T>(
 
 export type SubmitContagemCegaPayload = {
   enderecoArmazenagem: string;
-  codigoProduto: string;
+  enderecoVazio?: boolean;
+  codigoProduto?: string;
   quantidadeCaixas: number;
   quantidadeUnidades: number;
-  lote: string;
-  peso: number;
+  lote?: string;
+  peso?: number;
 };
 
 export async function submitContagemCega(
@@ -189,11 +216,13 @@ export type SubmitContagemValidacaoPayload = {
   sscc?: string;
   enderecoVazio: boolean;
   anomaliaEncontrada: boolean;
+  correspondeAoEsperado: boolean;
   quantidadeCaixas: number;
   quantidadeUnidades: number;
   lote?: string;
   peso?: number;
   codigoProduto?: string;
+  saldoEnderecoId?: string;
 };
 
 export async function submitContagemValidacao(

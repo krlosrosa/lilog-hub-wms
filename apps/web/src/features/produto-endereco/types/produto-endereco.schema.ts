@@ -10,7 +10,7 @@ export type ProdutoEnderecoPapelForm = z.infer<typeof produtoEnderecoPapelSchema
 
 export const produtoEnderecoFormSchema = z.object({
   centroId: z.string().uuid('Selecione um centro'),
-  produtoId: z.string().uuid('Selecione um produto'),
+  produtoId: z.string().min(1, 'Selecione um produto'),
   enderecoId: z.string().uuid('Selecione um endereço'),
   papel: produtoEnderecoPapelSchema,
   ordem: z.number().int().min(1).max(32767),
@@ -43,6 +43,12 @@ export const PAPEL_PRODUTO_ENDERECO_LABELS: Record<
   pulmao: 'Pulmão',
 };
 
+export function enderecoTiposCompativeisComPapel(
+  papel: ProdutoEnderecoPapelForm,
+): Array<'picking' | 'pulmao' | 'aereo'> {
+  return papel === 'pulmao' ? ['pulmao', 'aereo'] : ['picking'];
+}
+
 export function enderecoTipoParaPapel(
   papel: ProdutoEnderecoPapelForm,
 ): 'picking' | 'pulmao' {
@@ -50,9 +56,9 @@ export function enderecoTipoParaPapel(
 }
 
 export function papelDefaultPorTipoEndereco(
-  tipo: 'picking' | 'pulmao' | string,
+  tipo: 'picking' | 'pulmao' | 'aereo' | string,
 ): ProdutoEnderecoPapelForm {
-  return tipo === 'pulmao' ? 'pulmao' : 'picking_primario';
+  return tipo === 'pulmao' || tipo === 'aereo' ? 'pulmao' : 'picking_primario';
 }
 
 export type SlottingLinhaDraft = {

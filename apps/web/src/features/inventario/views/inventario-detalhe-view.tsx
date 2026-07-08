@@ -1,325 +1,580 @@
 'use client';
 
-import { toast } from 'sonner';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 
 import Link from 'next/link';
 
 import {
   ArrowLeft,
   BadgeCheck,
-  ChevronDown,
+  ClipboardList,
+  Download,
+  Loader2,
   Pause,
   Plus,
-  TrendingUp,
   TriangleAlert,
+  TrendingUp,
 } from 'lucide-react';
+
+import { toast } from 'sonner';
 
 import { Button, cn } from '@lilog/ui';
 
-import { accentSubtleBadgePlainClassName } from '@/lib/semantic-badge-classes';
 import { SidebarMain } from '@/components/layout/sidebar';
+import {
+  compactTableBodyClassName,
+  compactTableClassName,
+  compactTableEmptyCellClassName,
+  compactTableHeadCellClassName,
+  compactTableHeadRowClassName,
+} from '@/components/ui/compact-table-classes';
 
 import { DivergenciaRow } from '@/features/inventario/components/divergencia-row';
-import { premiumCardClassName } from '@/features/inventario/components/form-field-classes';
-import { SetorProgressItem } from '@/features/inventario/components/setor-progress-item';
-import { TeamMemberItem } from '@/features/inventario/components/team-member-item';
+import { ModalReprovarDivergencia } from '@/features/inventario/components/modal-reprovar-divergencia';
+import { ModalSolicitarRecontagemDivergencia } from '@/features/inventario/components/modal-solicitar-recontagem-divergencia';
+import { DemandaProgressItem } from '@/features/inventario/components/demanda-progress-item';
 import { useInventarioDetalhe } from '@/features/inventario/hooks/use-inventario-detalhe';
+import type { DivergenciaFiltroStatus } from '@/features/inventario/types/inventario-detalhe.schema';
+import type { DivergenciaItem } from '@/features/inventario/types/inventario-detalhe.schema';
 
-const glassCard = cn(
-  premiumCardClassName,
-  'border-outline-variant bg-glass-bg shadow-inner-glow backdrop-blur-glass',
-);
+const glassCard =
+  'overflow-hidden rounded-lg border border-outline-variant bg-glass-bg shadow-inner-glow backdrop-blur-glass';
+
+const DIVERGENCIA_HEADERS = [
+  { label: 'SKU / produto', className: 'min-w-[8rem]' },
+  { label: 'Setor', className: 'hidden sm:table-cell' },
+  { label: 'Esperado', className: 'w-16' },
+  { label: 'Encontrado', className: 'w-16' },
+  { label: 'Dif.', className: 'w-14' },
+  { label: 'Tipo / status', className: 'hidden md:table-cell w-24' },
+  { label: 'Ações', className: 'w-36 text-right' },
+] as const;
+
+const FILTROS_DIVERGENCIA: Array<{
+  id: DivergenciaFiltroStatus;
+  label: string;
+}> = [
+  { id: 'pendente', label: 'Pendentes' },
+  { id: 'aprovada', label: 'Aprovadas' },
+  { id: 'aplicada', label: 'Aplicadas' },
+  { id: 'reprovada', label: 'Reprovadas' },
+  { id: 'todas', label: 'Todas' },
+];
 
 export type InventarioDetalheViewProps = {
   inventarioId: string;
 };
 
+function MiniRingProgress({ percent }: { percent: number }) {
+  const r = 14;
+  const circ = 2 * Math.PI * r;
+  const dashOffset = circ * (1 - percent / 100);
+
+  return (
+    <div className="relative size-10 shrink-0">
+      <svg
+        className="size-full -rotate-90 text-muted"
+        viewBox="0 0 36 36"
+        aria-hidden
+      >
+        <circle
+          cx={18}
+          cy={18}
+          r={r}
+          stroke="currentColor"
+          strokeWidth={3}
+          fill="transparent"
+        />
+        <circle
+          className="text-primary"
+          cx={18}
+          cy={18}
+          r={r}
+          stroke="currentColor"
+          strokeWidth={3}
+          fill="transparent"
+          strokeDasharray={circ}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+        />
+      </svg>
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <TrendingUp className="size-3 text-primary/60" aria-hidden />
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  suffix,
+  detail,
+  tone = 'default',
+  icon,
+  progress,
+}: {
+  label: string;
+  value: string | number;
+  suffix?: string;
+  detail?: string;
+  tone?: 'default' | 'accent' | 'destructive';
+  icon?: ReactNode;
+  progress?: number;
+}) {
+  const valueTone =
+    tone === 'accent'
+      ? 'text-accent'
+      : tone === 'destructive'
+        ? 'text-destructive'
+        : 'text-foreground';
+
+  const progressTone =
+    tone === 'accent'
+      ? 'bg-accent'
+      : tone === 'destructive'
+        ? 'bg-destructive'
+        : 'bg-primary';
+
+  return (
+    <div
+      className={cn(
+        glassCard,
+        'flex min-w-[9.5rem] shrink-0 snap-start flex-col gap-1 p-3 sm:min-w-0',
+        tone === 'destructive' && 'border-l-2 border-l-destructive',
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+        {icon}
+      </div>
+      <p className={cn('text-lg font-bold tabular-nums', valueTone)}>
+        {value}
+        {suffix ? (
+          <span className="text-xs font-semibold">{suffix}</span>
+        ) : null}
+      </p>
+      {detail ? (
+        <p className="truncate text-[10px] text-muted-foreground">{detail}</p>
+      ) : null}
+      {progress != null ? (
+        <div className="mt-0.5 h-0.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className={cn('h-full rounded-full', progressTone)}
+            style={{ width: `${Math.min(100, progress)}%` }}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function InventarioDetalheView({
   inventarioId,
 }: InventarioDetalheViewProps) {
+  const [divergenciaReprovar, setDivergenciaReprovar] =
+    useState<DivergenciaItem | null>(null);
+  const [divergenciaRecontar, setDivergenciaRecontar] =
+    useState<DivergenciaItem | null>(null);
+
   const {
     header,
     metricas,
-    setores,
-    membros,
     divergencias,
-    eficienciaTimePercent,
+    divergenciasPendentesCount,
+    divergenciasIdentificadasCount,
+    modoAprovacaoDivergencias,
+    filtroDivergencia,
+    setFiltroDivergencia,
+    aprovarDivergencia,
+    reprovarDivergencia,
+    solicitarRecontagem,
+    processandoDivergenciaId,
+    irParaDivergencias,
+    demandas,
+    resumoDemandas,
     pausar,
     finalizar,
     pausando,
     finalizando,
-    verTodasDivergencias,
+    carregando,
     exportarCsv,
   } = useInventarioDetalhe(inventarioId);
 
-  const r = 32;
-  const circ = 2 * Math.PI * r;
-  const dashOffset = circ * (1 - metricas.progressoPercent / 100);
+  const handleReprovarConfirm = async (motivoReprovacao: string) => {
+    if (!divergenciaReprovar) {
+      return;
+    }
+
+    await reprovarDivergencia(divergenciaReprovar.id, motivoReprovacao);
+    setDivergenciaReprovar(null);
+  };
+
+  const handleRecontagemConfirm = async (payload: {
+    responsavelId: number;
+    prioridade: 'baixa' | 'media' | 'alta' | 'critica';
+    motivo?: string;
+  }) => {
+    if (!divergenciaRecontar) {
+      return;
+    }
+
+    await solicitarRecontagem(divergenciaRecontar.id, payload);
+    setDivergenciaRecontar(null);
+  };
 
   return (
     <SidebarMain>
-      <main className="px-margin-mobile py-6 md:px-margin-desktop md:py-8">
-        <div className="mx-auto max-w-container space-y-5 md:space-y-6 lg:space-y-8">
-        <Link
-          href="/inventario"
-          className="inline-flex items-center gap-2 text-caption text-muted-foreground transition-colors hover:text-primary md:text-label-md"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Voltar à visão geral
-        </Link>
-
-        <header className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <div>
-            <h1 className="text-headline-lg-mobile font-semibold tracking-tight text-primary md:text-headline-lg">
-              Overview em tempo real —{' '}
-              <span className="text-foreground/90">{header.codigo}</span>
-            </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              <span
-                className={cn(
-                  'flex items-center gap-1.5 rounded-full border border-accent/40 px-2.5 py-0.5 text-caption font-semibold',
-                  accentSubtleBadgePlainClassName,
-                )}
+      <main className="px-margin-mobile py-4 md:px-margin-desktop md:py-5">
+        <div className="mx-auto max-w-container space-y-3 md:space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-1.5">
+              <Link
+                href="/inventario"
+                className="inline-flex items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-primary"
               >
-                <span className="size-2 animate-pulse rounded-full bg-accent" />
-                {header.statusLabel}
-              </span>
-              <span className="text-caption text-muted-foreground">
-                {header.tempoDecorridoLabel}
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Button asChild type="button" size="sm" className="gap-2">
-              <Link href={`/inventario/${inventarioId}/demandas/nova`}>
-                <Plus className="size-4 shrink-0" aria-hidden />
-                Adicionar demanda
+                <ArrowLeft className="size-3" aria-hidden />
+                Inventário
               </Link>
-            </Button>
-            <Button
-              disabled={pausando}
-              variant="outline"
-              type="button"
-              size="sm"
-              onClick={() => void pausar()}
-            >
-              <Pause aria-hidden />
-              Pausar inventário
-            </Button>
-            <Button
-              disabled={finalizando}
-              type="button"
-              size="sm"
-              className="gap-2"
-              onClick={() => void finalizar()}
-            >
-              <BadgeCheck aria-hidden className="size-4" />
-              Finalizar
-            </Button>
-          </div>
-        </header>
-
-        <section className="grid gap-4 md:grid-cols-3 md:gap-5">
-          <div className={cn(glassCard, 'relative overflow-hidden p-5 md:p-6')}>
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-caption text-muted-foreground">Progresso total</p>
-                <p className="text-headline-md font-bold text-primary">
-                  {metricas.progressoPercent}
-                  <span className="text-sm font-semibold">%</span>
-                </p>
-                <p className="mt-1 text-caption text-muted-foreground">
-                  {metricas.itensContados.toLocaleString('pt-BR')} de{' '}
-                  {metricas.itensTotal.toLocaleString('pt-BR')} itens contados
-                </p>
-              </div>
-              <div className="relative size-20 shrink-0 md:size-24">
-                <svg
-                  className="-rotate-90 size-full text-muted"
-                  viewBox="0 0 96 96"
-                  aria-hidden
-                >
-                  <circle
-                    cx={48}
-                    cy={48}
-                    r={r}
-                    stroke="currentColor"
-                    strokeWidth={6}
-                    fill="transparent"
-                  />
-                  <circle
-                    className="text-primary"
-                    cx={48}
-                    cy={48}
-                    r={r}
-                    stroke="currentColor"
-                    strokeWidth={6}
-                    fill="transparent"
-                    strokeDasharray={circ}
-                    strokeDashoffset={dashOffset}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <TrendingUp className="size-5 text-primary/50 md:size-6" aria-hidden />
+              <div>
+                <h1 className="truncate text-lg font-semibold tracking-tight text-foreground md:text-xl">
+                  {header.codigo}
+                </h1>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2 py-px text-[10px] font-semibold text-accent">
+                    <span className="size-1.5 animate-pulse rounded-full bg-accent" />
+                    {header.statusLabel}
+                  </span>
+                  {header.tempoDecorridoLabel !== '—' ? (
+                    <span className="text-[10px] text-muted-foreground">
+                      {header.tempoDecorridoLabel}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
-            <div className="pointer-events-none absolute -right-8 -top-8 size-32 rounded-full bg-primary/10 blur-3xl" />
-          </div>
 
-          <div className={cn(glassCard, 'flex flex-col justify-between gap-3 p-5 md:p-6')}>
-            <div className="flex justify-between gap-3">
-              <p className="text-caption text-muted-foreground">
-                Acurácia atual
-              </p>
-              <BadgeCheck className="size-7 shrink-0 rounded-lg bg-accent/15 p-1.5 text-accent md:size-8" aria-hidden />
-            </div>
-            <p className="text-headline-md font-bold text-accent">
-              {metricas.acuraciaPercent}
-              <span className="text-sm font-semibold">%</span>
-            </p>
-            <div>
-              <div className="mb-2 flex justify-between text-caption text-muted-foreground">
-                <span>Performance meta</span>
-                <span className="font-bold text-accent">{metricas.metaDeltaLabel}</span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-accent"
-                  style={{ width: `${String(metricas.acuraciaPercent)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className={cn(glassCard, 'border-destructive/35 border-l-4 p-5 md:p-6')}>
-            <div className="flex justify-between gap-2">
-              <p className="text-caption text-muted-foreground">
-                Divergências
-              </p>
-              <TriangleAlert className="size-7 shrink-0 rounded-lg bg-destructive/15 p-1.5 text-destructive md:size-8" aria-hidden />
-            </div>
-            <p className="mt-1 text-headline-md font-bold text-destructive">
-              {metricas.divergenciasCount}{' '}
-              <span className="text-sm font-semibold text-destructive/90">itens</span>
-            </p>
-            <p className="mt-2 text-caption text-muted-foreground">
-              Impacto financeiro est.:{' '}
-              <span className="font-medium text-destructive">
-                {metricas.impactoFinanceiroLabel}
-              </span>
-            </p>
-          </div>
-        </section>
-
-        <section className="grid gap-4 lg:grid-cols-3 lg:gap-5">
-          <article className={cn(glassCard, 'flex flex-col overflow-hidden lg:col-span-2')}>
-            <div className="flex items-center justify-between border-b border-outline-variant px-4 py-4 md:px-6">
-              <h2 className="text-headline-md font-bold uppercase tracking-wide text-foreground">
-                Status por setor
-              </h2>
-              <Button type="button" variant="link" size="sm" className="text-xs font-bold">
-                Ver mapa completo
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+              {modoAprovacaoDivergencias && divergenciasPendentesCount > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10"
+                  onClick={irParaDivergencias}
+                >
+                  <TriangleAlert className="size-3.5" aria-hidden />
+                  Aprovar divergências ({divergenciasPendentesCount})
+                </Button>
+              ) : divergenciasIdentificadasCount > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 border-outline-variant"
+                  onClick={irParaDivergencias}
+                >
+                  <TriangleAlert className="size-3.5" aria-hidden />
+                  Ver divergências ({divergenciasIdentificadasCount})
+                </Button>
+              ) : null}
+              <Button asChild type="button" size="sm" className="h-8 gap-1.5">
+                <Link href={`/inventario/${inventarioId}/demandas/nova`}>
+                  <Plus className="size-3.5 shrink-0" aria-hidden />
+                  <span className="hidden sm:inline">Adicionar demanda</span>
+                  <span className="sm:hidden">Demanda</span>
+                </Link>
               </Button>
-            </div>
-            <div className="flex flex-col gap-4 px-4 py-4 md:gap-5 md:px-6 md:py-6">
-              {setores.map((s) => (
-                <SetorProgressItem key={s.id} setor={s} />
-              ))}
-            </div>
-          </article>
-
-          <article className={cn(glassCard, 'flex flex-col overflow-hidden')}>
-            <div className="border-b border-outline-variant px-4 py-4 md:px-6">
-              <h2 className="text-headline-md font-bold uppercase tracking-wide text-foreground">
-                Produtividade da equipe
-              </h2>
-            </div>
-            <div className="flex flex-col gap-0.5 px-2 py-3 md:px-3 md:py-4">
-              {membros.map((m) => (
-                <TeamMemberItem key={m.id} membro={m} />
-              ))}
-            </div>
-            <div className="mt-auto bg-muted/35 p-4">
-              <div className="mb-2 flex justify-between text-caption text-muted-foreground">
-                <span>Eficiência de time</span>
-                <span className="font-bold text-primary">{eficienciaTimePercent}%</span>
-              </div>
-              <div className="h-1 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary"
-                  style={{ width: `${String(eficienciaTimePercent)}%` }}
-                />
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <article className={cn(glassCard, 'overflow-hidden')}>
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-outline-variant px-4 py-4 md:px-6">
-            <h2 className="text-headline-md font-bold uppercase tracking-wide text-foreground">
-              Últimas divergências identificadas
-            </h2>
-            <div className="flex flex-wrap gap-2">
               <Button
-                type="button"
+                disabled={pausando || carregando}
                 variant="outline"
+                type="button"
                 size="sm"
-                onClick={() => {
-                  toast.info('Filtro por setor (mock)');
-                }}
+                className="h-8 gap-1 border-outline-variant px-2.5 text-xs"
+                onClick={() => void pausar()}
               >
-                Filtrar por setor
+                <Pause className="size-3.5" aria-hidden />
+                <span className="hidden sm:inline">Pausar</span>
               </Button>
-              <Button type="button" variant="outline" size="sm" onClick={exportarCsv}>
-                Exportar CSV
+              <Button
+                disabled={finalizando || carregando}
+                type="button"
+                size="sm"
+                className="h-8 gap-1.5"
+                onClick={() => void finalizar()}
+              >
+                <BadgeCheck className="size-3.5" aria-hidden />
+                Finalizar
               </Button>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="border-b border-outline-variant bg-surface-high/50">
-                <tr>
-                  {[
-                    'SKU / produto',
-                    'Setor',
-                    'Esperado',
-                    'Encontrado',
-                    'Diferença',
-                    'Tipo',
-                    'Ação',
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:text-label-md md:font-semibold"
+
+          {carregando ? (
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-outline-variant bg-glass-bg py-8 text-xs text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              Carregando inventário…
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:grid-cols-3 sm:overflow-visible sm:gap-3">
+                <div
+                  className={cn(
+                    glassCard,
+                    'flex min-w-[9.5rem] shrink-0 snap-start items-center gap-2.5 p-3 sm:min-w-0',
+                  )}
+                >
+                  <MiniRingProgress percent={metricas.progressoPercent} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Progresso
+                    </p>
+                    <p className="text-lg font-bold tabular-nums text-primary">
+                      {metricas.progressoPercent}
+                      <span className="text-xs font-semibold">%</span>
+                    </p>
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {metricas.itensContados.toLocaleString('pt-BR')} /{' '}
+                      {metricas.itensTotal.toLocaleString('pt-BR')} itens
+                    </p>
+                  </div>
+                </div>
+
+                <MetricCard
+                  label="Acurácia"
+                  value={metricas.acuraciaPercent}
+                  suffix="%"
+                  detail={metricas.metaDeltaLabel}
+                  tone="accent"
+                  icon={
+                    <BadgeCheck
+                      className="size-3.5 shrink-0 text-accent"
+                      aria-hidden
+                    />
+                  }
+                  progress={metricas.acuraciaPercent}
+                />
+
+                <MetricCard
+                  label="Divergências"
+                  value={metricas.divergenciasCount}
+                  suffix=" itens"
+                  detail={`Impacto est.: ${metricas.impactoFinanceiroLabel}`}
+                  tone="destructive"
+                  icon={
+                    <TriangleAlert
+                      className="size-3.5 shrink-0 text-destructive"
+                      aria-hidden
+                    />
+                  }
+                />
+              </div>
+
+              <article className={glassCard}>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant px-3 py-2">
+                  <div className="min-w-0">
+                    <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Progresso por demanda
+                    </h2>
+                    {resumoDemandas.total > 0 ? (
+                      <p className="text-[10px] text-muted-foreground">
+                        {resumoDemandas.concluidas} concluída(s) ·{' '}
+                        {resumoDemandas.emAndamento} em andamento · média{' '}
+                        {resumoDemandas.progressoMedio}%
+                      </p>
+                    ) : null}
+                  </div>
+                  <Button asChild type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[10px] text-primary">
+                    <Link href={`/inventario/${inventarioId}/demandas/nova`}>
+                      <Plus className="size-3" aria-hidden />
+                      Nova demanda
+                    </Link>
+                  </Button>
+                </div>
+
+                <div className="divide-y divide-outline-variant/40 px-1.5 py-1">
+                  {demandas.length > 0 ? (
+                    demandas.map((demanda) => (
+                      <DemandaProgressItem key={demanda.id} demanda={demanda} />
+                    ))
+                  ) : (
+                    <div className="py-6 text-center">
+                      <ClipboardList
+                        className="mx-auto mb-2 size-5 text-muted-foreground/50"
+                        aria-hidden
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Nenhuma demanda cadastrada neste inventário.
+                      </p>
+                      <Button
+                        asChild
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        className="mt-1 h-auto p-0 text-[11px]"
+                      >
+                        <Link href={`/inventario/${inventarioId}/demandas/nova`}>
+                          Criar primeira demanda
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </article>
+
+              <article className={glassCard} id="inventario-divergencias">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant px-3 py-2">
+                  <div className="min-w-0">
+                    <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Divergências
+                      {modoAprovacaoDivergencias &&
+                      divergenciasPendentesCount > 0 ? (
+                        <span className="ml-2 rounded-full bg-destructive/15 px-2 py-px text-[10px] font-bold text-destructive">
+                          {divergenciasPendentesCount} pendente(s)
+                        </span>
+                      ) : divergenciasIdentificadasCount > 0 ? (
+                        <span className="ml-2 rounded-full bg-muted px-2 py-px text-[10px] font-bold text-muted-foreground">
+                          {divergenciasIdentificadasCount} identificada(s)
+                        </span>
+                      ) : null}
+                    </h2>
+                    {modoAprovacaoDivergencias ? (
+                      <p className="text-[10px] text-muted-foreground">
+                        Aprove ou reprove cada divergência para ajustar o saldo.
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground">
+                        Prévia das divergências nas contagens. Finalize o
+                        inventário para habilitar aprovação.
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1 border-outline-variant px-2 text-[10px]"
+                      onClick={exportarCsv}
                     >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-outline-variant">
-                {divergencias.map((dv) => (
-                  <DivergenciaRow key={dv.id} item={dv} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-center border-t border-outline-variant p-4">
-            <Button
-              type="button"
-              variant="link"
-              size="sm"
-              className="gap-1"
-              onClick={verTodasDivergencias}
-            >
-              Ver todas as {metricas.divergenciasCount} divergências
-              <ChevronDown className="size-4" aria-hidden />
-            </Button>
-          </div>
-        </article>
-      </div>
+                      <Download className="size-3" aria-hidden />
+                      CSV
+                    </Button>
+                  </div>
+                </div>
+
+                {modoAprovacaoDivergencias ? (
+                  <div className="flex flex-wrap gap-1 border-b border-outline-variant px-3 py-2">
+                    {FILTROS_DIVERGENCIA.map((filtro) => (
+                      <Button
+                        key={filtro.id}
+                        type="button"
+                        size="sm"
+                        variant={
+                          filtroDivergencia === filtro.id ? 'default' : 'ghost'
+                        }
+                        className="h-7 px-2.5 text-[10px]"
+                        onClick={() => setFiltroDivergencia(filtro.id)}
+                      >
+                        {filtro.label}
+                      </Button>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="overflow-x-auto">
+                  <table className={compactTableClassName}>
+                    <thead>
+                      <tr className={compactTableHeadRowClassName}>
+                        {DIVERGENCIA_HEADERS.map((h) => (
+                          <th
+                            key={h.label || 'actions'}
+                            className={compactTableHeadCellClassName(h.className)}
+                          >
+                            {h.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className={compactTableBodyClassName}>
+                      {divergencias.length > 0 ? (
+                        divergencias.map((dv) => (
+                          <DivergenciaRow
+                            key={dv.id}
+                            item={dv}
+                            processando={processandoDivergenciaId === dv.id}
+                            onAprovar={(id) => void aprovarDivergencia(id)}
+                            onReprovar={(id) => {
+                              const item = divergencias.find(
+                                (divergencia) => divergencia.id === id,
+                              );
+                              if (item) {
+                                setDivergenciaReprovar(item);
+                              }
+                            }}
+                            onRecontar={(id) => {
+                              const item = divergencias.find(
+                                (divergencia) => divergencia.id === id,
+                              );
+                              if (item) {
+                                setDivergenciaRecontar(item);
+                              }
+                            }}
+                          />
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={DIVERGENCIA_HEADERS.length}
+                            className={compactTableEmptyCellClassName}
+                          >
+                            {modoAprovacaoDivergencias
+                              ? filtroDivergencia === 'pendente'
+                                ? 'Nenhuma divergência pendente de aprovação.'
+                                : 'Nenhuma divergência neste filtro.'
+                              : 'Nenhuma divergência identificada nas contagens.'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <ModalReprovarDivergencia
+                open={divergenciaReprovar != null}
+                divergencia={divergenciaReprovar}
+                processando={
+                  divergenciaReprovar != null &&
+                  processandoDivergenciaId === divergenciaReprovar.id
+                }
+                onOpenChange={(aberto) => {
+                  if (!aberto) {
+                    setDivergenciaReprovar(null);
+                  }
+                }}
+                onConfirm={(motivo) => void handleReprovarConfirm(motivo)}
+              />
+
+              <ModalSolicitarRecontagemDivergencia
+                open={divergenciaRecontar != null}
+                divergencia={divergenciaRecontar}
+                processando={
+                  divergenciaRecontar != null &&
+                  processandoDivergenciaId === divergenciaRecontar.id
+                }
+                onOpenChange={(aberto) => {
+                  if (!aberto) {
+                    setDivergenciaRecontar(null);
+                  }
+                }}
+                onConfirm={(payload) => void handleRecontagemConfirm(payload)}
+              />
+            </>
+          )}
+        </div>
       </main>
     </SidebarMain>
   );

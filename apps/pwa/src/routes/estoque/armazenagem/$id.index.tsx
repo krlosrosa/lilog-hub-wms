@@ -1,12 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router';
-
-import { ArmazenagemView } from '@/features/estoque/armazenagem/views/armazenagem-view';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/estoque/armazenagem/$id/')({
-  component: ArmazenagemRoute,
+  beforeLoad: ({ params }) => {
+    throw redirect({
+      to: '/movimentacao/armazenagem/$id',
+      params: { id: params.id },
+    });
+  },
 });
-
-function ArmazenagemRoute() {
-  const { id } = Route.useParams();
-  return <ArmazenagemView demandaId={id} />;
-}

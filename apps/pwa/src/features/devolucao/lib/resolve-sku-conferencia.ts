@@ -29,12 +29,12 @@ export function previewSkuForConferencia(
 
   const lower = normalized.toLowerCase();
   const exact = items.find((item) => item.sku.toLowerCase() === lower);
-  if (exact && exact.status !== 'conferido') {
+  if (exact) {
     return { source: 'carga', item: exact };
   }
 
   const matches = findCargoMatches(normalized, items);
-  if (matches.length === 1 && matches[0].status !== 'conferido') {
+  if (matches.length === 1) {
     return { source: 'carga', item: matches[0] };
   }
   if (matches.length > 1) return null;
@@ -54,9 +54,6 @@ export function resolveSkuForConferencia(term: string, items: SkuItem[]): Resolv
   const lower = normalized.toLowerCase();
   const exact = items.find((item) => item.sku.toLowerCase() === lower);
   if (exact) {
-    if (exact.status === 'conferido') {
-      return { ok: false, error: 'Este item já foi conferido' };
-    }
     return {
       ok: true,
       sku: exact.sku,
@@ -66,9 +63,6 @@ export function resolveSkuForConferencia(term: string, items: SkuItem[]): Resolv
 
   const matches = findCargoMatches(normalized, items);
   if (matches.length === 1) {
-    if (matches[0].status === 'conferido') {
-      return { ok: false, error: 'Este item já foi conferido' };
-    }
     return {
       ok: true,
       sku: matches[0].sku,

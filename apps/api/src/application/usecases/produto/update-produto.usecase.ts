@@ -22,11 +22,11 @@ export class UpdateProdutoUseCase {
     @Inject(REQUEST) private readonly request: unknown,
   ) {}
 
-  async execute(id: string, data: UpdateProdutoInput) {
-    const existing = await this.produtoRepository.findById(id);
+  async execute(produtoId: string, data: UpdateProdutoInput) {
+    const existing = await this.produtoRepository.findByProdutoId(produtoId);
 
     if (!existing) {
-      throw new NotFoundException(`Produto "${id}" não encontrado`);
+      throw new NotFoundException(`Produto "${produtoId}" não encontrado`);
     }
 
     setAuditBefore(this.request, existing);
@@ -53,10 +53,10 @@ export class UpdateProdutoUseCase {
       }
     }
 
-    const updated = await this.produtoRepository.update(id, data);
+    const updated = await this.produtoRepository.update(produtoId, data);
 
     if (!updated) {
-      throw new NotFoundException(`Produto "${id}" não encontrado`);
+      throw new NotFoundException(`Produto "${produtoId}" não encontrado`);
     }
 
     return updated;

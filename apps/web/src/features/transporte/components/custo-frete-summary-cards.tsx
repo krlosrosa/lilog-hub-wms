@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@lilog/ui';
-import { AlertTriangle, Clock, DollarSign, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Clock, DollarSign, Scale, TrendingUp } from 'lucide-react';
 
 import { formatarMoeda } from '@/features/transporte/lib/calcular-custo';
 import type { CustoFreteSummary } from '@/features/transporte/types/transporte.schema';
@@ -15,9 +15,14 @@ type StatItem = {
   label: string;
   value: string;
   subValue?: string;
-  accent?: 'default' | 'destructive' | 'tertiary' | 'secondary';
+  accent?: 'default' | 'destructive' | 'tertiary' | 'secondary' | 'primary';
   icon: typeof DollarSign;
 };
+
+function formatarPesoTon(pesoKg: number): string {
+  const toneladas = pesoKg / 1000;
+  return `${toneladas.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} t`;
+}
 
 export function CustoFreteSummaryCards({
   summary,
@@ -52,6 +57,16 @@ export function CustoFreteSummaryCards({
       accent: summary.pendentesLancamento > 0 ? 'secondary' : 'default',
       icon: summary.pendentesLancamento > 0 ? AlertTriangle : Clock,
     },
+    {
+      label: 'R$/Ton',
+      value: summary.custoPorTon > 0 ? formatarMoeda(summary.custoPorTon) : '—',
+      subValue:
+        summary.pesoTotalKg > 0
+          ? `${formatarPesoTon(summary.pesoTotalKg)} · total`
+          : 'Sem peso lançado',
+      accent: 'primary',
+      icon: Scale,
+    },
   ];
 
   const valueColor: Record<NonNullable<StatItem['accent']>, string> = {
@@ -59,12 +74,13 @@ export function CustoFreteSummaryCards({
     destructive: 'text-destructive',
     tertiary: 'text-tertiary',
     secondary: 'text-secondary',
+    primary: 'text-primary',
   };
 
   return (
     <div
       className={cn(
-        'grid grid-cols-2 gap-2 lg:grid-cols-4',
+        'grid grid-cols-2 gap-2 lg:grid-cols-5',
         className,
       )}
     >

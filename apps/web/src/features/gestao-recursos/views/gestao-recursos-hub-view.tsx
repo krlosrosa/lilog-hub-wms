@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, ClipboardCheck, Package, Truck } from 'lucide-react';
+import { ArrowRight, ClipboardCheck, LogOut, Package, Truck } from 'lucide-react';
 
 import { cn } from '@lilog/ui';
 
@@ -36,6 +36,16 @@ const PROCESSOS = [
     accent: 'border-warning/30 bg-warning/5 hover:border-warning/50',
     iconClassName: 'text-warning',
   },
+  {
+    id: 'devolucao',
+    titulo: 'Devolução',
+    descricao:
+      'Alocar conferentes, acompanhar demandas de devolução e monitorar pausas da equipe.',
+    href: '/op-wms/gestao-recursos/devolucao',
+    icon: LogOut,
+    accent: 'border-secondary/30 bg-secondary/5 hover:border-secondary/50',
+    iconClassName: 'text-secondary',
+  },
 ] as const;
 
 export function GestaoRecursosHubView() {
@@ -63,7 +73,7 @@ export function GestaoRecursosHubView() {
               </p>
             </header>
 
-            <section className="grid gap-3 md:grid-cols-3">
+            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {PROCESSOS.map((processo) => {
                 const Icon = processo.icon;
 

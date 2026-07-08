@@ -32,6 +32,7 @@ export class ListRecebimentoAvariasUseCase {
     return {
       items: items.map((item) => ({
         ...item,
+        validade: item.validade?.toISOString() ?? null,
         createdAt: item.createdAt.toISOString(),
       })),
     };

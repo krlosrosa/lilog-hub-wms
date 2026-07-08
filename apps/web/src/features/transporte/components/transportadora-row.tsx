@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
   cn,
 } from '@lilog/ui';
-import { Building2, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { Building2, Mail, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 
 import {
   compactTableCellClassName,
@@ -22,15 +22,18 @@ import type { TransportadoraListaItem } from '@/features/transporte/types/transp
 type TransportadoraRowProps = {
   transportadora: TransportadoraListaItem;
   onEditar?: (transportadora: TransportadoraListaItem) => void;
+  onGerenciarEmails?: (transportadora: TransportadoraListaItem) => void;
   onExcluir?: (transportadora: TransportadoraListaItem) => void;
 };
 
 export function TransportadoraRow({
   transportadora,
   onEditar,
+  onGerenciarEmails,
   onExcluir,
 }: TransportadoraRowProps) {
   const formatNumber = new Intl.NumberFormat('pt-BR');
+  const totalEmails = transportadora.emails?.length ?? 0;
 
   return (
     <tr
@@ -106,6 +109,18 @@ export function TransportadoraRow({
             >
               <Pencil className="size-3.5" aria-hidden />
               Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="flex items-center gap-2"
+              onClick={() => onGerenciarEmails?.(transportadora)}
+            >
+              <Mail className="size-3.5" aria-hidden />
+              <span className="flex-1">Gerenciar e-mails</span>
+              {totalEmails > 0 ? (
+                <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">
+                  {totalEmails}
+                </span>
+              ) : null}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

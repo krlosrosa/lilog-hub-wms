@@ -69,7 +69,8 @@ function formatarUnidades(total: number): string {
   return `${new Intl.NumberFormat('pt-BR').format(total)} unidades`;
 }
 
-function formatTemp(valor: number): string {
+function formatTemp(valor: number | null): string {
+  if (valor === null) return '—';
   return `${valor.toLocaleString('pt-BR', {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
@@ -112,9 +113,19 @@ export function ModalConfirmarFinalizarDevolucao({
           ? '0 (Validadas)'
           : `${numDivergencias} pendente${numDivergencias > 1 ? 's' : ''}`,
       divergenciasOk: numDivergencias === 0,
-      temperaturaBau: `${tempBauOk ? 'OK' : 'Alerta'} (${formatTemp(detalhe.temperaturaBau)})`,
-      temperaturaProduto: `${tempProdutoOk ? 'OK' : 'Alerta'} (${formatTemp(detalhe.temperaturaProduto)})`,
-      tempOk: tempBauOk && tempProdutoOk,
+      temperaturaBau:
+        detalhe.temperaturaBau === null
+          ? 'Indisponível'
+          : `${tempBauOk ? 'OK' : 'Alerta'} (${formatTemp(detalhe.temperaturaBau)})`,
+      temperaturaProduto:
+        detalhe.temperaturaProduto === null
+          ? 'Indisponível'
+          : `${tempProdutoOk ? 'OK' : 'Alerta'} (${formatTemp(detalhe.temperaturaProduto)})`,
+      tempOk:
+        detalhe.temperaturaBau !== null &&
+        detalhe.temperaturaProduto !== null &&
+        tempBauOk &&
+        tempProdutoOk,
     };
   }, [conferenceItems, detalhe]);
 

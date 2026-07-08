@@ -12,13 +12,13 @@ export class DeleteProdutoUseCase {
     private readonly produtoRepository: IProdutoRepository,
   ) {}
 
-  async execute(id: string) {
-    const existing = await this.produtoRepository.findById(id);
+  async execute(produtoId: string) {
+    const existing = await this.produtoRepository.findByProdutoId(produtoId);
 
     if (!existing) {
-      throw new NotFoundException(`Produto "${id}" não encontrado`);
+      throw new NotFoundException(`Produto "${produtoId}" não encontrado`);
     }
 
-    await this.produtoRepository.delete(id);
+    await this.produtoRepository.delete(produtoId);
   }
 }

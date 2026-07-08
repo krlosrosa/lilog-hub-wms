@@ -7,12 +7,7 @@ export const ChecklistRecebimentoResponseSchema = z.object({
   lacre: z.string().nullable(),
   tempBau: z.number().nullable(),
   tempProduto: z.number().nullable(),
-  conditions: z.object({
-    limpeza: z.boolean(),
-    odor: z.boolean(),
-    estrutura: z.boolean(),
-    vedacao: z.boolean(),
-  }),
+  conditions: z.record(z.string(), z.boolean()),
   observacoes: z.string().nullable(),
   photoCount: z.number().int(),
   createdAt: z.iso.datetime(),

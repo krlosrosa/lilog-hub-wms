@@ -47,7 +47,7 @@ export type RemessaLinhaItemMapa = {
 export type TransporteParaMapa = {
   id: string;
   rota: string;
-  cidade: string;
+  cidade: string | null;
   bairro: string | null;
   placa: string | null;
   transportadora: string | null;
@@ -147,8 +147,8 @@ function montarBlocosPorTransporte(
   return transportes.map((transporte) => ({
     id: transporte.id,
     titulo: transporte.rota,
-    subtitulo: `${transporte.cidade} · ${transporte.bairro ?? ''}`,
-    cliente: config.exibirClienteCabecalho ? undefined : transporte.cidade,
+    subtitulo: [transporte.cidade, transporte.bairro].filter(Boolean).join(' · ') || undefined,
+    cliente: config.exibirClienteCabecalho ? undefined : transporte.cidade ?? undefined,
     linhas: montarLinhasTransporte(transporte),
   }));
 }

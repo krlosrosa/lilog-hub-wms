@@ -16,11 +16,13 @@ const SubmitContagemValidacaoBodySchema = z.object({
   sscc: z.string().optional(),
   enderecoVazio: z.boolean().default(false),
   anomaliaEncontrada: z.boolean().default(false),
+  correspondeAoEsperado: z.boolean().default(false),
   quantidadeCaixas: z.coerce.number().int().min(0),
   quantidadeUnidades: z.coerce.number().int().min(0),
   lote: z.string().optional(),
   peso: z.coerce.number().min(0).optional(),
   codigoProduto: z.string().default(''),
+  saldoEnderecoId: z.uuid().optional(),
 });
 
 class SubmitContagemValidacaoBodyDto extends createZodDto(

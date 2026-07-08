@@ -42,13 +42,13 @@ export async function updateDadosCarregamentoTransporteDb(
     .set(patch)
     .where(
       and(
-        eq(transportes.id, input.transporteId),
+        eq(transportes.numeroTransporte, input.transporteId),
         eq(transportes.unidadeId, input.unidadeId),
       ),
     )
     .returning({
-      id: transportes.id,
-      rota: transportes.rota,
+      id: transportes.numeroTransporte,
+      rota: transportes.numeroTransporte,
       docaId: transportes.docaId,
       lacreCarregamento: transportes.lacreCarregamento,
     });

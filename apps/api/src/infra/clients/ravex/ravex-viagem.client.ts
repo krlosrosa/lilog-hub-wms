@@ -9,8 +9,12 @@ import { RavexHttpClient } from './ravex-http.client.js';
 import { RavexApiError } from './ravex.types.js';
 import {
   RavexAnomaliaViagemListEnvelopeSchema,
+  RavexEntregaListEnvelopeSchema,
+  RavexNotaFiscalItemListEnvelopeSchema,
   RavexViagemFaturadaEnvelopeSchema,
   type RavexAnomaliaViagem,
+  type RavexEntrega,
+  type RavexNotaFiscalItem,
   type RavexViagemFaturada,
 } from './ravex-viagem.types.js';
 
@@ -57,6 +61,63 @@ export class RavexViagemClient {
       throw new ServiceUnavailableException(
         message ||
           `A API Ravex retornou falha ao listar anomalias da viagem ${viagemId}`,
+      );
+    }
+
+    return parsed.data.data ?? [];
+  }
+
+  async listEntregas(viagemId: number): Promise<RavexEntrega[]> {
+    const raw = await this.requestRavex(
+      `/api/viagem-faturada/obter-entregas?pIdViagem=${viagemId}`,
+    );
+
+    const parsed = RavexEntregaListEnvelopeSchema.safeParse(raw);
+
+    if (!parsed.success) {
+      this.logger.warn(
+        `Resposta inválida da Ravex para entregas da viagem ${viagemId}: ${parsed.error.message}`,
+      );
+      throw new ServiceUnavailableException(
+        'Resposta inválida da API Ravex ao listar entregas da viagem',
+      );
+    }
+
+    if (!parsed.data.success) {
+      const message = this.extractErrors(parsed.data.errors);
+      throw new ServiceUnavailableException(
+        message ||
+          `A API Ravex retornou falha ao listar entregas da viagem ${viagemId}`,
+      );
+    }
+
+    return parsed.data.data ?? [];
+  }
+
+  async listItensNotaFiscal(
+    viagemId: number,
+    notaFiscalId: number,
+  ): Promise<RavexNotaFiscalItem[]> {
+    const raw = await this.requestRavex(
+      `/api/viagem-faturada/${viagemId}/notas-fiscais/${notaFiscalId}/itens`,
+    );
+
+    const parsed = RavexNotaFiscalItemListEnvelopeSchema.safeParse(raw);
+
+    if (!parsed.success) {
+      this.logger.warn(
+        `Resposta inválida da Ravex para itens da NF ${notaFiscalId} da viagem ${viagemId}: ${parsed.error.message}`,
+      );
+      throw new ServiceUnavailableException(
+        'Resposta inválida da API Ravex ao listar itens da nota fiscal',
+      );
+    }
+
+    if (!parsed.data.success) {
+      const message = this.extractErrors(parsed.data.errors);
+      throw new ServiceUnavailableException(
+        message ||
+          `A API Ravex retornou falha ao listar itens da NF ${notaFiscalId} da viagem ${viagemId}`,
       );
     }
 

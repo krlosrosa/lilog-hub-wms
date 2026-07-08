@@ -49,6 +49,9 @@ export function TorreControleExpedicaoView() {
     transportesAposFiltroRapido,
     transportesDecisaoPrioritaria,
     filtroRapido,
+    filtroStatus,
+    setFiltroStatus,
+    contadoresStatus,
     apenasNaoFinalizados,
     setApenasNaoFinalizados,
     contadoresFiltro,
@@ -172,6 +175,9 @@ export function TorreControleExpedicaoView() {
                       transportesReferencia={transportesAposFiltroRapido}
                       apenasNaoFinalizados={apenasNaoFinalizados}
                       onApenasNaoFinalizadosChange={setApenasNaoFinalizados}
+                      filtroStatus={filtroStatus}
+                      onFiltroStatusChange={setFiltroStatus}
+                      contadoresStatus={contadoresStatus}
                       onVerTransporte={openTransporteSheet}
                     />
 

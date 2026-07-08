@@ -1,21 +1,36 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { toast } from 'sonner';
 
+import { useUnidadeContext } from '@/contexts/unidade-context';
 import {
-  MOCK_DEBITO_KPI,
-  MOCK_DEBITO_OCORRENCIAS,
-} from '@/features/debito-transportadora/mocks/debitos-mock-data';
+  listarDocumentosCobranca,
+  listarProcessosDebito,
+} from '@/features/debito-transportadora/lib/cobranca-transportadora-api';
+import {
+  computeDebitoKpi,
+  mapProcessoParaOcorrencia,
+} from '@/features/debito-transportadora/lib/map-processo-debito';
 import type {
+  DebitoKpi,
   DebitoOcorrencia,
   FiltroStatusDebito,
   FiltroTransportadora,
 } from '@/features/debito-transportadora/types/debito.schema';
 
 const PAGE_SIZE = 10;
-const TOTAL_MOCK = 1_240;
+
+const EMPTY_KPI: DebitoKpi = {
+  prejuizoTotalAberto: 0,
+  prejuizoVariacaoPercentual: 0,
+  cobrancasEmDisputa: 0,
+  casosAtivosDisputa: 0,
+  taxaRecuperacao: 0,
+  metaRecuperacao: 85,
+  topOfensores: [],
+};
 
 function delay(ms: number) {
   return new Promise<void>((resolve) => {
@@ -31,14 +46,7 @@ function filtrarPorTransportadora(
     return items;
   }
 
-  const mapa: Record<Exclude<FiltroTransportadora, 'todas'>, string> = {
-    swift_logistics: 'Swift Logistics',
-    global_freight: 'Global Freight',
-    rapid_way: 'Rapid Way',
-  };
-
-  const alvo = mapa[filtro];
-  return items.filter((item) => item.transportadora === alvo);
+  return items.filter((item) => item.transportadora === filtro);
 }
 
 function filtrarPorStatus(
@@ -53,9 +61,12 @@ function filtrarPorStatus(
 }
 
 export function useDebitoLista() {
-  const [ocorrencias] = useState<DebitoOcorrencia[]>(() => [
-    ...MOCK_DEBITO_OCORRENCIAS,
-  ]);
+  const { unidadeSelecionada } = useUnidadeContext();
+  const unidadeId = unidadeSelecionada?.id ?? null;
+
+  const [ocorrencias, setOcorrencias] = useState<DebitoOcorrencia[]>([]);
+  const [kpi, setKpi] = useState<DebitoKpi>(EMPTY_KPI);
+  const [isLoading, setIsLoading] = useState(true);
   const [busca, setBuscaState] = useState('');
   const [filtroTransportadora, setFiltroTransportadoraState] =
     useState<FiltroTransportadora>('todas');
@@ -65,7 +76,62 @@ export function useDebitoLista() {
   const [exportando, setExportando] = useState(false);
   const [conciliando, setConciliando] = useState(false);
 
-  const kpi = MOCK_DEBITO_KPI;
+  const carregarDados = useCallback(async () => {
+    if (!unidadeId) {
+      setOcorrencias([]);
+      setKpi(EMPTY_KPI);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const [processosResponse, documentosResponse] = await Promise.all([
+        listarProcessosDebito(unidadeId),
+        listarDocumentosCobranca(unidadeId),
+      ]);
+
+      const ocorrenciasMapeadas = processosResponse.processos.map(
+        mapProcessoParaOcorrencia,
+      );
+
+      setOcorrencias(ocorrenciasMapeadas);
+      setKpi(
+        computeDebitoKpi(
+          processosResponse.processos,
+          documentosResponse.documentos,
+        ),
+      );
+    } catch (error) {
+      setOcorrencias([]);
+      setKpi(EMPTY_KPI);
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar os processos de débito.';
+
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [unidadeId]);
+
+  useEffect(() => {
+    void carregarDados();
+  }, [carregarDados]);
+
+  const transportadoraOptions = useMemo(() => {
+    const nomes = [...new Set(ocorrencias.map((item) => item.transportadora))]
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+    return [
+      { value: 'todas' as const, label: 'Todas Transportadoras' },
+      ...nomes.map((nome) => ({ value: nome, label: nome })),
+    ];
+  }, [ocorrencias]);
 
   const filtrados = useMemo(() => {
     let items = ocorrencias;
@@ -122,13 +188,6 @@ export function useDebitoLista() {
     }
   }, []);
 
-  const gerarCartaDebito = useCallback(async () => {
-    await delay(400);
-    toast.success('Carta de débito gerada (mock)', {
-      description: 'Documento conforme padrão regulatório SEFAZ v4.0.',
-    });
-  }, []);
-
   const forcarConciliacao = useCallback(async () => {
     setConciliando(true);
     try {
@@ -153,14 +212,17 @@ export function useDebitoLista() {
     itemsPagina,
     itemsInicio,
     totalFiltrados: filtrados.length,
-    totalRegistros: TOTAL_MOCK,
+    totalRegistros: ocorrencias.length,
     pageSize: PAGE_SIZE,
     exportando,
     conciliando,
+    isLoading,
+    transportadoraOptions,
+    ocorrencias,
+    recarregar: carregarDados,
     actions: {
       filtrosAvancados,
       exportar,
-      gerarCartaDebito,
       forcarConciliacao,
     },
   };

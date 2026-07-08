@@ -12,7 +12,7 @@ import {
   createContagemAvariaId,
   normalizeContagemEndereco,
 } from '../lib/contagem-avarias-store';
-import { PRODUTO_VALIDACAO_MOCK } from './use-contagem-validacao';
+import { useContagemEnderecos } from './use-contagem-enderecos';
 import {
   contagemAvariaFormSchema,
   type ContagemAvariaForm,
@@ -48,6 +48,16 @@ export function useContagemAvaria({
   itemId?: string;
 }) {
   const navigate = useNavigate();
+  const { enderecos } = useContagemEnderecos(demandaId);
+  const enderecoItem = itemId
+    ? enderecos.find((item) => item.id === itemId)
+    : enderecos.find(
+        (item) =>
+          enderecoParam?.trim() &&
+          item.endereco.trim().toUpperCase() === enderecoParam.trim().toUpperCase(),
+      );
+  const saldoEsperado = enderecoItem?.saldoEsperado?.[0];
+
   const { photos, capture, remove, getPhotoIds, hiddenInput } = usePhotoCapture({
     relatedId: `contagem-avaria-${demandaId}-${origem}`,
   });
@@ -59,15 +69,15 @@ export function useContagemAvaria({
   });
 
   const enderecoValidacao =
-    enderecoParam?.trim() || PRODUTO_VALIDACAO_MOCK.localizacao;
+    enderecoParam?.trim() || enderecoItem?.endereco || '—';
 
   const context: ContagemAvariaContext =
     origem === 'validacao'
       ? {
           endereco: enderecoValidacao,
-          sku: PRODUTO_VALIDACAO_MOCK.sku,
-          descricao: PRODUTO_VALIDACAO_MOCK.nome,
-          lote: PRODUTO_VALIDACAO_MOCK.lote,
+          sku: saldoEsperado?.sku ?? '—',
+          descricao: saldoEsperado?.nome ?? 'Produto do endereço',
+          lote: saldoEsperado?.lote || undefined,
         }
       : {
           endereco: enderecoParam?.trim() || '—',

@@ -214,6 +214,21 @@
     appearance: textfield;
   }
 
+  .date-input-mobile {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .date-input-mobile::-webkit-date-and-time-value {
+    min-width: 0;
+    text-align: left;
+  }
+
   .page-enter {
     animation: pageFadeIn 220ms ease-out forwards;
   }

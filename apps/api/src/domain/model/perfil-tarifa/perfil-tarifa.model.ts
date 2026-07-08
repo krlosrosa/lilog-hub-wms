@@ -8,7 +8,7 @@ export const FaixaKmInputSchema = z.object({
   kmInicial: z.coerce.number().nonnegative(),
   kmFinal: z.coerce.number().positive().nullable().optional(),
   valor: z.coerce.number().positive(),
-  itinerario: z.string().nullable().optional(),
+  itinerarios: z.array(z.string().min(1).max(100)).optional().default([]),
 });
 
 export type FaixaKmInput = z.infer<typeof FaixaKmInputSchema>;

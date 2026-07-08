@@ -10,7 +10,7 @@ const DIVERGENCIA_FORNECEDOR = new Set([
   'divergencia_validade',
 ]);
 
-function inferFromAvariaNatureza(natureza: string): CncResponsavel {
+export function inferFromAvariaNatureza(natureza: string): CncResponsavel {
   const normalized = natureza.toLowerCase();
 
   if (normalized.includes('transporte')) {

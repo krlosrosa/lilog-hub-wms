@@ -8,13 +8,20 @@ import {
   ScrollText,
   Zap,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 
+import { useUnidadeContext } from '@/contexts/unidade-context';
 import { ArvorePreview } from '@/features/regras-wms/components/arvore-preview';
 import {
   premiumCardClassName,
   sectionCardClassName,
 } from '@/features/regras-wms/components/regra-wms-form-field-classes';
+import {
+  listDepositos,
+  mapDepositoToListaItem,
+} from '@/features/depositos/lib/deposito-api';
+import type { DepositoListaItem } from '@/features/depositos/types/depositos-gestao.schema';
 import {
   GATILHO_LABELS,
   TIPO_ACAO_LABELS,
@@ -40,12 +47,56 @@ export function RegraWmsPreviewPanel({
   existingRegra,
 }: RegraWmsPreviewPanelProps) {
   const { watch } = useFormContext<RegraWmsV2Form>();
+  const { unidadeSelecionada } = useUnidadeContext();
+  const unidadeId = unidadeSelecionada?.id;
+
   const nome = watch('nome');
   const ativo = watch('ativo');
   const prioridade = watch('prioridade');
   const gatilho = watch('gatilho');
   const arvoreCondicoes = watch('arvoreCondicoes');
   const acao = watch('acao');
+
+  const [depositos, setDepositos] = useState<DepositoListaItem[]>([]);
+
+  useEffect(() => {
+    if (!unidadeId) {
+      setDepositos([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadDepositos() {
+      try {
+        const response = await listDepositos(unidadeId!);
+        if (!cancelled) {
+          setDepositos(response.items.map(mapDepositoToListaItem));
+        }
+      } catch {
+        if (!cancelled) {
+          setDepositos([]);
+        }
+      }
+    }
+
+    void loadDepositos();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [unidadeId]);
+
+  const depositoSelecionado = depositos.find(
+    (deposito) => deposito.id === acao.parametros.depositoId,
+  );
+
+  const acaoDetalhe =
+    acao.parametros.depositoId && depositoSelecionado
+      ? `${TIPO_ACAO_LABELS[acao.tipo]} → ${depositoSelecionado.codigo} (${depositoSelecionado.nome})`
+      : acao.parametros.zonaDestino
+        ? `${TIPO_ACAO_LABELS[acao.tipo]} → ${acao.parametros.zonaDestino}`
+        : TIPO_ACAO_LABELS[acao.tipo];
 
   return (
     <aside className="col-span-12 xl:col-span-4">
@@ -107,9 +158,7 @@ export function RegraWmsPreviewPanel({
             />
             <div className="flex items-center gap-1.5 rounded-md border border-primary/20 bg-primary/5 px-2 py-1.5">
               <Zap className="size-3 text-primary" aria-hidden />
-              <span className="font-medium text-foreground">
-                {TIPO_ACAO_LABELS[acao.tipo]}
-              </span>
+              <span className="font-medium text-foreground">{acaoDetalhe}</span>
             </div>
           </div>
         </div>

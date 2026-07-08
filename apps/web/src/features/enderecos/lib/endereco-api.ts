@@ -6,6 +6,7 @@ import type {
   EnderecoActionPayload,
   EnderecoApi,
   EnderecoKpiApi,
+  ImportEnderecosResponse,
   ListEnderecosApiResponse,
   UpdateEnderecoPayload,
 } from '@/features/enderecos/types/endereco.api';
@@ -21,7 +22,6 @@ type ListEnderecosParams = {
   limit?: number;
   status?: EnderecoStatus;
   tipo?: EnderecoTipo;
-  centroId?: string;
   unidadeId?: string;
   search?: string;
 };
@@ -76,10 +76,6 @@ export async function listEnderecos(
     searchParams.set('tipo', params.tipo);
   }
 
-  if (params.centroId) {
-    searchParams.set('centroId', params.centroId);
-  }
-
   if (params.unidadeId) {
     searchParams.set('unidadeId', params.unidadeId);
   }
@@ -95,14 +91,9 @@ export async function listEnderecos(
 }
 
 export function getEnderecoKpi(params?: {
-  centroId?: string;
   unidadeId?: string;
 }) {
   const searchParams = new URLSearchParams();
-
-  if (params?.centroId) {
-    searchParams.set('centroId', params.centroId);
-  }
 
   if (params?.unidadeId) {
     searchParams.set('unidadeId', params.unidadeId);
@@ -205,3 +196,15 @@ export function listCentros(unidadeId?: string) {
 export function formatCentroLabel(centro: CentroOptionApi) {
   return `${centro.centro} — ${centro.nome} (${centro.unidadeFilial})`;
 }
+
+export function importEnderecos(file: File): Promise<ImportEnderecosResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return apiRequest<ImportEnderecosResponse>('/enderecos/import', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export { downloadEnderecoTemplate } from '@/features/enderecos/lib/endereco-import-template';

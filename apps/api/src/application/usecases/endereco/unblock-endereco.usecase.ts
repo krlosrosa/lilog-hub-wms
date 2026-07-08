@@ -51,7 +51,7 @@ export class UnblockEnderecoUseCase {
     await this.enderecoEventPublisher.publish({
       type: ENDERECO_EVENT.DESBLOQUEADO,
       enderecoId: updated.id,
-      centroId: updated.centroId,
+      unidadeId: updated.unidadeId,
       enderecoMascarado: updated.enderecoMascarado,
       userId,
       motivo,

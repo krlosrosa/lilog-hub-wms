@@ -1,6 +1,9 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
+/** Código do transporte (`transportes.numero_transporte`), não UUID. */
+export const TransporteCodigoSchema = z.string().min(1).max(100);
+
 const TipoDadosBasicosMapaSchema = z.enum(['transporte', 'cliente']);
 const TipoQuebraPaleteSchema = z.enum(['percentual', 'linhas']);
 const AgrupamentoMapaSchema = z.enum(['segregar_clientes', 'grupos_customizados']);
@@ -41,7 +44,7 @@ export const GerarMapasConfigSchema = z.object({
 
 export const GerarMapasBodySchema = z.object({
   unidadeId: z.string().min(1).max(50),
-  transporteIds: z.array(z.string().uuid()).min(1),
+  transporteIds: z.array(TransporteCodigoSchema).min(1),
   config: GerarMapasConfigSchema,
 });
 
@@ -147,7 +150,7 @@ export const TotaisMinutaCarregamentoSchema = z.object({
 });
 
 export const MinutaCarregamentoSchema = z.object({
-  transporteId: z.string().uuid(),
+  transporteId: TransporteCodigoSchema,
   cabecalho: CabecalhoGrupoMapaSchema,
   tabelaEmpresa: z.array(LinhaTabelaEmpresaCarregamentoSchema),
   tabelaClientes: z.array(LinhaTabelaClienteCarregamentoSchema),

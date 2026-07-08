@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type {
   CreateDemandaArmazenagemInput,
   CreateUnitizadorInput,
+  TarefaArmazenagemStatus,
 } from '../../../domain/model/armazenagem/armazenagem.model.js';
 import type {
   DemandaArmazenagemStatus,
@@ -44,6 +45,12 @@ import {
   updateUnitizadorStatusDb,
 } from './create-unitizador.drizzle.js';
 import { resolveDocumentoRefByRecebimentoIdDb } from './resolve-documento-ref-recebimento.drizzle.js';
+import {
+  findTarefaByIdDb,
+  findTarefaByUnitizadorCodigoDb,
+  updateEnderecoSugeridoTarefaArmazenagemDb,
+  updateStatusTarefaArmazenagemDb,
+} from './tarefa-armazenagem.drizzle.js';
 
 @Injectable()
 export class ArmazenagemService implements IArmazenagemRepository {
@@ -63,6 +70,14 @@ export class ArmazenagemService implements IArmazenagemRepository {
 
   findItemById(id: string) {
     return findItemArmazenagemByIdDb(this.db, id);
+  }
+
+  findTarefaById(id: string) {
+    return findTarefaByIdDb(this.db, id);
+  }
+
+  findTarefaByUnitizadorCodigo(unidadeId: string, codigo: string) {
+    return findTarefaByUnitizadorCodigoDb(this.db, unidadeId, codigo);
   }
 
   listDemandas(filter: ListDemandasArmazenagemFilter) {
@@ -104,6 +119,27 @@ export class ArmazenagemService implements IArmazenagemRepository {
       id,
       enderecoSugeridoId,
     );
+  }
+
+  updateEnderecoSugeridoTarefa(id: string, enderecoSugeridoId: string) {
+    return updateEnderecoSugeridoTarefaArmazenagemDb(
+      this.db,
+      id,
+      enderecoSugeridoId,
+    );
+  }
+
+  updateStatusTarefa(
+    id: string,
+    status: TarefaArmazenagemStatus,
+    extra?: {
+      responsavelId?: number;
+      startedAt?: Date;
+      finishedAt?: Date;
+      enderecoConfirmadoId?: string;
+    },
+  ) {
+    return updateStatusTarefaArmazenagemDb(this.db, id, status, extra);
   }
 
   listEnderecosSugeridosReservados(

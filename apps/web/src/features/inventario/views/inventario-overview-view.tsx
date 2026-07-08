@@ -4,11 +4,18 @@ import Link from 'next/link';
 
 import { useCallback } from 'react';
 
-import { Button, cn } from '@lilog/ui';
-import { ClipboardList, Download, Filter, Search } from 'lucide-react';
+import { Button } from '@lilog/ui';
+import { ClipboardList, Download, Filter, Loader2, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { SidebarMain } from '@/components/layout/sidebar';
+import {
+  compactTableBodyClassName,
+  compactTableClassName,
+  compactTableEmptyCellClassName,
+  compactTableHeadCellClassName,
+  compactTableHeadRowClassName,
+} from '@/components/ui/compact-table-classes';
 
 import { Pagination } from '@/features/filiais/components/pagination';
 import { InventarioKpiCards } from '@/features/inventario/components/inventario-kpi-cards';
@@ -17,13 +24,13 @@ import { InventarioTrendChart } from '@/features/inventario/components/inventari
 import { useInventarioOverview } from '@/features/inventario/hooks/use-inventario-overview';
 
 const TABLE_HEADERS = [
-  'ID do inventário',
-  'Data',
-  'Responsável',
-  'Tipo',
-  'Acurácia (%)',
-  'Status',
-  'Ações',
+  { label: 'ID', className: 'w-24' },
+  { label: 'Data', className: 'whitespace-nowrap' },
+  { label: 'Responsável', className: 'hidden sm:table-cell min-w-[8rem]' },
+  { label: 'Tipo', className: 'hidden md:table-cell w-20' },
+  { label: 'Acurácia', className: 'w-16 text-center' },
+  { label: 'Status', className: 'w-24' },
+  { label: '', className: 'w-8 text-right' },
 ] as const;
 
 export function InventarioOverviewView() {
@@ -39,6 +46,7 @@ export function InventarioOverviewView() {
     totalFiltrados,
     pageSize,
     itemsInicio,
+    carregando,
   } = useInventarioOverview();
 
   const filtros = useCallback(() => {
@@ -51,97 +59,119 @@ export function InventarioOverviewView() {
 
   return (
     <SidebarMain>
-      <main className="px-margin-mobile py-6 md:px-margin-desktop md:py-8">
+      <main className="px-margin-mobile py-4 md:px-margin-desktop md:py-5">
         <div className="mx-auto max-w-container">
-          <header className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <header className="mb-4 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="text-headline-lg-mobile font-semibold tracking-tight text-primary md:text-headline-lg">
-                Visão geral de inventário
+              <h1 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">
+                Inventário
               </h1>
-              <p className="mt-1 text-body-md text-muted-foreground">
-                Controle central de ativos, perdas e acurácia da rede.
+              <p className="text-[11px] text-muted-foreground md:text-xs">
+                Acurácia, divergências e histórico de contagens
               </p>
             </div>
-            <Button asChild className="shrink-0 gap-2 self-start sm:self-auto">
+            <Button asChild size="sm" className="shrink-0 gap-1.5">
               <Link href="/inventario/novo">
-                <ClipboardList className="size-4 shrink-0" aria-hidden />
-                Novo inventário
+                <Plus className="size-3.5 shrink-0" aria-hidden />
+                <span className="hidden sm:inline">Novo inventário</span>
+                <span className="sm:hidden">Novo</span>
               </Link>
             </Button>
           </header>
 
-          <div className="flex flex-col gap-5 md:gap-6 lg:gap-8">
+          <div className="flex flex-col gap-3 md:gap-4">
             <InventarioKpiCards kpi={kpi} />
 
-            <div className="overflow-hidden rounded-xl border border-outline-variant bg-glass-bg shadow-inner-glow backdrop-blur-glass">
-              <div className="flex flex-col gap-4 border-b border-outline-variant p-4 lg:flex-row lg:items-start lg:justify-between lg:p-6">
-                <h2 className="text-label-md font-semibold text-foreground">
-                  Últimos inventários
-                </h2>
-                <div className="flex flex-1 flex-wrap items-center justify-end gap-2 lg:max-w-xl">
-                  <div className="relative w-full min-w-[12rem] sm:max-w-sm md:w-72">
-                    <Search
-                      className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                      aria-hidden
-                    />
-                    <input
-                      type="search"
-                      value={busca}
-                      onChange={(e) => setBusca(e.target.value)}
-                      placeholder="Pesquisar em inventário…"
-                      aria-label="Pesquisar inventários"
-                      className="w-full rounded-full border border-transparent bg-background py-2 pl-10 pr-4 text-body-md text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    aria-label="Filtros"
-                    className="border-outline-variant shrink-0"
-                    onClick={filtros}
-                  >
-                    <Filter aria-hidden />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    aria-label="Exportar"
-                    className="border-outline-variant shrink-0"
-                    onClick={exportar}
-                  >
-                    <Download aria-hidden />
-                  </Button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Últimos inventários
+              </h2>
+              <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                <div className="relative min-w-0 flex-1 sm:max-w-52 sm:flex-none">
+                  <Search
+                    className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <input
+                    type="search"
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder="Buscar ID ou responsável…"
+                    aria-label="Pesquisar inventários"
+                    className="h-8 w-full rounded-lg border border-outline-variant bg-surface-lowest pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-transparent focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Filtros"
+                  className="h-8 gap-1 border-outline-variant px-2.5 text-xs"
+                  onClick={filtros}
+                >
+                  <Filter className="size-3.5" aria-hidden />
+                  <span className="hidden sm:inline">Filtros</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Exportar"
+                  className="h-8 gap-1 border-outline-variant px-2.5 text-xs"
+                  onClick={exportar}
+                >
+                  <Download className="size-3.5" aria-hidden />
+                  <span className="hidden sm:inline">Exportar</span>
+                </Button>
               </div>
+            </div>
 
+            <div className="overflow-hidden rounded-lg border border-outline-variant bg-glass-bg shadow-inner-glow backdrop-blur-glass">
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left">
-                  <thead className="border-b border-outline-variant bg-surface-high/50">
-                    <tr>
-                      {TABLE_HEADERS.map((header, idx) => {
-                        const acuraciaCol = idx === 4;
-                        const acoesCol = idx === TABLE_HEADERS.length - 1;
-                        return (
-                          <th
-                            key={header}
-                            className={cn(
-                              'px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:text-label-md md:font-semibold',
-                              acuraciaCol && 'text-center',
-                              acoesCol && 'text-right',
-                            )}
-                          >
-                            {header}
-                          </th>
-                        );
-                      })}
+                <table className={compactTableClassName}>
+                  <thead>
+                    <tr className={compactTableHeadRowClassName}>
+                      {TABLE_HEADERS.map((header) => (
+                        <th
+                          key={header.label || 'actions'}
+                          className={compactTableHeadCellClassName(header.className)}
+                        >
+                          {header.label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-outline-variant">
-                    {inventarios.map((row) => (
-                      <InventarioRow key={row.id} item={row} />
-                    ))}
+                  <tbody className={compactTableBodyClassName}>
+                    {carregando ? (
+                      <tr>
+                        <td
+                          colSpan={TABLE_HEADERS.length}
+                          className={compactTableEmptyCellClassName}
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                            Carregando inventários…
+                          </span>
+                        </td>
+                      </tr>
+                    ) : inventarios.length > 0 ? (
+                      inventarios.map((row) => (
+                        <InventarioRow key={row.id} item={row} />
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={TABLE_HEADERS.length}
+                          className={compactTableEmptyCellClassName}
+                        >
+                          <ClipboardList
+                            className="mx-auto mb-2 size-5 text-muted-foreground/50"
+                            aria-hidden
+                          />
+                          Nenhum inventário encontrado para os filtros aplicados.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -155,12 +185,9 @@ export function InventarioOverviewView() {
                   itemsInicio={itemsInicio}
                   pageSize={pageSize}
                   resourceLabelPlural="inventários"
+                  compact
                 />
-              ) : (
-                <p className="px-6 py-16 text-center text-body-md text-muted-foreground">
-                  Nenhum inventário encontrado para os filtros aplicados.
-                </p>
-              )}
+              ) : null}
             </div>
 
             <InventarioTrendChart meses={trendMensal} />

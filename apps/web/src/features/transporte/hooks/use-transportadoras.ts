@@ -31,6 +31,11 @@ export type TransportadoraDeleteDialogState = {
   target: TransportadoraListaItem | null;
 };
 
+export type TransportadoraEmailsDialogState = {
+  open: boolean;
+  target: TransportadoraListaItem | null;
+};
+
 const EMPTY_STATS = {
   total: 0,
   ativas: 0,
@@ -75,6 +80,12 @@ export function useTransportadoras() {
       open: false,
       target: null,
     });
+  const [emailsDialog, setEmailsDialog] = useState<TransportadoraEmailsDialogState>(
+    {
+      open: false,
+      target: null,
+    },
+  );
   const [cadastroRapidoOpen, setCadastroRapidoOpen] = useState(false);
 
   const statusApi = filtroStatus !== 'todos' ? filtroStatus : undefined;
@@ -158,6 +169,14 @@ export function useTransportadoras() {
     setDeleteDialog({ open: false, target: null });
   }, []);
 
+  const openEmailsDialog = useCallback((item: TransportadoraListaItem) => {
+    setEmailsDialog({ open: true, target: item });
+  }, []);
+
+  const closeEmailsDialog = useCallback(() => {
+    setEmailsDialog({ open: false, target: null });
+  }, []);
+
   const openCadastroRapidoDialog = useCallback(() => {
     setCadastroRapidoOpen(true);
   }, []);
@@ -182,6 +201,7 @@ export function useTransportadoras() {
         toast.success(successMessage);
         closeFormDialog();
         closeDeleteDialog();
+        closeEmailsDialog();
         setCadastroRapidoOpen(false);
         await carregar();
       } catch (error) {
@@ -195,7 +215,7 @@ export function useTransportadoras() {
         setIsSubmitting(false);
       }
     },
-    [unidadeId, carregar, closeFormDialog, closeDeleteDialog],
+    [unidadeId, carregar, closeFormDialog, closeDeleteDialog, closeEmailsDialog],
   );
 
   const salvarTransportadora = useCallback(
@@ -242,6 +262,22 @@ export function useTransportadoras() {
       'Transportadora excluída com sucesso',
     );
   }, [deleteDialog.target, runMutation]);
+
+  const salvarEmails = useCallback(
+    async (emails: string[]) => {
+      const target = emailsDialog.target;
+
+      if (!target) {
+        return;
+      }
+
+      await runMutation(
+        () => updateTransportadora(target.id, { emails }),
+        'E-mails atualizados com sucesso',
+      );
+    },
+    [emailsDialog.target, runMutation],
+  );
 
   const buscarRavex = useCallback(
     async (placa: string) => {
@@ -315,15 +351,19 @@ export function useTransportadoras() {
     isSearchingRavex,
     formDialog,
     deleteDialog,
+    emailsDialog,
     cadastroRapidoOpen,
     openCreateDialog,
     openEditDialog,
     closeFormDialog,
     openDeleteDialog,
     closeDeleteDialog,
+    openEmailsDialog,
+    closeEmailsDialog,
     openCadastroRapidoDialog,
     closeCadastroRapidoDialog,
     salvarTransportadora,
+    salvarEmails,
     confirmarExclusao,
     buscarRavex,
     confirmarCadastroRavex,

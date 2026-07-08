@@ -19,9 +19,14 @@ import {
   type IRecebimentoRepository,
 } from '../../../domain/repositories/recebimento/recebimento.repository.js';
 
+import type { ItemRecebimentoRecord } from '../../../domain/repositories/recebimento/recebimento.repository.js';
+
 export type RegistrarAvariaInput = {
   recebimentoId: string;
   produtoId?: string;
+  lote?: string;
+  validade?: Date;
+  numeroSerie?: string;
   tipo: string;
   natureza: string;
   causa: string;
@@ -32,6 +37,61 @@ export type RegistrarAvariaInput = {
   skusAlvo?: string[];
   operatorId: number;
 };
+
+function normalizeLote(lote: string | null | undefined): string {
+  return (lote ?? '').trim();
+}
+
+function resolveLotesConferidosPorProduto(
+  conferidos: ItemRecebimentoRecord[],
+): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>();
+
+  for (const item of conferidos) {
+    const lote = normalizeLote(item.loteRecebido);
+    if (!lote) {
+      continue;
+    }
+
+    const current = map.get(item.produtoId) ?? new Set<string>();
+    current.add(lote);
+    map.set(item.produtoId, current);
+  }
+
+  return map;
+}
+
+function assertLoteConferido(
+  produtoId: string,
+  lote: string | undefined,
+  lotesPorProduto: Map<string, Set<string>>,
+): string | null {
+  const lotesConferidos = lotesPorProduto.get(produtoId);
+
+  if (!lotesConferidos || lotesConferidos.size === 0) {
+    return lote?.trim() ?? null;
+  }
+
+  const loteInformado = normalizeLote(lote);
+
+  if (!loteInformado) {
+    if (lotesConferidos.size === 1) {
+      return [...lotesConferidos][0] ?? null;
+    }
+
+    throw new BadRequestException(
+      'Selecione o lote conferido para associar a avaria',
+    );
+  }
+
+  if (!lotesConferidos.has(loteInformado)) {
+    throw new BadRequestException(
+      `Lote "${loteInformado}" não foi conferido para este produto`,
+    );
+  }
+
+  return loteInformado;
+}
 
 @Injectable()
 export class RegistrarAvariaUseCase {
@@ -61,7 +121,7 @@ export class RegistrarAvariaUseCase {
       );
     }
 
-    if (recebimento.situacao !== 'em_recebimento') {
+    if (recebimento.situacao !== 'em_conferencia') {
       throw new BadRequestException(
         'Avarias só podem ser registradas durante a conferência',
       );
@@ -70,6 +130,7 @@ export class RegistrarAvariaUseCase {
     const conferidos = await this.recebimentoRepository.findItemsByRecebimento(
       input.recebimentoId,
     );
+    const lotesPorProduto = resolveLotesConferidosPorProduto(conferidos);
 
     const base: Omit<CreateRecebimentoAvariaInput, 'produtoId' | 'replicado'> = {
       recebimentoId: input.recebimentoId,
@@ -78,6 +139,8 @@ export class RegistrarAvariaUseCase {
       causa: input.causa,
       quantidadeCaixas: input.quantidadeCaixas,
       quantidadeUnidades: input.quantidadeUnidades,
+      validade: input.validade ?? null,
+      numeroSerie: input.numeroSerie?.trim() ?? null,
       photoCount: input.photoCount ?? 0,
       operatorId: input.operatorId,
     };
@@ -101,13 +164,13 @@ export class RegistrarAvariaUseCase {
       }
 
       const produtos = await Promise.all(
-        [...produtoIds].map((id) => this.produtoRepository.findById(id)),
+        [...produtoIds].map((id) => this.produtoRepository.findByProdutoId(id)),
       );
 
       const produtoById = new Map(
         produtos
           .filter((produto) => produto !== null)
-          .map((produto) => [produto!.id, produto!]),
+          .map((produto) => [produto!.produtoId, produto!]),
       );
 
       const targets = conferidos.filter((item) => {
@@ -126,6 +189,7 @@ export class RegistrarAvariaUseCase {
       items = targets.map((item) => ({
         ...base,
         produtoId: item.produtoId,
+        lote: assertLoteConferido(item.produtoId, input.lote, lotesPorProduto),
         replicado: true,
       }));
     } else {
@@ -135,13 +199,19 @@ export class RegistrarAvariaUseCase {
         const produto = await this.produtoRepository.findBySku(
           input.skusAlvo[0]!,
         );
-        produtoId = produto?.id ?? null;
+        produtoId = produto?.produtoId ?? null;
       }
+
+      const lote =
+        produtoId !== null
+          ? assertLoteConferido(produtoId, input.lote, lotesPorProduto)
+          : input.lote?.trim() ?? null;
 
       items = [
         {
           ...base,
           produtoId,
+          lote,
           replicado: false,
         },
       ];
@@ -152,6 +222,7 @@ export class RegistrarAvariaUseCase {
     return {
       items: created.map((item) => ({
         ...item,
+        validade: item.validade?.toISOString() ?? null,
         createdAt: item.createdAt.toISOString(),
       })),
     };

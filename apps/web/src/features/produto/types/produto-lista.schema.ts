@@ -9,7 +9,7 @@ export const ProdutoCategoriaSchema = z.enum([
 export type ProdutoCategoria = z.infer<typeof ProdutoCategoriaSchema>;
 
 export const produtoListaItemSchema = z.object({
-  id: z.string(),
+  produtoId: z.string(),
   sku: z.string(),
   descricao: z.string(),
   subtitulo: z.string(),

@@ -62,14 +62,23 @@ type EnderecoSeed = {
   tipo:
     | 'picking'
     | 'pulmao'
+    | 'aereo'
     | 'recebimento'
     | 'expedicao'
     | 'avaria'
     | 'inventario'
     | 'cross_docking'
-    | 'doca';
+    | 'area_operacional';
   status: 'disponivel' | 'ocupado' | 'bloqueado' | 'inventario' | 'inativo';
-  tipoEstrutura: 'porta-palete' | 'drive-in' | 'estante-dinamica' | 'flow-rack';
+  tipoEstrutura:
+    | 'porta-palete'
+    | 'drive-in'
+    | 'estante-dinamica'
+    | 'flow-rack'
+    | 'piso'
+    | 'staging'
+    | 'area-delimitada'
+    | 'patio';
   larguraMm: number;
   alturaMm: number;
   profundidadeMm: number;
@@ -91,14 +100,14 @@ function buildEnderecoCodigo(
   posicao: string,
   nivel: string,
 ): string {
-  return `${zona.trim().toUpperCase()} ${rua.trim().padStart(4, '0')} ${posicao.trim().padStart(3, '0')} ${nivel.trim().padStart(2, '0')}`;
+  return `${zona.trim().toUpperCase()} ${rua.trim().padStart(3, '0')} ${posicao.trim().padStart(4, '0')} ${nivel.trim().padStart(2, '0')}`;
 }
 
 const ENDERECO_TEMPLATES: EnderecoSeed[] = [
   {
     zona: 'A',
-    rua: '0001',
-    posicao: '001',
+    rua: '001',
+    posicao: '0001',
     nivel: '01',
     tipo: 'picking',
     status: 'disponivel',
@@ -114,8 +123,8 @@ const ENDERECO_TEMPLATES: EnderecoSeed[] = [
   },
   {
     zona: 'A',
-    rua: '0001',
-    posicao: '001',
+    rua: '001',
+    posicao: '0001',
     nivel: '02',
     tipo: 'picking',
     status: 'ocupado',
@@ -131,8 +140,8 @@ const ENDERECO_TEMPLATES: EnderecoSeed[] = [
   },
   {
     zona: 'A',
-    rua: '0001',
-    posicao: '002',
+    rua: '001',
+    posicao: '0002',
     nivel: '01',
     tipo: 'picking',
     status: 'disponivel',
@@ -146,8 +155,8 @@ const ENDERECO_TEMPLATES: EnderecoSeed[] = [
   },
   {
     zona: 'A',
-    rua: '0002',
-    posicao: '001',
+    rua: '002',
+    posicao: '0001',
     nivel: '01',
     tipo: 'pulmao',
     status: 'ocupado',
@@ -162,9 +171,25 @@ const ENDERECO_TEMPLATES: EnderecoSeed[] = [
     regraLoteUnico: true,
   },
   {
+    zona: 'A',
+    rua: '002',
+    posicao: '0002',
+    nivel: '05',
+    tipo: 'aereo',
+    status: 'disponivel',
+    tipoEstrutura: 'porta-palete',
+    larguraMm: 2400,
+    alturaMm: 6000,
+    profundidadeMm: 1200,
+    cargaMaxKg: 2000,
+    capacidadeVolume: 17.3,
+    curvaAbc: 'B',
+    observacao: 'Nível aéreo — armazenagem bulk',
+  },
+  {
     zona: 'B',
-    rua: '0005',
-    posicao: '010',
+    rua: '005',
+    posicao: '0010',
     nivel: '03',
     tipo: 'recebimento',
     status: 'disponivel',
@@ -177,8 +202,8 @@ const ENDERECO_TEMPLATES: EnderecoSeed[] = [
   },
   {
     zona: 'B',
-    rua: '0005',
-    posicao: '011',
+    rua: '005',
+    posicao: '0011',
     nivel: '01',
     tipo: 'cross_docking',
     status: 'disponivel',
@@ -191,8 +216,8 @@ const ENDERECO_TEMPLATES: EnderecoSeed[] = [
   },
   {
     zona: 'C',
-    rua: '0010',
-    posicao: '050',
+    rua: '010',
+    posicao: '0050',
     nivel: '10',
     tipo: 'expedicao',
     status: 'disponivel',
@@ -206,8 +231,8 @@ const ENDERECO_TEMPLATES: EnderecoSeed[] = [
   },
   {
     zona: 'C',
-    rua: '0010',
-    posicao: '051',
+    rua: '010',
+    posicao: '0051',
     nivel: '01',
     tipo: 'avaria',
     status: 'bloqueado',
@@ -221,8 +246,8 @@ const ENDERECO_TEMPLATES: EnderecoSeed[] = [
   },
   {
     zona: 'D',
-    rua: '0003',
-    posicao: '001',
+    rua: '003',
+    posicao: '0001',
     nivel: '01',
     tipo: 'inventario',
     status: 'inventario',
@@ -235,17 +260,17 @@ const ENDERECO_TEMPLATES: EnderecoSeed[] = [
   },
   {
     zona: 'D',
-    rua: '0003',
-    posicao: '002',
+    rua: '003',
+    posicao: '0002',
     nivel: '01',
-    tipo: 'doca',
+    tipo: 'area_operacional',
     status: 'inativo',
     tipoEstrutura: 'flow-rack',
     larguraMm: 2000,
     alturaMm: 3000,
     profundidadeMm: 1500,
     cargaMaxKg: 1000,
-    observacao: 'Doca desativada',
+    observacao: 'Área operacional desativada',
   },
 ];
 
@@ -343,17 +368,17 @@ async function seed() {
           updated_at = NOW();
   `);
 
-  const centrosSeed = await sql<{ id: string; centro: string }[]>`
-    SELECT id, centro
-    FROM master_data.centros
+  const unidadesSeed = await sql<{ id: string }[]>`
+    SELECT id
+    FROM master_data.unidades
   `;
 
-  const centroIds = centrosSeed.map((centro) => centro.id);
+  const unidadeIds = unidadesSeed.map((unidade) => unidade.id);
 
-  if (centroIds.length > 0) {
+  if (unidadeIds.length > 0) {
     const removedLegacy = await sql`
-      DELETE FROM master_data.enderecos e
-      WHERE e.centro_id IN ${sql(centroIds)}
+      DELETE FROM estoque.enderecos e
+      WHERE e.unidade_id IN ${sql(unidadeIds)}
         AND e.endereco_mascarado LIKE '%-%'
         AND NOT EXISTS (
           SELECT 1
@@ -362,9 +387,9 @@ async function seed() {
         )
         AND NOT EXISTS (
           SELECT 1
-          FROM estoque.movement_records mr
-          WHERE mr.from_location = e.endereco_mascarado
-             OR mr.to_location = e.endereco_mascarado
+          FROM estoque.movimentacoes_estoque me
+          WHERE me.endereco_origem_id = e.id
+             OR me.endereco_destino_id = e.id
         )
     `;
 
@@ -375,7 +400,7 @@ async function seed() {
 
   let enderecosInseridos = 0;
 
-  for (const centro of centrosSeed) {
+  for (const unidade of unidadesSeed) {
     for (const template of ENDERECO_TEMPLATES) {
       const enderecoMascarado = buildEnderecoCodigo(
         template.zona,
@@ -385,9 +410,9 @@ async function seed() {
       );
 
       await sql`
-        INSERT INTO master_data.enderecos (
+        INSERT INTO estoque.enderecos (
           endereco_mascarado,
-          centro_id,
+          unidade_id,
           zona,
           rua,
           posicao,
@@ -411,7 +436,7 @@ async function seed() {
         )
         VALUES (
           ${enderecoMascarado},
-          ${centro.id},
+          ${unidade.id},
           ${template.zona},
           ${template.rua},
           ${template.posicao},
@@ -433,7 +458,7 @@ async function seed() {
           ${template.ocupacaoPercent ?? 0},
           ${template.observacao ?? null}
         )
-        ON CONFLICT (centro_id, endereco_mascarado) DO UPDATE
+        ON CONFLICT (unidade_id, endereco_mascarado) DO UPDATE
           SET zona = EXCLUDED.zona,
               rua = EXCLUDED.rua,
               posicao = EXCLUDED.posicao,
@@ -463,8 +488,8 @@ async function seed() {
 
   const amostra = await sql<{ endereco_mascarado: string; tipo: string; status: string }[]>`
     SELECT endereco_mascarado, tipo, status
-    FROM master_data.enderecos
-    WHERE centro_id = ${SEED_CENTRO_ID}
+    FROM estoque.enderecos
+    WHERE unidade_id = ${SEED_UNIDADE_ID}
     ORDER BY endereco_mascarado
     LIMIT 5
   `;
@@ -472,7 +497,7 @@ async function seed() {
   console.log('✓ Funcionários e usuários criados (421931 admin, 421932/421933 operators)');
   console.log(`✓ Centro seed: ${SEED_CENTRO_ID}`);
   console.log(
-    `✓ ${enderecosInseridos} endereços WMS inseridos/atualizados em ${centrosSeed.length} centro(s)`,
+    `✓ ${enderecosInseridos} endereços WMS inseridos/atualizados em ${unidadesSeed.length} unidade(s)`,
   );
   console.log('✓ Amostra do novo padrão (ZONA RUA POSICAO NIVEL):');
   for (const row of amostra) {

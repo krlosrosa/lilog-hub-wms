@@ -14,6 +14,7 @@ export type TransportadoraRecord = {
   cnpj: string;
   status: TransportadoraStatus;
   quantidadeVeiculos: number;
+  emails: string[];
   createdAt: Date;
   updatedAt: Date;
 };
@@ -36,6 +37,7 @@ export type ListTransportadorasResult = {
 export interface ITransportadoraRepository {
   list(filter: ListTransportadorasFilter): Promise<ListTransportadorasResult>;
   findById(id: string): Promise<TransportadoraRecord | null>;
+  findByEmail(email: string): Promise<TransportadoraRecord | null>;
   findByUnidadeAndRavexId(
     unidadeId: string,
     idRavexTransportadora: number,

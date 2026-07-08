@@ -1,28 +1,5 @@
 ﻿import type { AvariaRegistro } from '../types/devolucao.schema';
 
-const MOCK_AVARIAS_REGISTRADAS: AvariaRegistro[] = [
-  {
-    id: 'avaria-mock-001',
-    quantidadeCaixa: 1,
-    quantidadeUnidade: 6,
-    tipo: 'embalagem',
-    natureza: 'parcial',
-    causa: 'transporte',
-    photoCount: 3,
-    replicado: false,
-  },
-  {
-    id: 'avaria-mock-002',
-    quantidadeCaixa: 0,
-    quantidadeUnidade: 2,
-    tipo: 'fisica',
-    natureza: 'superficial',
-    causa: 'manuseio',
-    photoCount: 2,
-    replicado: true,
-  },
-];
-
 const store = new Map<string, AvariaRegistro[]>();
 
 function cloneAvarias(avarias: AvariaRegistro[]) {
@@ -31,7 +8,7 @@ function cloneAvarias(avarias: AvariaRegistro[]) {
 
 export function getAvariasRegistradas(demandId: string): AvariaRegistro[] {
   if (!store.has(demandId)) {
-    store.set(demandId, cloneAvarias(MOCK_AVARIAS_REGISTRADAS));
+    store.set(demandId, []);
   }
   return cloneAvarias(store.get(demandId)!);
 }

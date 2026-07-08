@@ -20,6 +20,8 @@ export type ProdutoConferenciaConfigRecord = {
 
   pesoVariavel: boolean;
 
+  exigirEtiquetaPesoVariavel: boolean;
+
   controlaNumeroSerie: boolean;
 
 };
@@ -34,9 +36,9 @@ export type OperadorDemandaRecord = {
 
   unidadeId: string;
 
-  placa: string;
+  placa: string | null;
 
-  transportadoraId: string;
+  transportadoraNome: string | null;
 
   situacao: PreRecebimentoSituacao;
 
@@ -69,15 +71,22 @@ export type ConferenciaItemBlindRecord = {
 
 
 export type ConferenciaConferidoRecord = {
-
   id: string;
-
   produtoId: string;
-
+  sku: string;
+  descricao: string;
+  unidadesPorCaixa: number;
+  config: ProdutoConferenciaConfigRecord;
   quantidadeRecebida: number;
-
   unidadeMedida: string;
-
+  loteRecebido: string | null;
+  validade: Date | null;
+  pesoRecebido: number | null;
+  etiquetaCodigo: string | null;
+  pesagemId: string | null;
+  recebimentoItemId: string;
+  unitizadorCodigo: string | null;
+  unitizadorId: string | null;
 };
 
 
@@ -92,23 +101,34 @@ export type ChecklistRecebimentoRecord = {
   condicaoOdor: boolean;
   condicaoEstrutura: boolean;
   condicaoVedacao: boolean;
+  conditions: Record<string, boolean>;
   observacoes: string | null;
   photoCount: number;
   createdAt: Date;
+};
+
+export type ResumoConferidoProdutoRecord = {
+  produtoId: string;
+  qtdContabil: number;
+  qtdFisica: number;
+  pesoTotal: number | null;
+  hasDivergencia: boolean;
 };
 
 export type ConferenciaContextRecord = {
   preRecebimentoId: string;
   recebimentoId: string | null;
   unidadeId: string;
-  placa: string;
-  transportadoraId: string;
+  placa: string | null;
+  transportadoraNome: string | null;
   situacao: PreRecebimentoSituacao;
   recebimentoSituacao: RecebimentoSituacao | null;
   dock: string | null;
   checklistPreenchido: boolean;
+  modoUnitizacao: string;
   itens: ConferenciaItemBlindRecord[];
   conferidos: ConferenciaConferidoRecord[];
+  resumoConferido: ResumoConferidoProdutoRecord[];
 };
 
 

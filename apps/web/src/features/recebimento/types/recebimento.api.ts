@@ -7,13 +7,35 @@ export type ItemPreRecebimentoPayload = {
   validadeEsperada?: string;
 };
 
+export type NotaFiscalPreRecebimentoPayload = {
+  numeroNf: string;
+  serie?: string;
+  chaveAcesso?: string;
+  numeroRemessa?: string;
+  fornecedorNome?: string;
+  fornecedorDocumento?: string;
+  pesoTotal?: number;
+  volumeTotal?: number;
+  observacao?: string;
+};
+
+export type OrigemDadosPreRecebimentoApi =
+  | 'manual'
+  | 'xlsx'
+  | 'xml'
+  | 'ocr';
+
 export type CreatePreRecebimentoPayload = {
   unidadeId: string;
-  transportadoraId: string;
-  placa: string;
+  transportadoraNome?: string;
+  placa?: string;
+  numeroOcr?: string;
+  numeroTransporte?: string;
+  origemDados?: OrigemDadosPreRecebimentoApi;
   horarioPrevisto: string;
   observacao?: string;
   itens: ItemPreRecebimentoPayload[];
+  notasFiscais?: NotaFiscalPreRecebimentoPayload[];
 };
 
 export type ItemPreRecebimentoApi = ItemPreRecebimentoPayload & {
@@ -21,25 +43,52 @@ export type ItemPreRecebimentoApi = ItemPreRecebimentoPayload & {
   unidadesPorCaixa: number;
 };
 
+export type NotaFiscalPreRecebimentoApi = NotaFiscalPreRecebimentoPayload & {
+  id: string;
+  createdAt: string;
+};
+
 export type PreRecebimentoSituacaoApi =
   | 'agendado'
-  | 'veiculo_chegou'
-  | 'em_recebimento'
-  | 'aguardando_aprovacao'
-  | 'aprovado'
+  | 'aguardando'
+  | 'liberado_para_conferencia'
+  | 'em_conferencia'
+  | 'conferido'
   | 'finalizado'
   | 'cancelado';
+
+export type GrauPrioridadePreRecebimentoApi =
+  | 'baixo'
+  | 'normal'
+  | 'alto'
+  | 'urgente';
+
+export type RecepcionarCarroPayload = {
+  motoristaNome?: string;
+  motoristaTelefone?: string;
+  placa?: string;
+  dataChegada?: string;
+  grauPrioridade?: GrauPrioridadePreRecebimentoApi;
+};
 
 export type PreRecebimentoApi = {
   id: string;
   unidadeId: string;
-  transportadoraId: string;
-  placa: string;
+  transportadoraNome: string | null;
+  placa: string | null;
+  motoristaNome: string | null;
+  motoristaTelefone: string | null;
+  grauPrioridade: GrauPrioridadePreRecebimentoApi | null;
+  numeroOcr: string | null;
+  numeroTransporte: string | null;
+  origemDados: OrigemDadosPreRecebimentoApi;
   horarioPrevisto: string;
   observacao: string | null;
   situacao: PreRecebimentoSituacaoApi;
   dataChegada: string | null;
+  docaId: string | null;
   itens?: ItemPreRecebimentoApi[];
+  notasFiscais?: NotaFiscalPreRecebimentoApi[];
   createdAt: string;
   updatedAt: string;
 };
@@ -49,7 +98,7 @@ export type ListPreRecebimentosParams = {
   limit?: number;
   unidadeId: string;
   situacao?: PreRecebimentoSituacaoApi;
-  transportadoraId?: string;
+  transportadoraNome?: string;
   dataInicio?: string;
   dataFim?: string;
 };
@@ -62,9 +111,8 @@ export type ListPreRecebimentosApiResponse = {
 };
 
 export type RecebimentoSituacaoApi =
-  | 'em_recebimento'
-  | 'aguardando_aprovacao'
-  | 'aprovado'
+  | 'em_conferencia'
+  | 'conferido'
   | 'finalizado'
   | 'cancelado';
 
@@ -86,6 +134,8 @@ export type ItemRecebimentoApi = {
   pesoRecebido: number | null;
   validade: string | null;
   numeroSerie: string | null;
+  unitizadorId?: string | null;
+  unitizadorCodigo?: string | null;
 };
 
 export type DivergenciaRecebimentoApi = {
@@ -105,6 +155,7 @@ export type RecebimentoApi = {
   dataInicio: string;
   dataFim: string | null;
   situacao: RecebimentoSituacaoApi;
+  modoUnitizacao?: string;
   itens?: ItemRecebimentoApi[];
   divergencias?: DivergenciaRecebimentoApi[];
   createdAt: string;
@@ -159,4 +210,9 @@ export type DocumentoApi = {
   status: string;
   uploadedBy: number | null;
   createdAt: string;
+};
+
+export type GerarLinkRastreioResponse = {
+  token: string;
+  url: string;
 };

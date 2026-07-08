@@ -150,7 +150,7 @@ export function ArmazenagemDemandCard({
       <div className="space-y-1 pl-[46px]">
         <div className="flex items-center justify-between text-[10px] text-on-surface-variant">
           <span>
-            {storedCount} guardados · {pending} pendentes
+            {storedCount} armazenados · {pending} pendentes
           </span>
           <span className="font-mono font-semibold tabular-nums text-on-surface">{percent}%</span>
         </div>

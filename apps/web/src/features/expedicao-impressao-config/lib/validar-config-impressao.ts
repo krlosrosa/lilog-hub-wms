@@ -48,6 +48,7 @@ export function validarConfigImpressao(config: ImpressaoConfig): string | null {
   const tiposLayout: TipoLayoutMapa[] = [
     'separacao',
     'conferencia',
+    'conferencia_reentrega',
     'carregamento',
   ];
   const tipoInvalido = tiposLayout.find(

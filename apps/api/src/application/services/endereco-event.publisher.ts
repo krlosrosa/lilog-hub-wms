@@ -29,7 +29,7 @@ export class EnderecoEventPublisher {
       httpPath: `/enderecos/${event.enderecoId}`,
       httpStatus: 200,
       payload: {
-        centroId: event.centroId,
+        unidadeId: event.unidadeId,
         enderecoMascarado: event.enderecoMascarado,
         motivo: event.motivo ?? null,
       },

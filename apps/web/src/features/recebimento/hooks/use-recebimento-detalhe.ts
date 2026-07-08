@@ -1,67 +1,40 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
-import { listDocas, mapDocaToListaItem } from '@/features/docas/lib/docas-api';
-import { listFuncionarios } from '@/features/funcionarios/lib/funcionario-api';
-import { listProdutos } from '@/features/produto/lib/produto-api';
+import { getProduto, listProdutos } from '@/features/produto/lib/produto-api';
 import type { ProdutoApi } from '@/features/produto/types/produto.api';
 import {
   compareChecklistPhotos,
   resolveChecklistPhotoLabel,
 } from '@/features/recebimento/lib/checklist-photo-label';
 import {
-  aprovarRecebimento,
-  checkinVeiculo,
-  encerrarConferencia,
+  cancelPreRecebimento,
   fetchChecklist,
   finalizarRecebimento,
   getDocumentDownloadUrl,
   getPreRecebimento,
   getRecebimentoByPreRecebimento,
-  iniciarRecebimento,
+  liberarConferencia,
+  recepcionarCarro,
   listAvariaDocumentos,
   listAvarias,
   listChecklistDocumentos,
+  reabrirConferencia,
+  reimprimirEtiquetasRecebimento,
 } from '@/features/recebimento/lib/recebimento-api';
 import {
   alocarFotosPorAvaria,
   enrichConferenciaComAvarias,
 } from '@/features/recebimento/lib/enrich-conferencia-avarias';
 import { mapRecebimentoDetalhe } from '@/features/recebimento/lib/map-recebimento-detalhe';
-import type { DocaItem } from '@/features/recebimento/types/recebimento-lista.schema';
 import type { RecebimentoDetalhe } from '@/features/recebimento/types/recebimento-detalhe.schema';
+import type { RecepcionarCarroPayload } from '@/features/recebimento/types/recebimento.api';
 import { ApiClientError } from '@/lib/api';
 
 const CONFERENCIA_PAGE_SIZE = 4;
-
-type DocaComReferencia = DocaItem & { id: string };
-
-function mapDocaListaToDocaComReferencia(
-  doca: ReturnType<typeof mapDocaToListaItem>,
-): DocaComReferencia {
-  const numero =
-    Number.parseInt(doca.codigo.replace(/\D/g, ''), 10) ||
-    Number.parseInt(doca.codigo, 10) ||
-    1;
-
-  const status =
-    doca.situacao === 'manutencao'
-      ? 'manutencao'
-      : doca.situacao === 'ocupada'
-        ? 'ocupada'
-        : 'disponivel';
-
-  return {
-    id: doca.id,
-    numero,
-    status,
-    capacidadeToneladas: doca.capacidadeVeiculos ?? undefined,
-    etiquetaManutencao: doca.situacao === 'manutencao' ? 'MANUT' : undefined,
-  };
-}
 
 async function buildProdutoMap(
   produtoIds: string[],
@@ -70,12 +43,56 @@ async function buildProdutoMap(
     return new Map();
   }
 
-  const response = await listProdutos({ limit: 100 });
+  const uniqueIds = new Set(produtoIds);
   const map = new Map<string, ProdutoApi>();
 
-  for (const produto of response.items) {
-    if (produtoIds.includes(produto.id)) {
-      map.set(produto.id, produto);
+  const PAGE_SIZE = 100;
+  let page = 1;
+
+  // Percorre as páginas de produtos até encontrar todos os IDs necessários
+  // ou até esgotar as páginas disponíveis.
+  // Isso evita depender apenas da primeira página da listagem.
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const response = await listProdutos({ page, limit: PAGE_SIZE });
+
+    for (const produto of response.items) {
+      if (uniqueIds.has(produto.produtoId)) {
+        map.set(produto.produtoId, produto);
+        uniqueIds.delete(produto.produtoId);
+      }
+    }
+
+    const reachedLastPage = response.page * response.limit >= response.total;
+    const resolvedAllIds = uniqueIds.size === 0;
+
+    if (reachedLastPage || resolvedAllIds) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  // Se ainda houver IDs não resolvidos pela listagem paginada,
+  // tenta buscar cada produto individualmente pelo endpoint /produtos/:id.
+  if (uniqueIds.size > 0) {
+    const unresolvedIds = Array.from(uniqueIds);
+
+    const resolvedIndividually = await Promise.all(
+      unresolvedIds.map(async (id) => {
+        try {
+          return await getProduto(id);
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    for (const produto of resolvedIndividually) {
+      if (produto && uniqueIds.has(produto.produtoId)) {
+        map.set(produto.produtoId, produto);
+        uniqueIds.delete(produto.produtoId);
+      }
     }
   }
 
@@ -91,9 +108,11 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
     null,
   );
   const [paginaConferencia, setPaginaConferenciaState] = useState(1);
-  const [isAlocarDocaOpen, setIsAlocarDocaOpen] = useState(false);
+  const [isLiberarOpen, setIsLiberarOpen] = useState(false);
+  const [isRecepcionarOpen, setIsRecepcionarOpen] = useState(false);
   const [isFinalizarOpen, setIsFinalizarOpen] = useState(false);
-  const [docas, setDocas] = useState<DocaComReferencia[]>([]);
+  const [isExcluirOpen, setIsExcluirOpen] = useState(false);
+  const [isLinkRastreioOpen, setIsLinkRastreioOpen] = useState(false);
 
   const carregar = useCallback(async () => {
     setIsLoading(true);
@@ -109,13 +128,8 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
         ...(recebimentoAtivo?.itens?.map((item) => item.produtoId) ?? []),
       ];
 
-      const [produtoMap, docasResponse, checklist] = await Promise.all([
+      const [produtoMap, checklist] = await Promise.all([
         buildProdutoMap([...new Set(produtoIds)]),
-        listDocas({
-          page: 1,
-          limit: 50,
-          unidadeId: preRecebimento.unidadeId,
-        }),
         recebimentoAtivo
           ? fetchChecklist(recebimentoAtivo.id)
           : Promise.resolve(null),
@@ -196,12 +210,6 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
             fotosPorAvaria,
           ),
         });
-
-        setDocas(
-          docasResponse.items
-            .map(mapDocaToListaItem)
-            .map(mapDocaListaToDocaComReferencia),
-        );
         return;
       }
 
@@ -223,12 +231,6 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
           new Map(),
         ),
       });
-
-      setDocas(
-        docasResponse.items
-          .map(mapDocaToListaItem)
-          .map(mapDocaListaToDocaComReferencia),
-      );
     } catch (error) {
       const message =
         error instanceof ApiClientError
@@ -288,137 +290,84 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
     router.push('/recebimento');
   }, [router]);
 
-  const openAlocarDoca = useCallback(() => {
-    setIsAlocarDocaOpen(true);
+  const openLiberarConferencia = useCallback(() => {
+    setIsLiberarOpen(true);
   }, []);
 
-  const closeAlocarDoca = useCallback(() => {
+  const closeLiberarConferencia = useCallback(() => {
     if (!isSubmitting) {
-      setIsAlocarDocaOpen(false);
+      setIsLiberarOpen(false);
     }
   }, [isSubmitting]);
 
-  const confirmarAlocarDoca = useCallback(
-    async (docaNumero: number) => {
+  const openRecepcionar = useCallback(() => {
+    setIsRecepcionarOpen(true);
+  }, []);
+
+  const closeRecepcionar = useCallback(() => {
+    if (!isSubmitting) {
+      setIsRecepcionarOpen(false);
+    }
+  }, [isSubmitting]);
+
+  const confirmarRecepcionarCarro = useCallback(
+    async (payload: RecepcionarCarroPayload) => {
       if (!recebimento) {
         return;
       }
 
-      const doca = docas.find((item) => item.numero === docaNumero);
-
-      if (!doca) {
-        toast.error('Doca selecionada não encontrada');
-        return;
-      }
-
       setIsSubmitting(true);
 
       try {
-        let situacaoAtual = recebimento.preRecebimentoSituacao;
-
-        if (situacaoAtual === 'agendado') {
-          const checkin = await checkinVeiculo(recebimento.id);
-          situacaoAtual = checkin.situacao;
-        }
-
-        if (situacaoAtual !== 'veiculo_chegou' && !recebimento.recebimentoId) {
-          throw new Error(
-            'Veículo precisa estar com check-in realizado antes de alocar doca',
-          );
-        }
-
-        if (!recebimento.recebimentoId) {
-          const funcionarios = await listFuncionarios({
-            unidadeId: recebimento.unidade,
-            situacao: 'ativo',
-            limit: 20,
-          });
-
-          const responsavel =
-            funcionarios.items.find((item) => item.cargo === 'recebedor') ??
-            funcionarios.items[0];
-
-          if (!responsavel) {
-            throw new Error(
-              'Nenhum funcionário ativo encontrado para responsável do recebimento',
-            );
-          }
-
-          await iniciarRecebimento({
-            preRecebimentoId: recebimento.id,
-            docaId: doca.id,
-            responsavelId: responsavel.id,
-          });
-        }
-
-        setIsAlocarDocaOpen(false);
-        toast.success(`Doca ${String(docaNumero).padStart(2, '0')} alocada`, {
-          description: `Veículo ${recebimento.placa} direcionado para descarga.`,
+        await recepcionarCarro(recebimento.id, payload);
+        setIsRecepcionarOpen(false);
+        toast.success('Veículo recepcionado', {
+          description: payload.placa ?? recebimento.placa,
         });
         await carregar();
       } catch (error) {
         const message =
           error instanceof ApiClientError
             ? error.message
-            : error instanceof Error
-              ? error.message
-              : 'Não foi possível alocar a doca';
+            : 'Não foi possível recepcionar o veículo';
 
         toast.error(message);
+        throw error;
       } finally {
         setIsSubmitting(false);
       }
     },
-    [carregar, docas, recebimento],
+    [carregar, recebimento],
   );
 
-  const executarFinalizacao = useCallback(
-    async (recebimentoAtivoId: string, situacaoAtual?: string | null) => {
-      if (situacaoAtual === 'em_recebimento') {
-        await encerrarConferencia(recebimentoAtivoId);
-        await aprovarRecebimento(recebimentoAtivoId);
-      } else if (situacaoAtual === 'aguardando_aprovacao') {
-        await aprovarRecebimento(recebimentoAtivoId);
-      }
-
-      await finalizarRecebimento(recebimentoAtivoId);
-    },
-    [],
-  );
-
-  const liberarArmazem = useCallback(
-    async (detalhe?: RecebimentoDetalhe) => {
-      const alvo = detalhe ?? recebimento;
-      const recebimentoAtivoId = alvo?.recebimentoId;
-
-      if (!alvo || !recebimentoAtivoId) {
-        toast.error('Inicie o recebimento antes de liberar para o armazém');
+  const confirmarLiberarConferencia = useCallback(
+    async (docaId: string) => {
+      if (!recebimento) {
         return;
       }
 
       setIsSubmitting(true);
 
       try {
-        await executarFinalizacao(
-          recebimentoAtivoId,
-          alvo.recebimentoSituacao,
-        );
-        toast.success('Recebimento liberado para armazenagem', {
-          description: alvo.numero,
+        await liberarConferencia(recebimento.id, { docaId });
+        setIsLiberarOpen(false);
+        toast.success('Carga liberada para conferência', {
+          description: recebimento.placa,
         });
         await carregar();
       } catch (error) {
         const message =
           error instanceof ApiClientError
             ? error.message
-            : 'Não foi possível liberar para o armazém';
+            : 'Não foi possível liberar para conferência';
 
         toast.error(message);
+        throw error;
       } finally {
         setIsSubmitting(false);
       }
     },
-    [carregar, executarFinalizacao, recebimento],
+    [carregar, recebimento],
   );
 
   const openFinalizar = useCallback(() => {
@@ -431,23 +380,104 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
     }
   }, [isSubmitting]);
 
+  const reimprimirEtiquetas = useCallback(async () => {
+    const recebimentoAtivoId = recebimento?.recebimentoId;
+
+    if (!recebimento || !recebimentoAtivoId) {
+      toast.error('Recebimento ainda não foi conferido no PWA');
+      return;
+    }
+
+    if (
+      recebimento.modoUnitizacao !== 'gerar_etiqueta_na_armazenagem' &&
+      recebimento.temPaletesBipados
+    ) {
+      toast.error('Este recebimento não possui etiquetas de palete');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await reimprimirEtiquetasRecebimento(recebimentoAtivoId);
+      toast.success('PDF das etiquetas baixado', {
+        description: recebimento.numero,
+      });
+    } catch (error) {
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Não foi possível baixar o PDF das etiquetas';
+
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [recebimento]);
+
+  const openExcluir = useCallback(() => {
+    setIsExcluirOpen(true);
+  }, []);
+
+  const openLinkRastreio = useCallback(() => {
+    setIsLinkRastreioOpen(true);
+  }, []);
+
+  const closeLinkRastreio = useCallback(() => {
+    setIsLinkRastreioOpen(false);
+  }, []);
+
+  const closeExcluir = useCallback(() => {
+    if (!isSubmitting) {
+      setIsExcluirOpen(false);
+    }
+  }, [isSubmitting]);
+
+  const confirmarExcluir = useCallback(async () => {
+    if (!recebimento) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await cancelPreRecebimento(recebimento.id);
+      setIsExcluirOpen(false);
+      toast.success('Pré-recebimento cancelado', {
+        description: recebimento.placa,
+      });
+      router.push('/recebimento');
+    } catch (error) {
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Não foi possível cancelar o pré-recebimento';
+
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [recebimento, router]);
+
   const confirmarFinalizar = useCallback(
     async (_liberarPortaria: boolean, detalhe?: RecebimentoDetalhe) => {
       const alvo = detalhe ?? recebimento;
       const recebimentoAtivoId = alvo?.recebimentoId;
 
       if (!alvo || !recebimentoAtivoId) {
-        toast.error('Inicie o recebimento antes de finalizar o processo');
+        toast.error('Recebimento ainda não foi conferido no PWA');
+        return;
+      }
+
+      if (alvo.status !== 'conferido') {
+        toast.error('Finalização só é permitida após conferência encerrada');
         return;
       }
 
       setIsSubmitting(true);
 
       try {
-        await executarFinalizacao(
-          recebimentoAtivoId,
-          alvo.recebimentoSituacao,
-        );
+        await finalizarRecebimento(recebimentoAtivoId);
         setIsFinalizarOpen(false);
         toast.success('Recebimento finalizado', {
           description: alvo.numero,
@@ -457,20 +487,52 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
         const message =
           error instanceof ApiClientError
             ? error.message
-            : 'Não foi possível finalizar o recebimento';
+            : error instanceof Error
+              ? error.message
+              : 'Não foi possível finalizar o recebimento';
 
         toast.error(message);
       } finally {
         setIsSubmitting(false);
       }
     },
-    [carregar, executarFinalizacao, recebimento],
+    [carregar, recebimento],
   );
 
-  const docasParaModal = useMemo<readonly DocaItem[]>(
-    () => docas.map(({ id: _id, ...doca }) => doca),
-    [docas],
-  );
+  const reabrirDemanda = useCallback(async () => {
+    const recebimentoAtivoId = recebimento?.recebimentoId;
+
+    if (!recebimento || !recebimentoAtivoId) {
+      toast.error('Recebimento ainda não foi conferido no PWA');
+      return false;
+    }
+
+    if (recebimento.status !== 'conferido') {
+      toast.error('Só é possível reabrir demandas com status Conferido.');
+      return false;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await reabrirConferencia(recebimentoAtivoId);
+      toast.success('Demanda reaberta para conferência', {
+        description: recebimento.placa,
+      });
+      await carregar();
+      return true;
+    } catch (error) {
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Não foi possível reabrir a demanda';
+
+      toast.error(message);
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [carregar, recebimento]);
 
   return {
     isLoading,
@@ -484,16 +546,27 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
     conferenciaPageSize: CONFERENCIA_PAGE_SIZE,
     setPaginaConferencia,
     voltar,
-    docas: docasParaModal,
-    isAlocarDocaOpen,
-    openAlocarDoca,
-    closeAlocarDoca,
-    confirmarAlocarDoca,
-    liberarArmazem,
+    isLiberarOpen,
+    openLiberarConferencia,
+    closeLiberarConferencia,
+    confirmarLiberarConferencia,
+    isRecepcionarOpen,
+    openRecepcionar,
+    closeRecepcionar,
+    confirmarRecepcionarCarro,
     isFinalizarOpen,
     openFinalizar,
     closeFinalizar,
     confirmarFinalizar,
+    reimprimirEtiquetas,
+    reabrirDemanda,
+    isExcluirOpen,
+    openExcluir,
+    closeExcluir,
+    confirmarExcluir,
+    isLinkRastreioOpen,
+    openLinkRastreio,
+    closeLinkRastreio,
     recarregar: carregar,
   };
 }

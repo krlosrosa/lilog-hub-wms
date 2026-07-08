@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { ListaTarefasView } from '@/features/movimentacao/views/lista-tarefas-view';
+import { MovimentacaoHubView } from '@/features/movimentacao/views/movimentacao-hub-view';
 
 export const Route = createFileRoute('/movimentacao/')({
-  component: ListaTarefasView,
+  component: MovimentacaoHubView,
 });

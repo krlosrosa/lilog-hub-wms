@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 
 import {
+  Barcode,
   Database,
   Layers,
   Loader2,
@@ -23,6 +24,7 @@ import {
 import { AdicionarBancoDialog } from '@/features/peso-variavel/components/adicionar-banco-dialog';
 import { EtiquetaSeparacaoPreview } from '@/features/peso-variavel/components/etiqueta-separacao-preview';
 import { EtiquetasPrintArea } from '@/features/peso-variavel/components/etiquetas-print-area';
+import { EtiquetasZebraDialog } from '@/features/peso-variavel/components/etiquetas-zebra-dialog';
 import {
   LinhaSeparacaoRow,
   linhaSeparacaoHeadCellClassName,
@@ -57,9 +59,12 @@ export function PesoVariavelEtiquetasView() {
     isPrinting,
     isUploading,
     isAdicionarModalOpen,
+    isZebraModalOpen,
     isSalvandoBanco,
     ultimoArquivo,
     etiquetasGeradas,
+    zplContent,
+    printVariante,
     previewEtiqueta,
     previewIndex,
     previewTotal,
@@ -75,9 +80,14 @@ export function PesoVariavelEtiquetasView() {
     toggleTodas,
     gerarEtiquetas,
     imprimirEtiquetas,
+    imprimirEtiquetasZebra,
     uploadArquivos,
     abrirModalAdicionar,
     fecharModalAdicionar,
+    abrirModalZebra,
+    fecharModalZebra,
+    copiarZpl,
+    baixarZpl,
     confirmarAdicionarBanco,
     previewAnterior,
     previewProxima,
@@ -91,9 +101,18 @@ export function PesoVariavelEtiquetasView() {
   const imprimirLabel =
     previewTotal === 0 ? 'Imprimir' : `Imprimir ${previewTotal}`;
 
+  const imprimirZebraLabel =
+    previewTotal === 0 ? 'Imprimir Zebra' : `Imprimir Zebra ${previewTotal}`;
+
+  const zebraLabel =
+    previewTotal === 0 ? 'Zebra (ZPL)' : `Zebra (ZPL) ${previewTotal}`;
+
   return (
     <SidebarMain>
-      <EtiquetasPrintArea etiquetas={etiquetasGeradas} />
+      <EtiquetasPrintArea
+        etiquetas={etiquetasGeradas}
+        variante={printVariante}
+      />
 
       <input
         ref={fileInputRef}
@@ -117,6 +136,17 @@ export function PesoVariavelEtiquetasView() {
         totalCaixas={resumoBanco.totalCaixas}
         isSalvando={isSalvandoBanco}
         onConfirmar={() => void confirmarAdicionarBanco()}
+      />
+
+      <EtiquetasZebraDialog
+        open={isZebraModalOpen}
+        onOpenChange={(aberto) => {
+          if (!aberto) fecharModalZebra();
+        }}
+        zplContent={zplContent}
+        totalEtiquetas={previewTotal}
+        onCopiar={() => void copiarZpl()}
+        onBaixar={baixarZpl}
       />
 
       <main className="min-h-dvh bg-background px-margin-mobile py-6 md:px-margin-desktop md:py-8">
@@ -195,6 +225,32 @@ export function PesoVariavelEtiquetasView() {
                   <Printer className="size-3.5" aria-hidden />
                 )}
                 {isPrinting ? 'Imprimindo…' : imprimirLabel}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 gap-1.5 px-3 text-xs"
+                disabled={
+                  isPrinting || isLoading || previewTotal === 0
+                }
+                onClick={() => void imprimirEtiquetasZebra()}
+              >
+                {isPrinting ? (
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Printer className="size-3.5" aria-hidden />
+                )}
+                {isPrinting ? 'Imprimindo…' : imprimirZebraLabel}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 gap-1.5 px-3 text-xs"
+                disabled={isLoading || previewTotal === 0}
+                onClick={abrirModalZebra}
+              >
+                <Barcode className="size-3.5" aria-hidden />
+                {zebraLabel}
               </Button>
             </div>
           </header>

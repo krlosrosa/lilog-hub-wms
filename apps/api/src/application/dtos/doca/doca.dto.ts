@@ -48,3 +48,13 @@ export const DocaActionBodySchema = z.object({
 });
 
 export class DocaActionBodyDto extends createZodDto(DocaActionBodySchema) {}
+
+export const BulkCreateDocasResponseSchema = z.object({
+  criadas: z.number().int(),
+  duplicadas: z.number().int(),
+  items: z.array(DocaResponseSchema),
+});
+
+export class BulkCreateDocasResponseDto extends createZodDto(
+  BulkCreateDocasResponseSchema,
+) {}

@@ -129,7 +129,7 @@ export function createEmptyCondicaoFolha(
   return {
     tipo: 'condicao',
     id: crypto.randomUUID(),
-    campo: 'categoria_produto',
+    campo: 'situacao_produto',
     operador: 'igual',
     valor: '',
     ...overrides,
@@ -166,7 +166,7 @@ export const DEFAULT_REGRA_WMS_V2_FORM: RegraWmsV2Form = {
   gatilho: 'recebimento',
   arvoreCondicoes: createArvoreCondicoes(),
   acao: {
-    tipo: 'quarentena',
-    parametros: { zonaDestino: 'Quarentena', motivo: '' },
+    tipo: 'mover_deposito',
+    parametros: { depositoId: '' },
   },
 };

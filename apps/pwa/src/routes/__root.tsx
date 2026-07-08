@@ -17,13 +17,17 @@ function RootLayout() {
   const [animationClass, setAnimationClass] = useState('page-enter');
   const hideAppBar = isAppBarHidden(pathname);
   const isLoginRoute = pathname === '/login';
+  const isPublicRoute =
+    isLoginRoute ||
+    pathname.startsWith('/manobra') ||
+    pathname.startsWith('/rastreio');
 
   useEffect(() => {
     if (isLoading) {
       return;
     }
 
-    if (!user && !isLoginRoute) {
+    if (!user && !isPublicRoute) {
       void navigate({ to: '/login', replace: true });
       return;
     }
@@ -31,7 +35,7 @@ function RootLayout() {
     if (user && isLoginRoute) {
       void navigate({ to: '/', replace: true });
     }
-  }, [user, isLoading, isLoginRoute, navigate]);
+  }, [user, isLoading, isPublicRoute, isLoginRoute, navigate]);
 
   useEffect(() => {
     if (prevPathname.current !== pathname) {
@@ -48,7 +52,7 @@ function RootLayout() {
     );
   }
 
-  if (!user && !isLoginRoute) {
+  if (!user && !isPublicRoute) {
     return (
       <div className="flex h-dvh items-center justify-center bg-background text-on-background">
         <Loader2 className="h-8 w-8 animate-spin text-secondary" aria-label="Redirecionando" />

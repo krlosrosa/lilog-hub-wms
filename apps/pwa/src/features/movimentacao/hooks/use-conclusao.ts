@@ -19,12 +19,12 @@ export function useConclusao(tarefaId: string) {
   const irParaProximaDemanda = useCallback(() => {
     if (proximaTarefa) {
       void navigate({
-        to: '/movimentacao/$id/confirmacao-coleta',
+        to: '/movimentacao/ressuprimento/$id/confirmacao-coleta',
         params: { id: proximaTarefa.id },
       });
       return;
     }
-    void navigate({ to: '/movimentacao' });
+    void navigate({ to: '/movimentacao/ressuprimento' });
   }, [navigate, proximaTarefa]);
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export function useConclusao(tarefaId: string) {
 
   const onVoltar = useCallback(() => {
     hapticMedium();
-    void navigate({ to: '/movimentacao' });
+    void navigate({ to: '/movimentacao/ressuprimento' });
   }, [navigate]);
 
   return {

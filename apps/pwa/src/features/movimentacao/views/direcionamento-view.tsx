@@ -41,7 +41,7 @@ export function DirecionamentoView({ tarefaId }: DirecionamentoViewProps) {
       <div className="sticky top-0 z-30 border-b border-outline-variant/60 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
         <div className="flex h-14 items-center gap-3 px-margin-mobile">
           <Link
-            to="/movimentacao/$id/confirmacao-coleta"
+            to="/movimentacao/ressuprimento/$id/confirmacao-coleta"
             params={{ id: tarefaId }}
             aria-label="Voltar"
             onPointerDown={() => hapticLight()}

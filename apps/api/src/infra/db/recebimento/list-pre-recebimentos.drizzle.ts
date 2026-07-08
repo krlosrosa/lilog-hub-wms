@@ -22,9 +22,9 @@ export async function listPreRecebimentosDb(
     conditions.push(eq(preRecebimentos.situacao, filter.situacao));
   }
 
-  if (filter.transportadoraId) {
+  if (filter.transportadoraNome) {
     conditions.push(
-      eq(preRecebimentos.transportadoraId, filter.transportadoraId),
+      eq(preRecebimentos.transportadoraNome, filter.transportadoraNome),
     );
   }
 

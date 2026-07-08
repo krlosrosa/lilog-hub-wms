@@ -1,7 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 
+import { CNC_EVENTO, type CncResponsavel } from '../../../domain/model/cnc/cnc.model.js';
+import type { CreateCncItemInput } from '../../../domain/repositories/cnc/cnc.repository.js';
 import {
-  inferCncResponsavel,
+  inferFromAvariaNatureza,
   inferResponsavelId,
 } from '../../../domain/services/cnc-responsavel.js';
 import {
@@ -9,9 +11,35 @@ import {
   type ICncRepository,
 } from '../../../domain/repositories/cnc/cnc.repository.js';
 import type { CriarCncJobData } from '../../../infra/queues/cnc-queue.js';
+import { CncEventPublisher } from '../../services/cnc-event.publisher.js';
 
 function buildCncNumero(year: number, sequence: number): string {
   return `CNC-${year}-${String(sequence).padStart(5, '0')}`;
+}
+
+function inferCncResponsavelFromItens(
+  itens: CreateCncItemInput[],
+): CncResponsavel {
+  const responsaveis = new Set<CncResponsavel>();
+
+  for (const item of itens) {
+    if (item.responsavelSugerido) {
+      responsaveis.add(item.responsavelSugerido);
+      continue;
+    }
+
+    if (item.tipo === 'avaria' && item.naturezaAvaria) {
+      responsaveis.add(inferFromAvariaNatureza(item.naturezaAvaria));
+    } else {
+      responsaveis.add('fornecedor');
+    }
+  }
+
+  if (responsaveis.size === 1) {
+    return [...responsaveis][0]!;
+  }
+
+  return 'indeterminado';
 }
 
 @Injectable()
@@ -19,6 +47,7 @@ export class CriarCncUseCase {
   constructor(
     @Inject(CNC_REPOSITORY)
     private readonly cncRepository: ICncRepository,
+    private readonly cncEventPublisher: CncEventPublisher,
   ) {}
 
   async execute(data: CriarCncJobData) {
@@ -31,10 +60,7 @@ export class CriarCncUseCase {
       return existing;
     }
 
-    const responsavel = inferCncResponsavel({
-      divergencias: data.divergencias,
-      avarias: data.avarias,
-    });
+    const responsavel = inferCncResponsavelFromItens(data.itens);
 
     const responsavelId = inferResponsavelId(
       responsavel,
@@ -45,27 +71,31 @@ export class CriarCncUseCase {
     const count = await this.cncRepository.countByYear(year);
     const numero = buildCncNumero(year, count + 1);
 
-    const itens = [
-      ...data.divergencias.map((divergencia) => ({
-        tipo: 'divergencia' as const,
-        referenciaId: divergencia.id,
-      })),
-      ...data.avarias.map((avaria) => ({
-        tipo: 'avaria' as const,
-        referenciaId: avaria.id,
-      })),
-    ];
-
-    return this.cncRepository.create({
+    const cnc = await this.cncRepository.create({
       numero,
       origem: 'recebimento',
       origemId: data.recebimentoId,
       unidadeId: data.unidadeId,
       responsavel,
       responsavelId,
-      descricao: `CNC gerada automaticamente para recebimento ${data.recebimentoId}`,
+      descricao: data.descricao,
       solicitanteId: data.responsavelOperacaoId,
-      itens,
+      itens: data.itens,
     });
+
+    await this.cncEventPublisher.publishRegistrarEvento({
+      cncId: cnc.id,
+      tipoEvento: CNC_EVENTO.CNC_CRIADA,
+      situacaoNova: 'pendente',
+      descricao: `CNC ${cnc.numero} criada automaticamente a partir do recebimento ${data.recebimentoId}`,
+      metadata: {
+        recebimentoId: data.recebimentoId,
+        preRecebimentoId: data.preRecebimentoId,
+        quantidadeItens: data.itens.length,
+      },
+      criadoPorUserId: data.userId,
+    });
+
+    return cnc;
   }
 }

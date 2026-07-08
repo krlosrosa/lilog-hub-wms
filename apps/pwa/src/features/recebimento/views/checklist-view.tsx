@@ -6,22 +6,21 @@ import {
   Camera,
   CheckCircle,
   CheckCircle2,
+  CheckSquare,
   ClipboardCheck,
-  LayoutGrid,
   Loader2,
-  Lock,
   Pin,
   Plus,
-  Sparkles,
   Thermometer,
   Trash2,
   Truck,
-  Wind,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { logPhotoPreviewLoadFailed } from '@/lib/images/photo-debug-log';
+import { PhotoDebugPanel } from '@/lib/images/photo-debug-panel';
 
 import { AvariaSelectField } from '../components/avaria-select-field';
 import {
@@ -29,13 +28,6 @@ import {
   type ChecklistPhotoSlotState,
   type ChecklistRequiredPhotoSlotId,
 } from '../hooks/use-checklist';
-
-const CONDITIONS = [
-  { id: 'limpeza' as const, label: 'Limpeza Interna', icon: Sparkles },
-  { id: 'odor' as const, label: 'Ausência de Odor', icon: Wind },
-  { id: 'estrutura' as const, label: 'Integridade Estrutural', icon: LayoutGrid },
-  { id: 'vedacao' as const, label: 'Vedação das Portas', icon: Lock },
-];
 
 interface ChecklistViewProps {
   demandId: string;
@@ -52,15 +44,27 @@ function PhotoThumb({
   onRemove,
 }: {
   title: string;
-  photo?: { id: number; previewUrl: string };
+  photo?: { id: number; previewUrl: string; mimeType?: string };
   error?: string;
   onCapture: () => void;
   onReplace: () => void;
   onRemove: (photoId: number) => void;
 }) {
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [previewDebugMessage, setPreviewDebugMessage] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    setPreviewFailed(false);
+    setPreviewDebugMessage(null);
+  }, [photo?.id, photo?.previewUrl]);
+
+  const showBrokenPreview = Boolean(photo && previewFailed);
+
   return (
     <div className="relative shrink-0">
-      {photo ? (
+      {photo && !showBrokenPreview ? (
         <button
           type="button"
           onClick={() => {
@@ -74,27 +78,53 @@ function PhotoThumb({
           )}
           aria-label={`Trocar foto: ${title}`}
         >
-          <img src={photo.previewUrl} alt={title} className="h-full w-full object-cover" />
+          <img
+            src={photo.previewUrl}
+            alt={title}
+            className="h-full w-full object-cover"
+            decoding="async"
+            onError={() => {
+              setPreviewFailed(true);
+              void logPhotoPreviewLoadFailed({
+                context: `checklist-thumb:${title}`,
+                photoId: photo.id,
+                previewUrl: photo.previewUrl,
+                mimeType: photo.mimeType,
+              }).then(setPreviewDebugMessage);
+            }}
+          />
         </button>
       ) : (
         <button
           type="button"
           onClick={() => {
             hapticLight();
+            if (photo) {
+              onReplace();
+              return;
+            }
             onCapture();
           }}
           className={cn(
             PHOTO_THUMB,
-            'flex items-center justify-center rounded-lg border-2 border-dashed bg-surface-container-low touch-manipulation active:scale-95',
-            error
+            'flex flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed bg-surface-container-low px-1 touch-manipulation active:scale-95',
+            error || showBrokenPreview
               ? 'border-destructive text-destructive'
               : 'border-outline-variant text-on-surface-variant'
           )}
-          aria-label={`Tirar foto: ${title}`}
+          aria-label={photo ? `Trocar foto: ${title}` : `Tirar foto: ${title}`}
         >
-          <Camera className="h-5 w-5" aria-hidden />
+          <Camera className="h-5 w-5 shrink-0" aria-hidden />
+          {showBrokenPreview ? (
+            <span className="text-[9px] leading-tight">Trocar foto</span>
+          ) : null}
         </button>
       )}
+      {showBrokenPreview && previewDebugMessage ? (
+        <p className="mt-1 max-w-[11rem] break-words text-[10px] leading-snug text-destructive">
+          {previewDebugMessage}
+        </p>
+      ) : null}
       {photo ? (
         <>
           <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container">
@@ -129,7 +159,7 @@ function PhotoListRow({
 }: {
   title: string;
   hint?: string;
-  photo?: { id: number; previewUrl: string };
+  photo?: { id: number; previewUrl: string; mimeType?: string };
   required?: boolean;
   error?: string;
   onCapture: () => void;
@@ -272,9 +302,12 @@ export function ChecklistView({ demandId }: ChecklistViewProps) {
     extraPhotos,
     requiredPhotosComplete,
     photoErrors,
+    photoCaptureError,
+    isProcessingPhoto,
     requiredPhotoCount,
     selectedDock,
     dockOptions,
+    condicoesChecklist,
   } = state;
 
   const handleSlotCapture = async (
@@ -330,6 +363,22 @@ export function ChecklistView({ demandId }: ChecklistViewProps) {
             className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-body-sm text-destructive"
           >
             {submitError}
+          </div>
+        ) : null}
+
+        {photoCaptureError ? (
+          <div
+            role="alert"
+            className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-body-sm text-destructive"
+          >
+            {photoCaptureError}
+          </div>
+        ) : null}
+
+        {isProcessingPhoto ? (
+          <div className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
+            <Loader2 className="h-4 w-4 animate-spin text-secondary" aria-hidden />
+            Otimizando imagem…
           </div>
         ) : null}
 
@@ -506,6 +555,8 @@ export function ChecklistView({ demandId }: ChecklistViewProps) {
               </div>
             </div>
           </div>
+
+          <PhotoDebugPanel className="mt-3" />
         </section>
 
         <section className="rounded-lg border border-outline-variant bg-surface p-4 shadow-sm">
@@ -516,7 +567,7 @@ export function ChecklistView({ demandId }: ChecklistViewProps) {
             </h2>
           </div>
           <div className="flex flex-col gap-2">
-            {CONDITIONS.map(({ id, label, icon: Icon }) => (
+            {condicoesChecklist.map(({ id, label }) => (
               <label
                 key={id}
                 className={cn(
@@ -527,12 +578,12 @@ export function ChecklistView({ demandId }: ChecklistViewProps) {
                 )}
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <Icon className="h-5 w-5 shrink-0 text-on-surface-variant" aria-hidden />
+                  <CheckSquare className="h-5 w-5 shrink-0 text-on-surface-variant" aria-hidden />
                   <span className="text-body-md text-on-surface">{label}</span>
                 </div>
                 <input
                   type="checkbox"
-                  checked={checked[id]}
+                  checked={Boolean(checked[id])}
                   onChange={() => {
                     hapticLight();
                     actions.toggleCondition(id);

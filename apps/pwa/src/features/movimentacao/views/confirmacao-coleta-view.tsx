@@ -110,7 +110,7 @@ export function ConfirmacaoColetaView({ tarefaId }: ConfirmacaoColetaViewProps) 
       <div className="sticky top-0 z-30 border-b border-outline-variant/60 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
         <div className="flex h-14 items-center gap-3 px-margin-mobile">
           <Link
-            to="/movimentacao"
+            to="/movimentacao/ressuprimento"
             aria-label="Voltar"
             onPointerDown={() => hapticLight()}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-transform active:scale-90 touch-manipulation"

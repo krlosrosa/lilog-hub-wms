@@ -13,9 +13,15 @@ import {
   getReferenciaOciosidadeIso,
   isOperatorLate,
 } from '@/features/gestao-recursos/lib/demanda-previsao';
+import {
+  computeDevolucaoTimeline,
+  getReferenciaOciosidadeDevolucaoIso,
+} from '@/features/gestao-recursos/lib/demanda-previsao-devolucao';
 import type {
+  DemandaDevolucaoRecursoApi,
   DemandaSeparacaoApi,
   ProximaPausaApi,
+  RecursosDevolucaoSessaoApiResponse,
   RecursosSessaoApiResponse,
 } from '@/features/gestao-recursos/types/gestao-recursos.api';
 import type {
@@ -149,10 +155,10 @@ function buildOperatorFromDemandas(
     currentMission: activeTask?.label,
     startTime: timeline.activeTaskStartTime,
     progress: timeline.activeTaskProgress,
-    expectedEnd: timeline.activeTaskEnd
-      ? formatTimeFromIso(timeline.activeTaskEnd.toISOString())
+    expectedEnd: timeline.expectedEndTotal
+      ? formatTimeFromIso(timeline.expectedEndTotal.toISOString())
       : undefined,
-    isLate: isOperatorLate(timeline.activeTaskEnd, now),
+    isLate: isOperatorLate(timeline.expectedEndTotal, now),
     tasks: timeline.tasks,
   };
 }
@@ -488,4 +494,189 @@ export function mapApiRecursosToOperators(
     operators,
     kpis,
   };
+}
+
+function buildOperatorFromDevolucaoAlocacoes(
+  operatorId: string,
+  name: string,
+  sector: string,
+  alocacoes: DemandaDevolucaoRecursoApi[],
+  now: Date,
+  pausaDeslocamentoMs = 0,
+): Operator {
+  const timeline = computeDevolucaoTimeline(alocacoes, now, pausaDeslocamentoMs);
+  const activeTask =
+    timeline.tasks.find((task) => task.status === 'em_andamento') ??
+    timeline.tasks[0];
+
+  return {
+    id: operatorId,
+    name,
+    sector,
+    status: 'atuando',
+    currentMission: activeTask?.label,
+    startTime: timeline.activeTaskStartTime,
+    progress: timeline.activeTaskProgress,
+    expectedEnd: timeline.expectedEndTotal
+      ? formatTimeFromIso(timeline.expectedEndTotal.toISOString())
+      : undefined,
+    isLate: isOperatorLate(timeline.expectedEndTotal, now),
+    tasks: timeline.tasks,
+  };
+}
+
+function buildOperadorOciosoDevolucao(
+  operatorId: string,
+  name: string,
+  sector: string,
+  checkIn: string | null,
+  alocacoes: DemandaDevolucaoRecursoApi[],
+  now: Date,
+): Operator {
+  const referenciaOciosidade = getReferenciaOciosidadeDevolucaoIso(
+    checkIn,
+    alocacoes,
+  );
+  const idleElapsed = referenciaOciosidade
+    ? getElapsedMinutes(referenciaOciosidade, now)
+    : 0;
+  const idleThreshold = Math.min(
+    100,
+    Math.round((idleElapsed / 60) * IDLE_THRESHOLD_BASE),
+  );
+
+  return {
+    id: operatorId,
+    name,
+    sector,
+    status: 'ocioso',
+    idleDuration: `${formatDurationMinutes(idleElapsed).toUpperCase()} OCIOSO`,
+    idleThreshold: idleThreshold || 5,
+  };
+}
+
+function buildOperadorEmPausaDevolucao(
+  operatorId: string,
+  name: string,
+  sector: string,
+  pausaInicio: string,
+  pausaTipo: SessaoPausaTipoApi,
+  alocacoes: DemandaDevolucaoRecursoApi[],
+  now: Date,
+): Operator {
+  const pauseFields = buildPauseFields(pausaInicio, pausaTipo, now);
+
+  if (alocacoes.length === 0) {
+    return {
+      id: operatorId,
+      name,
+      sector,
+      status: 'pausa',
+      ...pauseFields,
+    };
+  }
+
+  const pausaMs = computePausaAtivaDeslocamentoMs(pausaInicio, now);
+  const base = buildOperatorFromDevolucaoAlocacoes(
+    operatorId,
+    name,
+    sector,
+    alocacoes,
+    now,
+    pausaMs,
+  );
+
+  return {
+    ...base,
+    status: 'atuando',
+    ...pauseFields,
+  };
+}
+
+export function mapRecursosDevolucaoToOperators(
+  response: RecursosDevolucaoSessaoApiResponse,
+  now = new Date(),
+): { operators: Operator[]; kpis: KpiCard[] } {
+  const alocacoesPorSessaoFuncionario = new Map<
+    string,
+    DemandaDevolucaoRecursoApi[]
+  >();
+
+  for (const alocacao of response.alocacoes) {
+    const list =
+      alocacoesPorSessaoFuncionario.get(alocacao.sessaoFuncionarioId) ?? [];
+    list.push(alocacao);
+    alocacoesPorSessaoFuncionario.set(alocacao.sessaoFuncionarioId, list);
+  }
+
+  const operators: Operator[] = response.funcionarios.map((funcionario) => {
+    const operatorId = funcionario.id;
+    const sector = funcionario.cargo || 'Devolução';
+    const proxima = enrichProximaPausa(funcionario.proximaPausa, now);
+    const alocacoes = alocacoesPorSessaoFuncionario.get(funcionario.id) ?? [];
+
+    if (funcionario.pausaAtiva) {
+      return buildOperadorEmPausaDevolucao(
+        operatorId,
+        funcionario.nome,
+        sector,
+        funcionario.pausaAtiva.inicio,
+        funcionario.pausaAtiva.tipo,
+        alocacoes,
+        now,
+      );
+    }
+
+    if (alocacoes.length > 0) {
+      return withProximaPausa(
+        buildOperatorFromDevolucaoAlocacoes(
+          operatorId,
+          funcionario.nome,
+          sector,
+          alocacoes,
+          now,
+        ),
+        proxima,
+      );
+    }
+
+    return withProximaPausa(
+      buildOperadorOciosoDevolucao(
+        operatorId,
+        funcionario.nome,
+        sector,
+        funcionario.checkIn,
+        alocacoes,
+        now,
+      ),
+      proxima,
+    );
+  });
+
+  const kpisFromApi = response.kpis.map((kpi) => ({
+    id: kpi.id,
+    label: kpi.label,
+    value: kpi.value,
+    suffix: kpi.suffix,
+    progress: kpi.progress,
+    footer: kpi.footer,
+    accent: kpi.accent,
+  }));
+
+  const precisamPausaCount = operators.filter(
+    (o) => o.precisaPausa && !o.emPausa,
+  ).length;
+
+  const kpis = kpisFromApi.map((kpi) =>
+    kpi.id === 'precisam-pausa'
+      ? {
+          ...kpi,
+          value: String(precisamPausaCount).padStart(2, '0'),
+          footer:
+            precisamPausaCount > 0 ? 'REGISTRAR PAUSA RECOMENDADO' : undefined,
+        }
+      : kpi,
+  );
+
+  return { operators, kpis };
 }

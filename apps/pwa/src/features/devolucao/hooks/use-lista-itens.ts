@@ -1,52 +1,20 @@
 import { useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { hapticMedium } from '@/lib/haptics';
 
+import { searchProduto } from '../lib/devolucao-api';
 import { setConferenciaSkuSession } from '../lib/conferencia-sku-session';
+import { isChecklistDevolucaoPendente } from '../lib/devolucao-api-mapper';
+import { getSkuItemsByDemandId } from '../lib/devolucao-sku-items';
 import {
   previewSkuForConferencia,
   resolveSkuForConferencia,
   type SkuConferenciaPreview,
 } from '../lib/resolve-sku-conferencia';
-import { useDemandById } from './use-demand-by-id';
+import { useDemandaDetalhe, useDemandById } from './use-demand-by-id';
 import type { SkuItem, SkuItemFilter } from '../types/devolucao.schema';
-
-const DEFAULT_SKU_ITEMS: SkuItem[] = [
-  {
-    sku: 'SKU-99012',
-    name: 'Válvula Hidráulica Tipo-B Industri',
-    status: 'pendente',
-    hasDivergencia: true,
-  },
-  {
-    sku: 'SKU-88231',
-    name: 'Sensor de Proximidade Infravermelho',
-    status: 'pendente',
-    isReentrega: true,
-    quantidadeEsperada: 120,
-  },
-  {
-    sku: 'SKU-10293',
-    name: 'Conector Elétrico Trifásico 40A',
-    status: 'pendente',
-    hasAvaria: true,
-    isReentrega: true,
-    quantidadeEsperada: 48,
-  },
-  {
-    sku: 'SKU-77210',
-    name: 'Fusível de Cerâmica 10A 250V',
-    status: 'conferido',
-    hasAvaria: true,
-  },
-  {
-    sku: 'SKU-44501',
-    name: 'Rolamento Esférico de Precisão',
-    status: 'conferido',
-    hasDivergencia: true,
-  },
-];
 
 export const SKU_ITEM_FILTERS: readonly {
   id: SkuItemFilter;
@@ -76,13 +44,10 @@ function matchesFilter(item: SkuItem, filter: SkuItemFilter): boolean {
   }
 }
 
-export function getSkuItemsByDemandId(): SkuItem[] {
-  return DEFAULT_SKU_ITEMS;
-}
-
 export function useListaItens(demandId: string) {
   const navigate = useNavigate();
   const demand = useDemandById(demandId);
+  const detalhe = useDemandaDetalhe(demandId);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<SkuItemFilter | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -90,13 +55,59 @@ export function useListaItens(demandId: string) {
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [catalogPreviewDescricao, setCatalogPreviewDescricao] = useState<string | null>(
+    null,
+  );
 
-  const items = useMemo(() => getSkuItemsByDemandId(), []);
+  const items =
+    useLiveQuery(
+      () => getSkuItemsByDemandId(demandId),
+      [demandId, detalhe?.cachedAt],
+    ) ?? [];
+
+  const checklistPendente = isChecklistDevolucaoPendente({
+    apiStatus: detalhe?.status,
+    demandStatus: demand?.status,
+  });
+
+  useEffect(() => {
+    if (demand === undefined && detalhe === undefined) {
+      return;
+    }
+
+    if (checklistPendente && (demand != null || detalhe != null)) {
+      navigate({ to: '/devolucao/$id/checklist', params: { id: demandId }, replace: true });
+    }
+  }, [checklistPendente, demand, detalhe, demandId, navigate]);
 
   const skuPreview = useMemo((): SkuConferenciaPreview | null => {
     if (!skuInput.trim() || sheetError) return null;
     return previewSkuForConferencia(skuInput, items);
   }, [skuInput, items, sheetError]);
+
+  useEffect(() => {
+    if (!sheetOpen) {
+      setCatalogPreviewDescricao(null);
+      return;
+    }
+
+    const preview = previewSkuForConferencia(skuInput, items);
+    if (!preview || preview.source !== 'novo' || skuInput.trim().length < 3) {
+      setCatalogPreviewDescricao(null);
+      return;
+    }
+
+    const term = skuInput.trim();
+    const timer = window.setTimeout(() => {
+      void searchProduto(term).then((produto) => {
+        if (produto && term.toLowerCase() === skuInput.trim().toLowerCase()) {
+          setCatalogPreviewDescricao(produto.descricao);
+        }
+      });
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [sheetOpen, skuInput, items]);
 
   const filterCounts = useMemo(
     () =>
@@ -105,9 +116,9 @@ export function useListaItens(demandId: string) {
           acc[id] = items.filter((item) => matchesFilter(item, id)).length;
           return acc;
         },
-        {} as Record<SkuItemFilter, number>
+        {} as Record<SkuItemFilter, number>,
       ),
-    [items]
+    [items],
   );
 
   const filteredItems = useMemo(() => {
@@ -122,7 +133,7 @@ export function useListaItens(demandId: string) {
       result = result.filter(
         (item) =>
           item.sku.toLowerCase().includes(term) ||
-          item.name.toLowerCase().includes(term)
+          item.name.toLowerCase().includes(term),
       );
     }
 
@@ -153,7 +164,7 @@ export function useListaItens(demandId: string) {
       setSheetOpen(open);
       if (!open) resetSheet();
     },
-    [resetSheet]
+    [resetSheet],
   );
 
   const handleSkuInputChange = useCallback((value: string) => {
@@ -162,31 +173,44 @@ export function useListaItens(demandId: string) {
   }, []);
 
   const goToConferencia = useCallback(
-    (sku: string) => {
-      setConferenciaSkuSession(demandId, sku);
+    (sku: string, itemId?: string, descricao?: string) => {
+      setConferenciaSkuSession(demandId, sku, itemId, descricao);
       hapticMedium();
       setSheetOpen(false);
       resetSheet();
       navigate({ to: '/devolucao/$id/', params: { id: demandId } });
     },
-    [demandId, navigate, resetSheet]
+    [demandId, navigate, resetSheet],
   );
 
   const handleValidateProduct = useCallback(async () => {
     setIsValidating(true);
     setSheetError(null);
 
-    await new Promise((resolve) => setTimeout(resolve, 400));
-
     const validation = resolveSkuForConferencia(skuInput, items);
-    setIsValidating(false);
 
     if (validation.ok === false) {
+      setIsValidating(false);
       setSheetError(validation.error);
       return;
     }
 
-    goToConferencia(validation.sku);
+    if (validation.preview.source === 'novo') {
+      const produto = await searchProduto(skuInput);
+      setIsValidating(false);
+      if (!produto) {
+        setSheetError('SKU não encontrado no catálogo de produtos');
+        return;
+      }
+      goToConferencia(produto.sku, undefined, produto.descricao);
+      return;
+    }
+
+    setIsValidating(false);
+    const matched = items.find(
+      (item) => item.sku.toLowerCase() === validation.sku.toLowerCase(),
+    );
+    goToConferencia(validation.sku, matched?.itemId);
   }, [goToConferencia, items, skuInput]);
 
   const toggleFilter = useCallback((filter: SkuItemFilter) => {
@@ -195,10 +219,9 @@ export function useListaItens(demandId: string) {
 
   const handleItemClick = useCallback(
     (item: SkuItem) => {
-      if (item.status === 'conferido') return;
-      goToConferencia(item.sku);
+      goToConferencia(item.sku, item.itemId);
     },
-    [goToConferencia]
+    [goToConferencia],
   );
 
   const canFinalize = progress.total > 0;
@@ -207,7 +230,6 @@ export function useListaItens(demandId: string) {
     if (!canFinalize || isFinalizing) return;
 
     setIsFinalizing(true);
-    await new Promise((resolve) => setTimeout(resolve, 400));
     setIsFinalizing(false);
     navigate({ to: '/devolucao/$id/termino', params: { id: demandId } });
   }, [canFinalize, demandId, isFinalizing, navigate]);
@@ -216,19 +238,22 @@ export function useListaItens(demandId: string) {
     state: {
       demandId,
       demand,
+      detalhe,
       search,
       activeFilter,
       filterCounts,
       items: filteredItems,
       progress,
       isEmpty: filteredItems.length === 0,
-      cargaId: demand?.id ?? `#SHP-${demandId}`,
+      isLoadingItems: detalhe === undefined && items.length === 0,
+      cargaId: demand?.id ?? detalhe?.codigoDemanda ?? demandId,
       dock: demand?.dock ?? '—',
       paletesEsperados: demand?.paletesEsperados ?? 0,
       paletesRecebidos: demand?.paletesRecebidos,
       sheetOpen,
       skuInput,
       skuPreview,
+      catalogPreviewDescricao,
       sheetError,
       isValidating,
       canFinalize,

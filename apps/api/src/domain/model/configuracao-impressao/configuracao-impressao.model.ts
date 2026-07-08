@@ -49,6 +49,7 @@ export const QrCodeTipoConfigSchema = z.object({
 export const QrCodeMapaSchema = z.object({
   separacao: QrCodeTipoConfigSchema,
   conferencia: QrCodeTipoConfigSchema,
+  conferencia_reentrega: QrCodeTipoConfigSchema,
   carregamento: QrCodeTipoConfigSchema,
 });
 
@@ -73,6 +74,7 @@ export const ConfiguracaoImpressaoConteudoSchema = z.object({
   opcoesConferencia: OpcoesConferenciaSchema,
   ordemImpressaoSeparacao: z.array(OrdemImpressaoItemSchema).min(1),
   ordemImpressaoConferencia: z.array(OrdemImpressaoItemSchema).min(1),
+  ordemImpressaoConferenciaReentrega: z.array(OrdemImpressaoItemSchema).min(1),
   qrCodeMapa: QrCodeMapaSchema,
   opcoesTabelasCarregamento: OpcoesTabelasCarregamentoSchema,
 });
@@ -84,6 +86,7 @@ export type ConfiguracaoImpressaoConteudo = z.infer<
 export const TemplatesHtmlSchema = z.object({
   separacao: z.string(),
   conferencia: z.string(),
+  conferencia_reentrega: z.string(),
   carregamento: z.string(),
 });
 
@@ -115,7 +118,67 @@ export type UpdateConfiguracaoImpressaoInput = z.infer<
 
 export const QR_CODE_VARIAVEL = '{{qr_code}}';
 
-const TIPOS_LAYOUT = ['separacao', 'conferencia', 'carregamento'] as const;
+export const TEMPLATE_CONFERENCIA_REENTREGA_PADRAO = `<!-- Cabeçalho do Mapa de Conferência Reentrega -->
+<div style="display:flex; justify-content:space-between; align-items:flex-start;">
+  <div>
+    <p style="font-size:10px; font-weight:bold; text-transform:uppercase; color:#B45309;">
+      Conferência Reentrega
+    </p>
+    <strong style="font-size:14px;">{{rota}}</strong>
+    <p style="margin:2px 0; font-size:11px;">{{todos_clientes}}</p>
+  </div>
+  <div style="text-align:right; font-size:11px; color:#555;">
+    <p>Seq. {{sequencia}}</p>
+    <p>Placa: {{placa}}</p>
+    <p>{{empresa}}</p>
+  </div>
+</div>`;
+
+const TIPOS_LAYOUT = [
+  'separacao',
+  'conferencia',
+  'conferencia_reentrega',
+  'carregamento',
+] as const;
+
+export type TipoLayoutMapa = (typeof TIPOS_LAYOUT)[number];
+
+export function normalizarTemplatesHtml(
+  templatesHtml: Partial<TemplatesHtml> & {
+    separacao: string;
+    conferencia: string;
+    carregamento: string;
+  },
+): TemplatesHtml {
+  return {
+    separacao: templatesHtml.separacao,
+    conferencia: templatesHtml.conferencia,
+    carregamento: templatesHtml.carregamento,
+    conferencia_reentrega:
+      templatesHtml.conferencia_reentrega?.trim().length
+        ? templatesHtml.conferencia_reentrega
+        : TEMPLATE_CONFERENCIA_REENTREGA_PADRAO,
+  };
+}
+
+export function normalizarConfiguracaoImpressao(
+  configuracao: ConfiguracaoImpressaoConteudo,
+): ConfiguracaoImpressaoConteudo {
+  const ordemConferenciaReentrega =
+    configuracao.ordemImpressaoConferenciaReentrega ??
+    configuracao.ordemImpressaoConferencia;
+
+  return {
+    ...configuracao,
+    ordemImpressaoConferenciaReentrega: ordemConferenciaReentrega,
+    qrCodeMapa: {
+      ...configuracao.qrCodeMapa,
+      conferencia_reentrega:
+        configuracao.qrCodeMapa.conferencia_reentrega ??
+        configuracao.qrCodeMapa.conferencia,
+    },
+  };
+}
 
 export function qrCodeConfigurado(
   templateHtml: string,
@@ -132,26 +195,39 @@ export function validarConfiguracaoImpressao(
   configuracao: ConfiguracaoImpressaoConteudo,
   templatesHtml: TemplatesHtml,
 ): string | null {
+  const configuracaoNormalizada = normalizarConfiguracaoImpressao(configuracao);
+  const templatesNormalizados = normalizarTemplatesHtml(templatesHtml);
+
   if (
-    !configuracao.opcoesSeparacao.separarPaletesCompletos &&
-    !configuracao.opcoesSeparacao.separarUnidadesIndividuais &&
-    !configuracao.opcoesSeparacao.segregarFifo
+    !configuracaoNormalizada.opcoesSeparacao.separarPaletesCompletos &&
+    !configuracaoNormalizada.opcoesSeparacao.separarUnidadesIndividuais &&
+    !configuracaoNormalizada.opcoesSeparacao.segregarFifo
   ) {
     return 'Ative ao menos uma opção de separação.';
   }
 
   if (
-    configuracao.opcoesSeparacao.segregarFifo &&
-    configuracao.opcoesSeparacao.faixasFifo.length === 0
+    configuracaoNormalizada.opcoesSeparacao.segregarFifo &&
+    configuracaoNormalizada.opcoesSeparacao.faixasFifo.length === 0
   ) {
     return 'Selecione ao menos uma faixa FIFO.';
   }
 
   for (const tipo of TIPOS_LAYOUT) {
     if (
-      !qrCodeConfigurado(templatesHtml[tipo], configuracao.qrCodeMapa[tipo].posicao)
+      !qrCodeConfigurado(
+        templatesNormalizados[tipo],
+        configuracaoNormalizada.qrCodeMapa[tipo].posicao,
+      )
     ) {
-      return `QR Code obrigatório em ${tipo}: escolha uma posição fixa ou inclua {{qr_code}} no HTML.`;
+      const labels: Record<TipoLayoutMapa, string> = {
+        separacao: 'Separação',
+        conferencia: 'Conferência',
+        conferencia_reentrega: 'Conferência Reentrega',
+        carregamento: 'Carregamento',
+      };
+
+      return `QR Code obrigatório em ${labels[tipo]}: escolha uma posição fixa ou inclua {{qr_code}} no HTML.`;
     }
   }
 

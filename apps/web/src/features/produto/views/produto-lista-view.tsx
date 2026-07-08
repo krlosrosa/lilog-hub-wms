@@ -90,7 +90,7 @@ export function ProdutoListaView() {
     setExcluindo(true);
 
     try {
-      await removerProduto(alvo.id);
+      await removerProduto(alvo.produtoId);
       setProdutoParaExcluir(null);
     } finally {
       setExcluindo(false);
@@ -353,7 +353,7 @@ export function ProdutoListaView() {
                     ) : itemsPagina.length > 0 ? (
                       itemsPagina.map((p) => (
                         <ProdutoRow
-                          key={p.id}
+                          key={p.produtoId}
                           produto={p}
                           onExcluir={iniciarExclusao}
                         />

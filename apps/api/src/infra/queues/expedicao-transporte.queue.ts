@@ -19,7 +19,8 @@ export type FaseSincronizacaoViagemRavex =
   | 'buscar_viagem'
   | 'aguardar_inicio'
   | 'aguardar_fim'
-  | 'verificar_anomalias';
+  | 'verificar_anomalias'
+  | 'gerar_demanda_devolucao';
 
 export type SincronizarViagemRavexJobData = {
   transporteId: string;

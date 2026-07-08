@@ -13,9 +13,10 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { useState, type KeyboardEvent } from 'react';
 
 import { formatarMoeda } from '@/features/transporte/lib/calcular-custo';
-import type { FaixaKmItem } from '@/features/transporte/types/perfil-tarifa.schema';
+import type { FaixaKmItem, ItinerarioFaixaItem } from '@/features/transporte/types/perfil-tarifa.schema';
 import { formatKmRange } from '@/features/transporte/types/perfil-tarifa.schema';
 
 const inputClass = cn(
@@ -40,7 +41,7 @@ export type TarifaFaixasPanelProps = {
   onAtualizarFaixa: (
     index: number,
     campo: keyof FaixaKmItem,
-    valor: number | string | null,
+    valor: number | string | null | string[] | ItinerarioFaixaItem[],
   ) => void;
   isSubmitting: boolean;
   variant?: 'standalone' | 'embedded';
@@ -70,6 +71,106 @@ function FaixaEditGuide() {
             </li>
           </ul>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FaixaItinerariosEditor({
+  itinerarios,
+  index,
+  onAtualizarFaixa,
+}: {
+  itinerarios: ItinerarioFaixaItem[];
+  index: number;
+  onAtualizarFaixa: TarifaFaixasPanelProps['onAtualizarFaixa'];
+}) {
+  const [draft, setDraft] = useState('');
+
+  const adicionarCodigo = (raw: string) => {
+    const codigo = raw.trim();
+
+    if (!codigo) {
+      return;
+    }
+
+    const chave = codigo.toLocaleLowerCase('pt-BR');
+    const jaExiste = itinerarios.some(
+      (item) => item.codigo.trim().toLocaleLowerCase('pt-BR') === chave,
+    );
+
+    if (jaExiste) {
+      setDraft('');
+      return;
+    }
+
+    onAtualizarFaixa(index, 'itinerarios', [...itinerarios, { codigo }]);
+    setDraft('');
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      adicionarCodigo(draft);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {itinerarios.length > 0 ? (
+          itinerarios.map((item) => (
+            <span
+              key={item.id ?? item.codigo}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary ring-1 ring-inset ring-primary/20"
+            >
+              {item.codigo}
+              <button
+                type="button"
+                className="rounded-full p-0.5 hover:bg-primary/20"
+                onClick={() =>
+                  onAtualizarFaixa(
+                    index,
+                    'itinerarios',
+                    itinerarios.filter(
+                      (atual) =>
+                        (item.id && atual.id !== item.id) ||
+                        (!item.id && atual.codigo !== item.codigo),
+                    ),
+                  )
+                }
+                aria-label={`Remover itinerário ${item.codigo}`}
+              >
+                <X className="size-3" aria-hidden />
+              </button>
+            </span>
+          ))
+        ) : (
+          <span className="text-[10px] text-muted-foreground">
+            Nenhum itinerário vinculado
+          </span>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={handleKeyDown}
+          className={inputClass}
+          placeholder="Digite o código e pressione Enter"
+          aria-label={`Adicionar itinerário da faixa ${index + 1}`}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 shrink-0 px-2.5 text-[11px]"
+          onClick={() => adicionarCodigo(draft)}
+          disabled={!draft.trim()}
+        >
+          Adicionar
+        </Button>
       </div>
     </div>
   );
@@ -207,23 +308,18 @@ function FaixaEditRow({
         <div className="space-y-1 sm:col-span-2 lg:col-span-4">
           <label className={cn(labelClass, 'flex items-center gap-1')}>
             <Route className="size-2.5" aria-hidden />
-            Itinerário
+            Itinerários
           </label>
-          <input
-            type="text"
-            value={faixa.itinerario ?? ''}
-            onChange={(event) =>
-              onAtualizarFaixa(
-                index,
-                'itinerario',
-                event.target.value === '' ? null : event.target.value,
-              )
-            }
-            className={inputClass}
-            placeholder="Ex: São Paulo → Campinas"
-            aria-label={`Itinerário da faixa ${index + 1}`}
+          <FaixaItinerariosEditor
+            itinerarios={faixa.itinerarios}
+            index={index}
+            onAtualizarFaixa={onAtualizarFaixa}
           />
-          <p className={hintClass}>Descrição opcional da rota ou itinerário</p>
+          <p className={hintClass}>
+            Vários códigos podem compartilhar a mesma tarifa desta faixa. Usado
+            para calcular o custo previsto quando coincide com o itinerário do
+            transporte ou remessa.
+          </p>
         </div>
       </div>
     </div>
@@ -271,7 +367,7 @@ export function TarifaFaixasPanel({
               variant="ghost"
               size="icon"
               className="size-7 text-tertiary"
-              onClick={onSalvar}
+              onClick={() => void onSalvar()}
               disabled={isSubmitting}
               aria-label="Salvar tarifas"
             >
@@ -346,11 +442,12 @@ export function TarifaFaixasPanel({
                 <p className="truncate text-xs font-medium text-foreground">
                   {formatKmRange(faixa.kmInicial, faixa.kmFinal)}
                 </p>
-                {faixa.itinerario ? (
-                  <p className="truncate text-[10px] text-muted-foreground">
-                    {faixa.itinerario}
-                  </p>
-                ) : null}
+                <p className="truncate text-[10px] text-muted-foreground">
+                  Itinerários:{' '}
+                  {faixa.itinerarios.length > 0
+                    ? faixa.itinerarios.map((item) => item.codigo).join(', ')
+                    : '—'}
+                </p>
               </div>
               <p className="shrink-0 font-mono text-xs font-bold text-foreground">
                 {formatarMoeda(faixa.valor)}

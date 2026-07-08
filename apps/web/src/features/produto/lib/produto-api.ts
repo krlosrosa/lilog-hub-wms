@@ -41,7 +41,7 @@ export function mapProdutoToListaItem(produto: ProdutoApi): ProdutoListaItem {
   const categoria = normalizeProdutoCategoria(produto.categoria);
 
   return {
-    id: produto.id,
+    produtoId: produto.produtoId,
     sku: produto.sku,
     descricao: produto.descricao,
     subtitulo: `${produto.tipo} • ${getCategoriaLabel(categoria)}`,
@@ -138,8 +138,8 @@ export async function listProdutos(
   return apiRequest<ListProdutosApiResponse>(path);
 }
 
-export function getProduto(id: string) {
-  return apiRequest<ProdutoApi>(`/produtos/${encodeURIComponent(id)}`);
+export function getProduto(produtoId: string) {
+  return apiRequest<ProdutoApi>(`/produtos/${encodeURIComponent(produtoId)}`);
 }
 
 export function createProduto(payload: CreateProdutoPayload) {
@@ -149,15 +149,15 @@ export function createProduto(payload: CreateProdutoPayload) {
   });
 }
 
-export function updateProduto(id: string, payload: UpdateProdutoPayload) {
-  return apiRequest<ProdutoApi>(`/produtos/${encodeURIComponent(id)}`, {
+export function updateProduto(produtoId: string, payload: UpdateProdutoPayload) {
+  return apiRequest<ProdutoApi>(`/produtos/${encodeURIComponent(produtoId)}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
   });
 }
 
-export function deleteProduto(id: string) {
-  return apiRequest<void>(`/produtos/${encodeURIComponent(id)}`, {
+export function deleteProduto(produtoId: string) {
+  return apiRequest<void>(`/produtos/${encodeURIComponent(produtoId)}`, {
     method: 'DELETE',
   });
 }

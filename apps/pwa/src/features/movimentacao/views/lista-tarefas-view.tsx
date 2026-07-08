@@ -184,8 +184,8 @@ export function ListaTarefasView() {
       <div className="sticky top-0 z-30 border-b border-outline-variant/60 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
         <div className="flex h-14 items-center gap-3 px-margin-mobile">
           <Link
-            to="/"
-            aria-label="Voltar ao menu"
+            to="/movimentacao"
+            aria-label="Voltar à movimentação"
             onPointerDown={() => hapticLight()}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-transform active:scale-90 touch-manipulation"
           >
@@ -193,7 +193,7 @@ export function ListaTarefasView() {
           </Link>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-headline-md font-semibold leading-tight text-on-surface">
-              Movimentação
+              Ressuprimento
             </h1>
             <p className="truncate font-mono text-label-sm text-on-surface-variant">
               {isLoading

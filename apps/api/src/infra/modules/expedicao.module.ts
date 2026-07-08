@@ -1,15 +1,21 @@
 import { Module } from '@nestjs/common';
 
 import { AtualizarClienteEspecialUseCase } from '../../application/usecases/expedicao/atualizar-cliente-especial.usecase.js';
+import { AtualizarItinerarioRemessasUseCase } from '../../application/usecases/expedicao/atualizar-itinerario-remessas.usecase.js';
 import { AtualizarPrioridadeTransporteUseCase } from '../../application/usecases/expedicao/atualizar-prioridade-transporte.usecase.js';
 import { AtualizarDadosCarregamentoTransporteUseCase } from '../../application/usecases/expedicao/atualizar-dados-carregamento-transporte.usecase.js';
 import { CriarClienteEspecialUseCase } from '../../application/usecases/expedicao/criar-cliente-especial.usecase.js';
 import { CriarUploadLoteUseCase } from '../../application/usecases/expedicao/criar-upload-lote.usecase.js';
 import { DeletarClienteEspecialUseCase } from '../../application/usecases/expedicao/deletar-cliente-especial.usecase.js';
+import { ExcluirMapaConferenciaReentregaTransporteUseCase } from '../../application/usecases/expedicao/excluir-mapa-conferencia-reentrega-transporte.usecase.js';
 import { ExcluirMapaLoteUseCase } from '../../application/usecases/expedicao/excluir-mapa-lote.usecase.js';
 import { ExcluirTransporteUseCase } from '../../application/usecases/expedicao/excluir-transporte.usecase.js';
 import { GerarMapasUseCase } from '../../application/usecases/expedicao/gerar-mapas.usecase.js';
 import { ImprimirMapasUseCase } from '../../application/usecases/expedicao/imprimir-mapas.usecase.js';
+import { ImprimirMapaConferenciaReentregaUseCase } from '../../application/usecases/expedicao/imprimir-mapa-conferencia-reentrega.usecase.js';
+import { ListarNfsDevolucaoElegiveisUseCase } from '../../application/usecases/expedicao/listar-nfs-devolucao-elegiveis.usecase.js';
+import { DesvincularNfsDevolucaoTransporteUseCase } from '../../application/usecases/expedicao/desvincular-nfs-devolucao-transporte.usecase.js';
+import { VincularNfsDevolucaoTransporteUseCase } from '../../application/usecases/expedicao/vincular-nfs-devolucao-transporte.usecase.js';
 import { ListarClientesEspeciaisUseCase } from '../../application/usecases/expedicao/listar-clientes-especiais.usecase.js';
 import { ListarMapasLotesUseCase } from '../../application/usecases/expedicao/listar-mapas-lotes.usecase.js';
 import { ListarTransportesUseCase } from '../../application/usecases/expedicao/listar-transportes.usecase.js';
@@ -33,14 +39,18 @@ import { CriarConfiguracaoImpressaoController } from '../../presentation/control
 import { DeletarConfiguracaoImpressaoController } from '../../presentation/controllers/configuracao-impressao/deletar-configuracao-impressao.controller.js';
 import { DefinirPadraoConfiguracaoImpressaoController } from '../../presentation/controllers/configuracao-impressao/definir-padrao-configuracao-impressao.controller.js';
 import { ListarConfiguracoesImpressaoController } from '../../presentation/controllers/configuracao-impressao/listar-configuracoes-impressao.controller.js';
+import { AtualizarItinerarioRemessasController } from '../../presentation/controllers/expedicao/atualizar-itinerario-remessas.controller.js';
 import { AtualizarClienteEspecialController } from '../../presentation/controllers/expedicao/atualizar-cliente-especial.controller.js';
 import { CriarClienteEspecialController } from '../../presentation/controllers/expedicao/criar-cliente-especial.controller.js';
 import { CriarUploadLoteController } from '../../presentation/controllers/expedicao/criar-upload-lote.controller.js';
 import { DeletarClienteEspecialController } from '../../presentation/controllers/expedicao/deletar-cliente-especial.controller.js';
+import { DeleteMapaConferenciaReentregaTransporteController } from '../../presentation/controllers/expedicao/delete-mapa-conferencia-reentrega-transporte.controller.js';
 import { DeleteMapaLoteController } from '../../presentation/controllers/expedicao/delete-mapa-lote.controller.js';
 import { DeleteTransporteController } from '../../presentation/controllers/expedicao/delete-transporte.controller.js';
 import { GerarMapasController } from '../../presentation/controllers/expedicao/gerar-mapas.controller.js';
+import { ImprimirMapaConferenciaReentregaController } from '../../presentation/controllers/expedicao/imprimir-mapa-conferencia-reentrega.controller.js';
 import { ImprimirMapasController } from '../../presentation/controllers/expedicao/imprimir-mapas.controller.js';
+import { ListarNfsDevolucaoElegiveisController } from '../../presentation/controllers/expedicao/listar-nfs-devolucao-elegiveis.controller.js';
 import { ListarClientesEspeciaisController } from '../../presentation/controllers/expedicao/listar-clientes-especiais.controller.js';
 import { ListarMapasLotesController } from '../../presentation/controllers/expedicao/listar-mapas-lotes.controller.js';
 import { ListarTransportesController } from '../../presentation/controllers/expedicao/listar-transportes.controller.js';
@@ -51,6 +61,8 @@ import { PatchTransportePrioridadeController } from '../../presentation/controll
 import { AtualizarDadosCarregamentoTransporteController } from '../../presentation/controllers/expedicao/atualizar-dados-carregamento-transporte.controller.js';
 import { SalvarAlocacoesTransportesController } from '../../presentation/controllers/expedicao/salvar-alocacoes-transportes.controller.js';
 import { SalvarMapasController } from '../../presentation/controllers/expedicao/salvar-mapas.controller.js';
+import { DesvincularNfsDevolucaoTransporteController } from '../../presentation/controllers/expedicao/desvincular-nfs-devolucao-transporte.controller.js';
+import { VincularNfsDevolucaoTransporteController } from '../../presentation/controllers/expedicao/vincular-nfs-devolucao-transporte.controller.js';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard.js';
 import { GerarPdfDeHtmlService } from '../pdf/gerar-pdf-de-html.service.js';
 import { ClienteEspecialService } from '../db/expedicao/cliente-especial.service.js';
@@ -76,12 +88,18 @@ import { ExpedicaoTransporteQueueModule } from './expedicao-transporte-queue.mod
   ],
   controllers: [
     CriarUploadLoteController,
+    AtualizarItinerarioRemessasController,
     ListarTransportesController,
     DeleteTransporteController,
     ObterTorreControleExpedicaoController,
     GerarMapasController,
     SalvarMapasController,
     ImprimirMapasController,
+    ImprimirMapaConferenciaReentregaController,
+    ListarNfsDevolucaoElegiveisController,
+    VincularNfsDevolucaoTransporteController,
+    DesvincularNfsDevolucaoTransporteController,
+    DeleteMapaConferenciaReentregaTransporteController,
     ListarMapasLotesController,
     ObterMapaLoteController,
     DeleteMapaLoteController,
@@ -101,6 +119,7 @@ import { ExpedicaoTransporteQueueModule } from './expedicao-transporte-queue.mod
   ],
   providers: [
     CriarUploadLoteUseCase,
+    AtualizarItinerarioRemessasUseCase,
     ExcluirMapaLoteUseCase,
     ExcluirTransporteUseCase,
     ListarTransportesUseCase,
@@ -108,6 +127,11 @@ import { ExpedicaoTransporteQueueModule } from './expedicao-transporte-queue.mod
     GerarMapasUseCase,
     SalvarMapasUseCase,
     ImprimirMapasUseCase,
+    ImprimirMapaConferenciaReentregaUseCase,
+    ListarNfsDevolucaoElegiveisUseCase,
+    VincularNfsDevolucaoTransporteUseCase,
+    DesvincularNfsDevolucaoTransporteUseCase,
+    ExcluirMapaConferenciaReentregaTransporteUseCase,
     ListarMapasLotesUseCase,
     ObterMapaLoteUseCase,
     SalvarAlocacoesTransportesUseCase,

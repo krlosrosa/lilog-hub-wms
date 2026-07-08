@@ -43,7 +43,7 @@ export class CreateChecklistRecebimentoUseCase {
       );
     }
 
-    if (recebimento.situacao !== 'em_recebimento') {
+    if (recebimento.situacao !== 'em_conferencia') {
       throw new BadRequestException(
         'Checklist só pode ser registrado para recebimentos em andamento',
       );

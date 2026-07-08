@@ -4,18 +4,84 @@ import {
   buildEnderecoCodigo,
   curvaAbcSchema,
   enderecoTipoSchema,
+  isEnderecoTipoEstruturado,
+  isTipoEstruturaValidoParaEndereco,
+  type EnderecoTipo,
 } from '@/features/enderecos/types/enderecos-gestao.schema';
+
+const enderecoEstruturaSegmentoSchema = z
+  .string()
+  .max(10, 'Máximo de 10 caracteres')
+  .regex(/^[A-Za-z0-9-]*$/, 'Use apenas letras, números ou hífen');
 
 export const enderecoEstruturaFieldsSchema = {
   zona: z.string().min(1, 'Informe a zona').max(10),
-  rua: z.string().min(1, 'Informe a rua').max(10).regex(/^\d+$/),
-  posicao: z.string().min(1, 'Informe a posição').max(10).regex(/^\d+$/),
-  nivel: z.string().min(1, 'Informe o nível').max(10).regex(/^\d+$/),
+  rua: enderecoEstruturaSegmentoSchema.optional(),
+  posicao: enderecoEstruturaSegmentoSchema.optional(),
+  nivel: enderecoEstruturaSegmentoSchema.optional(),
 };
 
-export const enderecoConfiguracaoFormSchema = z.object({
+function refineEnderecoEstruturaRequired(
+  data: {
+    tipo: EnderecoTipo;
+    rua?: string;
+    posicao?: string;
+    nivel?: string;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (!isEnderecoTipoEstruturado(data.tipo)) {
+    return;
+  }
+
+  const requiredFields = [
+    { field: 'rua' as const, label: 'Rua' },
+    { field: 'posicao' as const, label: 'Posição' },
+    { field: 'nivel' as const, label: 'Nível' },
+  ];
+
+  for (const { field, label } of requiredFields) {
+    if (!data[field]?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${label} é obrigatório para endereços de picking/pulmão`,
+        path: [field],
+      });
+    }
+  }
+}
+
+export function applyEnderecoEstruturaRefinement<T extends z.ZodTypeAny>(
+  schema: T,
+) {
+  return schema.superRefine((data, ctx) => {
+    const parsed = data as {
+      tipo: EnderecoTipo;
+      rua?: string;
+      posicao?: string;
+      nivel?: string;
+      tipoEstrutura?: string;
+    };
+
+    refineEnderecoEstruturaRequired(parsed, ctx);
+
+    if (
+      parsed.tipoEstrutura &&
+      !isTipoEstruturaValidoParaEndereco(parsed.tipo, parsed.tipoEstrutura)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: isEnderecoTipoEstruturado(parsed.tipo)
+          ? 'Selecione uma estrutura de rack para picking/pulmão'
+          : 'Selecione uma estrutura operacional para este tipo de endereço',
+        path: ['tipoEstrutura'],
+      });
+    }
+  });
+}
+
+export const enderecoConfiguracaoBaseObjectSchema = z.object({
   enderecoMascarado: z.string().min(1),
-  centroId: z.string().uuid('Selecione o centro'),
   ...enderecoEstruturaFieldsSchema,
   tipo: enderecoTipoSchema,
   tipoEstrutura: z.string().min(1, 'Selecione o tipo de estrutura'),
@@ -37,6 +103,10 @@ export const enderecoConfiguracaoFormSchema = z.object({
   motivoAlteracao: z.string().optional(),
 });
 
+export const enderecoConfiguracaoFormSchema = applyEnderecoEstruturaRefinement(
+  enderecoConfiguracaoBaseObjectSchema,
+);
+
 export type EnderecoConfiguracaoFormValues = z.infer<
   typeof enderecoConfiguracaoFormSchema
 >;
@@ -44,11 +114,11 @@ export type EnderecoConfiguracaoFormValues = z.infer<
 export function resolveEnderecoCodigo(values: {
   enderecoMascarado: string;
   zona: string;
-  rua: string;
-  posicao: string;
-  nivel: string;
+  rua?: string;
+  posicao?: string;
+  nivel?: string;
 }) {
-  if (values.zona && values.rua && values.posicao && values.nivel) {
+  if (values.zona) {
     return buildEnderecoCodigo(
       values.zona,
       values.rua,

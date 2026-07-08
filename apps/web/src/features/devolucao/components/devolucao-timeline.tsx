@@ -6,6 +6,7 @@ import type { TimelineStep } from '@/features/devolucao/types/devolucao-detalhes
 
 type DevolucaoTimelineProps = {
   steps: readonly TimelineStep[];
+  compact?: boolean;
   className?: string;
 };
 
@@ -15,11 +16,16 @@ const DOT_STYLES: Record<TimelineStep['status'], string> = {
   future: 'bg-outline border-background',
 };
 
-export function DevolucaoTimeline({ steps, className }: DevolucaoTimelineProps) {
+export function DevolucaoTimeline({
+  steps,
+  compact = false,
+  className,
+}: DevolucaoTimelineProps) {
   return (
     <div
       className={cn(
-        'relative space-y-6 pl-6 before:absolute before:bottom-2 before:left-2 before:top-2 before:w-0.5 before:bg-outline-variant',
+        'relative pl-5 before:absolute before:bottom-1 before:left-[7px] before:top-1 before:w-px before:bg-outline-variant',
+        compact ? 'space-y-3' : 'space-y-6 pl-6 before:left-2 before:w-0.5',
         className,
       )}
     >
@@ -30,22 +36,27 @@ export function DevolucaoTimeline({ steps, className }: DevolucaoTimelineProps) 
         >
           <div
             className={cn(
-              'absolute -left-[22px] top-1 size-4 rounded-full border-4',
+              'absolute rounded-full border-2',
+              compact
+                ? '-left-[18px] top-0.5 size-2.5 border-[3px]'
+                : '-left-[22px] top-1 size-4 border-4',
               DOT_STYLES[step.status],
             )}
             aria-hidden
           />
           <p
             className={cn(
-              'text-label-md text-foreground',
-              step.status === 'active' && 'font-bold text-primary',
+              'text-foreground',
+              compact ? 'text-xs font-medium leading-tight' : 'text-label-md',
+              step.status === 'active' && 'font-semibold text-primary',
             )}
           >
             {step.titulo}
           </p>
           <p
             className={cn(
-              'text-caption text-muted-foreground',
+              'text-muted-foreground',
+              compact ? 'text-[11px] leading-snug' : 'text-caption',
               step.status === 'active' && 'italic',
             )}
           >

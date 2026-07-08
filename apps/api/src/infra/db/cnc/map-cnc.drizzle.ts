@@ -1,16 +1,27 @@
 import type {
+  AddCncEventoInput,
+  CancelarCncInput,
+  CncEventoRecord,
   CncItemRecord,
   CncRecord,
+  CncTratativaRecord,
+  ConcluirCncTratativaInput,
   CreateCncInput,
-  UpdateCncSituacaoInput,
+  CreateCncTratativaInput,
+  EncerrarCncInput,
+  IniciarAnaliseCncInput,
 } from '../../../domain/repositories/cnc/cnc.repository.js';
 import type {
+  cncEventos,
   cncItens,
+  cncTratativas,
   naoConformidades,
 } from '../providers/drizzle/config/migrations/schema.js';
 
 type CncRow = typeof naoConformidades.$inferSelect;
 type CncItemRow = typeof cncItens.$inferSelect;
+type CncEventoRow = typeof cncEventos.$inferSelect;
+type CncTratativaRow = typeof cncTratativas.$inferSelect;
 
 function toNumber(value: string | null | undefined): number | null {
   if (value === null || value === undefined) {
@@ -18,6 +29,14 @@ function toNumber(value: string | null | undefined): number | null {
   }
 
   return Number(value);
+}
+
+function toDate(value: Date | string | null | undefined): Date | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return value instanceof Date ? value : new Date(value);
 }
 
 export function mapCncRow(row: CncRow): CncRecord {
@@ -34,11 +53,11 @@ export function mapCncRow(row: CncRow): CncRecord {
     acaoCorretiva: row.acaoCorretiva,
     situacao: row.situacao,
     solicitanteId: row.solicitanteId,
-    aprovadorId: row.aprovadorId,
-    dataAprovacao: row.dataAprovacao,
-    observacaoAprovador: row.observacaoAprovador,
+    analistaId: row.analistaId,
+    iniciadoEm: row.iniciadoEm,
+    encerradoEm: row.encerradoEm,
+    encerradoPorUserId: row.encerradoPorUserId,
     valorDebito: toNumber(row.valorDebito),
-    debitoConfirmado: row.debitoConfirmado,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -50,7 +69,59 @@ export function mapCncItemRow(row: CncItemRow): CncItemRecord {
     cncId: row.cncId,
     tipo: row.tipo,
     referenciaId: row.referenciaId,
+    produtoId: row.produtoId,
+    sku: row.sku,
+    descricaoProduto: row.descricaoProduto,
+    subtipoOcorrencia: row.subtipoOcorrencia,
+    quantidadeEsperada: toNumber(row.quantidadeEsperada),
+    quantidadeRecebida: toNumber(row.quantidadeRecebida),
+    quantidadeDivergente: toNumber(row.quantidadeDivergente),
+    quantidadeCaixas: row.quantidadeCaixas,
+    quantidadeUnidades: row.quantidadeUnidades,
+    unidadeMedida: row.unidadeMedida,
+    loteEsperado: row.loteEsperado,
+    loteRecebido: row.loteRecebido,
+    validadeEsperada: row.validadeEsperada,
+    validadeRecebida: row.validadeRecebida,
+    pesoEsperado: toNumber(row.pesoEsperado),
+    pesoRecebido: toNumber(row.pesoRecebido),
+    naturezaAvaria: row.naturezaAvaria,
+    causaAvaria: row.causaAvaria,
+    tipoAvaria: row.tipoAvaria,
+    descricaoDetalhe: row.descricaoDetalhe,
+    responsavelSugerido: row.responsavelSugerido,
     createdAt: row.createdAt,
+  };
+}
+
+export function mapCncEventoRow(row: CncEventoRow): CncEventoRecord {
+  return {
+    id: row.id,
+    cncId: row.cncId,
+    tipoEvento: row.tipoEvento,
+    situacaoAnterior: row.situacaoAnterior,
+    situacaoNova: row.situacaoNova,
+    descricao: row.descricao,
+    metadata: (row.metadata ?? {}) as Record<string, unknown>,
+    criadoPorUserId: row.criadoPorUserId,
+    createdAt: row.createdAt,
+  };
+}
+
+export function mapCncTratativaRow(row: CncTratativaRow): CncTratativaRecord {
+  return {
+    id: row.id,
+    cncId: row.cncId,
+    tipo: row.tipo as CncTratativaRecord['tipo'],
+    descricao: row.descricao,
+    responsavelTipo: row.responsavelTipo as CncTratativaRecord['responsavelTipo'],
+    prazo: row.prazo,
+    concluidaEm: row.concluidaEm,
+    concluidaPorUserId: row.concluidaPorUserId,
+    status: row.status as CncTratativaRecord['status'],
+    criadoPorUserId: row.criadoPorUserId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -76,26 +147,62 @@ export function toCncItemInsertValues(
     cncId,
     tipo: item.tipo as CncItemRow['tipo'],
     referenciaId: item.referenciaId,
+    produtoId: item.produtoId ?? null,
+    sku: item.sku ?? null,
+    descricaoProduto: item.descricaoProduto ?? null,
+    subtipoOcorrencia: item.subtipoOcorrencia as CncItemRow['subtipoOcorrencia'],
+    quantidadeEsperada:
+      item.quantidadeEsperada !== null && item.quantidadeEsperada !== undefined
+        ? String(item.quantidadeEsperada)
+        : null,
+    quantidadeRecebida:
+      item.quantidadeRecebida !== null && item.quantidadeRecebida !== undefined
+        ? String(item.quantidadeRecebida)
+        : null,
+    quantidadeDivergente:
+      item.quantidadeDivergente !== null &&
+      item.quantidadeDivergente !== undefined
+        ? String(item.quantidadeDivergente)
+        : null,
+    quantidadeCaixas: item.quantidadeCaixas ?? null,
+    quantidadeUnidades: item.quantidadeUnidades ?? null,
+    unidadeMedida: item.unidadeMedida ?? null,
+    loteEsperado: item.loteEsperado ?? null,
+    loteRecebido: item.loteRecebido ?? null,
+    validadeEsperada: toDate(item.validadeEsperada),
+    validadeRecebida: toDate(item.validadeRecebida),
+    pesoEsperado:
+      item.pesoEsperado !== null && item.pesoEsperado !== undefined
+        ? String(item.pesoEsperado)
+        : null,
+    pesoRecebido:
+      item.pesoRecebido !== null && item.pesoRecebido !== undefined
+        ? String(item.pesoRecebido)
+        : null,
+    naturezaAvaria: item.naturezaAvaria ?? null,
+    causaAvaria: item.causaAvaria ?? null,
+    tipoAvaria: item.tipoAvaria ?? null,
+    descricaoDetalhe: item.descricaoDetalhe ?? null,
+    responsavelSugerido: item.responsavelSugerido as CncItemRow['responsavelSugerido'],
   };
 }
 
-export function toCncSituacaoUpdateValues(data: UpdateCncSituacaoInput) {
-  const values: Partial<typeof naoConformidades.$inferInsert> = {
-    situacao: data.situacao as CncRow['situacao'],
+export function toIniciarAnaliseUpdateValues(data: IniciarAnaliseCncInput) {
+  return {
+    situacao: 'em_analise' as CncRow['situacao'],
+    analistaId: data.analistaId,
+    iniciadoEm: data.iniciadoEm,
     updatedAt: new Date(),
   };
+}
 
-  if (data.aprovadorId !== undefined) {
-    values.aprovadorId = data.aprovadorId;
-  }
-
-  if (data.dataAprovacao !== undefined) {
-    values.dataAprovacao = data.dataAprovacao;
-  }
-
-  if (data.observacaoAprovador !== undefined) {
-    values.observacaoAprovador = data.observacaoAprovador;
-  }
+export function toEncerrarCncUpdateValues(data: EncerrarCncInput) {
+  const values: Partial<typeof naoConformidades.$inferInsert> = {
+    situacao: 'encerrada',
+    encerradoPorUserId: data.encerradoPorUserId,
+    encerradoEm: data.encerradoEm,
+    updatedAt: new Date(),
+  };
 
   if (data.responsavel !== undefined) {
     values.responsavel = data.responsavel as CncRow['responsavel'];
@@ -110,9 +217,57 @@ export function toCncSituacaoUpdateValues(data: UpdateCncSituacaoInput) {
       data.valorDebito !== null ? String(data.valorDebito) : null;
   }
 
-  if (data.debitoConfirmado !== undefined) {
-    values.debitoConfirmado = data.debitoConfirmado;
+  if (data.acaoImediata !== undefined) {
+    values.acaoImediata = data.acaoImediata;
+  }
+
+  if (data.acaoCorretiva !== undefined) {
+    values.acaoCorretiva = data.acaoCorretiva;
   }
 
   return values;
+}
+
+export function toCancelarCncUpdateValues(data: CancelarCncInput) {
+  return {
+    situacao: 'cancelada' as CncRow['situacao'],
+    encerradoPorUserId: data.encerradoPorUserId,
+    encerradoEm: data.encerradoEm,
+    updatedAt: new Date(),
+  };
+}
+
+export function toCncTratativaInsertValues(data: CreateCncTratativaInput) {
+  return {
+    cncId: data.cncId,
+    tipo: data.tipo,
+    descricao: data.descricao,
+    responsavelTipo: data.responsavelTipo,
+    prazo: data.prazo ?? null,
+    criadoPorUserId: data.criadoPorUserId,
+    status: 'pendente',
+  };
+}
+
+export function toConcluirTratativaUpdateValues(
+  data: ConcluirCncTratativaInput,
+) {
+  return {
+    status: 'concluida',
+    concluidaEm: data.concluidaEm,
+    concluidaPorUserId: data.concluidaPorUserId,
+    updatedAt: new Date(),
+  };
+}
+
+export function toCncEventoInsertValues(data: AddCncEventoInput) {
+  return {
+    cncId: data.cncId,
+    tipoEvento: data.tipoEvento,
+    situacaoAnterior: data.situacaoAnterior ?? null,
+    situacaoNova: data.situacaoNova ?? null,
+    descricao: data.descricao ?? null,
+    metadata: data.metadata ?? {},
+    criadoPorUserId: data.criadoPorUserId ?? null,
+  };
 }

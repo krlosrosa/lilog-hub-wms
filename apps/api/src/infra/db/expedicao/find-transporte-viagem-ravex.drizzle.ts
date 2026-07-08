@@ -11,9 +11,9 @@ export async function findTransporteViagemRavexDb(
 ): Promise<TransporteViagemRavexRecord | null> {
   const rows = await db
     .select({
-      id: transportes.id,
+      id: transportes.numeroTransporte,
       unidadeId: transportes.unidadeId,
-      rota: transportes.rota,
+      rota: transportes.numeroTransporte,
       viagemId: transportes.viagemId,
       viagemInicioEm: transportes.viagemInicioEm,
       viagemFimEm: transportes.viagemFimEm,
@@ -22,7 +22,7 @@ export async function findTransporteViagemRavexDb(
     .from(transportes)
     .where(
       and(
-        eq(transportes.id, transporteId),
+        eq(transportes.numeroTransporte, transporteId),
         eq(transportes.unidadeId, unidadeId),
       ),
     )

@@ -73,7 +73,6 @@ async function reset() {
     DROP SCHEMA IF EXISTS loyalty CASCADE;
     DROP SCHEMA IF EXISTS coupons CASCADE;
     DROP TABLE IF EXISTS public.audit_logs CASCADE;
-    DROP TABLE IF EXISTS public.movement_records CASCADE;
     DROP TYPE IF EXISTS public.cluster_type CASCADE;
     DROP TYPE IF EXISTS public.empresa_type CASCADE;
     DROP TYPE IF EXISTS public.curva_abc_type CASCADE;
@@ -96,7 +95,6 @@ async function reset() {
     DROP TYPE IF EXISTS public.demanda_endereco_status CASCADE;
     DROP TYPE IF EXISTS public.inventario_status CASCADE;
     DROP TYPE IF EXISTS public.inventario_tipo CASCADE;
-    DROP TYPE IF EXISTS public.movement_type CASCADE;
     DROP TYPE IF EXISTS public.documento_status CASCADE;
   `);
 

@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 
 import {
   AlertTriangle,
   Ban,
   ClipboardList,
-  Info,
+  FileDown,
+  LayoutGrid,
   Loader2,
   MapPin,
   MoreVertical,
@@ -16,6 +18,7 @@ import {
   Shuffle,
   TrendingUp,
   Unlock,
+  Upload,
 } from 'lucide-react';
 
 import {
@@ -29,9 +32,19 @@ import {
 } from '@lilog/ui';
 
 import { SidebarMain } from '@/components/layout/sidebar';
+import {
+  compactTableBodyClassName,
+  compactTableCellClassName,
+  compactTableClassName,
+  compactTableEmptyCellClassName,
+  compactTableHeadCellClassName,
+  compactTableHeadRowClassName,
+  compactTableRowClassName,
+} from '@/components/ui/compact-table-classes';
 import { Pagination } from '@/features/filiais/components/pagination';
 import { EnderecoActionDialogs } from '@/features/enderecos/components/endereco-action-dialogs';
 import { EnderecoKpiCard } from '@/features/enderecos/components/endereco-kpi-card';
+import { EnderecosImportacaoDialog } from '@/features/enderecos/components/enderecos-importacao-dialog';
 import {
   CurvaAbcBadge,
   EnderecoStatusBadge,
@@ -42,6 +55,7 @@ import {
   glassPanelClassName,
 } from '@/features/enderecos/components/form-field-classes';
 import { useEnderecosGestao } from '@/features/enderecos/hooks/use-enderecos-gestao';
+import { downloadEnderecoTemplate } from '@/features/enderecos/lib/endereco-api';
 import {
   NIVEIS_OPCOES,
   STATUS_FILTRO_OPCOES,
@@ -53,7 +67,12 @@ import { ENDERECO_TIPO_LABELS } from '@/features/enderecos/types/enderecos-gesta
 
 const nf = new Intl.NumberFormat('pt-BR');
 
+const FILTER_CHIP_CLASS =
+  'rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors';
+
 export function EnderecosGestaoView() {
+  const [importDialogAberto, setImportDialogAberto] = useState(false);
+
   const {
     isLoading,
     isSubmitting,
@@ -89,6 +108,7 @@ export function EnderecosGestaoView() {
     confirmMassBlock,
     inventariarEndereco,
     inativarEndereco,
+    recarregar,
   } = useEnderecosGestao();
 
   const todosPaginaSelecionados =
@@ -96,83 +116,134 @@ export function EnderecosGestaoView() {
 
   return (
     <SidebarMain>
-      <main className="min-h-dvh bg-background px-margin-mobile py-6 md:px-margin-desktop md:py-8">
-        <div className="mx-auto max-w-container">
-          <header className="mb-8 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
-            <div>
-              <h1 className="text-headline-lg-mobile font-semibold tracking-tight text-foreground md:text-headline-lg">
-                Gestão de Estrutura e Slotting
+      <main className="min-h-dvh bg-background px-margin-mobile py-4 md:px-margin-desktop md:py-6">
+        <div className="mx-auto max-w-container space-y-4 md:space-y-5">
+          <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Estoque · WMS
+              </p>
+              <h1 className="text-headline-md font-bold tracking-tight text-foreground md:text-headline-lg">
+                Gestão de Endereços
               </h1>
-              <p className="mt-2 flex items-center gap-2 text-body-md text-muted-foreground">
-                <span
-                  className="size-2 animate-pulse rounded-full bg-tertiary"
-                  aria-hidden
-                />
-                Monitoramento em tempo real — padrão ZONA RUA POSIÇÃO NÍVEL
+              <p className="mt-0.5 text-xs text-muted-foreground md:text-sm">
+                Padrão{' '}
+                <span className="font-mono font-semibold text-primary">
+                  ZONA · RUA · POSIÇÃO · NÍVEL
+                </span>
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button asChild className="gap-2">
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-[12rem] flex-1 sm:flex-none">
+                <Search
+                  className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden
+                />
+                <input
+                  type="search"
+                  placeholder="Buscar código, zona ou rua..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  className={cn(
+                    fieldInputClassName,
+                    'h-9 w-full py-1.5 pl-8 pr-3 text-xs sm:w-56',
+                  )}
+                />
+              </div>
+              <Button asChild size="sm" className="gap-1.5">
                 <Link href="/enderecos/novo">
-                  <Plus className="size-4" aria-hidden />
-                  Novo Endereço
+                  <Plus className="size-3.5" aria-hidden />
+                  Novo
                 </Link>
               </Button>
-              <Button variant="outline" asChild className="gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setImportDialogAberto(true)}
+              >
+                <Upload className="size-3.5" aria-hidden />
+                Importar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={downloadEnderecoTemplate}
+              >
+                <FileDown className="size-3.5" aria-hidden />
+                Modelo
+              </Button>
+              <Button variant="outline" size="sm" asChild className="gap-1.5">
                 <Link href="/enderecos/impressao-etiqueta">
-                  <Printer className="size-4" aria-hidden />
-                  Imprimir Etiquetas
+                  <Printer className="size-3.5" aria-hidden />
+                  Etiquetas
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild className="gap-1.5">
+                <Link href="/enderecos/mapa-calor">
+                  <LayoutGrid className="size-3.5" aria-hidden />
+                  Mapa
                 </Link>
               </Button>
               <Button
                 variant="destructive"
-                className="gap-2"
-                disabled={isLoading || isSubmitting}
+                size="sm"
+                className="gap-1.5"
+                disabled={isLoading || isSubmitting || selecionados.size === 0}
                 onClick={bloqueioEmMassa}
               >
-                <Ban className="size-4" aria-hidden />
-                Bloqueio em Massa
+                <Ban className="size-3.5" aria-hidden />
+                Bloquear
+                {selecionados.size > 0 && (
+                  <span className="rounded-full bg-destructive-foreground/20 px-1.5 py-0.5 text-[10px] font-bold">
+                    {selecionados.size}
+                  </span>
+                )}
               </Button>
             </div>
           </header>
 
-          <div className="mb-8 grid gap-gutter md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 md:gap-3 xl:grid-cols-4">
             <EnderecoKpiCard
               icon={
-                <div className="rounded-lg bg-primary/10 p-2 text-primary">
-                  <MapPin className="size-5" aria-hidden />
-                </div>
+                <MapPin
+                  className="size-4 shrink-0 text-primary"
+                  aria-hidden
+                />
               }
               badge={
-                <span className="flex items-center text-xs font-bold text-tertiary">
-                  <TrendingUp className="mr-1 size-4" aria-hidden />+
+                <span className="flex items-center text-[10px] font-bold text-tertiary">
+                  <TrendingUp className="mr-0.5 size-3" aria-hidden />+
                   {kpi.totalEnderecosTrendPercent}%
                 </span>
               }
               label="Total de Endereços"
               value={nf.format(kpi.totalEnderecos)}
               footer={
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {nf.format(kpi.enderecosDisponiveis ?? 0)} disponíveis ·{' '}
-                  {nf.format(kpi.enderecosOcupados ?? 0)} ocupados
+                <p className="text-[10px] text-muted-foreground">
+                  {nf.format(kpi.enderecosDisponiveis ?? 0)} disp. ·{' '}
+                  {nf.format(kpi.enderecosOcupados ?? 0)} ocup.
                 </p>
               }
             />
             <EnderecoKpiCard
               icon={
-                <div className="rounded-lg bg-tertiary/10 p-2 text-tertiary">
-                  <TrendingUp className="size-5" aria-hidden />
-                </div>
+                <TrendingUp
+                  className="size-4 shrink-0 text-tertiary"
+                  aria-hidden
+                />
               }
               badge={
                 (kpi.taxaOcupacaoGeral ?? kpi.ocupacaoGlobalPercent) >= 85 ? (
-                  <span className="flex items-center text-xs font-bold text-destructive">
-                    <AlertTriangle className="mr-1 size-4" aria-hidden />
+                  <span className="flex items-center text-[10px] font-bold text-destructive">
+                    <AlertTriangle className="mr-0.5 size-3" aria-hidden />
                     Crítico
                   </span>
                 ) : (
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Taxa geral
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    Geral
                   </span>
                 )
               }
@@ -184,12 +255,13 @@ export function EnderecosGestaoView() {
             <EnderecoKpiCard
               variant="critical"
               icon={
-                <div className="rounded-lg bg-destructive/10 p-2 text-destructive">
-                  <Ban className="size-5" aria-hidden />
-                </div>
+                <Ban
+                  className="size-4 shrink-0 text-destructive"
+                  aria-hidden
+                />
               }
               badge={
-                <span className="text-xs font-medium text-muted-foreground">
+                <span className="text-[10px] font-medium text-muted-foreground">
                   Manutenção
                 </span>
               }
@@ -198,54 +270,58 @@ export function EnderecosGestaoView() {
             />
             <EnderecoKpiCard
               icon={
-                <div className="rounded-lg bg-secondary/10 p-2 text-secondary">
-                  <Shuffle className="size-5" aria-hidden />
-                </div>
+                <Shuffle
+                  className="size-4 shrink-0 text-secondary"
+                  aria-hidden
+                />
               }
               badge={
-                <span className="text-xs font-medium text-muted-foreground">
-                  Cross-docking
+                <span className="text-[10px] font-medium text-muted-foreground">
+                  Ativos
                 </span>
               }
-              label="Cross-docking Ativos"
+              label="Cross-docking"
               value={String(kpi.crossDockingAtivos)}
             />
           </div>
 
-          <div className="flex flex-col gap-gutter lg:flex-row">
-            <aside className="w-full shrink-0 space-y-6 lg:w-80">
-              <div className={cn(glassPanelClassName, 'p-6')}>
-                <div className="mb-6 flex items-center justify-between">
-                  <h3 className="text-label-md font-bold text-foreground">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+            <aside className="w-full shrink-0 lg:w-60 xl:w-64">
+              <div className={cn(glassPanelClassName, 'p-3 md:p-4')}>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-foreground">
                     Filtros
                     {filtrosAtivos > 0 && (
-                      <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                      <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
                         {filtrosAtivos}
                       </span>
                     )}
-                  </h3>
+                  </h2>
                   <button
                     type="button"
                     onClick={limparFiltros}
-                    className="text-xs text-primary hover:underline"
+                    className="text-[11px] font-medium text-primary hover:underline disabled:pointer-events-none disabled:opacity-40"
                     disabled={filtrosAtivos === 0}
                   >
                     Limpar
                   </button>
                 </div>
-                <div className="space-y-5">
+
+                <div className="space-y-3">
                   <div>
-                    <label className={fieldLabelClassName}>Zona</label>
-                    <div className="mt-2 grid grid-cols-4 gap-2">
+                    <label className={cn(fieldLabelClassName, 'text-xs')}>
+                      Zona
+                    </label>
+                    <div className="mt-1.5 grid grid-cols-4 gap-1">
                       {ZONA_FILTRO_OPCOES.map((zona) => (
                         <button
                           key={zona}
                           type="button"
                           onClick={() => toggleZona(zona)}
                           className={cn(
-                            'rounded py-2 text-xs font-bold transition-colors',
+                            FILTER_CHIP_CLASS,
                             filtros.zonas.includes(zona)
-                              ? 'border border-primary/30 bg-primary-container/20 text-primary'
+                              ? 'border border-primary/30 bg-primary/10 text-primary'
                               : 'border border-transparent bg-surface-highest text-muted-foreground hover:border-outline-variant',
                           )}
                         >
@@ -256,17 +332,20 @@ export function EnderecosGestaoView() {
                   </div>
 
                   <div>
-                    <label className={fieldLabelClassName}>Nível</label>
-                    <div className="mt-2 grid grid-cols-4 gap-2">
+                    <label className={cn(fieldLabelClassName, 'text-xs')}>
+                      Nível
+                    </label>
+                    <div className="mt-1.5 grid grid-cols-4 gap-1">
                       {NIVEIS_OPCOES.map((nivel) => (
                         <button
                           key={nivel}
                           type="button"
                           onClick={() => toggleNivel(nivel)}
                           className={cn(
-                            'rounded py-2 font-mono text-xs font-medium transition-colors',
+                            FILTER_CHIP_CLASS,
+                            'font-mono normal-case',
                             filtros.niveis.includes(nivel)
-                              ? 'border border-primary/30 bg-primary-container/20 text-primary'
+                              ? 'border border-primary/30 bg-primary/10 text-primary'
                               : 'border border-transparent bg-surface-highest text-muted-foreground hover:border-outline-variant',
                           )}
                         >
@@ -277,18 +356,20 @@ export function EnderecosGestaoView() {
                   </div>
 
                   <div>
-                    <label className={fieldLabelClassName}>Tipo</label>
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <label className={cn(fieldLabelClassName, 'text-xs')}>
+                      Tipo
+                    </label>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
                       {TIPO_FILTRO_OPCOES.map((tipo) => (
                         <button
                           key={tipo.value}
                           type="button"
                           onClick={() => toggleTipoFiltro(tipo.value)}
                           className={cn(
-                            'cursor-pointer rounded px-2 py-1 text-[10px] font-bold uppercase transition-colors',
+                            FILTER_CHIP_CLASS,
                             filtros.tipos.includes(tipo.value)
                               ? 'border border-secondary/30 bg-secondary/10 text-secondary'
-                              : 'border border-outline-variant bg-surface-highest text-foreground hover:bg-muted',
+                              : 'border border-outline-variant/60 bg-surface-highest text-foreground hover:bg-muted',
                           )}
                         >
                           {tipo.label}
@@ -298,8 +379,10 @@ export function EnderecosGestaoView() {
                   </div>
 
                   <div>
-                    <label className={fieldLabelClassName}>Status</label>
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <label className={cn(fieldLabelClassName, 'text-xs')}>
+                      Status
+                    </label>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
                       {STATUS_FILTRO_OPCOES.map((s) => {
                         const tone = STATUS_FILTRO_TONE[s.value];
                         const active = filtros.status.includes(s.value);
@@ -310,7 +393,7 @@ export function EnderecosGestaoView() {
                             type="button"
                             onClick={() => toggleStatusFiltro(s.value)}
                             className={cn(
-                              'cursor-pointer rounded px-2 py-1 text-[10px] font-bold uppercase transition-colors',
+                              FILTER_CHIP_CLASS,
                               active ? tone.active : tone.inactive,
                             )}
                           >
@@ -321,63 +404,55 @@ export function EnderecosGestaoView() {
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="rounded-xl border border-dashed border-outline-variant bg-muted/30 p-6">
-                <div className="flex items-start gap-4">
-                  <Info className="size-5 shrink-0 text-primary" aria-hidden />
-                  <div className="space-y-2 text-caption leading-relaxed text-muted-foreground">
-                    <p>
-                      Padrão de endereçamento:{' '}
-                      <span className="font-mono font-bold text-primary">
-                        A 0001 001 10
-                      </span>
-                    </p>
-                    <p>
-                      Estrutura: Zona · Rua · Posição · Nível — único por
-                      unidade (centro).
-                    </p>
-                  </div>
-                </div>
+                <p className="mt-3 border-t border-outline-variant/60 pt-3 text-[10px] leading-relaxed text-muted-foreground">
+                  Exemplo:{' '}
+                  <span className="font-mono font-semibold text-primary">
+                    A 001 0001 10
+                  </span>{' '}
+                  — único por centro.
+                </p>
               </div>
             </aside>
 
             <div className="min-w-0 flex-1">
               <div className={cn(glassPanelClassName, 'overflow-hidden')}>
-                <div className="border-b border-outline-variant px-3 py-2">
-                  <div className="relative max-w-md">
-                    <Search
-                      className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-                      aria-hidden
-                    />
-                    <input
-                      type="search"
-                      placeholder="Buscar por código, zona ou rua (ex: A 0001, 0005)..."
-                      value={busca}
-                      onChange={(e) => setBusca(e.target.value)}
-                      className={cn(
-                        fieldInputClassName,
-                        'h-8 w-full py-1 pl-8 text-xs',
-                      )}
-                    />
-                  </div>
+                <div className="flex items-center justify-between gap-2 border-b border-outline-variant px-3 py-2">
+                  <p className="text-xs text-muted-foreground">
+                    {isLoading ? (
+                      'Carregando...'
+                    ) : (
+                      <>
+                        <span className="font-semibold text-foreground">
+                          {nf.format(totalFiltrados)}
+                        </span>{' '}
+                        endereço{totalFiltrados === 1 ? '' : 's'}
+                        {selecionados.size > 0 && (
+                          <span className="ml-1 text-primary">
+                            · {selecionados.size} selecionado
+                            {selecionados.size === 1 ? '' : 's'}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </p>
                 </div>
 
                 <div className="overflow-x-auto">
                   {isLoading ? (
-                    <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
                       <Loader2 className="size-4 animate-spin" aria-hidden />
                       Carregando endereços...
                     </div>
                   ) : enderecos.length === 0 ? (
-                    <div className="py-16 text-center text-sm text-muted-foreground">
+                    <p className={compactTableEmptyCellClassName}>
                       Nenhum endereço encontrado com os filtros atuais.
-                    </div>
+                    </p>
                   ) : (
-                    <table className="w-full border-collapse text-left text-xs">
+                    <table className={compactTableClassName}>
                       <thead>
-                        <tr className="sticky top-0 bg-surface-highest/50 backdrop-blur-md">
-                          <th className="w-8 border-b border-outline-variant px-2 py-1.5">
+                        <tr className={compactTableHeadRowClassName}>
+                          <th className={compactTableHeadCellClassName('w-8')}>
                             <input
                               type="checkbox"
                               checked={todosPaginaSelecionados}
@@ -387,41 +462,38 @@ export function EnderecosGestaoView() {
                             />
                           </th>
                           {[
-                            { label: 'Código', className: 'min-w-[130px]' },
-                            { label: 'Zona', className: 'w-12' },
-                            { label: 'Rua', className: 'w-14 hidden md:table-cell' },
-                            { label: 'Pos.', className: 'w-12 hidden lg:table-cell' },
-                            { label: 'Nív.', className: 'w-12' },
+                            { label: 'Código', className: 'min-w-[120px]' },
+                            { label: 'Zona', className: 'w-10' },
+                            { label: 'Rua', className: 'w-12 hidden md:table-cell' },
+                            { label: 'Pos.', className: 'w-10 hidden lg:table-cell' },
+                            { label: 'Nív.', className: 'w-10' },
                             { label: 'Tipo', className: 'hidden sm:table-cell' },
-                            { label: 'Status', className: 'w-24' },
-                            { label: 'Cap.', className: 'w-28' },
-                            { label: 'ABC', className: 'w-10 text-center' },
-                            { label: '', className: 'w-8' },
+                            { label: 'Status', className: 'w-20' },
+                            { label: 'Cap.', className: 'w-24' },
+                            { label: 'ABC', className: 'w-8 text-center' },
+                            { label: '', className: 'w-7' },
                           ].map((h) => (
                             <th
                               key={h.label || 'actions'}
-                              className={cn(
-                                'border-b border-outline-variant px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground',
-                                h.className,
-                              )}
+                              className={compactTableHeadCellClassName(h.className)}
                             >
                               {h.label}
                             </th>
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-outline-variant/30">
+                      <tbody className={compactTableBodyClassName}>
                         {enderecos.map((item) => (
                           <tr
                             key={item.id}
                             className={cn(
-                              'group transition-colors hover:bg-surface-highest/50',
+                              compactTableRowClassName,
                               item.status === 'bloqueado' && 'bg-destructive/5',
                               item.status === 'inventario' && 'bg-secondary/5',
                               item.status === 'inativo' && 'opacity-60',
                             )}
                           >
-                            <td className="px-2 py-1.5">
+                            <td className={compactTableCellClassName}>
                               <input
                                 type="checkbox"
                                 checked={selecionados.has(item.id)}
@@ -430,7 +502,7 @@ export function EnderecosGestaoView() {
                                 aria-label={`Selecionar ${item.enderecoId}`}
                               />
                             </td>
-                            <td className="px-2 py-1.5">
+                            <td className={compactTableCellClassName}>
                               <Link
                                 href={`/enderecos/${item.id}`}
                                 className={cn(
@@ -445,30 +517,50 @@ export function EnderecosGestaoView() {
                                 {item.enderecoId}
                               </Link>
                             </td>
-                            <td className="px-2 py-1.5 font-bold text-foreground">
+                            <td className={cn(compactTableCellClassName, 'font-bold')}>
                               {item.zona}
                             </td>
-                            <td className="hidden px-2 py-1.5 font-mono text-muted-foreground md:table-cell">
+                            <td
+                              className={cn(
+                                compactTableCellClassName,
+                                'hidden font-mono text-muted-foreground md:table-cell',
+                              )}
+                            >
                               {item.rua}
                             </td>
-                            <td className="hidden px-2 py-1.5 font-mono text-muted-foreground lg:table-cell">
+                            <td
+                              className={cn(
+                                compactTableCellClassName,
+                                'hidden font-mono text-muted-foreground lg:table-cell',
+                              )}
+                            >
                               {item.posicao}
                             </td>
-                            <td className="px-2 py-1.5 font-mono text-muted-foreground">
+                            <td
+                              className={cn(
+                                compactTableCellClassName,
+                                'font-mono text-muted-foreground',
+                              )}
+                            >
                               {item.nivel}
                             </td>
-                            <td className="hidden px-2 py-1.5 text-muted-foreground sm:table-cell">
+                            <td
+                              className={cn(
+                                compactTableCellClassName,
+                                'hidden text-muted-foreground sm:table-cell',
+                              )}
+                            >
                               {ENDERECO_TIPO_LABELS[item.tipo]}
                             </td>
-                            <td className="px-2 py-1.5">
+                            <td className={compactTableCellClassName}>
                               <EnderecoStatusBadge status={item.status} compact />
                             </td>
-                            <td className="px-2 py-1.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="whitespace-nowrap tabular-nums text-[11px] text-foreground">
+                            <td className={compactTableCellClassName}>
+                              <div className="flex items-center gap-1">
+                                <span className="whitespace-nowrap tabular-nums text-[11px]">
                                   {nf.format(item.capacidadeKg)} kg
                                 </span>
-                                <div className="h-0.5 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
+                                <div className="h-0.5 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
                                   <div
                                     className={cn(
                                       'h-full',
@@ -485,15 +577,15 @@ export function EnderecosGestaoView() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-2 py-1.5 text-center">
+                            <td className={cn(compactTableCellClassName, 'text-center')}>
                               <CurvaAbcBadge curva={item.curvaAbc} compact />
                             </td>
-                            <td className="px-2 py-1.5 text-right">
+                            <td className={cn(compactTableCellClassName, 'text-right')}>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <button
                                     type="button"
-                                    className="text-muted-foreground opacity-0 transition-all group-hover:opacity-100 hover:text-primary"
+                                    className="rounded p-0.5 text-muted-foreground opacity-60 transition-all hover:bg-muted hover:text-primary group-hover:opacity-100"
                                     aria-label={`Mais opções para ${item.enderecoId}`}
                                   >
                                     <MoreVertical className="size-3.5" />
@@ -596,15 +688,6 @@ export function EnderecosGestaoView() {
               </div>
             </div>
           </div>
-
-          <nav className="mt-6 flex flex-wrap gap-3">
-            <Button variant="outline" asChild size="sm">
-              <Link href="/enderecos/novo">Novo Endereço</Link>
-            </Button>
-            <Button variant="outline" asChild size="sm">
-              <Link href="/enderecos/mapa-calor">Mapa de Calor</Link>
-            </Button>
-          </nav>
         </div>
 
         <EnderecoActionDialogs
@@ -617,6 +700,12 @@ export function EnderecosGestaoView() {
             void confirmChangeStatus(status, motivo)
           }
           onConfirmMassBlock={(motivo) => void confirmMassBlock(motivo)}
+        />
+
+        <EnderecosImportacaoDialog
+          open={importDialogAberto}
+          onOpenChange={setImportDialogAberto}
+          onSuccess={() => void recarregar()}
         />
       </main>
     </SidebarMain>

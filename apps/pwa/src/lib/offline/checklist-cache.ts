@@ -22,11 +22,62 @@ export async function loadUnitDocasFromDb(
   return entry?.docas ?? [];
 }
 
-export function docasToOptions(docas: DocaApi[]) {
+export type DockOption = { value: string; label: string };
+
+export function docasToOptions(docas: DocaApi[]): DockOption[] {
   return docas.map((doca) => ({
     value: doca.id,
     label: `${doca.codigo} — ${doca.nome}`,
   }));
+}
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function extractDockCodigo(dock: string | null | undefined): string | null {
+  if (!dock) return null;
+
+  const trimmed = dock.trim();
+  if (!trimmed || trimmed === '—') return null;
+
+  if (UUID_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+
+  const docaMatch = trimmed.match(/^doca\s+(.+)$/i);
+  if (docaMatch) {
+    return docaMatch[1]?.trim() ?? null;
+  }
+
+  return trimmed;
+}
+
+export function findDockOptionValue(
+  dockRef: string | null | undefined,
+  options: DockOption[],
+): string | null {
+  if (!dockRef || options.length === 0) return null;
+
+  const codigo = extractDockCodigo(dockRef);
+  if (!codigo) return null;
+
+  const byValue = options.find((option) => option.value === codigo);
+  if (byValue) return byValue.value;
+
+  const normalizedCodigo = codigo.toLowerCase();
+
+  const byLabelPrefix = options.find((option) => {
+    const labelCodigo = option.label.split(' — ')[0]?.trim().toLowerCase();
+    return labelCodigo === normalizedCodigo;
+  });
+  if (byLabelPrefix) return byLabelPrefix.value;
+
+  const byLabelIncludes = options.find((option) =>
+    option.label.toLowerCase().includes(normalizedCodigo),
+  );
+  if (byLabelIncludes) return byLabelIncludes.value;
+
+  return null;
 }
 
 export async function saveChecklistDraft(

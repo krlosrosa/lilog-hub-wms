@@ -50,13 +50,29 @@ export function ConferenciaTable({
   pageSize,
 }: ConferenciaTableProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const [expandedLoteIds, setExpandedLoteIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
     setExpandedIds(new Set());
+    setExpandedLoteIds(new Set());
   }, [pagina]);
 
   const toggleExpand = useCallback((itemId: string) => {
     setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleLoteExpand = useCallback((itemId: string) => {
+    setExpandedLoteIds((prev) => {
       const next = new Set(prev);
       if (next.has(itemId)) {
         next.delete(itemId);
@@ -121,6 +137,8 @@ export function ConferenciaTable({
                   item={linha}
                   isExpanded={expandedIds.has(linha.id)}
                   onToggleExpand={toggleExpand}
+                  isLoteExpanded={expandedLoteIds.has(linha.id)}
+                  onToggleLoteExpand={toggleLoteExpand}
                 />
               ))
             ) : (

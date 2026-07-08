@@ -7,10 +7,8 @@ import {
   remessaItens,
 } from '../providers/drizzle/config/migrations/schema.js';
 
-const produtoPorId = alias(produtos, 'produto_por_id');
+const produtoPorProdutoId = alias(produtos, 'produto_por_produto_id');
 const produtoPorSku = alias(produtos, 'produto_por_sku');
-const produtoPorCodigo = alias(produtos, 'produto_por_codigo');
-const produtoPorUuid = alias(produtos, 'produto_por_uuid');
 
 function coalesce<T>(...parts: SQLWrapper[]) {
   return sql<T>`coalesce(${sql.join(parts, sql`, `)})`;
@@ -59,16 +57,11 @@ export async function listRemessaItensByRemessaIdsDb(
       produtoId: remessaItens.produtoId,
       produtoIdResolvido: coalesce<string | null>(
         remessaItens.produtoId,
-        produtoPorSku.id,
-        produtoPorCodigo.id,
-        produtoPorUuid.id,
+        produtoPorSku.produtoId,
       ),
       produtoCodigo: coalesce<string>(
+        produtoPorProdutoId.produtoId,
         produtoPorSku.produtoId,
-        produtoPorCodigo.produtoId,
-        produtoPorUuid.produtoId,
-        produtoPorSku.sku,
-        produtoPorUuid.sku,
         remessaItens.sku,
       ),
       lote: remessaItens.lote,
@@ -79,83 +72,56 @@ export async function listRemessaItensByRemessaIdsDb(
       unidadeMedida: remessaItens.unidadeMedida,
       quantidadeNormalizadaUnidades: remessaItens.quantidadeNormalizadaUnidades,
       empresaProduto: coalesce<string | null>(
-        produtoPorId.empresa,
+        produtoPorProdutoId.empresa,
         produtoPorSku.empresa,
-        produtoPorCodigo.empresa,
-        produtoPorUuid.empresa,
       ),
       categoriaProduto: coalesce<string | null>(
-        produtoPorId.categoria,
+        produtoPorProdutoId.categoria,
         produtoPorSku.categoria,
-        produtoPorCodigo.categoria,
-        produtoPorUuid.categoria,
       ),
       unidadesPorCaixa: coalesce<number | null>(
-        produtoPorId.unidadesPorCaixa,
+        produtoPorProdutoId.unidadesPorCaixa,
         produtoPorSku.unidadesPorCaixa,
-        produtoPorCodigo.unidadesPorCaixa,
-        produtoPorUuid.unidadesPorCaixa,
       ),
       caixasPorPalete: coalesce<number | null>(
-        produtoPorId.caixasPorPalete,
+        produtoPorProdutoId.caixasPorPalete,
         produtoPorSku.caixasPorPalete,
-        produtoPorCodigo.caixasPorPalete,
-        produtoPorUuid.caixasPorPalete,
       ),
       pesoBrutoUnidade: coalesce<string | null>(
-        produtoPorId.pesoBrutoUnidade,
+        produtoPorProdutoId.pesoBrutoUnidade,
         produtoPorSku.pesoBrutoUnidade,
-        produtoPorCodigo.pesoBrutoUnidade,
-        produtoPorUuid.pesoBrutoUnidade,
       ),
       pesoBrutoCaixa: coalesce<string | null>(
-        produtoPorId.pesoBrutoCaixa,
+        produtoPorProdutoId.pesoBrutoCaixa,
         produtoPorSku.pesoBrutoCaixa,
-        produtoPorCodigo.pesoBrutoCaixa,
-        produtoPorUuid.pesoBrutoCaixa,
       ),
       pesoBrutoPalete: coalesce<string | null>(
-        produtoPorId.pesoBrutoPalete,
+        produtoPorProdutoId.pesoBrutoPalete,
         produtoPorSku.pesoBrutoPalete,
-        produtoPorCodigo.pesoBrutoPalete,
-        produtoPorUuid.pesoBrutoPalete,
       ),
       pesoLiquidoUnidade: coalesce<string | null>(
-        produtoPorId.pesoLiquidoUnidade,
+        produtoPorProdutoId.pesoLiquidoUnidade,
         produtoPorSku.pesoLiquidoUnidade,
-        produtoPorCodigo.pesoLiquidoUnidade,
-        produtoPorUuid.pesoLiquidoUnidade,
       ),
       pesoLiquidoCaixa: coalesce<string | null>(
-        produtoPorId.pesoLiquidoCaixa,
+        produtoPorProdutoId.pesoLiquidoCaixa,
         produtoPorSku.pesoLiquidoCaixa,
-        produtoPorCodigo.pesoLiquidoCaixa,
-        produtoPorUuid.pesoLiquidoCaixa,
       ),
       pesoLiquidoPalete: coalesce<string | null>(
-        produtoPorId.pesoLiquidoPalete,
+        produtoPorProdutoId.pesoLiquidoPalete,
         produtoPorSku.pesoLiquidoPalete,
-        produtoPorCodigo.pesoLiquidoPalete,
-        produtoPorUuid.pesoLiquidoPalete,
       ),
       descricaoProduto: coalesce<string | null>(
-        produtoPorId.descricao,
+        produtoPorProdutoId.descricao,
         produtoPorSku.descricao,
-        produtoPorCodigo.descricao,
-        produtoPorUuid.descricao,
       ),
     })
     .from(remessaItens)
-    .leftJoin(produtoPorId, eq(remessaItens.produtoId, produtoPorId.id))
+    .leftJoin(
+      produtoPorProdutoId,
+      eq(remessaItens.produtoId, produtoPorProdutoId.produtoId),
+    )
     .leftJoin(produtoPorSku, eq(sql`trim(${remessaItens.sku})`, produtoPorSku.sku))
-    .leftJoin(
-      produtoPorCodigo,
-      eq(sql`trim(${remessaItens.sku})`, produtoPorCodigo.produtoId),
-    )
-    .leftJoin(
-      produtoPorUuid,
-      sql`trim(${remessaItens.sku}) = ${produtoPorUuid.id}::text`,
-    )
     .where(inArray(remessaItens.remessaId, remessaIds))
     .orderBy(asc(remessaItens.remessaId), asc(remessaItens.sku));
 }

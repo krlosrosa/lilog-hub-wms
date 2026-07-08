@@ -27,7 +27,11 @@ export function getConferenciaContextStore(
     };
     return {
       ...parsed,
+      modoUnitizacao: parsed.modoUnitizacao ?? '',
+      exigePaleteConferencia: parsed.exigePaleteConferencia ?? false,
       conferidoSkus: new Set(parsed.conferidoSkus ?? []),
+      conferidosDetalheByProdutoId: parsed.conferidosDetalheByProdutoId ?? {},
+      resumoConferido: parsed.resumoConferido ?? [],
     };
   } catch {
     return null;

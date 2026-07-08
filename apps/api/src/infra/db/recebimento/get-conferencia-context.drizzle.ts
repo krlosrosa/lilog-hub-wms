@@ -1,8 +1,11 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
-
-
+import { buildResumoConferidoPorProduto } from '../../../domain/services/recebimento-resumo-conferido.js';
 import { resolveProdutoConferenciaConfig } from '../../../domain/services/recebimento-produto-rules.js';
+import type {
+  ConferenciaConferidoRecord,
+  ConferenciaContextRecord,
+} from '../../../domain/repositories/recebimento/conferencia.repository.js';
 import { mapProdutoRow } from '../produto/map-produto.drizzle.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 
@@ -11,22 +14,22 @@ import {
   docas,
   itensPreRecebimento,
   itensRecebimento,
+  pesagensRecebimento,
   preRecebimentos,
   produtos,
   recebimentos,
+  unidades,
 } from '../providers/drizzle/config/migrations/schema.js';
+import { unitizadores } from '../providers/drizzle/config/schemas/armazenagem.schema.js';
 
-import { mapItemRecebimentoRow, mapPreRecebimentoRow } from './map-recebimento.drizzle.js';
+import { mapItemRecebimentoRow, mapPesagemRecebimentoRow, mapPreRecebimentoRow } from './map-recebimento.drizzle.js';
 
 
 
 export async function getConferenciaContextDb(
-
   db: DrizzleClient,
-
   preRecebimentoId: string,
-
-) {
+): Promise<ConferenciaContextRecord | null> {
 
   const [preRow] = await db
 
@@ -51,6 +54,14 @@ export async function getConferenciaContextDb(
   const preRecebimento = mapPreRecebimentoRow(preRow);
 
 
+
+  const [preDocaRow] = preRecebimento.docaId
+    ? await db
+        .select({ codigo: docas.codigo })
+        .from(docas)
+        .where(eq(docas.id, preRecebimento.docaId))
+        .limit(1)
+    : [];
 
   const [recebimentoRow] = await db
 
@@ -84,7 +95,7 @@ export async function getConferenciaContextDb(
 
     .from(itensPreRecebimento)
 
-    .innerJoin(produtos, eq(itensPreRecebimento.produtoId, produtos.id))
+    .innerJoin(produtos, eq(itensPreRecebimento.produtoId, produtos.produtoId))
 
     .where(eq(itensPreRecebimento.preRecebimentoId, preRecebimentoId));
 
@@ -92,10 +103,40 @@ export async function getConferenciaContextDb(
 
   const conferidoRows = recebimentoRow
     ? await db
-        .select()
+        .select({
+          item: itensRecebimento,
+          produto: produtos,
+          unitizadorCodigo: unitizadores.codigo,
+        })
         .from(itensRecebimento)
+        .innerJoin(produtos, eq(itensRecebimento.produtoId, produtos.produtoId))
+        .leftJoin(
+          unitizadores,
+          eq(itensRecebimento.unitizadorId, unitizadores.id),
+        )
         .where(eq(itensRecebimento.recebimentoId, recebimentoRow.recebimento.id))
     : [];
+
+  const itemIds = conferidoRows.map(({ item }) => item.id);
+  const pesagemRows =
+    itemIds.length > 0
+      ? await db
+          .select()
+          .from(pesagensRecebimento)
+          .where(inArray(pesagensRecebimento.recebimentoItemId, itemIds))
+      : [];
+
+  const pesagensByItemId = new Map<
+    string,
+    ReturnType<typeof mapPesagemRecebimentoRow>[]
+  >();
+
+  for (const row of pesagemRows) {
+    const mapped = mapPesagemRecebimentoRow(row);
+    const current = pesagensByItemId.get(mapped.recebimentoItemId) ?? [];
+    current.push(mapped);
+    pesagensByItemId.set(mapped.recebimentoItemId, current);
+  }
 
   const [checklistRow] = recebimentoRow
     ? await db
@@ -107,58 +148,104 @@ export async function getConferenciaContextDb(
         .limit(1)
     : [];
 
+  const [unidadeRow] = await db
+    .select({ modoUnitizacaoRecebimento: unidades.modoUnitizacaoRecebimento })
+    .from(unidades)
+    .where(eq(unidades.id, preRecebimento.unidadeId))
+    .limit(1);
+
+  const modoUnitizacao =
+    recebimentoRow?.recebimento.modoUnitizacao ??
+    unidadeRow?.modoUnitizacaoRecebimento ??
+    'gerar_etiqueta_na_armazenagem';
+
+  const itens = itemRows.map(({ item, produto }) => {
+    const produtoRecord = mapProdutoRow(produto);
+
+    return {
+      produtoId: item.produtoId,
+      sku: produto.sku,
+      descricao: produto.descricao,
+      unidadeMedida: item.unidadeMedida,
+      unidadesPorCaixa: produto.unidadesPorCaixa ?? 1,
+      config: resolveProdutoConferenciaConfig(produtoRecord),
+    };
+  });
+
+  const conferidos: ConferenciaConferidoRecord[] = [];
+
+  for (const { item: row, produto, unitizadorCodigo } of conferidoRows) {
+    const mapped = mapItemRecebimentoRow(row);
+    const produtoRecord = mapProdutoRow(produto);
+    const config = resolveProdutoConferenciaConfig(produtoRecord);
+    const pesagens = pesagensByItemId.get(mapped.id) ?? [];
+
+    const base = {
+      produtoId: mapped.produtoId,
+      sku: produto.sku,
+      descricao: produto.descricao,
+      unidadesPorCaixa: produto.unidadesPorCaixa ?? 1,
+      config,
+      unidadeMedida: mapped.unidadeMedida,
+      loteRecebido: mapped.loteRecebido,
+      validade: mapped.validade,
+      unitizadorCodigo: unitizadorCodigo ?? null,
+      unitizadorId: mapped.unitizadorId,
+      recebimentoItemId: mapped.id,
+    } as const;
+
+    if (pesagens.length > 0) {
+      for (const pesagem of pesagens) {
+        conferidos.push({
+          id: pesagem.id,
+          ...base,
+          quantidadeRecebida: 1,
+          pesoRecebido: pesagem.pesoKg,
+          etiquetaCodigo: pesagem.etiquetaCodigo,
+          pesagemId: pesagem.id,
+        });
+      }
+    } else {
+      conferidos.push({
+        id: mapped.id,
+        ...base,
+        quantidadeRecebida: mapped.quantidadeRecebida,
+        pesoRecebido: mapped.pesoRecebido,
+        etiquetaCodigo: null,
+        pesagemId: null,
+      });
+    }
+  }
+
+  const resumoConferido = buildResumoConferidoPorProduto({
+    esperados: itemRows.map(({ item, produto }) => ({
+      produtoId: item.produtoId,
+      quantidadeEsperada: Number(item.quantidadeEsperada),
+      unidadeMedida: item.unidadeMedida,
+      unidadesPorCaixa: produto.unidadesPorCaixa ?? 1,
+    })),
+    conferidos: conferidos.map((item) => ({
+      produtoId: item.produtoId,
+      quantidadeRecebida: item.quantidadeRecebida,
+      unidadeMedida: item.unidadeMedida,
+      pesoRecebido: item.pesoRecebido,
+    })),
+  });
+
   return {
     preRecebimentoId: preRecebimento.id,
     recebimentoId: recebimentoRow?.recebimento.id ?? null,
     unidadeId: preRecebimento.unidadeId,
     placa: preRecebimento.placa,
-    transportadoraId: preRecebimento.transportadoraId,
+    transportadoraNome: preRecebimento.transportadoraNome,
     situacao: preRecebimento.situacao,
     recebimentoSituacao: recebimentoRow?.recebimento.situacao ?? null,
-    dock: recebimentoRow?.docaCodigo ?? null,
+    dock: recebimentoRow?.docaCodigo ?? preDocaRow?.codigo ?? null,
     checklistPreenchido: !!checklistRow,
-
-    itens: itemRows.map(({ item, produto }) => {
-      const produtoRecord = mapProdutoRow(produto);
-
-      return {
-
-        produtoId: item.produtoId,
-
-        sku: produto.sku,
-
-        descricao: produto.descricao,
-
-        unidadeMedida: item.unidadeMedida,
-
-        unidadesPorCaixa: produto.unidadesPorCaixa ?? 1,
-
-        config: resolveProdutoConferenciaConfig(produtoRecord),
-
-      };
-
-    }),
-
-    conferidos: conferidoRows.map((row) => {
-
-      const mapped = mapItemRecebimentoRow(row);
-
-
-
-      return {
-
-        id: mapped.id,
-
-        produtoId: mapped.produtoId,
-
-        quantidadeRecebida: mapped.quantidadeRecebida,
-
-        unidadeMedida: mapped.unidadeMedida,
-
-      };
-
-    }),
-
+    modoUnitizacao,
+    itens,
+    conferidos,
+    resumoConferido,
   };
 
 }

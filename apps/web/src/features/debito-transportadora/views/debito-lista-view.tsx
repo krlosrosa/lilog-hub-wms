@@ -1,30 +1,23 @@
 'use client';
 
+import { useCallback, useState } from 'react';
+
 import { Button, cn } from '@lilog/ui';
 import { Download, Filter, Loader2 } from 'lucide-react';
 
 import { SidebarMain } from '@/components/layout/sidebar';
 
 import { Pagination } from '@/features/filiais/components/pagination';
+import { BarraSelecaoOcorrencias } from '@/features/debito-transportadora/components/barra-selecao-ocorrencias';
 import { DebitoKpiCards } from '@/features/debito-transportadora/components/debito-kpi-cards';
 import { DebitoPainelLateral } from '@/features/debito-transportadora/components/debito-painel-lateral';
 import { DebitoTable } from '@/features/debito-transportadora/components/debito-table';
+import { DebitoTransportadoraTabs } from '@/features/debito-transportadora/components/debito-transportadora-tabs';
+import { ModalCriarDocumentoCobranca } from '@/features/debito-transportadora/components/modal-criar-documento-cobranca';
 import { useDebitoLista } from '@/features/debito-transportadora/hooks/use-debito-lista';
-import type {
-  FiltroStatusDebito,
-  FiltroTransportadora,
-} from '@/features/debito-transportadora/types/debito.schema';
+import { useDebitoSelecao } from '@/features/debito-transportadora/hooks/use-debito-selecao';
+import type { FiltroStatusDebito } from '@/features/debito-transportadora/types/debito.schema';
 import { DEBITO_STATUS_LABELS } from '@/features/debito-transportadora/types/debito.schema';
-
-const TRANSPORTADORA_OPTIONS: {
-  value: FiltroTransportadora;
-  label: string;
-}[] = [
-  { value: 'todas', label: 'Todas Transportadoras' },
-  { value: 'swift_logistics', label: 'Swift Logistics' },
-  { value: 'global_freight', label: 'Global Freight' },
-  { value: 'rapid_way', label: 'Rapid Way' },
-];
 
 const STATUS_OPTIONS: {
   value: FiltroStatusDebito;
@@ -40,6 +33,8 @@ const STATUS_OPTIONS: {
 ];
 
 export function DebitoListaView() {
+  const [modalCriarAberto, setModalCriarAberto] = useState(false);
+
   const {
     kpi,
     busca,
@@ -58,12 +53,23 @@ export function DebitoListaView() {
     pageSize,
     exportando,
     conciliando,
+    isLoading,
+    transportadoraOptions,
+    ocorrencias,
+    recarregar,
     actions,
   } = useDebitoLista();
 
+  const selecao = useDebitoSelecao({ ocorrencias });
+
+  const handleSucessoCriacao = useCallback(() => {
+    selecao.clearSelection();
+    void recarregar();
+  }, [recarregar, selecao]);
+
   return (
     <SidebarMain>
-      <main className="px-margin-mobile py-6 md:px-margin-desktop md:py-8">
+      <main className="px-margin-mobile py-6 pb-24 md:px-margin-desktop md:py-8 md:pb-28">
         <div className="mx-auto max-w-container space-y-8">
           <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div className="min-w-0">
@@ -102,6 +108,8 @@ export function DebitoListaView() {
             </div>
           </header>
 
+          <DebitoTransportadoraTabs />
+
           <div className="relative max-w-xl">
             <input
               type="search"
@@ -116,7 +124,7 @@ export function DebitoListaView() {
             />
           </div>
 
-          <DebitoKpiCards kpi={kpi} />
+          <DebitoKpiCards kpi={kpi} isLoading={isLoading} />
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
             <div className="space-y-4 lg:col-span-3">
@@ -129,14 +137,12 @@ export function DebitoListaView() {
                     <select
                       value={filtroTransportadora}
                       onChange={(event) =>
-                        setFiltroTransportadora(
-                          event.target.value as FiltroTransportadora,
-                        )
+                        setFiltroTransportadora(event.target.value)
                       }
                       className="cursor-pointer border-none bg-transparent text-[11px] text-muted-foreground focus:ring-0"
                       aria-label="Filtrar por transportadora"
                     >
-                      {TRANSPORTADORA_OPTIONS.map((opt) => (
+                      {transportadoraOptions.map((opt) => (
                         <option key={opt.value} value={opt.value}>
                           {opt.label}
                         </option>
@@ -161,7 +167,20 @@ export function DebitoListaView() {
                   </div>
                 </div>
 
-                <DebitoTable items={itemsPagina} />
+                {isLoading ? (
+                  <div className="flex items-center justify-center gap-2 px-2 py-16 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    Carregando processos de débito…
+                  </div>
+                ) : (
+                  <DebitoTable
+                    items={itemsPagina}
+                    selectedIds={selecao.selectedIds}
+                    podeSelecionar={selecao.podeSelecionar}
+                    onToggleSelect={selecao.toggleSelect}
+                    onToggleSelectAll={selecao.toggleSelectAll}
+                  />
+                )}
 
                 <div className="border-t border-outline-variant bg-surface-low">
                   <div className="flex items-center justify-between px-3 py-1.5 text-[11px] text-muted-foreground">
@@ -186,11 +205,28 @@ export function DebitoListaView() {
             <DebitoPainelLateral
               conciliando={conciliando}
               onForcarConciliacao={() => void actions.forcarConciliacao()}
-              onGerarCartaDebito={() => void actions.gerarCartaDebito()}
             />
           </div>
         </div>
       </main>
+
+      <BarraSelecaoOcorrencias
+        quantidade={selecao.quantidadeSelecionada}
+        transportadora={selecao.transportadoraSelecionada ?? '—'}
+        valorTotal={selecao.valorTotalSelecionado}
+        onGerarDocumento={() => setModalCriarAberto(true)}
+        onLimpar={selecao.clearSelection}
+      />
+
+      <ModalCriarDocumentoCobranca
+        open={modalCriarAberto}
+        onOpenChange={setModalCriarAberto}
+        selecionados={selecao.selecionados}
+        transportadoraNome={selecao.transportadoraSelecionada ?? ''}
+        transportadoraId={selecao.transportadoraIdSelecionada}
+        valorTotal={selecao.valorTotalSelecionado}
+        onSuccess={handleSucessoCriacao}
+      />
     </SidebarMain>
   );
 }

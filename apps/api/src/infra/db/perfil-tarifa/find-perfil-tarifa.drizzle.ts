@@ -5,6 +5,7 @@ import {
   perfisTarifas,
   perfisTarifasFaixasKm,
 } from '../providers/drizzle/config/migrations/schema.js';
+import { loadItinerariosByFaixaIdsDb } from './load-itinerarios-by-faixa-ids.drizzle.js';
 import {
   mapFaixaKmRow,
   mapPerfilTarifaRow,
@@ -27,10 +28,16 @@ export async function loadFaixasByPerfilIdsDb(
       asc(perfisTarifasFaixasKm.kmInicial),
     );
 
+  const faixaIds = rows.map((row) => row.id);
+  const itinerariosByFaixa = await loadItinerariosByFaixaIdsDb(db, faixaIds);
+
   const grouped = new Map<string, ReturnType<typeof mapFaixaKmRow>[]>();
 
   for (const row of rows) {
-    const mapped = mapFaixaKmRow(row);
+    const mapped = mapFaixaKmRow(
+      row,
+      itinerariosByFaixa.get(row.id) ?? [],
+    );
     const current = grouped.get(row.perfilTarifaId) ?? [];
     current.push(mapped);
     grouped.set(row.perfilTarifaId, current);

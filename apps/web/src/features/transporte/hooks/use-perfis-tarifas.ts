@@ -13,6 +13,7 @@ import {
 } from '@/features/transporte/lib/perfis-tarifas-api';
 import type {
   FaixaKmItem,
+  ItinerarioFaixaItem,
   PerfilTarifaFormValues,
   PerfilTarifaItem,
   TipoCarga,
@@ -198,7 +199,7 @@ export function usePerfisTarifas() {
     setFaixasEditando(
       perfil.faixasKm.length > 0
         ? perfil.faixasKm.map((faixa) => ({ ...faixa }))
-        : [{ kmInicial: 0, kmFinal: null, valor: 0, itinerario: null }],
+        : [{ kmInicial: 0, kmFinal: null, valor: 0, itinerarios: [] }],
     );
   }, []);
 
@@ -211,7 +212,7 @@ export function usePerfisTarifas() {
     (
       index: number,
       campo: keyof FaixaKmItem,
-      valor: number | string | null,
+      valor: number | string | null | string[] | ItinerarioFaixaItem[],
     ) => {
       setFaixasEditando((atual) =>
         atual.map((faixa, faixaIndex) =>
@@ -232,7 +233,7 @@ export function usePerfisTarifas() {
             : 0,
         kmFinal: null,
         valor: 0,
-        itinerario: null,
+        itinerarios: [],
       },
     ]);
   }, []);
@@ -246,26 +247,43 @@ export function usePerfisTarifas() {
       return;
     }
 
-    const faixasValidas = faixasEditando.filter(
-      (faixa) => faixa.valor > 0 && faixa.kmInicial >= 0,
-    );
+    if (faixasEditando.length === 0) {
+      toast.error('Adicione ao menos uma faixa de tarifa.');
+      return;
+    }
 
-    if (faixasValidas.length === 0) {
-      toast.error('Adicione ao menos uma faixa com valor válido.');
+    const faixaSemValor = faixasEditando.find((faixa) => faixa.valor <= 0);
+    if (faixaSemValor) {
+      toast.error('Informe um valor maior que zero em todas as faixas.');
+      return;
+    }
+
+    const faixaKmInvalido = faixasEditando.find((faixa) => faixa.kmInicial < 0);
+    if (faixaKmInvalido) {
+      toast.error('Informe km inicial válido em todas as faixas.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      await upsertFaixasKm(tarifaEditandoId, {
-        faixas: faixasValidas.map((faixa) => ({
-          kmInicial: faixa.kmInicial,
-          kmFinal: faixa.kmFinal,
-          valor: faixa.valor,
-          itinerario: faixa.itinerario?.trim() || null,
-        })),
+      const payload = faixasEditando.map((faixa) => ({
+        kmInicial: faixa.kmInicial,
+        kmFinal: faixa.kmFinal,
+        valor: faixa.valor,
+        itinerarios: faixa.itinerarios.map((item) => item.codigo),
+      }));
+
+      const updatedPerfil = await upsertFaixasKm(tarifaEditandoId, {
+        faixas: payload,
       });
+      const mappedPerfil = mapPerfilTarifaToItem(updatedPerfil);
+
+      setPerfis((atual) =>
+        atual.map((perfil) =>
+          perfil.id === mappedPerfil.id ? mappedPerfil : perfil,
+        ),
+      );
 
       setTarifaSalvaComSucessoId(tarifaEditandoId);
       window.setTimeout(() => setTarifaSalvaComSucessoId(null), 1000);

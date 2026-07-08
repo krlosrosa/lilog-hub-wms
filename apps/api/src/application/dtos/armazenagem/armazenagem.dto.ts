@@ -6,13 +6,15 @@ import {
   DemandaArmazenagemStatusSchema,
   ItemArmazenagemStatusSchema,
   ModoUnitizacaoSchema,
+  TarefaArmazenagemStatusSchema,
 } from '../../../domain/model/armazenagem/armazenagem.model.js';
 
 export const ItemArmazenagemResponseSchema = z.object({
   id: z.uuid(),
   demandaId: z.uuid(),
+  tarefaId: z.uuid().nullable(),
   unitizadorId: z.uuid().nullable(),
-  produtoId: z.uuid(),
+  produtoId: z.string().min(1).max(50),
   quantidade: z.number(),
   unidadeMedida: z.string(),
   lote: z.string().nullable(),
@@ -23,6 +25,7 @@ export const ItemArmazenagemResponseSchema = z.object({
   status: ItemArmazenagemStatusSchema,
   produtoSku: z.string().nullable(),
   produtoNome: z.string().nullable(),
+  unitizadorCodigo: z.string().nullable(),
   enderecoSugeridoLabel: z.string().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -30,6 +33,28 @@ export const ItemArmazenagemResponseSchema = z.object({
 
 export class ItemArmazenagemResponseDto extends createZodDto(
   ItemArmazenagemResponseSchema,
+) {}
+
+export const TarefaArmazenagemResponseSchema = z.object({
+  id: z.uuid(),
+  demandaId: z.uuid(),
+  unitizadorId: z.uuid().nullable(),
+  unitizadorCodigo: z.string().nullable(),
+  sequencia: z.number().int().positive(),
+  status: TarefaArmazenagemStatusSchema,
+  enderecoSugeridoId: z.uuid().nullable(),
+  enderecoConfirmadoId: z.uuid().nullable(),
+  enderecoSugeridoLabel: z.string().nullable(),
+  responsavelId: z.number().int().nullable(),
+  startedAt: z.iso.datetime().nullable(),
+  finishedAt: z.iso.datetime().nullable(),
+  itens: z.array(ItemArmazenagemResponseSchema),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export class TarefaArmazenagemResponseDto extends createZodDto(
+  TarefaArmazenagemResponseSchema,
 ) {}
 
 export const DemandaArmazenagemResponseSchema = z.object({
@@ -41,6 +66,8 @@ export const DemandaArmazenagemResponseSchema = z.object({
   responsavelId: z.number().int().nullable(),
   startedAt: z.iso.datetime().nullable(),
   finishedAt: z.iso.datetime().nullable(),
+  validadoPor: z.number().int().nullable(),
+  validadoEm: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -56,6 +83,7 @@ export class PoliticaArmazenagemResponseDto extends createZodDto(
 export const DemandaArmazenagemDetailResponseSchema =
   DemandaArmazenagemResponseSchema.extend({
     itens: z.array(ItemArmazenagemResponseSchema),
+    tarefas: z.array(TarefaArmazenagemResponseSchema).optional(),
     politica: PoliticaArmazenagemSchema,
   });
 

@@ -46,9 +46,12 @@ import { ApiClientError } from '@/lib/api';
 const ORDEM_FIELD_BY_CONTEXT = {
   separacao: 'ordemImpressaoSeparacao',
   conferencia: 'ordemImpressaoConferencia',
+  conferencia_reentrega: 'ordemImpressaoConferenciaReentrega',
 } as const satisfies Record<
   OrdemImpressaoContext,
-  'ordemImpressaoSeparacao' | 'ordemImpressaoConferencia'
+  | 'ordemImpressaoSeparacao'
+  | 'ordemImpressaoConferencia'
+  | 'ordemImpressaoConferenciaReentrega'
 >;
 
 function swapOrdemItems<T>(
@@ -87,12 +90,35 @@ function mesclarComContexto(
   base: ImpressaoConfig,
   conteudo: PreConfiguracaoImpressao['config'],
 ): ImpressaoConfig {
+  const layoutCabecalho = {
+    ...DEFAULT_IMPRESSAO_CONFIG.layoutCabecalho,
+    ...conteudo.layoutCabecalho,
+    conferencia_reentrega:
+      conteudo.layoutCabecalho?.conferencia_reentrega ??
+      DEFAULT_IMPRESSAO_CONFIG.layoutCabecalho.conferencia_reentrega,
+  };
+
+  const qrCodeMapa = {
+    ...DEFAULT_IMPRESSAO_CONFIG.qrCodeMapa,
+    ...conteudo.qrCodeMapa,
+    conferencia_reentrega:
+      conteudo.qrCodeMapa?.conferencia_reentrega ??
+      conteudo.qrCodeMapa?.conferencia ??
+      DEFAULT_IMPRESSAO_CONFIG.qrCodeMapa.conferencia_reentrega,
+  };
+
   return {
     centroId: base.centroId,
     centroNome: base.centroNome,
     nomeCentroSistema: base.nomeCentroSistema,
     usuarioId: base.usuarioId,
     ...conteudo,
+    layoutCabecalho,
+    qrCodeMapa,
+    ordemImpressaoConferenciaReentrega:
+      conteudo.ordemImpressaoConferenciaReentrega ??
+      conteudo.ordemImpressaoConferencia ??
+      DEFAULT_IMPRESSAO_CONFIG.ordemImpressaoConferenciaReentrega,
     opcoesTabelasCarregamento: {
       ...DEFAULT_OPCOES_TABELAS_CARREGAMENTO,
       ...conteudo.opcoesTabelasCarregamento,

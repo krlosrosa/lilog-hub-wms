@@ -89,14 +89,6 @@ export const MOCK_SETORES = [
   'DOCA 03',
 ] as const;
 
-export const MOCK_CATEGORIAS = [
-  'ELETRÔNICOS',
-  'ALIMENTOS',
-  'BEBIDAS',
-  'HIGIENE',
-  'LIMPEZA',
-] as const;
-
 /** Demandas iniciais para a tela de gestão (passo 2) */
 export const MOCK_DEMANDAS_CONTAGEM: DemandaContagemItem[] = [
   {

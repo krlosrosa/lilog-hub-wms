@@ -76,7 +76,7 @@ export async function deleteMapaLoteDb(
           eq(transportes.ultimoMapaLoteId, loteId),
         ),
       )
-      .returning({ id: transportes.id });
+      .returning({ numeroTransporte: transportes.numeroTransporte });
 
     await tx
       .delete(mapaLotes)

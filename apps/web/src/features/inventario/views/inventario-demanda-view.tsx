@@ -1,21 +1,79 @@
 'use client';
 
-import { CheckCircle2, Plus } from 'lucide-react';
+import type { ReactNode } from 'react';
+
+import Link from 'next/link';
+
+import { ClipboardList, Loader2, Play, Plus, Users } from 'lucide-react';
 
 import { Button, cn } from '@lilog/ui';
 
-import { accentSubtleBadgeBorderClassName } from '@/lib/semantic-badge-classes';
 import { SidebarMain } from '@/components/layout/sidebar';
+import {
+  compactTableBodyClassName,
+  compactTableClassName,
+  compactTableEmptyCellClassName,
+  compactTableHeadCellClassName,
+  compactTableHeadRowClassName,
+} from '@/components/ui/compact-table-classes';
 
 import { DemandaRow } from '@/features/inventario/components/demanda-row';
 import { useInventarioDemanda } from '@/features/inventario/hooks/use-inventario-demanda';
 
-const statCardBase =
-  'rounded-xl border border-outline-variant bg-glass-bg p-6 shadow-inner-glow backdrop-blur-glass transition-colors hover:border-primary/30';
+const glassCard =
+  'overflow-hidden rounded-lg border border-outline-variant bg-glass-bg shadow-inner-glow backdrop-blur-glass';
+
+const TABLE_HEADERS = [
+  { label: 'Demanda', className: 'min-w-[9rem]' },
+  { label: 'Tipo', className: 'hidden sm:table-cell w-24' },
+  { label: 'Progresso', className: 'min-w-[7rem]' },
+  { label: 'Status', className: 'w-24' },
+  { label: '', className: 'w-8 text-right' },
+] as const;
+
+const FILTROS = [
+  ['todas', 'Todos'],
+  ['cega', 'Cega'],
+  ['validacao', 'Validação'],
+] as const;
 
 export type InventarioDemandaViewProps = {
   inventarioId: string;
 };
+
+function MiniStat({
+  label,
+  value,
+  detail,
+  icon,
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+  icon?: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        glassCard,
+        'flex min-w-[8.5rem] shrink-0 snap-start items-center gap-2 p-2.5 sm:min-w-0',
+      )}
+    >
+      {icon ? (
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+          {icon}
+        </span>
+      ) : null}
+      <div className="min-w-0">
+        <p className="truncate text-[10px] text-muted-foreground">{label}</p>
+        <p className="text-sm font-bold tabular-nums text-foreground">{value}</p>
+        {detail ? (
+          <p className="truncate text-[9px] text-muted-foreground">{detail}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 export function InventarioDemandaView({
   inventarioId,
@@ -27,117 +85,111 @@ export function InventarioDemandaView({
     resumo,
     irParaNovaDemanda,
     removerDemanda,
-    voltarCadastro,
+    voltarDetalhe,
     salvarEIniciar,
     salvando,
     carregando,
   } = useInventarioDemanda(inventarioId);
 
   return (
-    <SidebarMain>
-      <main className="px-margin-mobile py-6 md:px-margin-desktop md:py-8">
-        <div className="mx-auto flex max-w-container flex-col gap-5 md:gap-6 lg:gap-8">
-          <div className="flex flex-wrap items-center gap-2 text-caption md:text-label-md">
-            <BadgeStep concluido label="Passo 1: Configuração básica" />
-            <span aria-hidden className="text-muted-foreground">&gt;</span>
-            <BadgeStep concluido={false} ativo label="Passo 2: Gestão de demandas" />
-            <span aria-hidden className="text-muted-foreground">&gt;</span>
-            <BadgeStep concluido={false} label="Passo 3: Revisão e início" />
+    <SidebarMain className="flex min-h-dvh flex-col">
+      <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant bg-glass-bg px-margin-mobile py-2.5 backdrop-blur-glass md:px-margin-desktop">
+        <div className="min-w-0">
+          <nav
+            aria-label="Migalhas"
+            className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground"
+          >
+            <Link href="/inventario" className="transition-colors hover:text-primary">
+              Inventário
+            </Link>
+            <span aria-hidden>/</span>
+            <Link
+              href={`/inventario/${inventarioId}`}
+              className="transition-colors hover:text-primary"
+            >
+              Detalhe
+            </Link>
+            <span aria-hidden>/</span>
+            <span className="font-medium text-foreground">Demandas</span>
+          </nav>
+          <h1 className="truncate text-base font-semibold tracking-tight text-foreground">
+            Demandas de contagem
+          </h1>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 border-outline-variant text-xs"
+            onClick={voltarDetalhe}
+          >
+            Voltar
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={irParaNovaDemanda}
+          >
+            <Plus className="size-3.5 shrink-0" aria-hidden />
+            <span className="hidden sm:inline">Nova demanda</span>
+            <span className="sm:hidden">Nova</span>
+          </Button>
+        </div>
+      </header>
+
+      <main className="flex-1 bg-surface-lowest px-margin-mobile py-3 md:px-margin-desktop md:py-4">
+        <div className="mx-auto max-w-5xl space-y-3">
+          <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:grid-cols-4 sm:overflow-visible sm:gap-2">
+            <MiniStat
+              label="Total"
+              value={resumo.total}
+              detail={`${resumo.progressoMedio}% progresso médio`}
+              icon={<ClipboardList className="size-3.5" aria-hidden />}
+            />
+            <MiniStat
+              label="Cega / Validação"
+              value={`${resumo.cega} / ${resumo.validacao}`}
+              detail={`${resumo.concluidas} concluída(s)`}
+            />
+            <MiniStat
+              label="Em andamento"
+              value={resumo.emAndamento}
+              detail={`de ${resumo.total} demanda(s)`}
+            />
+            <MiniStat
+              label="Equipe"
+              value={resumo.total > 0 ? resumo.avatares.length + resumo.extras : 0}
+              detail={
+                resumo.extras > 0
+                  ? `${resumo.extras + resumo.avatares.length} operador(es)`
+                  : 'operador(es)'
+              }
+              icon={<Users className="size-3.5" aria-hidden />}
+            />
           </div>
 
-          <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div className="min-w-0">
-              <h1 className="text-headline-lg-mobile font-semibold tracking-tight text-primary md:text-headline-lg">
-                Gestão de demandas de contagem
-              </h1>
-              <p className="mt-1 text-body-md text-muted-foreground">
-                Defina os setores, responsáveis e métodos para o inventário atual.
-              </p>
-            </div>
-            <Button
-              type="button"
-              className="shrink-0 gap-2 self-start sm:self-auto"
-              onClick={irParaNovaDemanda}
-            >
-              <Plus className="size-4 shrink-0" aria-hidden />
-              Adicionar demanda
-            </Button>
-          </header>
-
-          <div className="grid gap-4 md:grid-cols-12 md:gap-5">
-            <div
-              className={cn(
-                statCardBase,
-                'flex flex-col justify-between gap-4 md:col-span-4',
-              )}
-            >
-              <div>
-                <p className="text-caption text-muted-foreground">
-                  Total de demandas
-                </p>
-                <p className="text-headline-md font-bold text-foreground">
-                  {resumo.total}
-                </p>
-              </div>
-              <div className="flex items-center gap-1 text-caption text-accent">
-                <span aria-hidden>↑</span>
-                Capacidade de 85% alocada
-              </div>
-            </div>
-
-            <div className={cn(statCardBase, 'md:col-span-4')}>
-              <p className="text-caption text-muted-foreground">
-                Tipos de contagem
-              </p>
-              <div className="mt-2 flex flex-wrap items-end gap-4">
-                <div>
-                  <p className="text-headline-md font-bold text-accent">{resumo.cega}</p>
-                  <p className="text-caption text-muted-foreground">Cega</p>
-                </div>
-                <div className="mx-2 h-8 border-l border-outline-variant" aria-hidden />
-                <div>
-                  <p className="text-headline-md font-bold text-secondary-foreground">
-                    {resumo.validacao}
-                  </p>
-                  <p className="text-caption text-muted-foreground">Validação</p>
-                </div>
-              </div>
-            </div>
-
-            <div
-              className={cn(statCardBase, 'relative overflow-hidden md:col-span-4')}
-            >
-              <div className="relative z-[2] space-y-2">
-                <p className="text-caption text-muted-foreground">Equipe alocada</p>
-                <Avatars equipe={resumo} />
-              </div>
-              <div className="pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-primary/15 blur-[60px]" />
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-outline-variant bg-glass-bg shadow-inner-glow backdrop-blur-glass">
-            <div className="flex flex-col gap-4 border-b border-outline-variant p-4 lg:flex-row lg:items-center lg:justify-between lg:p-6">
-              <h2 className="text-label-md font-semibold text-foreground">
-                Demandas atuais
+          <article className={glassCard}>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant px-3 py-2">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Demandas
               </h2>
-              <div className="flex flex-wrap items-center gap-2 text-caption text-muted-foreground md:text-label-md">
-                <span>Filtros:</span>
-                {(
-                  [
-                    ['todas', 'Todos'],
-                    ['cega', 'Cega'],
-                    ['validacao', 'Validação'],
-                  ] as const
-                ).map(([key, lab]) => (
+              <div
+                className="flex flex-wrap items-center gap-1"
+                role="group"
+                aria-label="Filtrar por tipo"
+              >
+                {FILTROS.map(([key, lab]) => (
                   <button
                     key={key}
                     type="button"
                     onClick={() => setFiltroTipo(key)}
                     className={cn(
-                      'rounded-full px-3 py-1 transition-colors',
+                      'rounded-full px-2 py-px text-[10px] font-medium transition-colors',
                       filtroTipo === key
-                        ? 'bg-surface-high font-medium text-foreground ring-1 ring-outline-variant'
-                        : 'hover:bg-muted',
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-surface-highest hover:text-foreground',
                     )}
                   >
                     {lab}
@@ -147,98 +199,87 @@ export function InventarioDemandaView({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead className="border-b border-outline-variant bg-surface-high/50">
-                  <tr>
-                    {['Local / setor', 'Responsável', 'Tipo', 'Status', 'Ações'].map(
-                      (col) => (
-                        <th
-                          key={col}
-                          className={cn(
-                            'px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:text-label-md md:font-semibold',
-                            col === 'Ações' && 'text-right',
-                          )}
-                        >
-                          {col}
-                        </th>
-                      ),
-                    )}
+              <table className={compactTableClassName}>
+                <thead>
+                  <tr className={compactTableHeadRowClassName}>
+                    {TABLE_HEADERS.map((header) => (
+                      <th
+                        key={header.label || 'actions'}
+                        className={compactTableHeadCellClassName(header.className)}
+                      >
+                        {header.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-outline-variant">
-                  {demandas.map((d) => (
-                    <DemandaRow key={d.id} item={d} onRemover={removerDemanda} />
-                  ))}
+                <tbody className={compactTableBodyClassName}>
+                  {carregando ? (
+                    <tr>
+                      <td
+                        colSpan={TABLE_HEADERS.length}
+                        className={compactTableEmptyCellClassName}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                          Carregando demandas…
+                        </span>
+                      </td>
+                    </tr>
+                  ) : demandas.length > 0 ? (
+                    demandas.map((d) => (
+                      <DemandaRow key={d.id} item={d} onRemover={removerDemanda} />
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={TABLE_HEADERS.length}
+                        className={compactTableEmptyCellClassName}
+                      >
+                        <ClipboardList
+                          className="mx-auto mb-2 size-5 text-muted-foreground/50"
+                          aria-hidden
+                        />
+                        Nenhuma demanda com este filtro.
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="mt-1 h-auto p-0 text-[11px]"
+                          onClick={irParaNovaDemanda}
+                        >
+                          Adicionar demanda
+                        </Button>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
-            {demandas.length === 0 ? (
-              <p className="px-6 py-16 text-center text-body-md text-muted-foreground">
-                Nenhuma demanda com este filtro.
-              </p>
-            ) : null}
-          </div>
+          </article>
 
-          <div className="flex flex-wrap justify-end gap-3 border-t border-outline-variant/30 pt-6">
-            <Button type="button" variant="outline" onClick={voltarCadastro}>
-              Voltar
-            </Button>
-            <Button disabled={salvando} type="button" onClick={() => salvarEIniciar()}>
-              {salvando ? 'Salvando…' : 'Salvar e iniciar inventário'}
+          <div className="flex justify-end gap-1.5 pt-1">
+            <Button
+              disabled={salvando || carregando || resumo.total === 0}
+              type="button"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => void salvarEIniciar()}
+            >
+              {salvando ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  Iniciando…
+                </>
+              ) : (
+                <>
+                  <Play className="size-3.5 shrink-0" aria-hidden />
+                  Iniciar inventário
+                </>
+              )}
             </Button>
           </div>
         </div>
       </main>
     </SidebarMain>
-  );
-}
-
-function BadgeStep({
-  label,
-  concluido,
-  ativo,
-}: {
-  label: string;
-  concluido: boolean;
-  ativo?: boolean;
-}) {
-  const base =
-    'inline-flex items-center gap-2 whitespace-nowrap rounded-lg border px-3 py-1.5 text-caption md:px-4 md:py-2 md:text-label-md';
-  const classes = concluido
-    ? cn('border', accentSubtleBadgeBorderClassName)
-    : ativo
-      ? 'border-primary/40 bg-primary/10 font-semibold text-primary'
-      : 'border-transparent text-muted-foreground opacity-90';
-
-  return (
-    <div className={cn(base, classes)}>
-      {concluido ? <CheckCircle2 className="size-4 shrink-0 md:size-5" aria-hidden /> : null}
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function Avatars({
-  equipe,
-}: {
-  equipe: { avatares: { key: string; inicial: string }[]; extras: number };
-}) {
-  return (
-    <div className="flex -space-x-2 pt-1">
-      {equipe.avatares.map((av) => (
-        <div
-          key={av.key}
-          title={String(av.inicial)}
-          className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-[11px] font-bold uppercase text-muted-foreground md:size-10"
-        >
-          {av.inicial}
-        </div>
-      ))}
-      {equipe.extras > 0 ? (
-        <div className="-ml-1 flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface-high text-caption text-muted-foreground md:size-10">
-          +{equipe.extras}
-        </div>
-      ) : null}
-    </div>
   );
 }

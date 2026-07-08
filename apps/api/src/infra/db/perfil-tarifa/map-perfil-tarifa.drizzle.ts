@@ -4,6 +4,7 @@ import type {
 } from '../../../domain/model/perfil-tarifa/perfil-tarifa.model.js';
 import type {
   FaixaKmRecord,
+  ItinerarioRecord,
   PerfilTarifaRecord,
 } from '../../../domain/repositories/perfil-tarifa/perfil-tarifa.repository.js';
 import type {
@@ -14,13 +15,17 @@ import type {
 type PerfilTarifaRow = typeof perfisTarifas.$inferSelect;
 type FaixaKmRow = typeof perfisTarifasFaixasKm.$inferSelect;
 
-export function mapFaixaKmRow(row: FaixaKmRow): FaixaKmRecord {
+export function mapFaixaKmRow(
+  row: FaixaKmRow,
+  itinerarios: ItinerarioRecord[] = [],
+): FaixaKmRecord {
   return {
     id: row.id,
     kmInicial: row.kmInicial,
     kmFinal: row.kmFinal,
     valor: row.valor,
-    itinerario: row.itinerario,
+    itinerario: itinerarios[0]?.codigo ?? row.itinerario,
+    itinerarios,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

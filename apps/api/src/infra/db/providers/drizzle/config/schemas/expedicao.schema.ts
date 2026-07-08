@@ -19,6 +19,7 @@ import { users, funcionarios } from './auth.schema.js';
 import { docas, operacaoDocaPrioridadeEnum } from './doca.schema.js';
 import { produtos, unidades } from './master-data.schema.js';
 import { sessaoFuncionarios } from './sessao-operacao.schema.js';
+import { itinerarios } from './transporte.schema.js';
 
 export const expedicaoPgSchema = pgSchema('expedicao');
 
@@ -91,6 +92,10 @@ export const remessas = expedicaoPgSchema.table('remessas', {
   volume: numeric('volume', { precision: 10, scale: 3 }).notNull(),
   origem: origemRemessaEnum('origem').notNull().default('upload'),
   motivoReentrega: text('motivo_reentrega'),
+  itinerario: varchar('itinerario', { length: 100 }),
+  itinerarioId: uuid('itinerario_id').references(() => itinerarios.id, {
+    onDelete: 'set null',
+  }),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -104,7 +109,7 @@ export const remessaItens = expedicaoPgSchema.table(
       .notNull()
       .references(() => remessas.id, { onDelete: 'cascade' }),
     sku: varchar('sku', { length: 50 }).notNull(),
-    produtoId: uuid('produto_id').references(() => produtos.id, {
+    produtoId: varchar('produto_id', { length: 50 }).references(() => produtos.produtoId, {
       onDelete: 'set null',
     }),
     lote: varchar('lote', { length: 100 }),
@@ -132,16 +137,17 @@ export const remessaItens = expedicaoPgSchema.table(
 );
 
 export const transportes = expedicaoPgSchema.table('transportes', {
-  id: uuid('id').defaultRandom().primaryKey(),
+  numeroTransporte: varchar('numero_transporte', { length: 100 })
+    .notNull()
+    .primaryKey(),
   unidadeId: varchar('unidade_id', { length: 50 })
     .notNull()
     .references(() => unidades.id, { onDelete: 'restrict' }),
   uploadLoteId: uuid('upload_lote_id')
     .notNull()
     .references(() => uploadLotes.id, { onDelete: 'restrict' }),
-  rota: varchar('rota', { length: 100 }).notNull(),
-  regiao: varchar('regiao', { length: 100 }).notNull(),
-  cidade: varchar('cidade', { length: 100 }).notNull(),
+  regiao: varchar('regiao', { length: 100 }),
+  cidade: varchar('cidade', { length: 100 }),
   bairro: varchar('bairro', { length: 100 }),
   dataTransporte: date('data_transporte').notNull(),
   horarioExpectativaSaida: timestamp('horario_expectativa_saida', {
@@ -155,6 +161,9 @@ export const transportes = expedicaoPgSchema.table('transportes', {
     .default('0'),
   distanciaKm: numeric('distancia_km', { precision: 8, scale: 2 }),
   itinerario: varchar('itinerario', { length: 100 }),
+  itinerarioId: uuid('itinerario_id').references(() => itinerarios.id, {
+    onDelete: 'set null',
+  }),
   perfilEsperado: tipoVeiculoEnum('perfil_esperado'),
   status: statusTransporteEnum('status').notNull().default('pendente'),
   placa: varchar('placa', { length: 20 }),
@@ -210,9 +219,9 @@ export const transporteRemessas = expedicaoPgSchema.table(
   'transporte_remessas',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    transporteId: uuid('transporte_id')
+    transporteId: varchar('transporte_id', { length: 100 })
       .notNull()
-      .references(() => transportes.id, { onDelete: 'cascade' }),
+      .references(() => transportes.numeroTransporte, { onDelete: 'cascade' }),
     remessaId: uuid('remessa_id')
       .notNull()
       .references(() => remessas.id, { onDelete: 'restrict' }),
@@ -265,9 +274,9 @@ export const mapaLoteTransportes = expedicaoPgSchema.table(
     mapaLoteId: uuid('mapa_lote_id')
       .notNull()
       .references(() => mapaLotes.id, { onDelete: 'cascade' }),
-    transporteId: uuid('transporte_id')
+    transporteId: varchar('transporte_id', { length: 100 })
       .notNull()
-      .references(() => transportes.id, { onDelete: 'restrict' }),
+      .references(() => transportes.numeroTransporte, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -290,9 +299,9 @@ export const mapaGrupos = expedicaoPgSchema.table(
       .references(() => mapaLotes.id, { onDelete: 'cascade' }),
     microUuid: varchar('micro_uuid', { length: 120 }).notNull(),
     processo: mapaGrupoProcessoTypeEnum('processo').notNull(),
-    transporteId: uuid('transporte_id')
+    transporteId: varchar('transporte_id', { length: 100 })
       .notNull()
-      .references(() => transportes.id, { onDelete: 'restrict' }),
+      .references(() => transportes.numeroTransporte, { onDelete: 'cascade' }),
     titulo: varchar('titulo', { length: 255 }).notNull(),
     subtitulo: varchar('subtitulo', { length: 255 }),
     cabecalho: jsonb('cabecalho').notNull(),
@@ -402,16 +411,17 @@ export type RemessaViewRow = {
   volume: string;
   origem: 'upload' | 'reentrega';
   motivoReentrega: string | null;
+  itinerario: string | null;
+  itinerarioId: string | null;
 };
 
 export const vwTransportes = expedicaoPgSchema
   .view('vw_transportes', {
-    id: uuid('id').notNull(),
+    numeroTransporte: varchar('numero_transporte', { length: 100 }).notNull(),
     unidadeId: varchar('unidade_id', { length: 50 }).notNull(),
     uploadLoteId: uuid('upload_lote_id').notNull(),
-    rota: varchar('rota', { length: 100 }).notNull(),
-    regiao: varchar('regiao', { length: 100 }).notNull(),
-    cidade: varchar('cidade', { length: 100 }).notNull(),
+    regiao: varchar('regiao', { length: 100 }),
+    cidade: varchar('cidade', { length: 100 }),
     bairro: varchar('bairro', { length: 100 }),
     dataTransporte: date('data_transporte').notNull(),
     horarioExpectativaSaida: timestamp('horario_expectativa_saida', {
@@ -421,6 +431,7 @@ export const vwTransportes = expedicaoPgSchema
     volumeTotal: numeric('volume_total', { precision: 10, scale: 3 }).notNull(),
     distanciaKm: numeric('distancia_km', { precision: 8, scale: 2 }),
     itinerario: varchar('itinerario', { length: 100 }),
+    itinerarioId: uuid('itinerario_id'),
     perfilEsperado: tipoVeiculoEnum('perfil_esperado'),
     status: statusTransporteEnum('status').notNull(),
     placa: varchar('placa', { length: 20 }),

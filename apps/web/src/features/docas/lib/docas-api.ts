@@ -1,6 +1,8 @@
 import { apiRequest } from '@/lib/api';
 
 import type {
+  BulkCreateDocasApiResponse,
+  BulkCreateDocasPayload,
   CreateDocaPayload,
   CreateOperacaoDocaPayload,
   DocaActionPayload,
@@ -89,6 +91,13 @@ export function getDoca(id: string) {
 
 export function createDoca(payload: CreateDocaPayload) {
   return apiRequest<DocaApi>('/docas', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function bulkCreateDocas(payload: BulkCreateDocasPayload) {
+  return apiRequest<BulkCreateDocasApiResponse>('/docas/em-massa', {
     method: 'POST',
     body: JSON.stringify(payload),
   });

@@ -1,17 +1,28 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import {
-  getOutrasViagensDisponiveis,
-  getTripInfoByDemandaId,
-  MOCK_DOCK_OPTIONS,
-  MOCK_NFS,
-  MOCK_NF_VALIDATION_ITEMS,
-  MOCK_OUTRAS_VIAGENS,
-} from '@/features/devolucao/mocks/devolucao-mock-data';
 import type { DemandaFaltaPayload } from '@/features/devolucao/components/devolucao-demanda-falta-dialog';
+import {
+  atualizarStatusDemanda,
+  buscarDemandaDevolucao,
+  registrarConferenciaItens,
+  salvarChecklistDevolucao,
+} from '@/features/devolucao/lib/devolucao-api';
+import {
+  canAccessRegistroChegada,
+  mapDemandaToTripInfo,
+  mapNfItemsToConferenciaPayload,
+  mapNotasFiscaisToNfRows,
+} from '@/features/devolucao/lib/devolucao-checkin-mappers';
+import { listDocas } from '@/features/docas/lib/docas-api';
 import type { NfItem, NfRow } from '@/features/devolucao/types/devolucao-checkin.schema';
+import type {
+  DockOption,
+  OutraViagem,
+  TripInfo,
+} from '@/features/devolucao/types/devolucao-checkin.schema';
+import type { DemandaDevolucaoStatus } from '@/features/devolucao/types/devolucao-gestao.schema';
 
 type ValidationItem = {
   id: string;
@@ -60,39 +71,122 @@ function recalculateNf(nf: NfRow): NfRow {
   };
 }
 
-function delay(ms: number) {
-  return new Promise<void>((resolve) => {
-    setTimeout(resolve, ms);
-  });
+function mapNfItemToValidationItem(item: NfItem): ValidationItem {
+  return {
+    id: item.id,
+    sku: item.sku,
+    produto: item.produto,
+    gtin: item.gtin,
+    qtdNf: item.qtdNf,
+    qtdDevolucao: item.qtdDevolucao,
+    qtdConferida: item.qtdConferida,
+    motivo: item.motivo,
+    status: item.status,
+  };
 }
 
-export function useDevolucaoCheckin(demandId: string) {
+const EMPTY_TRIP_INFO: TripInfo = {
+  motorista: '—',
+  placa: '—',
+  transportadora: '—',
+  viagemRavexId: '—',
+};
+
+export function useDevolucaoCheckin(
+  demandId: string,
+  unidadeId: string | null,
+) {
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [tripInfo] = useState(() => getTripInfoByDemandaId(demandId));
-  const [dockOptions] = useState(() => [...MOCK_DOCK_OPTIONS]);
-  const [docaId, setDocaId] = useState('d-04');
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [codigoDemanda, setCodigoDemanda] = useState('—');
+  const [statusDb, setStatusDb] = useState<DemandaDevolucaoStatus | null>(null);
+  const [tripInfo, setTripInfo] = useState<TripInfo>(EMPTY_TRIP_INFO);
+  const [dockOptions, setDockOptions] = useState<DockOption[]>([]);
+  const [docaId, setDocaId] = useState('');
   const [cargaSegregada, setCargaSegregada] = useState(false);
-  const [paletesRetornados, setPaletesRetornados] = useState(12);
-  const [chapasPbr] = useState(4);
-  const [nfs, setNfs] = useState<NfRow[]>(() =>
-    MOCK_NFS.map((nf) => ({ ...nf, itens: [...nf.itens] })),
-  );
+  const [paletesRetornados, setPaletesRetornados] = useState(0);
+  const [tempBau, setTempBau] = useState('');
+  const [tempProduto, setTempProduto] = useState('');
+  const [chapasPbr] = useState(0);
+  const [nfs, setNfs] = useState<NfRow[]>([]);
   const [expandedNfIds, setExpandedNfIds] = useState<Set<string>>(
-    () => new Set(['nf-1']),
+    () => new Set(),
   );
-  const [validationItems, setValidationItems] = useState<ValidationItem[]>(() =>
-    MOCK_NF_VALIDATION_ITEMS.map((item) => ({ ...item })),
-  );
+  const [validationItems, setValidationItems] = useState<ValidationItem[]>([]);
   const [showValidationPanel, setShowValidationPanel] = useState(false);
-  const [selectedNfNumero, setSelectedNfNumero] = useState('001.244.592');
+  const [selectedNfNumero, setSelectedNfNumero] = useState('');
   const [showAdicionarViagemDialog, setShowAdicionarViagemDialog] =
     useState(false);
   const [showDemandaFaltaDialog, setShowDemandaFaltaDialog] = useState(false);
 
-  const outrasViagens = useMemo(
-    () => getOutrasViagensDisponiveis(demandId, nfs),
-    [demandId, nfs],
-  );
+  const carregarDados = useCallback(async () => {
+    if (!unidadeId) {
+      setLoadError('Selecione uma unidade para continuar.');
+      setIsInitialLoading(false);
+      return;
+    }
+
+    setIsInitialLoading(true);
+    setLoadError(null);
+
+    try {
+      const [demandaResponse, docasResponse] = await Promise.all([
+        buscarDemandaDevolucao(demandId, unidadeId),
+        listDocas({ unidadeId, limit: 100 }),
+      ]);
+
+      const mappedNfs = mapNotasFiscaisToNfRows(demandaResponse.notasFiscais);
+      const mappedDockOptions: DockOption[] = docasResponse.items.map(
+        (doca) => ({
+          id: doca.id,
+          label: doca.nome,
+        }),
+      );
+
+      setCodigoDemanda(demandaResponse.codigoDemanda);
+      setStatusDb(demandaResponse.status);
+      setTripInfo(mapDemandaToTripInfo(demandaResponse));
+      setNfs(mappedNfs);
+      setDockOptions(mappedDockOptions);
+
+      const checklist = demandaResponse.checklist;
+      if (checklist) {
+        const docaMatch = mappedDockOptions.find(
+          (opt) => opt.label === checklist.dock || opt.id === checklist.dock,
+        );
+        setDocaId(docaMatch?.id ?? mappedDockOptions[0]?.id ?? '');
+        setPaletesRetornados(checklist.paletesRecebidos);
+        setCargaSegregada(Boolean(checklist.conditions.cargaSegregada));
+        setTempBau(
+          checklist.tempBau !== null ? String(checklist.tempBau) : '',
+        );
+        setTempProduto(
+          checklist.tempProduto !== null ? String(checklist.tempProduto) : '',
+        );
+      } else {
+        setDocaId(mappedDockOptions[0]?.id ?? '');
+        setPaletesRetornados(0);
+        setCargaSegregada(false);
+        setTempBau('');
+        setTempProduto('');
+      }
+
+      setExpandedNfIds(
+        mappedNfs.length > 0 ? new Set([mappedNfs[0]!.id]) : new Set(),
+      );
+    } catch {
+      setLoadError('Não foi possível carregar os dados da demanda.');
+    } finally {
+      setIsInitialLoading(false);
+    }
+  }, [demandId, unidadeId]);
+
+  useEffect(() => {
+    void carregarDados();
+  }, [carregarDados]);
+
+  const outrasViagens = useMemo<OutraViagem[]>(() => [], []);
 
   const nfsOutrasViagens = useMemo(
     () => nfs.filter((nf) => Boolean(nf.viagemOrigemId)).length,
@@ -105,6 +199,10 @@ export function useDevolucaoCheckin(demandId: string) {
     if (totalItens === 0) return 0;
     return Math.round((validados / totalItens) * 100);
   }, [nfs]);
+
+  const canAccessChegada = statusDb
+    ? canAccessRegistroChegada(statusDb)
+    : false;
 
   const toggleNfExpanded = useCallback((id: string) => {
     setExpandedNfIds((prev) => {
@@ -152,106 +250,188 @@ export function useDevolucaoCheckin(demandId: string) {
     [],
   );
 
-  const abrirValidacaoNf = useCallback((numero: string) => {
-    setSelectedNfNumero(numero);
-    setShowValidationPanel(true);
-  }, []);
+  const abrirValidacaoNf = useCallback(
+    (numero: string) => {
+      const nf = nfs.find((row) => row.numero === numero);
+      setSelectedNfNumero(numero);
+      setValidationItems(nf ? nf.itens.map(mapNfItemToValidationItem) : []);
+      setShowValidationPanel(true);
+    },
+    [nfs],
+  );
 
   const fecharValidacaoNf = useCallback(() => {
     setShowValidationPanel(false);
   }, []);
 
   const salvarValidacaoNf = useCallback(async () => {
+    if (!unidadeId) {
+      return { success: false as const, error: 'Unidade não selecionada.' };
+    }
+
     setIsLoading(true);
-    await delay(900);
-    setIsLoading(false);
-    setShowValidationPanel(false);
-    return { success: true as const };
-  }, []);
 
-  const cancelarCheckin = useCallback(async () => {
-    setIsLoading(true);
-    await delay(700);
-    setIsLoading(false);
-    return { success: true as const };
-  }, []);
-
-  const liberarConferenciaCega = useCallback(async () => {
-    setIsLoading(true);
-    await delay(1200);
-    setIsLoading(false);
-    return { success: true as const };
-  }, []);
-
-  const resolverDivergencia = useCallback(async (nfId: string) => {
-    setIsLoading(true);
-    await delay(800);
-    setNfs((prev) =>
-      prev.map((nf) =>
-        nf.id === nfId
-          ? {
-              ...nf,
-              divergenciaCritica: false,
-              status: 'parcial' as const,
-              itensValidados: 1,
-            }
-          : nf,
-      ),
-    );
-    setIsLoading(false);
-    return { success: true as const };
-  }, []);
-
-  const adicionarNfsDeOutraViagem = useCallback(
-    async (viagemId: string, nfIds: string[]) => {
-      setIsLoading(true);
-      await delay(700);
-
-      const viagem = MOCK_OUTRAS_VIAGENS.find((v) => v.id === viagemId);
-      if (!viagem) {
-        setIsLoading(false);
-        return { success: false as const };
-      }
-
-      const nfsParaAdicionar = viagem.nfs
-        .filter((nf) => nfIds.includes(nf.id))
-        .map((nf) => ({
-          ...nf,
-          id: `${nf.id}-${Date.now()}`,
-          itens: [...nf.itens],
-          viagemOrigemId: viagem.id,
-          viagemOrigemLabel: viagem.viagemRavexId,
-        }));
-
-      setNfs((prev) => [...prev, ...nfsParaAdicionar]);
-      setExpandedNfIds((prev) => {
-        const next = new Set(prev);
-        for (const nf of nfsParaAdicionar) next.add(nf.id);
-        return next;
+    try {
+      await registrarConferenciaItens(demandId, {
+        unidadeId,
+        itens: validationItems.map((item) => ({
+          itemId: item.id,
+          qtdConferida:
+            item.status === 'validado' ? item.qtdDevolucao : item.qtdConferida,
+          condicao:
+            item.status === 'validado'
+              ? 'integro'
+              : item.status === 'divergente'
+                ? 'avariado'
+                : 'nao_identificado',
+          observacao: item.motivo || null,
+        })),
       });
 
-      setIsLoading(false);
+      await carregarDados();
+      setShowValidationPanel(false);
+      return { success: true as const };
+    } catch {
       return {
-        success: true as const,
-        quantidade: nfsParaAdicionar.length,
-        viagemLabel: viagem.viagemRavexId,
+        success: false as const,
+        error: 'Não foi possível salvar a validação da nota.',
       };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [carregarDados, demandId, unidadeId, validationItems]);
+
+  const cancelarCheckin = useCallback(async () => {
+    return { success: true as const };
+  }, []);
+
+  const salvarChecklist = useCallback(async () => {
+    if (!unidadeId) {
+      return { success: false as const, error: 'Unidade não selecionada.' };
+    }
+
+    const dockSelecionada =
+      dockOptions.find((opt) => opt.id === docaId)?.label ?? docaId;
+
+    if (!dockSelecionada) {
+      return { success: false as const, error: 'Selecione uma doca.' };
+    }
+
+    setIsLoading(true);
+
+    try {
+      const tempBauValue = tempBau.trim() ? Number(tempBau) : undefined;
+      const tempProdutoValue = tempProduto.trim()
+        ? Number(tempProduto)
+        : undefined;
+
+      await salvarChecklistDevolucao(demandId, unidadeId, {
+        dock: dockSelecionada,
+        paletesRecebidos: paletesRetornados,
+        tempBau:
+          tempBauValue !== undefined && !Number.isNaN(tempBauValue)
+            ? tempBauValue
+            : undefined,
+        tempProduto:
+          tempProdutoValue !== undefined && !Number.isNaN(tempProdutoValue)
+            ? tempProdutoValue
+            : undefined,
+        conditions: { cargaSegregada },
+      });
+      return { success: true as const };
+    } catch {
+      return {
+        success: false as const,
+        error: 'Não foi possível salvar o checklist de entrada.',
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [cargaSegregada, demandId, docaId, dockOptions, paletesRetornados, tempBau, tempProduto, unidadeId]);
+
+  const liberarConferenciaCega = useCallback(async () => {
+    if (!unidadeId) {
+      return { success: false as const, error: 'Unidade não selecionada.' };
+    }
+
+    setIsLoading(true);
+
+    try {
+      const checklistResult = await salvarChecklist();
+      if (!checklistResult.success) {
+        return checklistResult;
+      }
+
+      await atualizarStatusDemanda(demandId, unidadeId, {
+        status: 'em_execucao',
+        observacao: 'Liberado para conferência cega',
+      });
+
+      await carregarDados();
+      return { success: true as const };
+    } catch {
+      return {
+        success: false as const,
+        error: 'Não foi possível liberar para conferência cega.',
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [carregarDados, demandId, salvarChecklist, unidadeId]);
+
+  const resolverDivergencia = useCallback(
+    async (nfId: string) => {
+      if (!unidadeId) {
+        return { success: false as const, error: 'Unidade não selecionada.' };
+      }
+
+      const nf = nfs.find((row) => row.id === nfId);
+      if (!nf) {
+        return { success: false as const, error: 'Nota fiscal não encontrada.' };
+      }
+
+      setIsLoading(true);
+
+      try {
+        await registrarConferenciaItens(demandId, {
+          unidadeId,
+          itens: mapNfItemsToConferenciaPayload(nf.itens),
+        });
+        await carregarDados();
+        return { success: true as const };
+      } catch {
+        return {
+          success: false as const,
+          error: 'Não foi possível resolver a divergência.',
+        };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [carregarDados, demandId, nfs, unidadeId],
+  );
+
+  const adicionarNfsDeOutraViagem = useCallback(
+    async (
+      _viagemId: string,
+      _nfIds: string[],
+    ): Promise<
+      | { success: true; quantidade: number; viagemLabel: string }
+      | { success: false }
+    > => {
+      // TODO: integrar com endpoint de vincular NFs de outra viagem (expedição)
+      return { success: false };
     },
     [],
   );
 
-  const removerNfExterna = useCallback(async (nfId: string) => {
-    setIsLoading(true);
-    await delay(400);
-    setNfs((prev) => prev.filter((nf) => nf.id !== nfId));
-    setExpandedNfIds((prev) => {
-      const next = new Set(prev);
-      next.delete(nfId);
-      return next;
-    });
-    setIsLoading(false);
-    return { success: true as const };
-  }, []);
+  const removerNfExterna = useCallback(
+    async (_nfId: string): Promise<{ success: true } | { success: false }> => {
+      // TODO: integrar com endpoint de desvincular NF externa
+      return { success: false };
+    },
+    [],
+  );
 
   const updateNfItemQtdDevolucao = useCallback(
     (nfId: string, itemId: string, value: number) => {
@@ -285,60 +465,84 @@ export function useDevolucaoCheckin(demandId: string) {
     );
   }, []);
 
-  const validarNf = useCallback(async (nfId: string) => {
-    setIsLoading(true);
-    await delay(600);
+  const validarNf = useCallback(
+    async (nfId: string) => {
+      if (!unidadeId) {
+        return { success: false as const, reason: 'unidade' as const };
+      }
 
-    let resultado: { success: boolean; numero?: string } = { success: false };
+      const nfAtual = nfs.find((row) => row.id === nfId);
+      if (!nfAtual) {
+        return { success: false as const, reason: 'notfound' as const };
+      }
 
-    setNfs((prev) =>
-      prev.map((nf) => {
-        if (nf.id !== nfId) return nf;
+      if (!nfAtual.motivo.trim()) {
+        return { success: false as const, reason: 'motivo' as const };
+      }
 
-        if (!nf.motivo.trim()) {
-          resultado = { success: false };
-          return nf;
-        }
+      setIsLoading(true);
 
-        const itens = nf.itens.map((item) => ({
+      try {
+        const itensAtualizados = nfAtual.itens.map((item) => ({
           ...item,
           status: deriveItemStatus(item.qtdDevolucao, item.qtdConferida),
         }));
 
-        const updated = recalculateNf({
-          ...nf,
-          itens,
-          divergenciaCritica: false,
+        await registrarConferenciaItens(demandId, {
+          unidadeId,
+          itens: mapNfItemsToConferenciaPayload(itensAtualizados),
         });
 
-        resultado = { success: true, numero: nf.numero };
-        return updated;
-      }),
-    );
-
-    setIsLoading(false);
-    return resultado.success
-      ? { success: true as const, numero: resultado.numero! }
-      : { success: false as const, reason: 'motivo' as const };
-  }, []);
+        await carregarDados();
+        return { success: true as const, numero: nfAtual.numero };
+      } catch {
+        return { success: false as const, reason: 'api' as const };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [carregarDados, demandId, nfs, unidadeId],
+  );
 
   const criarDemandaFalta = useCallback(
     async (itens: DemandaFaltaPayload[], observacao: string) => {
+      if (!unidadeId) {
+        return { success: false as const, error: 'Unidade não selecionada.' };
+      }
+
       setIsLoading(true);
-      await delay(900);
-      setShowDemandaFaltaDialog(false);
-      setIsLoading(false);
-      return {
-        success: true as const,
-        quantidade: itens.length,
-        observacao,
-      };
+
+      try {
+        await atualizarStatusDemanda(demandId, unidadeId, {
+          status: 'em_analise',
+          observacao: observacao || `Demanda de falta com ${itens.length} item(ns)`,
+        });
+        setShowDemandaFaltaDialog(false);
+        await carregarDados();
+        return {
+          success: true as const,
+          quantidade: itens.length,
+          observacao,
+        };
+      } catch {
+        return {
+          success: false as const,
+          error: 'Não foi possível registrar a demanda de falta.',
+        };
+      } finally {
+        setIsLoading(false);
+      }
     },
-    [],
+    [carregarDados, demandId, unidadeId],
   );
 
   return {
+    isInitialLoading,
     isLoading,
+    loadError,
+    codigoDemanda,
+    statusDb,
+    canAccessChegada,
     demandId,
     tripInfo,
     dockOptions,
@@ -347,6 +551,10 @@ export function useDevolucaoCheckin(demandId: string) {
     cargaSegregada,
     setCargaSegregada,
     paletesRetornados,
+    tempBau,
+    setTempBau,
+    tempProduto,
+    setTempProduto,
     chapasPbr,
     incrementPaletes,
     decrementPaletes,
@@ -361,6 +569,7 @@ export function useDevolucaoCheckin(demandId: string) {
     abrirValidacaoNf,
     fecharValidacaoNf,
     salvarValidacaoNf,
+    salvarChecklist,
     cancelarCheckin,
     liberarConferenciaCega,
     resolverDivergencia,
@@ -376,5 +585,6 @@ export function useDevolucaoCheckin(demandId: string) {
     updateNfItemQtdDevolucao,
     updateNfMotivo,
     validarNf,
+    recarregar: carregarDados,
   };
 }

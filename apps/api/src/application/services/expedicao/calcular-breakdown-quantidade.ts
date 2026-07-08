@@ -79,6 +79,48 @@ function roundPeso(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
 
+export type PesoPorUnidadeProdutoInput = {
+  unidadesPorCaixa: number | null;
+  caixasPorPalete: number | null;
+  pesoBrutoUnidade: string | null;
+  pesoBrutoCaixa: string | null;
+  pesoBrutoPalete: string | null;
+  pesoLiquidoUnidade: string | null;
+  pesoLiquidoCaixa: string | null;
+  pesoLiquidoPalete: string | null;
+};
+
+export function resolverPesoPorUnidadeProduto(
+  input: PesoPorUnidadeProdutoInput,
+): number | null {
+  const unidadesPorCaixa =
+    input.unidadesPorCaixa != null && input.unidadesPorCaixa > 0
+      ? input.unidadesPorCaixa
+      : 1;
+
+  const pesoBruto = derivePesosEmpacotamento(
+    parsePeso(input.pesoBrutoUnidade),
+    parsePeso(input.pesoBrutoCaixa),
+    parsePeso(input.pesoBrutoPalete),
+    unidadesPorCaixa,
+    input.caixasPorPalete,
+  ).pesoUnit;
+
+  if (pesoBruto != null && pesoBruto > 0) {
+    return pesoBruto;
+  }
+
+  const pesoLiquido = derivePesosEmpacotamento(
+    parsePeso(input.pesoLiquidoUnidade),
+    parsePeso(input.pesoLiquidoCaixa),
+    parsePeso(input.pesoLiquidoPalete),
+    unidadesPorCaixa,
+    input.caixasPorPalete,
+  ).pesoUnit;
+
+  return pesoLiquido != null && pesoLiquido > 0 ? pesoLiquido : null;
+}
+
 export function calcularBreakdownQuantidade(
   quantidadeNormalizadaUnidades: number,
   unidadesPorCaixa: number | null,

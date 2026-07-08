@@ -26,7 +26,9 @@ export async function createCncDb(db: DrizzleClient, data: CreateCncInput) {
       data.itens.length > 0
         ? await tx
             .insert(cncItens)
-            .values(data.itens.map((item) => toCncItemInsertValues(cncRow.id, item)))
+            .values(
+              data.itens.map((item) => toCncItemInsertValues(cncRow.id, item)),
+            )
             .returning()
         : [];
 

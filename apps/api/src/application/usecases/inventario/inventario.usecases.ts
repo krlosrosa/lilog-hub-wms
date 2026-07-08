@@ -5,7 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { gerarDivergenciasInventario } from '../../services/inventario/gerar-divergencias-inventario.js';
 import type { CreateInventarioInput } from '../../../domain/model/inventario/inventario.model.js';
+import {
+  ESTOQUE_REPOSITORY,
+  type IEstoqueRepository,
+} from '../../../domain/repositories/estoque/estoque.repository.js';
 import {
   INVENTARIO_REPOSITORY,
   type IInventarioRepository,
@@ -82,16 +87,27 @@ export class UpdateInventarioStatusUseCase {
   constructor(
     @Inject(INVENTARIO_REPOSITORY)
     private readonly inventarioRepository: IInventarioRepository,
+    @Inject(ESTOQUE_REPOSITORY)
+    private readonly estoqueRepository: IEstoqueRepository,
   ) {}
 
   async execute(
     id: string,
     status: 'pausado' | 'em_progresso' | 'concluido',
+    operatorId: number | null = null,
   ) {
     const inventario = await this.inventarioRepository.findInventarioById(id);
 
     if (!inventario) {
       throw new NotFoundException(`Inventário "${id}" não encontrado`);
+    }
+
+    if (status === 'concluido' && inventario.status !== 'concluido') {
+      await gerarDivergenciasInventario(
+        this.inventarioRepository,
+        this.estoqueRepository,
+        id,
+      );
     }
 
     const updated = await this.inventarioRepository.updateInventarioStatus(

@@ -21,12 +21,7 @@ function mapChecklistResponse(record: ChecklistRecebimentoRecord) {
     lacre: record.lacre,
     tempBau: record.tempBau,
     tempProduto: record.tempProduto,
-    conditions: {
-      limpeza: record.condicaoLimpeza,
-      odor: record.condicaoOdor,
-      estrutura: record.condicaoEstrutura,
-      vedacao: record.condicaoVedacao,
-    },
+    conditions: record.conditions,
     observacoes: record.observacoes,
     photoCount: record.photoCount,
     createdAt: record.createdAt.toISOString(),

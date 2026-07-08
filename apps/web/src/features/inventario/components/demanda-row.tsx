@@ -1,91 +1,152 @@
 'use client';
 
-import { LayoutGrid, Pencil, Snowflake, Trash2 } from 'lucide-react';
+import {
+  EyeOff,
+  MoreVertical,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 
-import { Button, cn } from '@lilog/ui';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  cn,
+} from '@lilog/ui';
 
-import { accentSubtleBadgeBorderClassName } from '@/lib/semantic-badge-classes';
-import type { DemandaContagemItem } from '@/features/inventario/types/inventario-lista.schema';
+import {
+  compactTableCellClassName,
+  compactTableRowClassName,
+} from '@/components/ui/compact-table-classes';
+import {
+  DEMANDA_PROGRESSO_STATUS_LABELS,
+  type DemandaProgressoItem,
+} from '@/features/inventario/types/inventario-detalhe.schema';
+import { DEMANDA_PRIORIDADE_LABELS } from '@/features/inventario/types/inventario-lista.schema';
 
 export type DemandaRowProps = {
-  item: DemandaContagemItem;
+  item: DemandaProgressoItem;
   onRemover?: (id: string) => void;
 };
 
+const STATUS_TONE = {
+  aguardando_inicio: 'bg-muted-foreground',
+  em_andamento: 'bg-primary',
+  concluida: 'bg-accent',
+  cancelada: 'bg-destructive/70',
+} as const;
+
 export function DemandaRow({ item, onRemover }: DemandaRowProps) {
-  const Icon = item.iconName === 'snow' ? Snowflake : LayoutGrid;
+  const TipoIcon = item.tipo === 'cega' ? EyeOff : ShieldCheck;
+  const prioridadeAlta = item.prioridade === 'alta' || item.prioridade === 'critica';
 
   return (
-    <tr className="group transition-colors hover:bg-muted/35">
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-2.5 md:gap-3">
+    <tr className={compactTableRowClassName}>
+      <td className={compactTableCellClassName}>
+        <div className="flex min-w-[9rem] items-center gap-2">
           <span
             className={cn(
-              'flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary md:size-10',
-              item.iconName === 'snow' &&
-                'bg-secondary/15 text-secondary-foreground',
+              'flex size-7 shrink-0 items-center justify-center rounded-md',
+              item.tipo === 'cega'
+                ? 'bg-primary/10 text-primary'
+                : 'bg-secondary/15 text-secondary-foreground',
             )}
           >
-            <Icon className="size-4 md:size-[18px]" aria-hidden />
+            <TipoIcon className="size-3.5" aria-hidden />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">
-              {item.localTitulo}
+            <p className="truncate text-[11px] font-semibold text-foreground">
+              {item.nome}
             </p>
-            <p className="truncate font-caption text-muted-foreground">
-              {item.localSubtitulo}
+            <p className="truncate text-[10px] text-muted-foreground">
+              {item.responsavelNome}
             </p>
           </div>
         </div>
       </td>
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground md:size-8 md:text-caption">
-            {item.responsavelNome.charAt(0)}
-          </div>
-          <span className="truncate text-sm text-foreground">{item.responsavelNome}</span>
-        </div>
-      </td>
-      <td className="px-6 py-4">
+
+      <td className={cn(compactTableCellClassName, 'hidden sm:table-cell')}>
         <span
           className={cn(
-            'rounded-full border px-2 py-0.5 text-caption font-medium md:px-2.5 md:py-1',
+            'rounded-full px-1.5 py-px text-[9px] font-semibold',
             item.tipo === 'cega'
-              ? cn('border', accentSubtleBadgeBorderClassName)
-              : 'border-secondary/35 bg-secondary/10 text-secondary',
+              ? 'bg-primary/10 text-primary'
+              : 'bg-secondary/15 text-secondary-foreground',
           )}
         >
-          {item.tipo === 'cega' ? 'Contagem cega' : 'Validação'}
+          {item.tipo === 'cega' ? 'Cega' : 'Validação'}
+        </span>
+        {prioridadeAlta ? (
+          <span className="ml-1 rounded-full bg-destructive/10 px-1.5 py-px text-[9px] font-semibold text-destructive">
+            {DEMANDA_PRIORIDADE_LABELS[item.prioridade]}
+          </span>
+        ) : null}
+      </td>
+
+      <td className={cn(compactTableCellClassName, 'min-w-[7rem]')}>
+        <div className="flex items-center gap-2">
+          <div className="h-1 min-w-[3rem] flex-1 overflow-hidden rounded-full bg-surface-highest">
+            <div
+              className={cn(
+                'h-full rounded-full',
+                STATUS_TONE[item.status],
+              )}
+              style={{ width: `${String(item.progressPercent)}%` }}
+            />
+          </div>
+          <span className="shrink-0 text-[10px] font-semibold tabular-nums text-foreground">
+            {item.progressPercent}%
+          </span>
+        </div>
+        <p className="mt-0.5 text-[9px] tabular-nums text-muted-foreground">
+          {item.enderecosConferidos}/{item.totalEnderecos} end.
+        </p>
+      </td>
+
+      <td className={compactTableCellClassName}>
+        <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-muted-foreground">
+          <span
+            className={cn(
+              'size-1.5 rounded-full',
+              STATUS_TONE[item.status],
+              item.status === 'em_andamento' && 'animate-pulse',
+            )}
+          />
+          {DEMANDA_PROGRESSO_STATUS_LABELS[item.status]}
         </span>
       </td>
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-2 text-caption font-medium text-muted-foreground md:text-sm">
-          <span className="size-2 shrink-0 rounded-full bg-outline-variant" aria-hidden />
-          Aguardando início
-        </div>
-      </td>
-      <td className="px-6 py-4 text-right">
-        <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Editar demanda"
-            className="text-muted-foreground"
-          >
-            <Pencil className="size-4" aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="text-destructive"
-            aria-label="Remover demanda"
-            onClick={() => onRemover?.(item.id)}
-          >
-            <Trash2 className="size-4" aria-hidden />
-          </Button>
-        </div>
+
+      <td className={cn(compactTableCellClassName, 'text-right')}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={`Ações para ${item.nome}`}
+              className="size-7 rounded-md text-muted-foreground opacity-0 transition-all group-hover:opacity-100 hover:bg-surface-highest hover:text-foreground"
+            >
+              <MoreVertical className="size-3.5" aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[10rem]">
+            <DropdownMenuItem disabled>Editar</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={(e) => {
+                e.preventDefault();
+                onRemover?.(item.id);
+              }}
+            >
+              <Trash2 className="size-3.5" aria-hidden />
+              Remover
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </td>
     </tr>
   );

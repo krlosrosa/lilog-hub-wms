@@ -18,7 +18,7 @@ import {
 import { listDistinctZonasDb } from '../../../infra/db/endereco/list-zonas.drizzle.js';
 
 const ListZonasQuerySchema = z.object({
-  centroId: z.uuid().optional(),
+  unidadeId: z.string().min(1).max(50).optional(),
 });
 
 class ListZonasQueryDto extends createZodDto(ListZonasQuerySchema) {}
@@ -41,7 +41,7 @@ export class ListEnderecoZonasController {
   })
   @ApiSuccessResponse(Object)
   async handle(@Query() query: ListZonasQueryDto) {
-    const zonas = await listDistinctZonasDb(this.db, query.centroId);
+    const zonas = await listDistinctZonasDb(this.db, query.unidadeId);
     return zonas.map((zona) => ({ zona }));
   }
 }

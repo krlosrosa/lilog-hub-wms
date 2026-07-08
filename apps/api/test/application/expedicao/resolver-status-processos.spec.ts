@@ -45,6 +45,12 @@ describe('resolverStatusProcessos', () => {
     const status = resolverStatusProcessos(
       'conferencia',
       mapas([{ processo: 'conferencia', iniciado: false }]),
+      [
+        {
+          processo: 'separacao',
+          iniciadoEm: new Date('2026-06-22T09:00:00.000Z'),
+        },
+      ],
     );
 
     expect(status.separacao).toBe('concluido');
@@ -58,6 +64,12 @@ describe('resolverStatusProcessos', () => {
         { processo: 'conferencia', iniciado: false },
         { processo: 'conferencia', iniciado: false },
       ]),
+      [
+        {
+          processo: 'separacao',
+          iniciadoEm: new Date('2026-06-22T09:00:00.000Z'),
+        },
+      ],
     );
 
     expect(status.separacao).toBe('concluido');
@@ -73,5 +85,37 @@ describe('resolverStatusProcessos', () => {
       conferencia: 'concluido',
       carregamento: 'concluido',
     });
+  });
+
+  it('mantém em_andamento quando mapas finalizados saem da fila pendente', () => {
+    const status = resolverStatusProcessos(
+      'carregamento',
+      mapas([{ processo: 'carregamento', iniciado: false }]),
+      [
+        {
+          processo: 'carregamento',
+          iniciadoEm: new Date('2026-06-22T10:00:00.000Z'),
+        },
+      ],
+    );
+
+    expect(status.carregamento).toBe('em_andamento');
+  });
+
+  it('mantém separacao e conferencia pendentes quando processos foram pulados no teste', () => {
+    const status = resolverStatusProcessos(
+      'carregamento',
+      mapas([{ processo: 'carregamento', iniciado: true }]),
+      [
+        {
+          processo: 'carregamento',
+          iniciadoEm: new Date('2026-06-22T10:00:00.000Z'),
+        },
+      ],
+    );
+
+    expect(status.separacao).toBe('pendente');
+    expect(status.conferencia).toBe('pendente');
+    expect(status.carregamento).toBe('em_andamento');
   });
 });

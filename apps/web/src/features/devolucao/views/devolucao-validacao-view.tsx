@@ -8,10 +8,10 @@ import { toast } from 'sonner';
 import { Button, cn } from '@lilog/ui';
 
 import { SidebarMain } from '@/components/layout/sidebar';
+import { useUnidadeContext } from '@/contexts/unidade-context';
 import { NfItemStatusBadge } from '@/features/devolucao/components/devolucao-status-badge';
 import { DevolucaoNfRow } from '@/features/devolucao/components/devolucao-nf-row';
 import { useDevolucaoCheckin } from '@/features/devolucao/hooks/use-devolucao-checkin';
-import { getDemandaById } from '@/features/devolucao/mocks/devolucao-mock-data';
 import { MOTIVOS_DEVOLUCAO } from '@/features/devolucao/types/devolucao-checkin.schema';
 
 type DevolucaoValidacaoViewProps = {
@@ -19,9 +19,13 @@ type DevolucaoValidacaoViewProps = {
 };
 
 export function DevolucaoValidacaoView({ demandId }: DevolucaoValidacaoViewProps) {
-  const demanda = getDemandaById(demandId);
+  const { unidadeSelecionada } = useUnidadeContext();
+  const unidadeId = unidadeSelecionada?.id ?? null;
+
   const {
+    isInitialLoading,
     isLoading,
+    loadError,
     tripInfo,
     nfs,
     expandedNfIds,
@@ -40,7 +44,32 @@ export function DevolucaoValidacaoView({ demandId }: DevolucaoValidacaoViewProps
     updateNfItemQtdDevolucao,
     updateNfMotivo,
     validarNf,
-  } = useDevolucaoCheckin(demandId);
+  } = useDevolucaoCheckin(demandId, unidadeId);
+
+  if (isInitialLoading) {
+    return (
+      <SidebarMain>
+        <main className="flex min-h-dvh items-center justify-center bg-background">
+          <Loader2 className="size-8 animate-spin text-primary" aria-hidden />
+        </main>
+      </SidebarMain>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SidebarMain>
+        <main className="min-h-dvh bg-background px-margin-mobile py-6 md:px-margin-desktop md:py-8">
+          <div className="mx-auto max-w-container space-y-4 text-center">
+            <p className="text-body-md text-muted-foreground">{loadError}</p>
+            <Button type="button" variant="outline" asChild>
+              <Link href="/devolucao">Voltar à gestão</Link>
+            </Button>
+          </div>
+        </main>
+      </SidebarMain>
+    );
+  }
 
   const handleValidarNf = async (nfId: string) => {
     const result = await validarNf(nfId);
@@ -53,7 +82,11 @@ export function DevolucaoValidacaoView({ demandId }: DevolucaoValidacaoViewProps
 
   const handleSalvar = async () => {
     const result = await salvarValidacaoNf();
-    if (result.success) toast.success('Validação da nota salva.');
+    if (result.success) {
+      toast.success('Validação da nota salva.');
+    } else if ('error' in result) {
+      toast.error(result.error);
+    }
   };
 
   const handleCancelar = async () => {
@@ -63,7 +96,11 @@ export function DevolucaoValidacaoView({ demandId }: DevolucaoValidacaoViewProps
 
   const handleLiberar = async () => {
     const result = await liberarConferenciaCega();
-    if (result.success) toast.success('Liberado para conferência cega.');
+    if (result.success) {
+      toast.success('Liberado para conferência cega.');
+    } else if ('error' in result) {
+      toast.error(result.error);
+    }
   };
 
   return (
@@ -98,7 +135,6 @@ export function DevolucaoValidacaoView({ demandId }: DevolucaoValidacaoViewProps
               <p className="mt-1 text-muted-foreground">
                 Viagem {tripInfo.viagemRavexId} • {tripInfo.placa} •{' '}
                 {tripInfo.motorista}
-                {demanda ? ` • ${demanda.veiculo}` : ''}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">

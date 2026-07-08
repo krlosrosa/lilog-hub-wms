@@ -4,6 +4,7 @@ import {
   numeric,
   pgEnum,
   pgSchema,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -34,6 +35,7 @@ export const transportadoras = transportePgSchema.table(
     cnpj: varchar('cnpj', { length: 14 }).notNull(),
     status: transportadoraStatusEnum('status').notNull().default('ativa'),
     quantidadeVeiculos: integer('quantidade_veiculos').notNull().default(0),
+    emails: text('emails').array().notNull().default([]),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -139,3 +141,42 @@ export const perfisTarifasFaixasKm = transportePgSchema.table(
     ),
   ],
 );
+
+export const itinerarios = transportePgSchema.table(
+  'itinerarios',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    unidadeId: varchar('unidade_id', { length: 50 })
+      .notNull()
+      .references(() => unidades.id, { onDelete: 'restrict' }),
+    codigo: varchar('codigo', { length: 100 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique('itinerarios_unidade_codigo_unique').on(
+      table.unidadeId,
+      table.codigo,
+    ),
+  ],
+);
+
+export const perfisTarifasFaixasKmItinerarios =
+  transportePgSchema.table(
+    'perfis_tarifas_faixas_km_itinerarios',
+    {
+      faixaKmId: uuid('faixa_km_id')
+        .notNull()
+        .references(() => perfisTarifasFaixasKm.id, { onDelete: 'cascade' }),
+      itinerarioId: uuid('itinerario_id')
+        .notNull()
+        .references(() => itinerarios.id, { onDelete: 'cascade' }),
+    },
+    (table) => [
+      primaryKey({
+        columns: [table.faixaKmId, table.itinerarioId],
+        name: 'perfis_tarifas_faixas_km_itinerarios_pk',
+      }),
+    ],
+  );

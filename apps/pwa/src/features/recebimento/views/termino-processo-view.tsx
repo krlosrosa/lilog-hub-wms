@@ -209,21 +209,6 @@ function DivergenciaRow({ item }: { item: TerminoDivergenciaItem }) {
           </span>
         </div>
         <p className="mt-0.5 line-clamp-2 text-body-sm text-on-surface-variant">{item.name}</p>
-        <div className="mt-2 flex items-center gap-4">
-          <div className="flex flex-col">
-            <span className="text-label-sm font-bold uppercase tracking-wide text-on-surface-variant">
-              Esperado
-            </span>
-            <span className="font-mono text-body-sm font-bold text-on-surface">{item.esperado}</span>
-          </div>
-          <div className="h-6 w-px bg-outline-variant" aria-hidden />
-          <div className="flex flex-col">
-            <span className="text-label-sm font-bold uppercase tracking-wide text-on-surface-variant">
-              Contado
-            </span>
-            <span className="font-mono text-body-sm font-bold text-on-surface">{item.contado}</span>
-          </div>
-        </div>
       </div>
     </article>
   );

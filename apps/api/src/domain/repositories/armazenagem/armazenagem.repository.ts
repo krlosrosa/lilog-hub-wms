@@ -5,6 +5,7 @@ import type {
   CreateUnitizadorInput,
   DemandaArmazenagemStatus,
   ItemArmazenagemStatus,
+  TarefaArmazenagemStatus,
   UnitizadorStatus,
 } from '../../model/armazenagem/armazenagem.model.js';
 
@@ -26,6 +27,7 @@ export type UnitizadorRecord = {
 export type ItemArmazenagemRecord = {
   id: string;
   demandaId: string;
+  tarefaId: string | null;
   unitizadorId: string | null;
   produtoId: string;
   quantidade: number;
@@ -33,12 +35,32 @@ export type ItemArmazenagemRecord = {
   lote: string | null;
   validade: Date | null;
   numeroSerie: string | null;
+  statusSaldo: 'liberado' | 'bloqueado';
   enderecoSugeridoId: string | null;
   enderecoConfirmadoId: string | null;
   status: ItemArmazenagemStatus;
   produtoSku: string | null;
   produtoNome: string | null;
+  unitizadorCodigo: string | null;
   enderecoSugeridoLabel: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type TarefaArmazenagemRecord = {
+  id: string;
+  demandaId: string;
+  unitizadorId: string | null;
+  unitizadorCodigo: string | null;
+  sequencia: number;
+  status: TarefaArmazenagemStatus;
+  enderecoSugeridoId: string | null;
+  enderecoConfirmadoId: string | null;
+  enderecoSugeridoLabel: string | null;
+  responsavelId: number | null;
+  startedAt: Date | null;
+  finishedAt: Date | null;
+  itens: ItemArmazenagemRecord[];
   createdAt: Date;
   updatedAt: Date;
 };
@@ -52,12 +74,15 @@ export type DemandaArmazenagemRecord = {
   responsavelId: number | null;
   startedAt: Date | null;
   finishedAt: Date | null;
+  validadoPor: number | null;
+  validadoEm: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
 export type DemandaArmazenagemWithItens = DemandaArmazenagemRecord & {
   itens: ItemArmazenagemRecord[];
+  tarefas?: TarefaArmazenagemRecord[];
 };
 
 export type ListDemandasArmazenagemFilter = {
@@ -79,11 +104,14 @@ export type UpdateDemandaArmazenagemExtra = {
   responsavelId?: number;
   startedAt?: Date;
   finishedAt?: Date;
+  validadoPor?: number;
+  validadoEm?: Date;
 };
 
 export type ListEnderecosSugeridosReservadosFilter = {
   unidadeId: string;
   excludeItemId?: string;
+  excludeTarefaId?: string;
 };
 
 export interface IArmazenagemRepository {
@@ -95,6 +123,11 @@ export interface IArmazenagemRepository {
   ): Promise<DemandaArmazenagemWithItens | null>;
   findDemandaById(id: string): Promise<DemandaArmazenagemWithItens | null>;
   findItemById(id: string): Promise<ItemArmazenagemRecord | null>;
+  findTarefaById(id: string): Promise<TarefaArmazenagemRecord | null>;
+  findTarefaByUnitizadorCodigo(
+    unidadeId: string,
+    codigo: string,
+  ): Promise<TarefaArmazenagemRecord | null>;
   listDemandas(
     filter: ListDemandasArmazenagemFilter,
   ): Promise<ListDemandasArmazenagemResult>;
@@ -118,6 +151,20 @@ export interface IArmazenagemRepository {
     id: string,
     enderecoSugeridoId: string,
   ): Promise<ItemArmazenagemRecord | null>;
+  updateEnderecoSugeridoTarefa(
+    id: string,
+    enderecoSugeridoId: string,
+  ): Promise<TarefaArmazenagemRecord | null>;
+  updateStatusTarefa(
+    id: string,
+    status: TarefaArmazenagemStatus,
+    extra?: {
+      responsavelId?: number;
+      startedAt?: Date;
+      finishedAt?: Date;
+      enderecoConfirmadoId?: string;
+    },
+  ): Promise<TarefaArmazenagemRecord | null>;
   listEnderecosSugeridosReservados(
     filter: ListEnderecosSugeridosReservadosFilter,
   ): Promise<string[]>;

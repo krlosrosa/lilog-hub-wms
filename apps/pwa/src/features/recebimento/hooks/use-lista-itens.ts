@@ -10,9 +10,11 @@ import {
 } from '@/lib/offline/produto-cache';
 
 import {
+  clearConferenciaNavigation,
   getConferenciaSnapshot,
   setConferenciaNavigation,
 } from '../lib/conferencia-conferidos-store';
+import { buildFormForLoteEntry } from '../lib/conferencia-form';
 import {
   ensureConferenciaContext,
   getConferenciaContextStore,
@@ -23,6 +25,9 @@ import {
   setConferenciaEntryStep,
   setConferenciaSkuSession,
 } from '../lib/conferencia-sku-session';
+import { applyAvariasToSkuItems } from '../lib/apply-avarias-to-sku-items';
+import { buildPaletesConferidosResumo } from '../lib/build-paletes-conferidos-resumo';
+import { hasPaleteSession } from '../lib/conferencia-palete-session';
 import {
   mapConferenciaContext,
   type MappedConferenciaContext,
@@ -34,6 +39,7 @@ import {
   resolveSkuForConferencia,
   type SkuConferenciaPreview,
 } from '../lib/resolve-sku-conferencia';
+import { useAvariasRegistradas } from './use-avarias-registradas';
 import { useDemandById } from './use-demand-by-id';
 import type { DetalheItemForm, SkuItem, SkuItemFilter } from '../types/recebimento.schema';
 
@@ -68,6 +74,7 @@ export function getSkuItemsByDemandId(demandId?: string): SkuItem[] {
 export function useListaItens(demandId: string) {
   const navigate = useNavigate();
   const demand = useDemandById(demandId);
+  const { avariasRegistradas } = useAvariasRegistradas(demandId);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<SkuItemFilter | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -129,12 +136,46 @@ export function useListaItens(demandId: string) {
     void loadDemandProdutos(demandId).then(setCatalog);
   }, [demandId]);
 
-  const allItems = useMemo(() => context?.itens ?? [], [context?.itens]);
+  const allItems = useMemo(
+    () =>
+      applyAvariasToSkuItems(
+        context?.itens ?? [],
+        avariasRegistradas,
+        context?.itemMetaBySku,
+      ),
+    [context?.itens, context?.itemMetaBySku, avariasRegistradas],
+  );
 
   const conferidosItems = useMemo(
     () => allItems.filter((item) => item.status === 'conferido'),
     [allItems],
   );
+
+  const paletesPorSku = useMemo(() => {
+    const map: Record<string, ReturnType<typeof buildPaletesConferidosResumo>> = {};
+
+    if (!context?.exigePaleteConferencia) {
+      return map;
+    }
+
+    for (const item of allItems) {
+      const skuKey = item.sku.toLowerCase();
+      const meta = context.itemMetaBySku[skuKey];
+      if (!meta) {
+        continue;
+      }
+
+      const paletes = buildPaletesConferidosResumo(
+        context.conferidosDetalheByProdutoId[meta.produtoId],
+      );
+
+      if (paletes.length > 0) {
+        map[skuKey] = paletes;
+      }
+    }
+
+    return map;
+  }, [allItems, context]);
 
   const skuPreview = useMemo((): SkuConferenciaPreview | null => {
     if (!skuInput.trim() || sheetError) return null;
@@ -210,6 +251,7 @@ export function useListaItens(demandId: string) {
       if (form) {
         setConferenciaNavigation(demandId, { step: entryStep, form });
       } else {
+        clearConferenciaNavigation(demandId);
         setConferenciaEntryStep(demandId, entryStep);
       }
       hapticMedium();
@@ -255,13 +297,17 @@ export function useListaItens(demandId: string) {
     (item: SkuItem) => {
       if (item.status === 'conferido') {
         const snapshot = getConferenciaSnapshot(demandId, item.sku);
-        if (snapshot) {
-          goToConferencia(item.sku, 3, snapshot);
-          return;
-        }
+        goToConferencia(
+          item.sku,
+          3,
+          snapshot
+            ? buildFormForLoteEntry(snapshot.sku, snapshot.idPalete ?? '')
+            : undefined,
+        );
+        return;
       }
 
-      goToConferencia(item.sku, 1);
+      goToConferencia(item.sku, hasPaleteSession(demandId) ? 2 : 1);
     },
     [demandId, goToConferencia],
   );
@@ -299,6 +345,8 @@ export function useListaItens(demandId: string) {
       canFinalize,
       isFinalizing,
       recebimentoId: context?.recebimentoId ?? demand?.recebimentoId ?? null,
+      paletesPorSku,
+      exigePaleteConferencia: context?.exigePaleteConferencia ?? false,
     },
     actions: {
       setSearch,

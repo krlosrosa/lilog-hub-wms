@@ -20,7 +20,7 @@ export const ListPreRecebimentosQuerySchema = z.object({
 
   situacao: PreRecebimentoSituacaoSchema.optional(),
 
-  transportadoraId: z.string().min(1).max(50).optional(),
+  transportadoraNome: z.string().min(1).max(255).optional(),
 
   dataInicio: z.iso.datetime().optional(),
 

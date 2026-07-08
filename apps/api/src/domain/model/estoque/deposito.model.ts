@@ -115,6 +115,24 @@ export function buildRecebimentoDocumentoRef(recebimentoId: string): string {
   return `recebimento:${recebimentoId}`;
 }
 
+export function buildRecebimentoSaldoDocumentoRef(
+  recebimentoId: string,
+  params: {
+    produtoId: string;
+    lote: string | null;
+    numeroSerie: string | null;
+    classificacao:
+      | 'liberado'
+      | 'bloqueado_sobra'
+      | 'bloqueado_nao_esperado'
+      | 'bloqueado_avaria';
+  },
+): string {
+  const lote = params.lote?.trim() ?? '';
+  const numeroSerie = params.numeroSerie?.trim() ?? '';
+  return `recebimento:${recebimentoId}:saldo:${params.produtoId}:${lote}:${numeroSerie}:${params.classificacao}`;
+}
+
 export function buildPreRecebimentoDocumentoRef(
   preRecebimentoId: string,
 ): string {

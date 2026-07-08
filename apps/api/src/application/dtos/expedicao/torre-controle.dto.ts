@@ -1,6 +1,8 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
+import { TransporteCodigoSchema } from './gerar-mapas.dto.js';
+
 const etapaOperacionalSchema = z.enum([
   'separacao',
   'conferencia',
@@ -53,7 +55,7 @@ const statusTransporteTorreSchema = z.enum([
 ]);
 
 export const TransporteRiscoTorreSchema = z.object({
-  id: z.string().uuid(),
+  id: TransporteCodigoSchema,
   codigo: z.string(),
   placa: z.string(),
   transportadora: z.string(),
@@ -87,7 +89,7 @@ export const TransporteRiscoTorreSchema = z.object({
 export const MapaResumoTorreSchema = z.object({
   id: z.string().uuid(),
   codigo: z.string(),
-  transporteId: z.string().uuid(),
+  transporteId: TransporteCodigoSchema,
   transporteCodigo: z.string(),
   etapa: etapaOperacionalSchema,
   status: processoStatusSchema,

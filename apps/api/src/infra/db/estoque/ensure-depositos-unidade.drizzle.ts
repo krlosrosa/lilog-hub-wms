@@ -7,6 +7,7 @@ import {
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import { depositos } from '../providers/drizzle/config/migrations/schema.js';
 import { mapDepositoRow } from './map-estoque.drizzle.js';
+import { ensureMotivosBloqueioSistemaUnidadeDb } from './motivo-bloqueio-saldo.drizzle.js';
 
 export async function ensureDepositosUnidadeDb(
   db: DrizzleClient,
@@ -43,6 +44,8 @@ export async function ensureDepositosUnidadeDb(
     .select()
     .from(depositos)
     .where(eq(depositos.unidadeId, unidadeId));
+
+  await ensureMotivosBloqueioSistemaUnidadeDb(db, unidadeId);
 
   return rows.map(mapDepositoRow);
 }

@@ -39,7 +39,7 @@ export function useConfirmacaoColeta(tarefaId: string) {
       hapticMedium();
       await new Promise((r) => setTimeout(r, 400));
       void navigate({
-        to: '/movimentacao/$id/direcionamento',
+        to: '/movimentacao/ressuprimento/$id/direcionamento',
         params: { id: tarefaId },
       });
     }),

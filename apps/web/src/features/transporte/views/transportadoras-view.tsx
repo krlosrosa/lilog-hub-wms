@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/compact-table-classes';
 import { Pagination } from '@/features/filiais/components/pagination';
 import { TransportadoraCadastroRapidoDialog } from '@/features/transporte/components/transportadora-cadastro-rapido-dialog';
+import { TransportadoraEmailsDialog } from '@/features/transporte/components/transportadora-emails-dialog';
 import { TransportadoraFiltros } from '@/features/transporte/components/transportadora-filtros';
 import { TransportadoraFormDialog } from '@/features/transporte/components/transportadora-form-dialog';
 import { TransportadoraRow } from '@/features/transporte/components/transportadora-row';
@@ -55,15 +56,19 @@ export function TransportadorasView() {
     isSearchingRavex,
     formDialog,
     deleteDialog,
+    emailsDialog,
     cadastroRapidoOpen,
     openCreateDialog,
     openEditDialog,
     closeFormDialog,
     openDeleteDialog,
     closeDeleteDialog,
+    openEmailsDialog,
+    closeEmailsDialog,
     openCadastroRapidoDialog,
     closeCadastroRapidoDialog,
     salvarTransportadora,
+    salvarEmails,
     confirmarExclusao,
     buscarRavex,
     confirmarCadastroRavex,
@@ -98,6 +103,18 @@ export function TransportadorasView() {
           }
         }}
         onSubmit={salvarTransportadora}
+      />
+
+      <TransportadoraEmailsDialog
+        open={emailsDialog.open}
+        transportadora={emailsDialog.target}
+        isSubmitting={isSubmitting}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeEmailsDialog();
+          }
+        }}
+        onSave={salvarEmails}
       />
 
       <AlertDialog
@@ -273,6 +290,7 @@ export function TransportadorasView() {
                           key={transportadora.id}
                           transportadora={transportadora}
                           onEditar={openEditDialog}
+                          onGerenciarEmails={openEmailsDialog}
                           onExcluir={openDeleteDialog}
                         />
                       ))

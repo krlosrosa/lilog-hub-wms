@@ -12,6 +12,16 @@ import {
 } from '../../../domain/model/recebimento/recebimento.model.js';
 import { RECEBIMENTO_EVENT } from '../../../domain/model/recebimento/recebimento.events.js';
 import {
+  CATEGORIA_CONFERENCIA,
+  DOMINIO_RECEBIMENTO,
+  ParametrosRecebimentoConferenciaSchema,
+  SUBTIPO_PARAMETROS,
+} from '../../../domain/model/configuracao-operacional/configuracao-operacional.model.js';
+import {
+  CONFIGURACAO_OPERACIONAL_REPOSITORY,
+  type IConfiguracaoOperacionalRepository,
+} from '../../../domain/repositories/configuracao-operacional/configuracao-operacional.repository.js';
+import {
   DOCA_REPOSITORY,
   type IDocaRepository,
 } from '../../../domain/repositories/doca/doca.repository.js';
@@ -51,6 +61,8 @@ export class IniciarRecebimentoUseCase {
     private readonly docaRepository: IDocaRepository,
     @Inject(UNIDADE_REPOSITORY)
     private readonly unidadeRepository: IUnidadeRepository,
+    @Inject(CONFIGURACAO_OPERACIONAL_REPOSITORY)
+    private readonly configuracaoOperacionalRepository: IConfiguracaoOperacionalRepository,
     private readonly recebimentoEventPublisher: RecebimentoEventPublisher,
   ) {}
 
@@ -66,9 +78,9 @@ export class IniciarRecebimentoUseCase {
       );
     }
 
-    if (preRecebimento.situacao !== 'veiculo_chegou') {
+    if (preRecebimento.situacao !== 'liberado_para_conferencia') {
       throw new BadRequestException(
-        'Recebimento só pode ser iniciado após check-in do veículo',
+        'Recebimento só pode ser iniciado após liberação para conferência',
       );
     }
 
@@ -91,11 +103,13 @@ export class IniciarRecebimentoUseCase {
       );
     }
 
-    if (parsed.docaId) {
-      const doca = await this.docaRepository.findById(parsed.docaId);
+    const docaId = parsed.docaId ?? preRecebimento.docaId ?? undefined;
+
+    if (docaId) {
+      const doca = await this.docaRepository.findById(docaId);
 
       if (!doca) {
-        throw new NotFoundException(`Doca "${parsed.docaId}" não encontrada`);
+        throw new NotFoundException(`Doca "${docaId}" não encontrada`);
       }
 
       if (doca.unidadeId !== preRecebimento.unidadeId) {
@@ -113,15 +127,33 @@ export class IniciarRecebimentoUseCase {
       );
     }
 
+    const configuracoes = await this.configuracaoOperacionalRepository.list({
+      unidadeId: preRecebimento.unidadeId,
+      dominio: DOMINIO_RECEBIMENTO,
+      categoria: CATEGORIA_CONFERENCIA,
+      subtipo: SUBTIPO_PARAMETROS,
+      ativo: true,
+    });
+
+    const configPadrao =
+      configuracoes.find((item) => item.isPadrao) ?? configuracoes[0];
+    const parametrosConferencia = ParametrosRecebimentoConferenciaSchema.parse(
+      configPadrao?.parametros ?? {},
+    );
+
+    const modoUnitizacao = parametrosConferencia.controlaPalete
+      ? 'bipar_palete_no_recebimento'
+      : unidade.modoUnitizacaoRecebimento;
+
     const recebimento = await this.recebimentoRepository.create(
-      parsed,
+      { ...parsed, docaId },
       userId,
-      unidade.modoUnitizacaoRecebimento,
+      modoUnitizacao,
     );
 
     await this.preRecebimentoRepository.updateSituacao(
       parsed.preRecebimentoId,
-      'em_recebimento',
+      'em_conferencia',
     );
 
     await this.recebimentoEventPublisher.publish({
@@ -132,7 +164,7 @@ export class IniciarRecebimentoUseCase {
       userId,
       metadata: {
         responsavelId: parsed.responsavelId,
-        docaId: parsed.docaId ?? null,
+        docaId: docaId ?? null,
       },
     });
 

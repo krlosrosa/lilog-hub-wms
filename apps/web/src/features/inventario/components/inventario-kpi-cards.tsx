@@ -30,9 +30,9 @@ function StatCardShell({
   return (
     <div
       className={cn(
-        'flex min-w-0 items-center gap-4 rounded-xl border border-outline-variant bg-glass-bg p-6 shadow-inner-glow backdrop-blur-glass transition-colors hover:border-primary/30',
-        variant === 'highlight' && 'border-primary/35 bg-primary/[0.04]',
-        variant === 'critical' && 'border-l-4 border-l-destructive',
+        'flex min-w-[9.5rem] shrink-0 snap-start items-center gap-2.5 rounded-lg border border-outline-variant bg-glass-bg px-3 py-2.5 shadow-inner-glow backdrop-blur-glass transition-colors hover:border-primary/25 sm:min-w-0',
+        variant === 'highlight' && 'border-primary/30 bg-primary/[0.04]',
+        variant === 'critical' && 'border-l-2 border-l-destructive pl-2.5',
       )}
     >
       {children}
@@ -50,11 +50,28 @@ function IconBadge({
   return (
     <div
       className={cn(
-        'flex size-12 shrink-0 items-center justify-center rounded-lg',
+        'flex size-8 shrink-0 items-center justify-center rounded-md',
         className,
       )}
     >
       {children}
+    </div>
+  );
+}
+
+function MiniProgress({
+  value,
+  className,
+}: {
+  value: number;
+  className?: string;
+}) {
+  return (
+    <div className="mt-1.5 h-0.5 w-full overflow-hidden rounded-full bg-muted">
+      <div
+        className={cn('h-full rounded-full', className)}
+        style={{ width: `${Math.min(100, value)}%` }}
+      />
     </div>
   );
 }
@@ -71,99 +88,97 @@ export function InventarioKpiCards({ kpi, className }: InventarioKpiCardsProps) 
       : nf.format(kpi.itensInventariados);
 
   return (
-    <div className={cn('grid gap-4 md:grid-cols-2 md:gap-5 xl:grid-cols-4', className)}>
+    <div
+      className={cn(
+        'flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-4 lg:gap-3',
+        className,
+      )}
+    >
       <StatCardShell>
         <IconBadge className="bg-primary/10 text-primary">
-          <BarChart4 className="size-6" aria-hidden />
+          <BarChart4 className="size-4" aria-hidden />
         </IconBadge>
         <div className="min-w-0 flex-1">
-          <p className="text-caption text-muted-foreground">
-            Acurácia global (último geral)
+          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Acurácia global
           </p>
-          <div className="flex flex-wrap items-baseline gap-2">
-            <p className="text-headline-md font-bold text-foreground">
-              {kpi.acuraciaGlobal.toFixed(1)}
+          <div className="flex items-baseline gap-1.5">
+            <p className="text-lg font-bold tabular-nums text-foreground">
+              {kpi.acuraciaGlobal.toFixed(1)}%
             </p>
-            <span className="text-xs font-medium text-accent">
-              ↑ {kpi.acuraciaDeltaPercent}%
-            </span>
+            {kpi.acuraciaDeltaPercent !== 0 ? (
+              <span className="text-[10px] font-medium text-accent">
+                ↑ {kpi.acuraciaDeltaPercent}%
+              </span>
+            ) : null}
           </div>
-          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary"
-              style={{ width: `${Math.min(100, kpi.acuraciaGlobal)}%` }}
-            />
-          </div>
+          <MiniProgress value={kpi.acuraciaGlobal} className="bg-primary" />
         </div>
       </StatCardShell>
 
       <StatCardShell>
         <IconBadge className="bg-accent/10 text-accent">
-          <Package className="size-6" aria-hidden />
+          <Package className="size-4" aria-hidden />
         </IconBadge>
         <div className="min-w-0 flex-1">
-          <p className="text-caption text-muted-foreground">
-            Itens inventariados (último geral)
+          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Itens contados
           </p>
-          <p className="text-headline-md font-bold text-foreground">
-            {kItensDisplay}{' '}
-            <span className="text-xs font-normal text-muted-foreground">
+          <p className="text-lg font-bold tabular-nums text-foreground">
+            {kItensDisplay}
+            <span className="ml-1 text-[10px] font-normal text-muted-foreground">
               / {nf.format(kpi.itensMeta)}
             </span>
           </p>
-          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-accent"
-              style={{ width: `${pctItens}%` }}
-            />
-          </div>
+          <MiniProgress value={pctItens} className="bg-accent" />
         </div>
       </StatCardShell>
 
       <StatCardShell variant="critical">
         <IconBadge className="bg-destructive/10 text-destructive">
-          <AlertTriangle className="size-6" aria-hidden />
+          <AlertTriangle className="size-4" aria-hidden />
         </IconBadge>
         <div className="min-w-0 flex-1">
-          <p className="text-caption text-muted-foreground">
-            Divergências totais (último geral)
+          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Divergências
           </p>
-          <div className="flex flex-wrap items-baseline gap-2">
-            <p className="text-headline-md font-bold text-destructive">
+          <div className="flex items-baseline gap-1.5">
+            <p className="text-lg font-bold tabular-nums text-destructive">
               {kpi.divergenciasTotal}
             </p>
-            <span className="text-xs font-medium text-destructive">
-              ↓ {kpi.divergenciasDelta}
-            </span>
+            {kpi.divergenciasDelta !== 0 ? (
+              <span className="text-[10px] font-medium text-destructive">
+                ↓ {kpi.divergenciasDelta}
+              </span>
+            ) : null}
           </div>
-          <div className="mt-3 flex gap-1">
-            <div className="h-1 flex-1 rounded-full bg-destructive" />
-            <div className="h-1 flex-1 rounded-full bg-muted" />
-            <div className="h-1 flex-1 rounded-full bg-muted" />
-          </div>
+          <MiniProgress
+            value={Math.min(100, kpi.divergenciasTotal * 5)}
+            className="bg-destructive"
+          />
         </div>
       </StatCardShell>
 
       <StatCardShell variant="highlight">
         <IconBadge className="bg-primary/10 text-primary">
-          <AlarmClock className="size-6" aria-hidden />
+          <AlarmClock className="size-4" aria-hidden />
         </IconBadge>
         <div className="min-w-0 flex-1">
-          <p className="text-caption text-muted-foreground">
-            Status do inventário atual
+          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Status atual
           </p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-            <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-              <span
-                className="size-1.5 shrink-0 animate-pulse rounded-full bg-accent"
-                aria-hidden
-              />
-              <span className="truncate">{kpi.statusAtualLabel}</span>
-            </span>
-          </div>
-          <p className="mt-2 text-caption leading-snug text-muted-foreground">
-            {kpi.tempoEstimadoLabel ?? '—'}
-          </p>
+          <span className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-px text-[10px] font-semibold text-primary">
+            <span
+              className="size-1 shrink-0 animate-pulse rounded-full bg-accent"
+              aria-hidden
+            />
+            <span className="truncate">{kpi.statusAtualLabel}</span>
+          </span>
+          {kpi.tempoEstimadoLabel ? (
+            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+              {kpi.tempoEstimadoLabel}
+            </p>
+          ) : null}
         </div>
       </StatCardShell>
     </div>

@@ -49,7 +49,7 @@ export function useAvariasRegistradas(demandId: string) {
         if (isAvariasSeeded(demandId)) return;
         seedAvariasRegistradas(
           demandId,
-          items.map(mapAvariaApiToRegistro),
+          items.map((item) => mapAvariaApiToRegistro(item, demandId)),
         );
         refreshAvarias();
       })

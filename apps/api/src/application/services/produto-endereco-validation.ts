@@ -4,7 +4,7 @@ import {
 } from '@nestjs/common';
 
 import {
-  enderecoTipoEsperadoParaPapel,
+  enderecoTiposCompativeisComPapel,
   type CreateProdutoEnderecoData,
   type ProdutoEnderecoPapel,
   type UpdateProdutoEnderecoData,
@@ -13,18 +13,18 @@ import type { EnderecoRecord } from '../../domain/repositories/endereco/endereco
 
 export function assertEnderecoCompativelComAlocacao(
   endereco: EnderecoRecord,
-  centroId: string,
+  unidadeId: string,
   papel: ProdutoEnderecoPapel,
 ) {
-  if (endereco.centroId !== centroId) {
+  if (endereco.unidadeId !== unidadeId) {
     throw new BadRequestException(
-      'O endereço selecionado não pertence ao centro informado',
+      'O endereço selecionado não pertence à unidade informada',
     );
   }
 
-  const tipoEsperado = enderecoTipoEsperadoParaPapel(papel);
+  const tiposCompativeis = enderecoTiposCompativeisComPapel(papel);
 
-  if (endereco.tipo !== tipoEsperado) {
+  if (!tiposCompativeis.includes(endereco.tipo)) {
     throw new BadRequestException(
       `Endereço do tipo "${endereco.tipo}" não é compatível com o papel "${papel}"`,
     );
@@ -40,25 +40,15 @@ export function mapProdutoEnderecoConstraintError(error: unknown): never {
 
   const constraint = pgError.constraint_name;
 
-  if (constraint === 'produto_enderecos_centro_produto_picking_primario_unique') {
-    throw new ConflictException(
-      'Já existe um endereço de picking primário para este produto neste centro',
-    );
-  }
-
   if (constraint === 'produto_enderecos_produto_endereco_unique') {
     throw new ConflictException(
       'Este produto já está alocado neste endereço',
     );
   }
 
-  if (constraint === 'produto_enderecos_centro_produto_ordem_unique') {
-    throw new ConflictException(
-      'Já existe uma alocação com esta ordem para o produto neste centro',
-    );
-  }
-
-  throw new ConflictException('Alocação duplicada ou conflitante');
+  throw new ConflictException(
+    `Alocação duplicada ou conflitante (${constraint ?? 'constraint desconhecida'})`,
+  );
 }
 
 function findPostgresUniqueViolation(

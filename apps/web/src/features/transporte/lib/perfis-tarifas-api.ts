@@ -34,7 +34,15 @@ export function mapPerfilTarifaToItem(perfil: PerfilTarifaApi): PerfilTarifaItem
       kmInicial: parseDecimal(faixa.kmInicial),
       kmFinal: faixa.kmFinal !== null ? parseDecimal(faixa.kmFinal) : null,
       valor: parseDecimal(faixa.valor),
-      itinerario: faixa.itinerario,
+      itinerarios:
+        faixa.itinerarios?.length > 0
+          ? faixa.itinerarios.map((item) => ({
+              id: item.id,
+              codigo: item.codigo,
+            }))
+          : faixa.itinerario
+            ? [{ codigo: faixa.itinerario }]
+            : [],
     })),
     createdAt: perfil.createdAt,
     updatedAt: perfil.updatedAt,

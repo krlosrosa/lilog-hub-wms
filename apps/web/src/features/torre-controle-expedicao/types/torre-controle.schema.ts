@@ -130,6 +130,20 @@ export const statusTransporteTorreSchema = z.enum([
 
 export type StatusTransporteTorre = z.infer<typeof statusTransporteTorreSchema>;
 
+export const STATUS_TRANSPORTE_TORRE_LABELS: Record<StatusTransporteTorre, string> = {
+  PENDENTE: 'Pendente',
+  ALOCADO: 'Alocado',
+  PARCIAL: 'Parcial',
+  EM_SEPARACAO: 'Em Separação',
+  SEPARADO: 'Separado',
+  EM_CONFERENCIA: 'Em Conferência',
+  CONFERIDO: 'Conferido',
+  EM_CARREGAMENTO: 'Em Carregamento',
+  CARREGADO: 'Carregado',
+  EM_VIAGEM: 'Em Viagem',
+  VIAGEM_FINALIZADA: 'Viagem Finalizada',
+};
+
 export const transporteRiscoSchema = z.object({
   id: z.string(),
   codigo: z.string(),

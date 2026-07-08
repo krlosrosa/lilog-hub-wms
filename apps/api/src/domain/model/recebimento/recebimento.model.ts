@@ -2,10 +2,10 @@ import { z } from 'zod';
 
 export const PreRecebimentoSituacaoSchema = z.enum([
   'agendado',
-  'veiculo_chegou',
-  'em_recebimento',
-  'aguardando_aprovacao',
-  'aprovado',
+  'aguardando',
+  'liberado_para_conferencia',
+  'em_conferencia',
+  'conferido',
   'finalizado',
   'cancelado',
 ]);
@@ -15,9 +15,8 @@ export type PreRecebimentoSituacao = z.infer<
 >;
 
 export const RecebimentoSituacaoSchema = z.enum([
-  'em_recebimento',
-  'aguardando_aprovacao',
-  'aprovado',
+  'em_conferencia',
+  'conferido',
   'finalizado',
   'cancelado',
 ]);
@@ -36,8 +35,35 @@ export const TipoDivergenciaSchema = z.enum([
 
 export type TipoDivergencia = z.infer<typeof TipoDivergenciaSchema>;
 
+export const OrigemDadosPreRecebimentoSchema = z.enum([
+  'manual',
+  'xlsx',
+  'xml',
+  'ocr',
+]);
+
+export type OrigemDadosPreRecebimento = z.infer<
+  typeof OrigemDadosPreRecebimentoSchema
+>;
+
+export const NotaFiscalPreRecebimentoInputSchema = z.object({
+  numeroNf: z.string().min(1).max(20),
+  serie: z.string().max(5).optional(),
+  chaveAcesso: z.string().max(44).optional(),
+  numeroRemessa: z.string().max(100).optional(),
+  fornecedorNome: z.string().max(255).optional(),
+  fornecedorDocumento: z.string().max(20).optional(),
+  pesoTotal: z.number().nonnegative().optional(),
+  volumeTotal: z.number().nonnegative().optional(),
+  observacao: z.string().optional(),
+});
+
+export type NotaFiscalPreRecebimentoInput = z.infer<
+  typeof NotaFiscalPreRecebimentoInputSchema
+>;
+
 export const ItemPreRecebimentoInputSchema = z.object({
-  produtoId: z.uuid(),
+  produtoId: z.string().min(1).max(50),
   quantidadeEsperada: z.number().positive(),
   unidadeMedida: z.string().min(1).max(20),
   loteEsperado: z.string().optional(),
@@ -51,11 +77,15 @@ export type ItemPreRecebimentoInput = z.infer<
 
 export const CreatePreRecebimentoInputSchema = z.object({
   unidadeId: z.string().min(1).max(50),
-  transportadoraId: z.string().min(1).max(50),
-  placa: z.string().min(1).max(20),
+  transportadoraNome: z.string().max(255).optional(),
+  placa: z.string().max(20).optional(),
+  numeroOcr: z.string().max(100).optional(),
+  numeroTransporte: z.string().max(100).optional(),
+  origemDados: OrigemDadosPreRecebimentoSchema.default('manual'),
   horarioPrevisto: z.coerce.date(),
   observacao: z.string().optional(),
   itens: z.array(ItemPreRecebimentoInputSchema).min(1),
+  notasFiscais: z.array(NotaFiscalPreRecebimentoInputSchema).optional(),
 });
 
 export type CreatePreRecebimentoInput = z.infer<
@@ -63,23 +93,59 @@ export type CreatePreRecebimentoInput = z.infer<
 >;
 
 export const UpdatePreRecebimentoInputSchema = z.object({
-  transportadoraId: z.string().min(1).max(50).optional(),
-  placa: z.string().min(1).max(20).optional(),
+  transportadoraNome: z.string().max(255).nullable().optional(),
+  placa: z.string().max(20).nullable().optional(),
+  numeroOcr: z.string().max(100).nullable().optional(),
+  numeroTransporte: z.string().max(100).nullable().optional(),
+  origemDados: OrigemDadosPreRecebimentoSchema.optional(),
   horarioPrevisto: z.coerce.date().optional(),
   observacao: z.string().nullable().optional(),
   itens: z.array(ItemPreRecebimentoInputSchema).min(1).optional(),
+  notasFiscais: z.array(NotaFiscalPreRecebimentoInputSchema).optional(),
 });
 
 export type UpdatePreRecebimentoInput = z.infer<
   typeof UpdatePreRecebimentoInputSchema
 >;
 
+export const GrauPrioridadePreRecebimentoSchema = z.enum([
+  'baixo',
+  'normal',
+  'alto',
+  'urgente',
+]);
+
+export type GrauPrioridadePreRecebimento = z.infer<
+  typeof GrauPrioridadePreRecebimentoSchema
+>;
+
+export const RecepcionarCarroInputSchema = z.object({
+  motoristaNome: z.string().max(255).optional(),
+  motoristaTelefone: z.string().max(20).optional(),
+  placa: z.string().max(20).optional(),
+  dataChegada: z.iso.datetime().optional(),
+  grauPrioridade: GrauPrioridadePreRecebimentoSchema.optional(),
+});
+
+export type RecepcionarCarroInput = z.infer<
+  typeof RecepcionarCarroInputSchema
+>;
+
+export const LiberarConferenciaInputSchema = z.object({
+  docaId: z.uuid(),
+});
+
+export type LiberarConferenciaInput = z.infer<
+  typeof LiberarConferenciaInputSchema
+>;
+
 export const ConferirItemInputSchema = z.object({
-  produtoId: z.uuid(),
+  produtoId: z.string().min(1).max(50),
   quantidadeRecebida: z.number().nonnegative(),
   unidadeMedida: z.string().min(1).max(20),
   loteRecebido: z.string().optional(),
   pesoRecebido: z.number().positive().optional(),
+  etiquetaCodigo: z.string().min(1).max(100).optional(),
   validade: z.coerce.date().optional(),
   numeroSerie: z.string().optional(),
   unitizadorCodigo: z.string().min(1).optional(),
@@ -101,12 +167,7 @@ export const CreateChecklistRecebimentoInputSchema = z.object({
   lacre: z.string().max(100).optional(),
   tempBau: z.number().optional(),
   tempProduto: z.number().optional(),
-  conditions: z.object({
-    limpeza: z.boolean(),
-    odor: z.boolean(),
-    estrutura: z.boolean(),
-    vedacao: z.boolean(),
-  }),
+  conditions: z.record(z.string(), z.boolean()),
   observacoes: z.string().optional(),
   photoCount: z.number().int().min(0).optional(),
 });
@@ -117,6 +178,26 @@ export type CreateChecklistRecebimentoInput = z.infer<
 
 export const PESO_DIVERGENCIA_TOLERANCIA = 0.001;
 
+const PRE_RECEBIMENTO_TRANSITIONS: Record<
+  PreRecebimentoSituacao,
+  readonly PreRecebimentoSituacao[]
+> = {
+  agendado: ['aguardando', 'cancelado'],
+  aguardando: ['liberado_para_conferencia', 'cancelado'],
+  liberado_para_conferencia: ['em_conferencia', 'cancelado'],
+  em_conferencia: ['conferido'],
+  conferido: ['finalizado', 'em_conferencia'],
+  finalizado: [],
+  cancelado: [],
+};
+
+export function canTransitionPreRecebimento(
+  from: PreRecebimentoSituacao,
+  to: PreRecebimentoSituacao,
+): boolean {
+  return PRE_RECEBIMENTO_TRANSITIONS[from].includes(to);
+}
+
 export function canEditPreRecebimento(situacao: PreRecebimentoSituacao): boolean {
   return situacao === 'agendado';
 }
@@ -124,5 +205,9 @@ export function canEditPreRecebimento(situacao: PreRecebimentoSituacao): boolean
 export function canCancelPreRecebimento(
   situacao: PreRecebimentoSituacao,
 ): boolean {
-  return situacao === 'agendado' || situacao === 'aguardando_aprovacao';
+  return (
+    situacao === 'agendado' ||
+    situacao === 'aguardando' ||
+    situacao === 'liberado_para_conferencia'
+  );
 }

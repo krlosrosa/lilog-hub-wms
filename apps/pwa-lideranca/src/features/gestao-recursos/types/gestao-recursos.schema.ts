@@ -7,6 +7,7 @@ export type PausaMonitorStatus = 'em-tempo' | 'atrasado';
 export type TaskItem = {
   id: string;
   mapaGrupoId?: string;
+  processo?: 'operacional' | 'devolucao';
   label: string;
   startTime?: string;
   expectedEndTime?: string;
@@ -73,3 +74,8 @@ export type GestaoRecursosFilter =
   | 'precisa_pausa'
   | 'em_pausa'
   | 'ociosos';
+
+export type GestaoRecursosProcessoFilter =
+  | 'todos'
+  | 'operacional'
+  | 'devolucao';

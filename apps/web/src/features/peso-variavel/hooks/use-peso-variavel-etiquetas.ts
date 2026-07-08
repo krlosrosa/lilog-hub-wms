@@ -8,7 +8,10 @@ import {
   expandirLinhasParaEtiquetas,
   totalEtiquetasDasLinhas,
 } from '@/features/peso-variavel/lib/expandir-etiquetas';
+import { gerarZplEtiquetas } from '@/features/peso-variavel/lib/gerar-zpl-etiquetas';
 import { dispararImpressaoEtiquetas } from '@/features/peso-variavel/lib/imprimir-etiquetas';
+import type { EtiquetasPrintVariante } from '@/features/peso-variavel/components/etiquetas-print-area';
+import { downloadBlobArquivo } from '@/lib/api';
 import {
   criarLinhasMockDoArquivo,
   parsearCsvSeparacao,
@@ -68,6 +71,8 @@ export function usePesoVariavelEtiquetas() {
   const [busca, setBusca] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isAdicionarModalOpen, setIsAdicionarModalOpen] = useState(false);
+  const [isZebraModalOpen, setIsZebraModalOpen] = useState(false);
+  const [printVariante, setPrintVariante] = useState<EtiquetasPrintVariante>('normal');
   const [isSalvandoBanco, setIsSalvandoBanco] = useState(false);
   const [ultimoArquivo, setUltimoArquivo] = useState<string | null>(null);
 
@@ -112,6 +117,11 @@ export function usePesoVariavelEtiquetas() {
     !todasFiltradasSelecionadas;
 
   const previewEtiqueta = etiquetasGeradas[previewIndex] ?? null;
+
+  const zplContent = useMemo(
+    () => gerarZplEtiquetas(etiquetasGeradas),
+    [etiquetasGeradas],
+  );
 
   const resumo = useMemo(() => {
     const transportes = new Set(linhasFiltradas.map((linha) => linha.transporte));
@@ -192,6 +202,7 @@ export function usePesoVariavelEtiquetas() {
 
     setIsPrinting(true);
     try {
+      setPrintVariante('normal');
       const idsImpressos = new Set(
         etiquetasGeradas.map((etiqueta) => etiqueta.id),
       );
@@ -204,6 +215,31 @@ export function usePesoVariavelEtiquetas() {
       });
     } finally {
       setIsPrinting(false);
+    }
+  }, [etiquetasGeradas]);
+
+  const imprimirEtiquetasZebra = useCallback(async () => {
+    if (etiquetasGeradas.length === 0) {
+      toast.error('Gere as etiquetas antes de imprimir');
+      return;
+    }
+
+    setIsPrinting(true);
+    try {
+      setPrintVariante('zebra');
+      const idsImpressos = new Set(
+        etiquetasGeradas.map((etiqueta) => etiqueta.id),
+      );
+      setLinhas((prev) =>
+        atualizarStatusLinhas(prev, idsImpressos, 'impresso'),
+      );
+      await dispararImpressaoEtiquetas();
+      toast.success('Impressão Zebra iniciada', {
+        description: `${etiquetasGeradas.length} etiqueta(s) em 100x150mm`,
+      });
+    } finally {
+      setIsPrinting(false);
+      setPrintVariante('normal');
     }
   }, [etiquetasGeradas]);
 
@@ -273,6 +309,49 @@ export function usePesoVariavelEtiquetas() {
     }
   }, [isSalvandoBanco]);
 
+  const abrirModalZebra = useCallback(() => {
+    if (etiquetasGeradas.length === 0) {
+      toast.error('Gere as etiquetas antes de exportar para Zebra');
+      return;
+    }
+    setIsZebraModalOpen(true);
+  }, [etiquetasGeradas.length]);
+
+  const fecharModalZebra = useCallback(() => {
+    setIsZebraModalOpen(false);
+  }, []);
+
+  const copiarZpl = useCallback(async () => {
+    if (!zplContent) {
+      toast.error('Nenhum código ZPL disponível');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(zplContent);
+      toast.success('ZPL copiado', {
+        description: 'Código pronto para colar na impressora ou software Zebra',
+      });
+    } catch {
+      toast.error('Falha ao copiar o código ZPL');
+    }
+  }, [zplContent]);
+
+  const baixarZpl = useCallback(() => {
+    if (!zplContent) {
+      toast.error('Nenhum código ZPL disponível');
+      return;
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `etiquetas-peso-variavel-${timestamp}.zpl`;
+    const blob = new Blob([zplContent], { type: 'text/plain;charset=utf-8' });
+    downloadBlobArquivo(blob, filename);
+    toast.success('Arquivo .zpl baixado', {
+      description: `${etiquetasGeradas.length} etiqueta(s) no arquivo`,
+    });
+  }, [etiquetasGeradas.length, zplContent]);
+
   const confirmarAdicionarBanco = useCallback(async () => {
     if (linhasSelecionadas.length === 0) {
       toast.error('Nenhuma linha selecionada');
@@ -309,9 +388,12 @@ export function usePesoVariavelEtiquetas() {
     isPrinting,
     isUploading,
     isAdicionarModalOpen,
+    isZebraModalOpen,
     isSalvandoBanco,
     ultimoArquivo,
     etiquetasGeradas,
+    zplContent,
+    printVariante,
     previewEtiqueta,
     previewIndex,
     previewTotal: etiquetasGeradas.length,
@@ -328,9 +410,14 @@ export function usePesoVariavelEtiquetas() {
     limparSelecao,
     gerarEtiquetas,
     imprimirEtiquetas,
+    imprimirEtiquetasZebra,
     uploadArquivos,
     abrirModalAdicionar,
     fecharModalAdicionar,
+    abrirModalZebra,
+    fecharModalZebra,
+    copiarZpl,
+    baixarZpl,
     confirmarAdicionarBanco,
     previewAnterior,
     previewProxima,

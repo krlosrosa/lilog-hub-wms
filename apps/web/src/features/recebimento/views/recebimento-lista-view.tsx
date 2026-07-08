@@ -28,6 +28,7 @@ import {
 
 import { Pagination } from '@/features/filiais/components/pagination';
 import { DocasControl } from '@/features/recebimento/components/docas-control';
+import { RecebimentoFiltrosAvancadosSheet } from '@/features/recebimento/components/recebimento-filtros-avancados-sheet';
 import { RecebimentoRow } from '@/features/recebimento/components/recebimento-row';
 import { RecebimentoStatsCards } from '@/features/recebimento/components/recebimento-stats-cards';
 import { RecebimentoUtilityBar } from '@/features/recebimento/components/recebimento-utility-bar';
@@ -50,6 +51,9 @@ export function RecebimentoListaView() {
     docas,
     filtroTurno,
     setFiltroTurno,
+    filtrosAvancados,
+    filtrosAvancadosAtivos,
+    setFiltrosAvancados,
     busca,
     setBusca,
     pagina,
@@ -67,10 +71,7 @@ export function RecebimentoListaView() {
   const [recebimentoParaExcluir, setRecebimentoParaExcluir] =
     useState<RecebimentoListaItem | null>(null);
   const [excluindo, setExcluindo] = useState(false);
-
-  const filtrosAvancados = useCallback(() => {
-    toast.info('Filtros avançados em construção (mock)', { duration: 2500 });
-  }, []);
+  const [filtrosSheetAberto, setFiltrosSheetAberto] = useState(false);
 
   const exportar = useCallback(() => {
     toast.success('Exportação simulada (mock)', {
@@ -207,7 +208,8 @@ export function RecebimentoListaView() {
                   onTurnoChange={setFiltroTurno}
                   busca={busca}
                   onBuscaChange={setBusca}
-                  onFiltrosAvancados={filtrosAvancados}
+                  onFiltrosAvancados={() => setFiltrosSheetAberto(true)}
+                  filtrosAvancadosAtivos={filtrosAvancadosAtivos}
                   onExportar={exportar}
                 />
               </div>
@@ -286,6 +288,13 @@ export function RecebimentoListaView() {
           </div>
         </div>
       </main>
+
+      <RecebimentoFiltrosAvancadosSheet
+        open={filtrosSheetAberto}
+        onOpenChange={setFiltrosSheetAberto}
+        filtros={filtrosAvancados}
+        onAplicar={setFiltrosAvancados}
+      />
     </SidebarMain>
   );
 }

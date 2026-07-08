@@ -129,7 +129,7 @@ export function ImpressaoConfigView() {
                   Configurar Impressão de Mapa
                 </h1>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Padrões de impressão para separação, conferência e carregamento.
+                  Padrões de impressão para separação, conferência, reentrega e carregamento.
                 </p>
               </div>
 
@@ -273,6 +273,7 @@ export function ImpressaoConfigView() {
               <OrdemImpressaoPanel
                 ordemSeparacao={config.ordemImpressaoSeparacao}
                 ordemConferencia={config.ordemImpressaoConferencia}
+                ordemConferenciaReentrega={config.ordemImpressaoConferenciaReentrega}
                 onMoveUp={moveOrdemItemUp}
                 onMoveDown={moveOrdemItemDown}
                 onToggle={toggleOrdemItem}
@@ -292,6 +293,9 @@ export function ImpressaoConfigView() {
               qrCodeMapa={config.qrCodeMapa}
               ordemImpressaoSeparacao={config.ordemImpressaoSeparacao}
               ordemImpressaoConferencia={config.ordemImpressaoConferencia}
+              ordemImpressaoConferenciaReentrega={
+                config.ordemImpressaoConferenciaReentrega
+              }
               opcoesTabelasCarregamento={config.opcoesTabelasCarregamento}
               onMudar={setLayoutCabecalho}
               onMudarQrPosicao={setQrCodePosicao}

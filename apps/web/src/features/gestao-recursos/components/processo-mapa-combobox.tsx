@@ -94,7 +94,9 @@ export function ProcessoMapaCombobox({
   );
 }
 
-export function labelProcessoMapa(processo: MapaGrupoProcessoApi): string {
+export function labelProcessoMapa(
+  processo: MapaGrupoProcessoApi | 'devolucao',
+): string {
   switch (processo) {
     case 'separacao':
       return 'Separação';
@@ -102,13 +104,15 @@ export function labelProcessoMapa(processo: MapaGrupoProcessoApi): string {
       return 'Conferência';
     case 'carregamento':
       return 'Carregamento';
+    case 'devolucao':
+      return 'Devolução';
     default:
       return processo;
   }
 }
 
 export function badgeProcessoMapaClassName(
-  processo: MapaGrupoProcessoApi,
+  processo: MapaGrupoProcessoApi | 'devolucao',
 ): string {
   switch (processo) {
     case 'separacao':
@@ -117,6 +121,8 @@ export function badgeProcessoMapaClassName(
       return 'bg-tertiary/15 text-tertiary';
     case 'carregamento':
       return 'bg-warning/15 text-warning';
+    case 'devolucao':
+      return 'bg-secondary/15 text-secondary';
     default:
       return 'bg-muted text-muted-foreground';
   }

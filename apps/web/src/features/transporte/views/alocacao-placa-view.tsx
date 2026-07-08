@@ -20,11 +20,14 @@ import {
   compactTableEmptyCellClassName,
 } from '@/components/ui/compact-table-classes';
 
+import { AdicionarNfSheet } from '@/features/transporte/components/adicionar-nf-sheet';
 import { AlocarPlacaSheet } from '@/features/transporte/components/alocar-placa-sheet';
+import { ItinerarioImportModal } from '@/features/transporte/components/itinerario-import-modal';
 import { ImprimirMapasModal } from '@/features/transporte/components/imprimir-mapas-modal';
 import { PrioridadeTransporteModal } from '@/features/transporte/components/prioridade-transporte-modal';
 import { RemessaUploadModal } from '@/features/transporte/components/remessa-upload-modal';
 import { RoteirizacaoImportModal } from '@/features/transporte/components/roteirizacao-import-modal';
+import { TransporteQuickFilters } from '@/features/transporte/components/transporte-quick-filters';
 import { TransporteRow } from '@/features/transporte/components/transporte-row';
 import { TransporteSummaryCards } from '@/features/transporte/components/transporte-summary-cards';
 import { UploadConflitoDialog } from '@/features/transporte/components/upload-conflito-dialog';
@@ -47,7 +50,7 @@ const TABLE_HEADERS = [
   { key: 'expand', label: '', className: 'w-10' },
   { key: 'rota', label: 'Rota', className: 'w-[120px] max-w-[120px]' },
   { key: 'data', label: 'Data', className: 'hidden w-[88px] sm:table-cell' },
-  { key: 'cidade', label: 'Cidade', className: 'hidden w-[108px] max-w-[108px] sm:table-cell' },
+  { key: 'itinerario', label: 'Itinerário', className: 'hidden w-[108px] max-w-[108px] sm:table-cell' },
   { key: 'bairro', label: 'Bairro', className: 'hidden w-[100px] max-w-[100px] sm:table-cell' },
   { key: 'nfs', label: 'NFs', className: 'w-14 text-center' },
   { key: 'reentrega', label: 'Reentrega', className: 'hidden w-[76px] sm:table-cell text-center' },
@@ -55,6 +58,10 @@ const TABLE_HEADERS = [
   { key: 'perfil-esperado', label: 'Perfil esp.', className: 'hidden w-[88px] lg:table-cell' },
   { key: 'perfil-alocado', label: 'Perfil aloc.', className: 'hidden w-[88px] lg:table-cell' },
   { key: 'perfil', label: 'Perfil', className: 'hidden w-[140px] md:table-cell lg:hidden' },
+  { key: 'custo-previsto', label: 'Custo prev.', className: 'hidden w-[92px] md:table-cell text-right' },
+  { key: 'custo-ton', label: 'R$/Ton', className: 'hidden w-[80px] lg:table-cell text-right' },
+  { key: 'dropsize', label: 'Dropsize', className: 'hidden w-[84px] lg:table-cell text-right' },
+  { key: 'ocupacao', label: 'Ocupação', className: 'hidden w-[84px] lg:table-cell text-right' },
   { key: 'prioridade', label: 'Prioridade', className: 'hidden w-[88px] sm:table-cell' },
   { key: 'status', label: 'Status', className: 'w-[88px]' },
   { key: 'mapa', label: 'Mapa', className: 'w-12 text-center' },
@@ -82,8 +89,12 @@ export function AlocacaoPlacaView() {
     setFiltroStatus,
     filtroRegiao,
     setFiltroRegiao,
-    filtroData,
-    setFiltroData,
+    intervaloData,
+    setIntervaloData,
+    filtroRapido,
+    setFiltroRapido,
+    contadoresFiltroRapido,
+    intervaloDataPreenchido,
     selecionados,
     expandidos,
     processando,
@@ -92,11 +103,14 @@ export function AlocacaoPlacaView() {
     todosSelecionados,
     modalUploadAberto,
     modalRoteirizacaoAberto,
+    modalItinerarioAberto,
     modalAlocarAberto,
     modalPrioridadeAberto,
     modalImprimirAberto,
+    modalAdicionarNfAberto,
     transporteSelecionado,
     transportePrioridadeSelecionado,
+    transporteAdicionarNfSelecionado,
     transportesSelecionados,
     gerandoPdfMapas,
     unidadeId,
@@ -109,15 +123,20 @@ export function AlocacaoPlacaView() {
     fecharModalUpload,
     abrirModalRoteirizacao,
     fecharModalRoteirizacao,
+    abrirModalItinerario,
+    fecharModalItinerario,
     abrirModalAlocar,
     fecharModalAlocar,
     abrirModalPrioridade,
     fecharModalPrioridade,
+    abrirModalAdicionarNf,
+    fecharModalAdicionarNf,
     abrirModalImprimir,
     fecharModalImprimir,
     imprimirMapas,
     confirmarUpload,
     importarRoteirizacao,
+    importarItinerario,
     confirmarAlocacao,
     confirmarPrioridade,
     salvarAlocacoes,
@@ -126,11 +145,20 @@ export function AlocacaoPlacaView() {
     navegarParaGerarMapas,
     navegarParaImpressaoMapaSeparacao,
     deleteDialog,
+    desalocarReentregaDialog,
+    excluirMapaConfReentregaDialog,
     uploadConflitoDialog,
     abrirDeleteDialog,
     fecharDeleteDialog,
     confirmarExclusaoTransporte,
+    abrirDesalocarReentregaDialog,
+    fecharDesalocarReentregaDialog,
+    confirmarDesalocarReentrega,
+    abrirExcluirMapaConfReentregaDialog,
+    fecharExcluirMapaConfReentregaDialog,
+    confirmarExcluirMapaConfReentrega,
     fecharUploadConflitoDialog,
+    recarregarTransportes,
   } = useAlocacaoPlaca();
 
   return (
@@ -175,6 +203,17 @@ export function AlocacaoPlacaView() {
               >
                 <FileSpreadsheet className="size-3.5" aria-hidden />
                 Importar Roteirização
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 border-outline-variant text-xs"
+                disabled={processando || transportesTodos.length === 0}
+                onClick={abrirModalItinerario}
+              >
+                <FileSpreadsheet className="size-3.5" aria-hidden />
+                Importar Itinerário
               </Button>
               <Button
                 type="button"
@@ -269,67 +308,113 @@ export function AlocacaoPlacaView() {
           <TransporteSummaryCards summary={summary} />
 
           <section className="overflow-hidden rounded-xl border border-outline-variant bg-glass-bg shadow-inner-glow backdrop-blur-glass">
-              <div className="flex flex-wrap items-center gap-2 border-b border-outline-variant bg-surface-low/30 px-3 py-2.5">
-                <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive">
-                  {transportesPendentes.length} pendentes
-                </span>
-                <span className="hidden h-3.5 w-px bg-outline-variant sm:block" />
-                <input
-                  type="date"
-                  value={filtroData}
-                  onChange={(event) => setFiltroData(event.target.value)}
-                  aria-label="Filtrar por data"
-                  className={filterInputClass}
-                />
-                <select
-                  value={filtroStatus}
-                  onChange={(event) =>
-                    setFiltroStatus(
-                      event.target.value as FiltroStatusTransporte,
-                    )
-                  }
-                  aria-label="Filtrar por status"
-                  className={filterInputClass}
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={filtroRegiao}
-                  onChange={(event) => setFiltroRegiao(event.target.value)}
-                  aria-label="Filtrar por região"
-                  className={filterInputClass}
-                >
-                  <option value="todas">Todas regiões</option>
-                  {regioes.map((regiao) => (
-                    <option key={regiao} value={regiao}>
-                      {regiao}
-                    </option>
-                  ))}
-                </select>
-                <span className="ml-auto text-[10px] text-muted-foreground">
-                  {transportes.length} transporte
-                  {transportes.length !== 1 ? 's' : ''}
-                  {uploadLoteIdTorre ? (
-                    <>
-                      {' '}
-                      · lote{' '}
-                      <span className="font-mono text-foreground">
-                        {uploadLoteIdTorre.slice(0, 8)}…
+              <div className="space-y-2.5 border-b border-outline-variant bg-surface-low/30 px-3 py-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive">
+                    {transportesPendentes.length} pendentes
+                  </span>
+                  <span className="hidden h-3.5 w-px bg-outline-variant sm:block" />
+                  <div className="inline-flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-semibold text-muted-foreground">
+                      Período
+                      <span className="ml-0.5 text-destructive" aria-hidden>
+                        *
                       </span>
-                    </>
-                  ) : null}
-                </span>
+                    </span>
+                    <input
+                      type="date"
+                      required
+                      value={intervaloData.dataInicio}
+                      onChange={(event) =>
+                        setIntervaloData({
+                          ...intervaloData,
+                          dataInicio: event.target.value,
+                        })
+                      }
+                      aria-label="Data início do período (obrigatório)"
+                      className={cn(
+                        filterInputClass,
+                        !intervaloDataPreenchido &&
+                          !intervaloData.dataInicio.trim() &&
+                          'border-destructive/50 ring-1 ring-destructive/20',
+                      )}
+                    />
+                    <span className="text-[10px] text-muted-foreground">até</span>
+                    <input
+                      type="date"
+                      required
+                      value={intervaloData.dataFim}
+                      onChange={(event) =>
+                        setIntervaloData({
+                          ...intervaloData,
+                          dataFim: event.target.value,
+                        })
+                      }
+                      aria-label="Data fim do período (obrigatório)"
+                      className={cn(
+                        filterInputClass,
+                        !intervaloDataPreenchido &&
+                          !intervaloData.dataFim.trim() &&
+                          'border-destructive/50 ring-1 ring-destructive/20',
+                      )}
+                    />
+                  </div>
+                  <select
+                    value={filtroStatus}
+                    onChange={(event) =>
+                      setFiltroStatus(
+                        event.target.value as FiltroStatusTransporte,
+                      )
+                    }
+                    aria-label="Filtrar por status"
+                    className={filterInputClass}
+                  >
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={filtroRegiao}
+                    onChange={(event) => setFiltroRegiao(event.target.value)}
+                    aria-label="Filtrar por região"
+                    className={filterInputClass}
+                  >
+                    <option value="todas">Todas regiões</option>
+                    {regioes.map((regiao) => (
+                      <option key={regiao} value={regiao}>
+                        {regiao}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="ml-auto text-[10px] text-muted-foreground">
+                    {transportes.length} transporte
+                    {transportes.length !== 1 ? 's' : ''}
+                    {uploadLoteIdTorre ? (
+                      <>
+                        {' '}
+                        · lote{' '}
+                        <span className="font-mono text-foreground">
+                          {uploadLoteIdTorre.slice(0, 8)}…
+                        </span>
+                      </>
+                    ) : null}
+                  </span>
+                </div>
+
+                <TransporteQuickFilters
+                  filtroAtivo={filtroRapido}
+                  contadores={contadoresFiltroRapido}
+                  onFiltroChange={setFiltroRapido}
+                />
               </div>
 
               <div className="overflow-x-auto">
                 <table
                   className={cn(
                     compactTableClassName,
-                    'min-w-[1200px] table-auto text-[11px]',
+                    'min-w-[1280px] table-auto text-[11px]',
                   )}
                 >
                   <thead>
@@ -382,6 +467,7 @@ export function AlocacaoPlacaView() {
                         <TransporteRow
                           key={transporte.id}
                           transporte={transporte}
+                          perfisTarifas={perfisTarifas}
                           selecionado={selecionados.has(transporte.id)}
                           expandido={expandidos.has(transporte.id)}
                           processando={processando}
@@ -389,9 +475,34 @@ export function AlocacaoPlacaView() {
                           onToggleExpandido={toggleExpandido}
                           onAlocar={abrirModalAlocar}
                           onAbrirPrioridade={abrirModalPrioridade}
+                          onAdicionarNf={abrirModalAdicionarNf}
                           onExcluir={abrirDeleteDialog}
+                          onDesalocarReentrega={abrirDesalocarReentregaDialog}
+                          onExcluirMapaConferenciaReentrega={
+                            abrirExcluirMapaConfReentregaDialog
+                          }
                         />
                       ))
+                    ) : !intervaloDataPreenchido ? (
+                      <tr>
+                        <td
+                          colSpan={TABLE_HEADERS.length}
+                          className={cn(
+                            compactTableEmptyCellClassName,
+                            'py-16',
+                          )}
+                        >
+                          <div className="flex flex-col items-center gap-2">
+                            <Truck className="size-8 text-muted-foreground/40" aria-hidden />
+                            <p className="text-sm font-medium text-foreground">
+                              Selecione o período de expedição
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Informe data início e data fim para listar os transportes.
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
                     ) : (
                       <tr>
                         <td
@@ -438,6 +549,15 @@ export function AlocacaoPlacaView() {
         onConfirmar={importarRoteirizacao}
       />
 
+      <ItinerarioImportModal
+        open={modalItinerarioAberto}
+        onOpenChange={(aberto) => {
+          if (!aberto) fecharModalItinerario();
+        }}
+        processando={processando}
+        onConfirmar={importarItinerario}
+      />
+
       <PrioridadeTransporteModal
         open={modalPrioridadeAberto}
         onOpenChange={(aberto) => {
@@ -446,6 +566,16 @@ export function AlocacaoPlacaView() {
         transporte={transportePrioridadeSelecionado}
         processando={processando}
         onConfirmar={(payload) => void confirmarPrioridade(payload)}
+      />
+
+      <AdicionarNfSheet
+        open={modalAdicionarNfAberto}
+        onOpenChange={(aberto) => {
+          if (!aberto) fecharModalAdicionarNf();
+        }}
+        transporte={transporteAdicionarNfSelecionado}
+        unidadeId={unidadeId}
+        onVinculado={recarregarTransportes}
       />
 
       <AlocarPlacaSheet
@@ -520,6 +650,103 @@ export function AlocacaoPlacaView() {
               onClick={() => void confirmarExclusaoTransporte()}
             >
               Excluir
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={desalocarReentregaDialog.open}
+        onOpenChange={(open) => {
+          if (!open && !processando) {
+            fecharDesalocarReentregaDialog();
+          }
+        }}
+      >
+        <AlertDialogContent className="border-outline-variant bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground">
+              Desalocar reentrega?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Confirma a remoção da NF{' '}
+              <span className="font-semibold text-foreground">
+                {desalocarReentregaDialog.remessa?.remessa}
+              </span>{' '}
+              do transporte{' '}
+              <span className="font-semibold text-foreground">
+                {desalocarReentregaDialog.transporte?.rota}
+              </span>
+              . A NF voltará a ficar disponível para vinculação em outro
+              transporte.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button" disabled={processando}>
+              Cancelar
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={processando}
+              onClick={() => void confirmarDesalocarReentrega()}
+            >
+              {processando ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  Desalocando...
+                </>
+              ) : (
+                'Desalocar'
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={excluirMapaConfReentregaDialog.open}
+        onOpenChange={(open) => {
+          if (!open && !processando) {
+            fecharExcluirMapaConfReentregaDialog();
+          }
+        }}
+      >
+        <AlertDialogContent className="border-outline-variant bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground">
+              Excluir mapa de conferência reentrega?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Remove o mapa de conferência reentrega do transporte{' '}
+              <span className="font-semibold text-foreground">
+                {excluirMapaConfReentregaDialog.transporte?.rota}
+              </span>
+              . Após excluir, as NFs de reentrega poderão ser desalocadas e
+              realocadas em outro transporte. O mapa de separação/conferência
+              normal não será afetado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button" disabled={processando}>
+              Cancelar
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={processando}
+              onClick={() => void confirmarExcluirMapaConfReentrega()}
+            >
+              {processando ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  Excluindo...
+                </>
+              ) : (
+                'Excluir'
+              )}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

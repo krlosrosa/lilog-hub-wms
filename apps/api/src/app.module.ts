@@ -12,8 +12,6 @@ import { BullModuleConfig } from './infra/modules/bull.module.js';
 
 import { CacheModuleConfig } from './infra/modules/cache.module.js';
 
-import { MovementRecordModule } from './infra/modules/movement-record.module.js';
-
 import { UnidadeModule } from './infra/modules/unidade.module.js';
 
 import { EnderecoModule } from './infra/modules/endereco.module.js';
@@ -56,7 +54,19 @@ import { OpWmsModule } from './infra/modules/op-wms.module.js';
 
 import { CorteOperacionalModule } from './infra/modules/corte-operacional.module.js';
 
+import { DevolucaoModule } from './infra/modules/devolucao.module.js';
+
+import { CobrancaTransportadoraModule } from './infra/modules/cobranca-transportadora.module.js';
+
+import { RegraProcessoModule } from './infra/modules/regra-processo.module.js';
+
+import { ArmazemLayoutModule } from './infra/modules/armazem-layout.module.js';
+
+import { PortalModule } from './infra/modules/portal.module.js';
+
 import { DrizzleModule } from './infra/db/providers/drizzle/drizzle.module.js';
+
+import { EmailModule } from './infra/modules/email.module.js';
 
 
 
@@ -74,6 +84,8 @@ import { DrizzleModule } from './infra/db/providers/drizzle/drizzle.module.js';
 
     DrizzleModule,
 
+    EmailModule,
+
     BullModuleConfig,
 
     CacheModuleConfig,
@@ -81,8 +93,6 @@ import { DrizzleModule } from './infra/db/providers/drizzle/drizzle.module.js';
     AuthModule,
 
     AuditLogModule,
-
-    MovementRecordModule,
 
     UnidadeModule,
 
@@ -125,6 +135,16 @@ import { DrizzleModule } from './infra/db/providers/drizzle/drizzle.module.js';
     OpWmsModule,
 
     CorteOperacionalModule,
+
+    DevolucaoModule,
+
+    CobrancaTransportadoraModule,
+
+    RegraProcessoModule,
+
+    ArmazemLayoutModule,
+
+    PortalModule,
 
   ],
 

@@ -9,6 +9,12 @@ export const PRODUTIVIDADE_DOMINIO = 'expedicao' as const;
 export const PRODUTIVIDADE_CATEGORIA = 'produtividade' as const;
 export const PAUSAS_DOMINIO = 'operacional' as const;
 export const PAUSAS_CATEGORIA = 'pausas' as const;
+export const DEVOLUCAO_DOMINIO = 'devolucao' as const;
+export const DEVOLUCAO_CONFERENCIA_CATEGORIA = 'conferencia' as const;
+export const DEVOLUCAO_PARAMETROS_SUBTIPO = 'parametros' as const;
+export const RECEBIMENTO_DOMINIO = 'recebimento' as const;
+export const RECEBIMENTO_CONFERENCIA_CATEGORIA = 'conferencia' as const;
+export const RECEBIMENTO_PARAMETROS_SUBTIPO = 'parametros' as const;
 
 export type ParametrosSeparacaoApi = {
   deslocamentoEntreEnderecosSeg: number;
@@ -44,13 +50,64 @@ export type ParametrosPausaApi = {
   duracaoPausaMinutos: number;
 };
 
+export type QuantidadeModoApi = 'caixa' | 'unidade' | 'ambos';
+export type LoteModoApi = 'lote' | 'fabricacao' | 'ambos';
+
+export type CondicaoChecklistItem = {
+  id: string;
+  label: string;
+};
+
+export const DEFAULT_CONDICOES_CHECKLIST: CondicaoChecklistItem[] = [
+  { id: 'limpeza', label: 'Limpeza Interna' },
+  { id: 'odor', label: 'Ausência de Odor' },
+  { id: 'estrutura', label: 'Integridade Estrutural' },
+  { id: 'vedacao', label: 'Vedação das Portas' },
+];
+
+export type ParametrosDevolucaoConferenciaApi = {
+  quantidadeModo: QuantidadeModoApi;
+  loteModo: LoteModoApi;
+  controlaPalete: boolean;
+  condicoesChecklist: CondicaoChecklistItem[];
+};
+
+export const DEFAULT_PARAMETROS_DEVOLUCAO_CONFERENCIA: ParametrosDevolucaoConferenciaApi =
+  {
+    quantidadeModo: 'ambos',
+    loteModo: 'lote',
+    controlaPalete: false,
+    condicoesChecklist: DEFAULT_CONDICOES_CHECKLIST,
+  };
+
+export type ParametrosRecebimentoConferenciaApi = {
+  quantidadeModo: QuantidadeModoApi;
+  loteModo: LoteModoApi;
+  controlaPalete: boolean;
+  solicitarPesoPvar: boolean;
+  exigirEtiquetaPesoVariavel: boolean;
+  condicoesChecklist: CondicaoChecklistItem[];
+};
+
+export const DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA: ParametrosRecebimentoConferenciaApi =
+  {
+    quantidadeModo: 'ambos',
+    loteModo: 'lote',
+    controlaPalete: false,
+    solicitarPesoPvar: true,
+    exigirEtiquetaPesoVariavel: false,
+    condicoesChecklist: DEFAULT_CONDICOES_CHECKLIST,
+  };
+
 export type RegrasPausaPadraoMap = Partial<Record<PausaTipo, ParametrosPausaApi>>;
 
 export type ParametrosConfiguracaoOperacionalApi =
   | ParametrosSeparacaoApi
   | ParametrosConferenciaApi
   | ParametrosCarregamentoApi
-  | ParametrosPausaApi;
+  | ParametrosPausaApi
+  | ParametrosDevolucaoConferenciaApi
+  | ParametrosRecebimentoConferenciaApi;
 
 export type ConfiguracaoOperacionalApi = {
   id: string;
@@ -75,9 +132,21 @@ export type ListConfiguracoesOperacionaisApiResponse = {
 
 export type CreateConfiguracaoOperacionalApiPayload = {
   unidadeId: string;
-  dominio: typeof PRODUTIVIDADE_DOMINIO | typeof PAUSAS_DOMINIO;
-  categoria: typeof PRODUTIVIDADE_CATEGORIA | typeof PAUSAS_CATEGORIA;
-  subtipo: EtapaProdutividade | PausaTipo;
+  dominio:
+    | typeof PRODUTIVIDADE_DOMINIO
+    | typeof PAUSAS_DOMINIO
+    | typeof DEVOLUCAO_DOMINIO
+    | typeof RECEBIMENTO_DOMINIO;
+  categoria:
+    | typeof PRODUTIVIDADE_CATEGORIA
+    | typeof PAUSAS_CATEGORIA
+    | typeof DEVOLUCAO_CONFERENCIA_CATEGORIA
+    | typeof RECEBIMENTO_CONFERENCIA_CATEGORIA;
+  subtipo:
+    | EtapaProdutividade
+    | PausaTipo
+    | typeof DEVOLUCAO_PARAMETROS_SUBTIPO
+    | typeof RECEBIMENTO_PARAMETROS_SUBTIPO;
   nome: string;
   descricao?: string;
   parametros: ParametrosConfiguracaoOperacionalApi;

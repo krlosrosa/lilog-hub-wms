@@ -153,7 +153,7 @@ function ProdutoResumoCard({
               {produto.categoria}
             </span>
             <span className="font-mono text-[10px] text-on-primary-container/60">
-              ID {produto.id}
+              ID {produto.produtoId}
             </span>
           </div>
           <h2 className="truncate text-headline-md font-semibold leading-tight text-on-primary-container">

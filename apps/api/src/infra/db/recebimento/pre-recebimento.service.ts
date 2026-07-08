@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type {
   CreatePreRecebimentoInput,
   PreRecebimentoSituacao,
+  RecepcionarCarroInput,
   UpdatePreRecebimentoInput,
 } from '../../../domain/model/recebimento/recebimento.model.js';
 import type {
@@ -18,6 +19,10 @@ import { findPreRecebimentoByIdDb } from './find-pre-recebimento.drizzle.js';
 import { listPreRecebimentosDb } from './list-pre-recebimentos.drizzle.js';
 import { updatePreRecebimentoDb } from './update-pre-recebimento.drizzle.js';
 import { updatePreRecebimentoSituacaoDb } from './update-pre-recebimento-situacao.drizzle.js';
+import { liberarConferenciaPreRecebimentoDb } from './liberar-conferencia-pre-recebimento.drizzle.js';
+import { recepcionarCarroPreRecebimentoDb } from './recepcionar-carro-pre-recebimento.drizzle.js';
+import { gerarLinkRastreioDb } from './gerar-link-rastreio.drizzle.js';
+import { findRastreioByTokenDb } from './find-rastreio-by-token.drizzle.js';
 
 @Injectable()
 export class PreRecebimentoService implements IPreRecebimentoRepository {
@@ -49,7 +54,28 @@ export class PreRecebimentoService implements IPreRecebimentoRepository {
     return updatePreRecebimentoSituacaoDb(this.db, id, situacao, dataChegada);
   }
 
+  liberarConferencia(id: string, docaId: string, dataChegada: Date) {
+    return liberarConferenciaPreRecebimentoDb(
+      this.db,
+      id,
+      docaId,
+      dataChegada,
+    );
+  }
+
+  recepcionarCarro(id: string, data: RecepcionarCarroInput) {
+    return recepcionarCarroPreRecebimentoDb(this.db, id, data);
+  }
+
   cancel(id: string) {
     return updatePreRecebimentoSituacaoDb(this.db, id, 'cancelado');
+  }
+
+  gerarLinkRastreio(id: string, options?: { regenerar?: boolean }) {
+    return gerarLinkRastreioDb(this.db, id, options?.regenerar ?? false);
+  }
+
+  findRastreioByToken(token: string) {
+    return findRastreioByTokenDb(this.db, token);
   }
 }

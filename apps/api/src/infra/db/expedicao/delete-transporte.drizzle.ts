@@ -16,12 +16,12 @@ export async function deleteTransporteDb(
   return db.transaction(async (tx) => {
     const [transporte] = await tx
       .select({
-        id: transportes.id,
-        rota: transportes.rota,
+        id: transportes.numeroTransporte,
+        rota: transportes.numeroTransporte,
         ultimoMapaLoteId: transportes.ultimoMapaLoteId,
       })
       .from(transportes)
-      .where(and(eq(transportes.id, id), eq(transportes.unidadeId, unidadeId)))
+      .where(and(eq(transportes.numeroTransporte, id), eq(transportes.unidadeId, unidadeId)))
       .limit(1);
 
     if (!transporte) {
@@ -50,7 +50,7 @@ export async function deleteTransporteDb(
 
     await tx
       .delete(transportes)
-      .where(and(eq(transportes.id, id), eq(transportes.unidadeId, unidadeId)));
+      .where(and(eq(transportes.numeroTransporte, id), eq(transportes.unidadeId, unidadeId)));
 
     return {
       id: transporte.id,

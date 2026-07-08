@@ -125,6 +125,7 @@ function TabelaCarregamentoPreview<T extends string>({
 const ABAS: { id: TipoLayoutMapa; label: string }[] = [
   { id: 'separacao', label: 'Separação' },
   { id: 'conferencia', label: 'Conferência' },
+  { id: 'conferencia_reentrega', label: 'Reentrega' },
   { id: 'carregamento', label: 'Carregamento' },
 ];
 
@@ -160,6 +161,7 @@ type LayoutCabecalhoEditorProps = {
   qrCodeMapa: QrCodeMapa;
   ordemImpressaoSeparacao: OrdemImpressaoItem[];
   ordemImpressaoConferencia: OrdemImpressaoItem[];
+  ordemImpressaoConferenciaReentrega: OrdemImpressaoItem[];
   opcoesTabelasCarregamento: OpcoesTabelasCarregamento;
   onMudar: (tipo: TipoLayoutMapa, html: string) => void;
   onMudarQrPosicao: (tipo: TipoLayoutMapa, posicao: PosicaoQrCode) => void;
@@ -186,8 +188,10 @@ function resolverOrdemImpressao(
   aba: TipoLayoutMapa,
   ordemSeparacao: OrdemImpressaoItem[],
   ordemConferencia: OrdemImpressaoItem[],
+  ordemConferenciaReentrega: OrdemImpressaoItem[],
 ): OrdemImpressaoItem[] {
   if (aba === 'conferencia') return ordemConferencia;
+  if (aba === 'conferencia_reentrega') return ordemConferenciaReentrega;
   if (aba === 'carregamento') return [];
   return ordemSeparacao;
 }
@@ -197,6 +201,7 @@ export function LayoutCabecalhoEditor({
   qrCodeMapa,
   ordemImpressaoSeparacao,
   ordemImpressaoConferencia,
+  ordemImpressaoConferenciaReentrega,
   opcoesTabelasCarregamento,
   onMudar,
   onMudarQrPosicao,
@@ -219,8 +224,14 @@ export function LayoutCabecalhoEditor({
         abaAtiva,
         ordemImpressaoSeparacao,
         ordemImpressaoConferencia,
+        ordemImpressaoConferenciaReentrega,
       ),
-    [abaAtiva, ordemImpressaoSeparacao, ordemImpressaoConferencia],
+    [
+      abaAtiva,
+      ordemImpressaoSeparacao,
+      ordemImpressaoConferencia,
+      ordemImpressaoConferenciaReentrega,
+    ],
   );
 
   const inserirVariavel = useCallback(

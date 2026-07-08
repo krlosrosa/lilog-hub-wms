@@ -8,12 +8,40 @@ import {
   MAPA_TRANSPORTES_STORAGE_KEY,
 } from '@/features/transporte/types/transporte.schema';
 
-export function saveMapaSelecao(ids: string[]): void {
+/**
+ * Transportes completos (remessas + itens) excedem a quota do sessionStorage (~5 MB).
+ * Mantemos os dados na memória da aba; IDs persistem via `saveMapaSelecao`.
+ */
+let mapaTransportesMemoryCache: TransporteGrupo[] = [];
+
+function purgeLegacyMapaTransportesStorage(): void {
   if (typeof window === 'undefined') {
     return;
   }
 
-  sessionStorage.setItem(MAPA_SELECAO_STORAGE_KEY, JSON.stringify(ids));
+  try {
+    sessionStorage.removeItem(MAPA_TRANSPORTES_STORAGE_KEY);
+  } catch {
+    // Quota já estourada — ignorar.
+  }
+}
+
+purgeLegacyMapaTransportesStorage();
+
+function setSessionStorageItem(key: string, value: string): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    // QuotaExceededError — dados menores (ids/config) podem falhar se o storage estiver cheio.
+  }
+}
+
+export function saveMapaSelecao(ids: string[]): void {
+  setSessionStorageItem(MAPA_SELECAO_STORAGE_KEY, JSON.stringify(ids));
 }
 
 export function loadMapaSelecao(): string[] {
@@ -37,40 +65,15 @@ export function loadMapaSelecao(): string[] {
 }
 
 export function saveMapaTransportes(transportes: TransporteGrupo[]): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  sessionStorage.setItem(
-    MAPA_TRANSPORTES_STORAGE_KEY,
-    JSON.stringify(transportes),
-  );
+  mapaTransportesMemoryCache = transportes;
 }
 
 export function loadMapaTransportes(): TransporteGrupo[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  const raw = sessionStorage.getItem(MAPA_TRANSPORTES_STORAGE_KEY);
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? (parsed as TransporteGrupo[]) : [];
-  } catch {
-    return [];
-  }
+  return mapaTransportesMemoryCache;
 }
 
 export function saveMapaImpressaoPayload(payload: ImpressaoPayload): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  sessionStorage.setItem(
+  setSessionStorageItem(
     MAPA_IMPRESSAO_PAYLOAD_STORAGE_KEY,
     JSON.stringify(payload),
   );

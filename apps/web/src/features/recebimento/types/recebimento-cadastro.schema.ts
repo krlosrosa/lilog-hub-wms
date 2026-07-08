@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const itemPreRecebimentoSchema = z.object({
-  produtoId: z.string().uuid('Selecione um produto válido'),
+  produtoId: z.string().min(1, 'Selecione um produto válido'),
   produtoLabel: z.string().min(1, 'Selecione um produto'),
   quantidadeEsperada: z
     .number({ error: 'Informe a quantidade' })
@@ -16,14 +16,34 @@ export type ItemPreRecebimentoFormValues = z.infer<
   typeof itemPreRecebimentoSchema
 >;
 
+export const notaFiscalPreRecebimentoFormSchema = z.object({
+  numeroNf: z.string().min(1, 'Informe o número da NF'),
+  serie: z.string().optional(),
+  chaveAcesso: z.string().optional(),
+  numeroRemessa: z.string().optional(),
+  fornecedorNome: z.string().optional(),
+  fornecedorDocumento: z.string().optional(),
+  pesoTotal: z.string().optional(),
+  volumeTotal: z.string().optional(),
+  observacao: z.string().optional(),
+});
+
+export type NotaFiscalPreRecebimentoFormValues = z.infer<
+  typeof notaFiscalPreRecebimentoFormSchema
+>;
+
 export const recebimentoCadastroFormSchema = z.object({
-  transportadoraId: z.string().min(1, 'Informe a transportadora'),
-  placa: z.string().min(1, 'Informe a placa do veículo'),
+  transportadoraNome: z.string().optional(),
+  placa: z.string().optional(),
+  numeroOcr: z.string().optional(),
+  numeroTransporte: z.string().optional(),
+  origemDados: z.enum(['manual', 'xlsx', 'xml', 'ocr']),
   horarioPrevisto: z.string().min(1, 'Informe o horário previsto'),
   observacao: z.string().optional(),
   itens: z
     .array(itemPreRecebimentoSchema)
     .min(1, 'Adicione pelo menos 1 item'),
+  notasFiscais: z.array(notaFiscalPreRecebimentoFormSchema).optional(),
 });
 
 export type RecebimentoCadastroFormValues = z.infer<
@@ -39,3 +59,16 @@ export const EMPTY_ITEM_PRE_RECEBIMENTO: ItemPreRecebimentoFormValues = {
   pesoEsperado: undefined,
   validadeEsperada: '',
 };
+
+export const EMPTY_NOTA_FISCAL_PRE_RECEBIMENTO: NotaFiscalPreRecebimentoFormValues =
+  {
+    numeroNf: '',
+    serie: '',
+    chaveAcesso: '',
+    numeroRemessa: '',
+    fornecedorNome: '',
+    fornecedorDocumento: '',
+    pesoTotal: undefined,
+    volumeTotal: undefined,
+    observacao: '',
+  };

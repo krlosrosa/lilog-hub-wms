@@ -21,6 +21,7 @@ const UpdateTransportadoraBodySchema = z.object({
   cnpj: z.string().min(1).max(18).optional(),
   status: TransportadoraStatusSchema.optional(),
   quantidadeVeiculos: z.number().int().nonnegative().optional(),
+  emails: z.array(z.email()).optional(),
 });
 
 class UpdateTransportadoraBodyDto extends createZodDto(

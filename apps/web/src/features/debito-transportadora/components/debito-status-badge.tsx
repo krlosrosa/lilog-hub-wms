@@ -13,17 +13,19 @@ const STATUS_DOT: Record<
   DebitoStatus,
   { dot: string; pulse?: boolean }
 > = {
-  em_disputa: { dot: 'bg-amber-400', pulse: true },
-  notificada: { dot: 'bg-primary' },
-  pago: { dot: 'bg-tertiary' },
-  aguardando_evidencia: { dot: 'bg-secondary' },
+  aberto: { dot: 'bg-amber-400', pulse: true },
+  em_analise: { dot: 'bg-secondary', pulse: true },
+  aprovado: { dot: 'bg-primary' },
+  incluido_em_documento: { dot: 'bg-tertiary' },
+  cancelado: { dot: 'bg-muted-foreground' },
 };
 
 const COMPACT_STATUS_LABELS: Record<DebitoStatus, string> = {
-  em_disputa: 'Disputa',
-  notificada: 'Notificada',
-  pago: 'Pago',
-  aguardando_evidencia: 'Aguard. Evid.',
+  aberto: 'Aberto',
+  em_analise: 'Em Análise',
+  aprovado: 'Aprovado',
+  incluido_em_documento: 'Incl. Doc.',
+  cancelado: 'Cancelado',
 };
 
 export function DebitoStatusBadge({

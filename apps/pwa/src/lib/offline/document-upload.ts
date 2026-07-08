@@ -1,3 +1,5 @@
+import { buildImageUploadName } from '@/lib/images/image-mime';
+
 import type { PhotoEntry } from './db';
 import { isApiConfigured, request } from './api-client';
 
@@ -27,8 +29,12 @@ export async function uploadDocumentToBucket(
     return `mock://documentos/${photo.id ?? Date.now()}`;
   }
 
-  const mimeType = photo.mimeType || 'image/jpeg';
+  const mimeType = photo.mimeType || 'image/webp';
   const tamanho = photo.blob.size;
+  const nome = buildImageUploadName(
+    options.nome.replace(/\.[^.]+$/, ''),
+    mimeType,
+  );
 
   const { uploadUrl, chave } = await request<UploadUrlResponse>(
     '/documentos/upload-url',
@@ -36,7 +42,7 @@ export async function uploadDocumentToBucket(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        nome: options.nome,
+        nome,
         mimeType,
         tamanho,
         entidadeTipo: options.entidadeTipo,
@@ -61,7 +67,7 @@ export async function uploadDocumentToBucket(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chave,
-      nome: options.nome,
+      nome,
       mimeType,
       tamanho,
       entidadeTipo: options.entidadeTipo,

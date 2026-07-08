@@ -75,6 +75,73 @@ export const CreateDocaInputSchema = z.object({
 
 export type CreateDocaInput = z.infer<typeof CreateDocaInputSchema>;
 
+export const BulkCreateDocaInputSchema = z
+  .object({
+    unidadeId: z.string().min(1).max(50),
+    numeroInicial: z.number().int().positive(),
+    numeroFinal: z.number().int().positive(),
+    codigoPrefixo: z.string().min(1).max(20).default('D'),
+    nomePrefixo: z.string().min(1).max(50).default('Doca '),
+    tipo: DocaTipoSchema,
+    capacidadeVeiculos: z.number().int().positive().optional(),
+    observacao: z.string().optional(),
+  })
+  .refine((data) => data.numeroInicial <= data.numeroFinal, {
+    message: 'Número inicial deve ser menor ou igual ao final',
+    path: ['numeroFinal'],
+  })
+  .refine((data) => data.numeroFinal - data.numeroInicial + 1 <= 100, {
+    message: 'Intervalo máximo de 100 docas por operação',
+    path: ['numeroFinal'],
+  });
+
+export type BulkCreateDocaInput = z.infer<typeof BulkCreateDocaInputSchema>;
+
+export function buildDocaCodigoFromNumero(
+  prefixo: string,
+  numero: number,
+  numeroFinal: number,
+): string {
+  const padLength = Math.max(2, String(numeroFinal).length);
+  return `${prefixo}${String(numero).padStart(padLength, '0')}`;
+}
+
+export function buildDocaNomeFromNumero(
+  prefixo: string,
+  numero: number,
+  numeroFinal: number,
+): string {
+  const padLength = Math.max(2, String(numeroFinal).length);
+  return `${prefixo}${String(numero).padStart(padLength, '0')}`;
+}
+
+export function buildDocasFromInterval(
+  input: BulkCreateDocaInput,
+): CreateDocaInput[] {
+  const items: CreateDocaInput[] = [];
+
+  for (let numero = input.numeroInicial; numero <= input.numeroFinal; numero++) {
+    items.push({
+      unidadeId: input.unidadeId,
+      codigo: buildDocaCodigoFromNumero(
+        input.codigoPrefixo,
+        numero,
+        input.numeroFinal,
+      ),
+      nome: buildDocaNomeFromNumero(
+        input.nomePrefixo,
+        numero,
+        input.numeroFinal,
+      ),
+      tipo: input.tipo,
+      capacidadeVeiculos: input.capacidadeVeiculos,
+      observacao: input.observacao,
+    });
+  }
+
+  return items;
+}
+
 export const UpdateDocaInputSchema = z.object({
   codigo: z.string().min(1).max(50).optional(),
   nome: z.string().min(1).max(255).optional(),

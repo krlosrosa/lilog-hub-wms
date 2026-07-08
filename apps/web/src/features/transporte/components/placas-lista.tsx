@@ -91,7 +91,7 @@ function PlacaVeiculoCard({
   const clicavel = interativo && !processando;
 
   const cardClass = cn(
-    'rounded-lg border px-2.5 py-2 transition-all',
+    'rounded-lg border px-2 py-1 transition-all',
     semPerfilTarifa
       ? 'border-outline-variant/40 bg-surface-low/40 opacity-75'
       : selecionado
@@ -103,72 +103,68 @@ function PlacaVeiculoCard({
             : 'border-outline-variant/40 bg-surface-low/50 opacity-90',
   );
 
-  const conteudo = (
-    <>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <p className="font-mono text-[11px] font-bold text-primary">
-              {veiculo.placa}
-            </p>
-            {semPerfilTarifa ? (
-              <span className="rounded bg-destructive/15 px-1 py-px text-[8px] font-bold uppercase text-destructive">
-                Sem perfil
-              </span>
-            ) : (
-              <span
-                className={cn(
-                  'rounded px-1 py-px text-[8px] font-bold uppercase',
-                  veiculo.disponivel
-                    ? 'bg-tertiary/15 text-tertiary'
-                    : modoTransportador && alocadaEmOutraEntrega
-                      ? 'bg-secondary/15 text-secondary'
-                      : 'bg-muted text-muted-foreground',
-                )}
-              >
-                {veiculo.disponivel
-                  ? 'Livre'
-                  : modoTransportador && rotaAlocada
-                    ? veiculo.id === transporteAlvo?.veiculoAlocado?.veiculoId
-                      ? 'Atual'
-                      : 'Alocada'
-                    : 'Uso'}
-              </span>
-            )}
-          </div>
-          <p className="truncate text-[10px] text-muted-foreground">
-            {veiculo.modelo}
-            {veiculo.ano > 0 ? ` · ${veiculo.ano}` : ''}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-1.5 flex flex-wrap items-center gap-1">
-        <span className="rounded bg-secondary-container/25 px-1.5 py-px text-[9px] font-bold text-secondary">
-          {veiculo.perfilTarifaNome ?? TIPO_VEICULO_LABELS[veiculo.tipo]}
-        </span>
-        <span className="text-[9px] text-muted-foreground">
-          {nf.format(veiculo.capacidadePeso)} kg · {veiculo.capacidadeVolume} m³
-        </span>
-      </div>
-
-      <p className="mt-1 truncate text-[10px] text-foreground">
-        <span className="font-medium">{veiculo.transportadora || '—'}</span>
-        {veiculo.motorista ? (
-          <span className="text-muted-foreground"> · {veiculo.motorista}</span>
-        ) : null}
-      </p>
-
-      {!veiculo.disponivel && rotaAlocada && (
-        <p className="mt-0.5 truncate text-[9px] text-muted-foreground">
-          {modoTransportador ? 'Entrega: ' : '→ '}
-          {rotaAlocada}
-        </p>
+  const statusBadge = semPerfilTarifa ? (
+    <span className="rounded bg-destructive/15 px-1 py-px text-[10px] font-bold uppercase text-destructive">
+      Sem perfil
+    </span>
+  ) : (
+    <span
+      className={cn(
+        'rounded px-1 py-px text-[10px] font-bold uppercase',
+        veiculo.disponivel
+          ? 'bg-tertiary/15 text-tertiary'
+          : modoTransportador && alocadaEmOutraEntrega
+            ? 'bg-secondary/15 text-secondary'
+            : 'bg-muted text-muted-foreground',
       )}
+    >
+      {veiculo.disponivel
+        ? 'Livre'
+        : modoTransportador && rotaAlocada
+          ? veiculo.id === transporteAlvo?.veiculoAlocado?.veiculoId
+            ? 'Atual'
+            : 'Alocada'
+          : 'Uso'}
+    </span>
+  );
+
+  const perfilLabel =
+    veiculo.perfilTarifaNome ?? TIPO_VEICULO_LABELS[veiculo.tipo];
+
+  const capacidadeCompacta =
+    veiculo.capacidadePeso >= 1000
+      ? `${(veiculo.capacidadePeso / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}t`
+      : `${nf.format(veiculo.capacidadePeso)} kg`;
+
+  const conteudo = (
+    <div className="grid grid-cols-[1fr_auto] items-center gap-x-2.5 gap-y-0.5">
+      <div className="min-w-0">
+        <div className="flex items-center gap-1">
+          <p className="font-mono text-[13px] font-bold leading-none text-primary">
+            {veiculo.placa}
+          </p>
+          {statusBadge}
+        </div>
+        <p className="mt-0.5 truncate text-[11px] leading-tight text-muted-foreground">
+          {perfilLabel}
+          {veiculo.transportadora ? ` · ${veiculo.transportadora}` : ''}
+        </p>
+      </div>
+
+      <div className="flex shrink-0 flex-col items-end gap-0.5 text-right">
+        <span className="whitespace-nowrap text-[11px] leading-none text-muted-foreground">
+          {capacidadeCompacta} · {veiculo.capacidadeVolume} m³
+        </span>
+        {veiculo.capacidadePeso > 0 && (
+          <span className="font-mono text-[11px] font-semibold leading-none tabular-nums text-foreground">
+            {ocupacaoPercentual}%
+          </span>
+        )}
+      </div>
 
       {veiculo.capacidadePeso > 0 && (
-        <div className="mt-1.5 flex items-center gap-2">
-          <div className="h-1 flex-1 overflow-hidden rounded-full bg-surface-container">
+        <div className="col-span-2 flex items-center gap-1.5">
+          <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-container">
             <div
               className={cn(
                 'h-full rounded-full transition-all',
@@ -181,23 +177,16 @@ function PlacaVeiculoCard({
               style={{ width: `${Math.min(ocupacaoPercentual, 100)}%` }}
             />
           </div>
-          <span className="shrink-0 font-mono text-[9px] text-muted-foreground">
-            {ocupacaoPercentual}%
-          </span>
         </div>
       )}
 
-      {clicavel && modo === 'alocar' && (
-        <p className="mt-1 text-center text-[9px] font-semibold text-primary/80">
-          Clique para alocar
+      {!veiculo.disponivel && rotaAlocada && (
+        <p className="col-span-2 truncate text-[10px] leading-tight text-muted-foreground">
+          {modoTransportador ? 'Entrega: ' : '→ '}
+          {rotaAlocada}
         </p>
       )}
-      {selecionado && modo === 'selecionar' && (
-        <p className="mt-1 text-center text-[9px] font-semibold text-primary">
-          Placa selecionada
-        </p>
-      )}
-    </>
+    </div>
   );
 
   if (clicavel) {
@@ -448,12 +437,12 @@ export function PlacasLista({
 
       <div
         className={cn(
-          'space-y-1.5 overflow-y-auto pr-0.5',
+          'overflow-y-auto pr-0.5',
           preencherAltura
-            ? 'min-h-0 flex-1'
+            ? 'grid min-h-0 flex-1 grid-cols-2 gap-1 content-start'
             : compacto
-              ? 'max-h-[280px]'
-              : 'max-h-[min(400px,50vh)]',
+              ? 'max-h-[280px] space-y-1'
+              : 'max-h-[min(400px,50vh)] space-y-1',
         )}
       >
         {veiculosFiltrados.length ? (
@@ -471,7 +460,12 @@ export function PlacasLista({
             />
           ))
         ) : (
-          <p className="py-6 text-center text-[10px] text-muted-foreground">
+          <p
+            className={cn(
+              'py-6 text-center text-[11px] text-muted-foreground',
+              preencherAltura && 'col-span-2',
+            )}
+          >
             {modoTransportador && filtroRapidoPlaca === 'nao_alocadas'
               ? 'Nenhuma placa disponível no momento.'
               : modoTransportador && filtroRapidoPlaca === 'alocadas'

@@ -2,8 +2,11 @@ import { z } from 'zod';
 
 export const DOMINIO_EXPEDICAO = 'expedicao' as const;
 export const DOMINIO_OPERACIONAL = 'operacional' as const;
+export const DOMINIO_DEVOLUCAO = 'devolucao' as const;
+export const DOMINIO_RECEBIMENTO = 'recebimento' as const;
 export const CATEGORIA_PRODUTIVIDADE = 'produtividade' as const;
 export const CATEGORIA_PAUSAS = 'pausas' as const;
+export const CATEGORIA_CONFERENCIA = 'conferencia' as const;
 
 export const SUBTIPO_SEPARACAO = 'separacao' as const;
 export const SUBTIPO_CONFERENCIA = 'conferencia' as const;
@@ -12,6 +15,7 @@ export const SUBTIPO_CARREGAMENTO = 'carregamento' as const;
 export const SUBTIPO_PAUSA_TERMICA = 'termica' as const;
 export const SUBTIPO_PAUSA_REFEICAO = 'refeicao' as const;
 export const SUBTIPO_PAUSA_OUTROS = 'outros' as const;
+export const SUBTIPO_PARAMETROS = 'parametros' as const;
 
 export const SubtipoConfiguracaoOperacionalSchema = z.enum([
   SUBTIPO_SEPARACAO,
@@ -25,6 +29,8 @@ export const SubtipoPausaSchema = z.enum([
   SUBTIPO_PAUSA_OUTROS,
 ]);
 
+export const SubtipoDevolucaoConferenciaSchema = z.enum([SUBTIPO_PARAMETROS]);
+
 export type SubtipoConfiguracaoOperacional = z.infer<
   typeof SubtipoConfiguracaoOperacionalSchema
 >;
@@ -33,11 +39,13 @@ export type SubtipoPausa = z.infer<typeof SubtipoPausaSchema>;
 
 export type SubtipoConfiguracao =
   | SubtipoConfiguracaoOperacional
-  | SubtipoPausa;
+  | SubtipoPausa
+  | z.infer<typeof SubtipoDevolucaoConferenciaSchema>;
 
 export const SubtipoConfiguracaoSchema = z.union([
   SubtipoConfiguracaoOperacionalSchema,
   SubtipoPausaSchema,
+  SubtipoDevolucaoConferenciaSchema,
 ]);
 
 export const ParametrosSeparacaoSchema = z.object({
@@ -74,16 +82,66 @@ export const ParametrosPausaSchema = z.object({
   duracaoPausaMinutos: z.number().int().min(0),
 });
 
+export const QuantidadeModoSchema = z.enum(['caixa', 'unidade', 'ambos']);
+export const LoteModoSchema = z.enum(['lote', 'fabricacao', 'ambos']);
+
+export const CondicaoChecklistItemSchema = z.object({
+  id: z.string().min(1).max(50),
+  label: z.string().min(1).max(100),
+});
+
+export const DEFAULT_CONDICOES_CHECKLIST = [
+  { id: 'limpeza', label: 'Limpeza Interna' },
+  { id: 'odor', label: 'Ausência de Odor' },
+  { id: 'estrutura', label: 'Integridade Estrutural' },
+  { id: 'vedacao', label: 'Vedação das Portas' },
+] as const;
+
+export const ParametrosDevolucaoConferenciaSchema = z.object({
+  quantidadeModo: QuantidadeModoSchema.default('ambos'),
+  loteModo: LoteModoSchema.default('lote'),
+  controlaPalete: z.boolean().default(false),
+  condicoesChecklist: z
+    .array(CondicaoChecklistItemSchema)
+    .min(1)
+    .max(20)
+    .default([...DEFAULT_CONDICOES_CHECKLIST]),
+});
+
+export const ParametrosRecebimentoConferenciaSchema = z.object({
+  quantidadeModo: QuantidadeModoSchema.default('ambos'),
+  loteModo: LoteModoSchema.default('lote'),
+  controlaPalete: z.boolean().default(false),
+  solicitarPesoPvar: z.boolean().default(true),
+  exigirEtiquetaPesoVariavel: z.boolean().default(false),
+  condicoesChecklist: z
+    .array(CondicaoChecklistItemSchema)
+    .min(1)
+    .max(20)
+    .default([...DEFAULT_CONDICOES_CHECKLIST]),
+});
+
 export type ParametrosSeparacao = z.infer<typeof ParametrosSeparacaoSchema>;
 export type ParametrosConferencia = z.infer<typeof ParametrosConferenciaSchema>;
 export type ParametrosCarregamento = z.infer<typeof ParametrosCarregamentoSchema>;
 export type ParametrosPausa = z.infer<typeof ParametrosPausaSchema>;
+export type CondicaoChecklistItem = z.infer<typeof CondicaoChecklistItemSchema>;
+
+export type ParametrosDevolucaoConferencia = z.infer<
+  typeof ParametrosDevolucaoConferenciaSchema
+>;
+
+export type ParametrosRecebimentoConferencia = z.infer<
+  typeof ParametrosRecebimentoConferenciaSchema
+>;
 
 export type ParametrosConfiguracaoOperacional =
   | ParametrosSeparacao
   | ParametrosConferencia
   | ParametrosCarregamento
-  | ParametrosPausa;
+  | ParametrosPausa
+  | ParametrosDevolucaoConferencia
+  | ParametrosRecebimentoConferencia;
 
 export type RegrasPausaPadraoMap = Partial<
   Record<SubtipoPausa, ParametrosPausa>
@@ -100,6 +158,7 @@ const PARAMETROS_PAUSA_POR_SUBTIPO = {
   [SUBTIPO_PAUSA_REFEICAO]: ParametrosPausaSchema,
   [SUBTIPO_PAUSA_OUTROS]: ParametrosPausaSchema,
 } as const;
+
 
 export function isSubtipoPausa(subtipo: string): subtipo is SubtipoPausa {
   return SubtipoPausaSchema.safeParse(subtipo).success;
@@ -145,6 +204,17 @@ export function validarParametrosConfig(
     return null;
   }
 
+  if (categoria === CATEGORIA_CONFERENCIA && subtipo === SUBTIPO_PARAMETROS) {
+    const result =
+      ParametrosRecebimentoConferenciaSchema.safeParse(parametros);
+
+    if (!result.success) {
+      return `Parâmetros inválidos para conferência operacional: ${result.error.message}`;
+    }
+
+    return null;
+  }
+
   return `Categoria de configuração não suportada: "${categoria}"`;
 }
 
@@ -165,6 +235,10 @@ export function parseParametrosConfig(
 
   if (categoria === CATEGORIA_PRODUTIVIDADE && isSubtipoProdutividade(subtipo)) {
     return PARAMETROS_PRODUTIVIDADE_POR_SUBTIPO[subtipo].parse(parametros);
+  }
+
+  if (categoria === CATEGORIA_CONFERENCIA && subtipo === SUBTIPO_PARAMETROS) {
+    return ParametrosRecebimentoConferenciaSchema.parse(parametros);
   }
 
   throw new Error(`Categoria de configuração não suportada: "${categoria}"`);

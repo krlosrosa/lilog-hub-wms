@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
-export const demandStatusSchema = z.enum(['aguardando', 'em_conferencia', 'concluido']);
+export const demandStatusSchema = z.enum([
+  'agendado',
+  'aguardando',
+  'liberado_para_conferencia',
+  'em_conferencia',
+  'conferido',
+  'finalizado',
+]);
 
 export type DemandStatus = z.infer<typeof demandStatusSchema>;
 
@@ -15,7 +22,7 @@ export const demandSchema = z.object({
   supplier: z.string(),
   dock: z.string(),
   arrival: z.string(),
-  status: demandStatusSchema.default('aguardando'),
+  status: demandStatusSchema.default('liberado_para_conferencia'),
   statusLabel: z.string().optional(),
   companies: z.array(companyCodeSchema).min(1).max(3),
   isPriority: z.boolean().optional(),
@@ -31,12 +38,25 @@ export const demandSchema = z.object({
 
 export type Demand = z.infer<typeof demandSchema>;
 
-export const checklistConditionsSchema = z.object({
-  limpeza: z.boolean(),
-  odor: z.boolean(),
-  estrutura: z.boolean(),
-  vedacao: z.boolean(),
-});
+export const checklistConditionsSchema = z.record(z.string(), z.boolean());
+
+export type CondicaoChecklistItem = {
+  id: string;
+  label: string;
+};
+
+export const DEFAULT_CONDICOES_CHECKLIST: CondicaoChecklistItem[] = [
+  { id: 'limpeza', label: 'Limpeza Interna' },
+  { id: 'odor', label: 'Ausência de Odor' },
+  { id: 'estrutura', label: 'Integridade Estrutural' },
+  { id: 'vedacao', label: 'Vedação das Portas' },
+];
+
+export function buildDefaultChecklistConditions(
+  condicoesChecklist: CondicaoChecklistItem[],
+): Record<string, boolean> {
+  return Object.fromEntries(condicoesChecklist.map((item) => [item.id, false]));
+}
 
 export const checklistSchema = z.object({
   dock: z.string().min(1, 'Selecione a doca'),
@@ -54,21 +74,26 @@ export type ProdutoConferenciaConfigForm = {
   controlaValidade: boolean;
   controlaPeso: boolean;
   pesoVariavel: boolean;
+  exigirEtiquetaPesoVariavel: boolean;
   controlaNumeroSerie: boolean;
 };
 
-const numericField = (message: string, optional = false) => {
-  const base = optional ? z.string() : z.string().min(1, message);
-  return base.refine(
-    (v) => v === '' || (!Number.isNaN(Number(v)) && Number(v) >= 0),
+const numericField = (message: string) =>
+  z
+    .string()
+    .min(1, message)
+    .refine((v) => !Number.isNaN(Number(v)) && Number(v) >= 0, 'Valor inválido');
+
+const optionalNumericField = z
+  .string()
+  .optional()
+  .refine(
+    (v) => v === undefined || v === '' || (!Number.isNaN(Number(v)) && Number(v) >= 0),
     'Valor inválido',
   );
-};
 
 const pesoField = (required: boolean) => {
-  const base = required
-    ? z.string().min(1, 'Informe o peso')
-    : z.string();
+  const base = required ? z.string().min(1, 'Informe o peso') : z.string();
   return base.refine(
     (v) =>
       !required ||
@@ -77,27 +102,128 @@ const pesoField = (required: boolean) => {
   );
 };
 
-export function createDetalheItemSchema(config: ProdutoConferenciaConfigForm) {
+const optionalPesoField = z
+  .string()
+  .optional()
+  .refine(
+    (v) =>
+      v === undefined ||
+      v === '' ||
+      (!Number.isNaN(Number(v)) && Number(v) > 0),
+    'Peso inválido',
+  );
+
+export const quantidadeModoSchema = z.enum(['caixa', 'unidade', 'ambos']);
+export type QuantidadeModo = z.infer<typeof quantidadeModoSchema>;
+
+export const loteModoSchema = z.enum(['lote', 'fabricacao', 'ambos']);
+export type LoteModo = z.infer<typeof loteModoSchema>;
+
+export const DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA = {
+  quantidadeModo: 'ambos',
+  loteModo: 'lote',
+  controlaPalete: false,
+  solicitarPesoPvar: true,
+  exigirEtiquetaPesoVariavel: false,
+  condicoesChecklist: DEFAULT_CONDICOES_CHECKLIST,
+} as const satisfies {
+  quantidadeModo: QuantidadeModo;
+  loteModo: LoteModo;
+  controlaPalete: boolean;
+  solicitarPesoPvar: boolean;
+  exigirEtiquetaPesoVariavel: boolean;
+  condicoesChecklist: CondicaoChecklistItem[];
+};
+
+export type ParametrosRecebimentoConferencia = {
+  quantidadeModo: QuantidadeModo;
+  loteModo: LoteModo;
+  controlaPalete: boolean;
+  solicitarPesoPvar: boolean;
+  exigirEtiquetaPesoVariavel: boolean;
+  condicoesChecklist: CondicaoChecklistItem[];
+};
+
+type BuildDetalheItemSchemaOptions = {
+  pesoVariavel: boolean;
+  exigirEtiquetaPesoVariavel: boolean;
+  quantidadeModo: QuantidadeModo;
+  loteModo: LoteModo;
+  controlaPalete: boolean;
+};
+
+export function buildDetalheItemSchema({
+  pesoVariavel,
+  exigirEtiquetaPesoVariavel,
+  quantidadeModo,
+  loteModo,
+  controlaPalete,
+}: BuildDetalheItemSchemaOptions) {
+  const caixaField =
+    pesoVariavel || quantidadeModo === 'unidade'
+      ? optionalNumericField
+      : numericField('Informe a recebida caixa');
+
+  const unidadeField =
+    pesoVariavel || quantidadeModo === 'caixa'
+      ? optionalNumericField
+      : numericField('Informe a recebida unidade');
+
+  const loteField = pesoVariavel
+    ? z.string().optional()
+    : loteModo === 'fabricacao'
+      ? z.string().optional()
+      : z
+          .string()
+          .min(1, 'Informe o lote')
+          .regex(/^\d+$/, 'Lote deve conter apenas números');
+
+  const validadeField =
+    pesoVariavel || loteModo === 'lote'
+      ? z.string().optional()
+      : z.string().min(1, 'Informe a fabricação');
+
+  const idPaleteField = controlaPalete
+    ? z.string().min(1, 'Informe o ID do palete')
+    : z.string().optional();
+
+  const etiquetaField =
+    pesoVariavel && exigirEtiquetaPesoVariavel
+      ? z.string().min(1, 'Informe ou escaneie a etiqueta da caixa')
+      : z.string().optional();
+
   return z.object({
     sku: z.string().min(1, 'Escaneie ou digite o SKU'),
-    idPalete: z.string().min(1, 'Informe o ID do palete'),
-    lote: z.string().min(1, 'Informe o lote'),
-    recebidaCaixa: numericField('Informe a recebida caixa'),
-    recebidaUnidade: numericField('Informe a recebida unidade', true),
-    peso: pesoField(config.pesoVariavel),
-    validade: z.string().min(1, 'Informe a validade/fabricação'),
+    idPalete: idPaleteField,
+    lote: loteField,
+    recebidaCaixa: caixaField,
+    recebidaUnidade: unidadeField,
+    peso: pesoVariavel ? pesoField(true) : optionalPesoField,
+    etiqueta: etiquetaField,
+    validade: validadeField,
   });
 }
 
-export const detalheItemSchema = createDetalheItemSchema({
-  controlaLote: true,
-  controlaValidade: false,
-  controlaPeso: false,
+/** @deprecated Use buildDetalheItemSchema() */
+export function createDetalheItemSchema(config: ProdutoConferenciaConfigForm) {
+  return buildDetalheItemSchema({
+    pesoVariavel: config.pesoVariavel,
+    exigirEtiquetaPesoVariavel: config.exigirEtiquetaPesoVariavel,
+    quantidadeModo: 'ambos',
+    loteModo: 'lote',
+    controlaPalete: true,
+  });
+}
+
+export const detalheItemSchema = buildDetalheItemSchema({
   pesoVariavel: true,
-  controlaNumeroSerie: false,
+  exigirEtiquetaPesoVariavel: false,
+  quantidadeModo: 'ambos',
+  loteModo: 'lote',
+  controlaPalete: true,
 });
 
-export type DetalheItemForm = z.infer<typeof detalheItemSchema>;
+export type DetalheItemForm = z.infer<ReturnType<typeof buildDetalheItemSchema>>;
 
 export const loteConferidoSchema = z.object({
   id: z.string(),
@@ -105,7 +231,12 @@ export const loteConferidoSchema = z.object({
   idPalete: z.string(),
   recebidaCaixa: z.number(),
   recebidaUnidade: z.number(),
-  peso: z.number(),
+  peso: z.number().optional(),
+  etiquetaCodigo: z.string().optional(),
+  pesagemId: z.string().optional(),
+  validade: z.string().optional(),
+  itemRecebimentoId: z.string().optional(),
+  unitizadorId: z.string().optional(),
 });
 
 export type LoteConferido = z.infer<typeof loteConferidoSchema>;
@@ -143,24 +274,48 @@ const avariaQuantidadeInt = z.coerce
   .int('Use um número inteiro')
   .min(0, 'Valor inválido');
 
-export const avariaSchema = z
-  .object({
+export function buildAvariaSchema(quantidadeModo: QuantidadeModo) {
+  const base = z.object({
     quantidadeCaixa: avariaQuantidadeInt,
     quantidadeUnidade: avariaQuantidadeInt,
+    lote: z.string().optional(),
     tipo: z.string().min(1, 'Selecione o tipo'),
     natureza: z.string().min(1, 'Selecione a natureza'),
     causa: z.string().min(1, 'Selecione a causa'),
     replicarParaTodosConferidos: z.boolean().optional(),
-  })
-  .refine((data) => data.quantidadeCaixa > 0 || data.quantidadeUnidade > 0, {
+  });
+
+  if (quantidadeModo === 'caixa') {
+    return base.refine((data) => data.quantidadeCaixa > 0, {
+      message: 'Informe a quantidade avariada em caixas',
+      path: ['quantidadeCaixa'],
+    });
+  }
+
+  if (quantidadeModo === 'unidade') {
+    return base.refine((data) => data.quantidadeUnidade > 0, {
+      message: 'Informe a quantidade avariada em unidades',
+      path: ['quantidadeUnidade'],
+    });
+  }
+
+  return base.refine((data) => data.quantidadeCaixa > 0 || data.quantidadeUnidade > 0, {
     message: 'Informe caixa e/ou unidade avariada',
     path: ['quantidadeCaixa'],
   });
+}
 
-export type AvariaForm = z.infer<typeof avariaSchema>;
+/** @deprecated Use buildAvariaSchema() */
+export const avariaSchema = buildAvariaSchema('ambos');
+
+export type AvariaForm = z.infer<ReturnType<typeof buildAvariaSchema>>;
 
 export const avariaRegistroSchema = z.object({
   id: z.string(),
+  produtoId: z.string().optional(),
+  sku: z.string().optional(),
+  lote: z.string().optional(),
+  skusAfetados: z.array(z.string()).optional(),
   quantidadeCaixa: z.number(),
   quantidadeUnidade: z.number(),
   tipo: z.string(),
@@ -191,6 +346,9 @@ export const skuItemSchema = z.object({
   status: skuItemStatusSchema,
   hasAvaria: z.boolean().optional(),
   hasDivergencia: z.boolean().optional(),
+  qtdEsperada: z.number().nonnegative().optional(),
+  qtdConferida: z.number().nonnegative().optional(),
+  quantidadeEsperada: z.number().nonnegative().optional(),
 });
 
 export type SkuItem = z.infer<typeof skuItemSchema>;

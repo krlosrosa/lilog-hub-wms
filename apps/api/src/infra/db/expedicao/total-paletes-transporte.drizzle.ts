@@ -36,7 +36,7 @@ export async function totalPaletesTransportesDb(
       totalPaletes: sql<number>`coalesce((${mapaGrupos.cabecalho}->>'totalPaletes')::int, 0)`,
     })
     .from(mapaGrupos)
-    .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.id))
+    .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.numeroTransporte))
     .where(and(...conditions));
 
   return new Map(

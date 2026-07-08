@@ -6,6 +6,7 @@ import {
   divergenciasRecebimento,
   itensRecebimento,
   recebimentos,
+  unitizadores,
 } from '../providers/drizzle/config/migrations/schema.js';
 import {
   mapDivergenciaRow,
@@ -28,8 +29,15 @@ export async function findRecebimentoByIdDb(
   }
 
   const itens = await db
-    .select()
+    .select({
+      item: itensRecebimento,
+      unitizadorCodigo: unitizadores.codigo,
+    })
     .from(itensRecebimento)
+    .leftJoin(
+      unitizadores,
+      eq(itensRecebimento.unitizadorId, unitizadores.id),
+    )
     .where(eq(itensRecebimento.recebimentoId, id));
 
   const divergencias = await db
@@ -39,7 +47,10 @@ export async function findRecebimentoByIdDb(
 
   return {
     ...mapRecebimentoRow(recebimento),
-    itens: itens.map(mapItemRecebimentoRow),
+    itens: itens.map(({ item, unitizadorCodigo }) => ({
+      ...mapItemRecebimentoRow(item),
+      unitizadorCodigo: unitizadorCodigo ?? null,
+    })),
     divergencias: divergencias.map(mapDivergenciaRow),
   };
 }

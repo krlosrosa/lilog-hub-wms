@@ -6,6 +6,7 @@ export type InventoryDemandType = z.infer<typeof inventoryDemandTypeSchema>;
 
 export const inventoryDemandSchema = z.object({
   id: z.string(),
+  codigo: z.string(),
   type: inventoryDemandTypeSchema,
   zone: z.string(),
   aisle: z.string(),
@@ -26,12 +27,27 @@ export const inventoryAddressStatusSchema = z.enum([
 
 export type InventoryAddressStatus = z.infer<typeof inventoryAddressStatusSchema>;
 
+export const saldoEsperadoEnderecoSchema = z.object({
+  saldoEnderecoId: z.string(),
+  produtoId: z.string(),
+  sku: z.string(),
+  nome: z.string(),
+  lote: z.string(),
+  quantidade: z.number(),
+  unidadeMedida: z.string(),
+  numeroSerie: z.string(),
+  unidadesPorCaixa: z.number().int().nullable(),
+});
+
+export type SaldoEsperadoEndereco = z.infer<typeof saldoEsperadoEnderecoSchema>;
+
 export const inventoryAddressSchema = z.object({
   id: z.string(),
   endereco: z.string(),
   produto: z.string().optional(),
   status: inventoryAddressStatusSchema,
   sequence: z.number().int().positive(),
+  saldoEsperado: z.array(saldoEsperadoEnderecoSchema).optional(),
 });
 
 export type InventoryAddress = z.infer<typeof inventoryAddressSchema>;

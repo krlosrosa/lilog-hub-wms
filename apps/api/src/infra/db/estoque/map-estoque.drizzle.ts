@@ -1,10 +1,12 @@
 import type { Deposito } from '../../../domain/model/estoque/deposito.model.js';
-import type { MovimentacaoEstoque } from '../../../domain/model/estoque/movimentacao-estoque.model.js';
-import type { Saldo } from '../../../domain/model/estoque/saldo.model.js';
+import type { ReservaEstoque } from '../../../domain/model/estoque/reserva-estoque.model.js';
+import type { MotivoBloqueioSaldoResumo } from '../../../domain/model/estoque/saldo-endereco.model.js';
+import type { SaldoEndereco } from '../../../domain/model/estoque/saldo-endereco.model.js';
 import type {
   depositos,
-  movimentacoesEstoque,
-  saldos,
+  motivosBloqueioSaldo,
+  reservasEstoque,
+  saldosEndereco,
 } from '../providers/drizzle/config/migrations/schema.js';
 
 export function normalizeLote(lote?: string | null): string {
@@ -43,48 +45,63 @@ export function mapDepositoRow(
   };
 }
 
-export function mapSaldoRow(
-  row: typeof saldos.$inferSelect,
-  deposito?: Pick<typeof depositos.$inferSelect, 'codigo' | 'nome'>,
-): Saldo {
+export function mapSaldoEnderecoRow(
+  row: typeof saldosEndereco.$inferSelect,
+  options?: {
+    enderecoMascarado?: string;
+    motivo?: typeof motivosBloqueioSaldo.$inferSelect | null;
+  },
+): SaldoEndereco {
+  const motivoResumo: MotivoBloqueioSaldoResumo | null = options?.motivo
+    ? {
+        id: options.motivo.id,
+        codigo: options.motivo.codigo,
+        nome: options.motivo.nome,
+      }
+    : null;
+
   return {
     id: row.id,
     unidadeId: row.unidadeId,
     produtoId: row.produtoId,
     depositoId: row.depositoId,
-    depositoCodigo: deposito?.codigo,
-    depositoNome: deposito?.nome,
+    enderecoId: row.enderecoId,
+    enderecoMascarado: options?.enderecoMascarado,
     lote: row.lote,
     validade: row.validade,
     numeroSerie: row.numeroSerie,
     natureza: row.natureza,
+    status: row.status,
+    motivoBloqueio: motivoResumo,
+    observacaoBloqueio: row.observacaoBloqueio,
+    bloqueadoEm: row.bloqueadoEm,
+    bloqueadoPor: row.bloqueadoPor,
     quantidade: toQuantityNumber(row.quantidade),
     unidadeMedida: row.unidadeMedida,
-    documentoRef: row.documentoRef || undefined,
     updatedAt: row.updatedAt,
   };
 }
 
-export function mapMovimentacaoRow(
-  row: typeof movimentacoesEstoque.$inferSelect,
-): MovimentacaoEstoque {
+export function mapReservaEstoqueRow(
+  row: typeof reservasEstoque.$inferSelect,
+): ReservaEstoque {
   return {
     id: row.id,
     unidadeId: row.unidadeId,
     produtoId: row.produtoId,
-    depositoOrigemId: row.depositoOrigemId,
-    depositoDestinoId: row.depositoDestinoId,
-    tipoMovimento: row.tipoMovimento,
-    quantidade: row.quantidade,
-    unidadeMedida: row.unidadeMedida,
+    depositoId: row.depositoId,
+    enderecoId: row.enderecoId,
     lote: row.lote,
-    validade: row.validade,
     numeroSerie: row.numeroSerie,
-    natureza: row.natureza,
+    quantidade: toQuantityNumber(row.quantidade),
+    quantidadeAtendida: toQuantityNumber(row.quantidadeAtendida),
+    status: row.status,
+    origem: row.origem,
     documentoRef: row.documentoRef,
     motivo: row.motivo,
     operatorId: row.operatorId,
-    occurredAt: row.occurredAt,
+    expiresAt: row.expiresAt,
     createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }

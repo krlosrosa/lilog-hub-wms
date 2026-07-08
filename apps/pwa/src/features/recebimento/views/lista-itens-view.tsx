@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle,
+  ChevronDown,
   ChevronRight,
   Clock,
   GitCompareArrows,
@@ -21,6 +22,7 @@ import { createPortal } from 'react-dom';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 import { AdicionarProdutoSheet } from '../components/adicionar-produto-sheet';
+import type { PaleteConferidoResumo } from '../lib/build-paletes-conferidos-resumo';
 import { SKU_ITEM_FILTERS, useListaItens } from '../hooks/use-lista-itens';
 import type { SkuItem, SkuItemFilter } from '../types/recebimento.schema';
 
@@ -226,30 +228,112 @@ function ConferenciaResumoCard({
   );
 }
 
+function ItemPaletesExpand({ paletes }: { paletes: PaleteConferidoResumo[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (paletes.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="border-t border-outline-variant/50 bg-surface-container-low/40">
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-label={expanded ? 'Ocultar paletes conferidos' : 'Ver paletes conferidos'}
+        onClick={(event) => {
+          event.stopPropagation();
+          hapticLight();
+          setExpanded((current) => !current);
+        }}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left touch-manipulation active:bg-surface-container-low"
+      >
+        <span className="flex items-center gap-1.5 text-label-sm font-medium text-secondary">
+          <Package className="h-4 w-4" aria-hidden />
+          Paletes conferidos
+        </span>
+        <span className="flex items-center gap-1.5 text-label-sm text-on-surface-variant">
+          <span className="rounded-full bg-surface-container px-2 py-0.5 font-mono tabular-nums">
+            {paletes.length}
+          </span>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 transition-transform duration-200',
+              expanded && 'rotate-180',
+            )}
+            aria-hidden
+          />
+        </span>
+      </button>
+
+      {expanded ? (
+        <div className="space-y-2 border-t border-outline-variant/40 px-3 pb-3 pt-2">
+          {paletes.map((palete) => (
+            <div
+              key={palete.unitizadorCodigo}
+              className="rounded-lg border border-outline-variant/80 bg-surface p-2.5"
+            >
+              <p className="font-mono text-label-sm font-semibold text-on-surface">
+                {palete.unitizadorCodigo}
+              </p>
+              <ul className="mt-2 space-y-1.5">
+                {palete.itens.map((loteItem, index) => (
+                  <li
+                    key={`${palete.unitizadorCodigo}-${loteItem.lote ?? 'sem-lote'}-${index}`}
+                    className="rounded-md border border-outline-variant/50 bg-surface-container-low px-2.5 py-2"
+                  >
+                    <p className="text-label-sm text-on-surface-variant">
+                      {[loteItem.lote ? `Lote ${loteItem.lote}` : null, loteItem.quantidadeLabel]
+                        .filter(Boolean)
+                        .join(' · ') || '—'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SkuItemRow({
   item,
+  paletes,
+  showPaletes,
   onClick,
 }: {
   item: SkuItem;
+  paletes: PaleteConferidoResumo[];
+  showPaletes: boolean;
   onClick: (item: SkuItem) => void;
 }) {
   const isConferido = item.status === 'conferido';
 
   return (
-    <button
-      type="button"
-      onClick={() => {
-        hapticLight();
-        onClick(item);
-      }}
+    <div
       className={cn(
-        'group flex w-full items-center gap-2.5 overflow-hidden rounded-lg border border-outline-variant bg-surface p-3 text-left shadow-sm',
-        'touch-manipulation transition-all duration-150 active:scale-[0.98] active:bg-surface-container-low',
+        'overflow-hidden rounded-lg border border-outline-variant bg-surface shadow-sm',
         isConferido && 'border-l-[3px] border-l-secondary bg-secondary/[0.04]',
+        isConferido &&
+          item.hasDivergencia &&
+          'border-l-[3px] border-l-destructive/60 bg-destructive/[0.04]',
         !isConferido && item.hasAvaria && 'border-l-[3px] border-l-warning',
-        !isConferido && item.hasDivergencia && !item.hasAvaria && 'border-l-[3px] border-l-destructive/60'
+        !isConferido &&
+          item.hasDivergencia &&
+          !item.hasAvaria &&
+          'border-l-[3px] border-l-destructive/60',
       )}
     >
+      <button
+        type="button"
+        onClick={() => {
+          hapticLight();
+          onClick(item);
+        }}
+        className="group flex w-full items-center gap-2.5 p-3 text-left touch-manipulation transition-all duration-150 active:scale-[0.98] active:bg-surface-container-low"
+      >
       <div
         className={cn(
           'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
@@ -313,7 +397,10 @@ function SkuItemRow({
         className="h-4 w-4 shrink-0 text-outline transition-transform group-active:translate-x-0.5"
         aria-hidden
       />
-    </button>
+      </button>
+
+      {showPaletes && paletes.length > 0 ? <ItemPaletesExpand paletes={paletes} /> : null}
+    </div>
   );
 }
 
@@ -341,6 +428,8 @@ export function ListaItensView({ demandId }: ListaItensViewProps) {
     isValidating,
     canFinalize,
     isFinalizing,
+    paletesPorSku,
+    exigePaleteConferencia,
   } = state;
 
   return (
@@ -443,7 +532,12 @@ export function ListaItensView({ demandId }: ListaItensViewProps) {
           <ul className="flex flex-col gap-2" role="list">
             {items.map((item) => (
               <li key={item.sku}>
-                <SkuItemRow item={item} onClick={actions.handleItemClick} />
+                <SkuItemRow
+                  item={item}
+                  paletes={paletesPorSku[item.sku.toLowerCase()] ?? []}
+                  showPaletes={exigePaleteConferencia}
+                  onClick={actions.handleItemClick}
+                />
               </li>
             ))}
           </ul>

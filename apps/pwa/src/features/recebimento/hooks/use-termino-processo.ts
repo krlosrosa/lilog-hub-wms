@@ -5,7 +5,7 @@ import { hapticMedium } from '@/lib/haptics';
 import { clearDemandCache } from '@/lib/offline/demand-cache';
 import { isApiConfigured } from '@/lib/offline/api-client';
 
-import { getConferenciaContextStore } from '../lib/conferencia-context-store';
+import { getConferenciaContextStore, ensureConferenciaContext } from '../lib/conferencia-context-store';
 import {
   encerrarConferencia,
   listAvarias,
@@ -36,8 +36,20 @@ function buildNaoConferidos(items: SkuItem[]): TerminoDivergenciaItem[] {
       sku: item.sku,
       name: item.name,
       label: 'Não conferido',
-      esperado: 0,
-      contado: 0,
+      esperado: item.qtdEsperada ?? item.quantidadeEsperada ?? 0,
+      contado: item.qtdConferida ?? 0,
+    }));
+}
+
+function buildDivergencias(items: SkuItem[]): TerminoDivergenciaItem[] {
+  return items
+    .filter((item) => item.hasDivergencia === true)
+    .map((item) => ({
+      sku: item.sku,
+      name: item.name,
+      label: 'Divergência',
+      esperado: item.qtdEsperada ?? item.quantidadeEsperada ?? 0,
+      contado: item.qtdConferida ?? 0,
     }));
 }
 
@@ -53,11 +65,23 @@ export function useTerminoProcesso(demandId: string) {
   const [avarias, setAvarias] = useState<TerminoAvariaItem[]>([]);
   const [divergencias, setDivergencias] = useState<TerminoDivergenciaItem[]>([]);
   const [encerrado, setEncerrado] = useState(false);
+  const [items, setItems] = useState<SkuItem[]>(() => getSkuItemsByDemandId(demandId));
 
   const context = getConferenciaContextStore(demandId);
   const recebimentoId = context?.recebimentoId ?? demand?.recebimentoId ?? null;
-  const items = useMemo(() => getSkuItemsByDemandId(demandId), [demandId]);
+
+  useEffect(() => {
+    void ensureConferenciaContext(demandId).then((loaded) => {
+      if (loaded) {
+        setItems(loaded.itens);
+      }
+    });
+  }, [demandId]);
+
   const naoConferidos = useMemo(() => buildNaoConferidos(items), [items]);
+  const divergenciasFromItems = useMemo(() => buildDivergencias(items), [items]);
+  const divergenciasVisiveis =
+    divergenciasFromItems.length > 0 ? divergenciasFromItems : divergencias;
 
   useEffect(() => {
     if (!recebimentoId || !isApiConfigured()) return;
@@ -120,7 +144,7 @@ export function useTerminoProcesso(demandId: string) {
         setEncerrado(true);
 
         const skuByProduto = new Map(
-          Object.entries(context?.itemMetaBySku ?? {}).map(([sku, meta]) => [
+          Object.values(context?.itemMetaBySku ?? {}).map((meta) => [
             meta.produtoId,
             { sku: meta.sku, name: meta.descricao },
           ]),
@@ -131,21 +155,13 @@ export function useTerminoProcesso(demandId: string) {
             const produto = div.produtoId
               ? skuByProduto.get(div.produtoId)
               : undefined;
-            const esperado = div.quantidadeEsperada ?? 0;
-            const contado = div.quantidadeRecebida ?? 0;
-            const diff = contado - esperado;
 
             return {
               sku: produto?.sku ?? div.produtoId ?? '—',
               name: produto?.name ?? div.tipoDivergencia,
-              label:
-                diff > 0
-                  ? `Excedente: ${diff}`
-                  : diff < 0
-                    ? `Faltando: ${Math.abs(diff)}`
-                    : div.tipoDivergencia,
-              esperado,
-              contado,
+              label: 'Divergência',
+              esperado: div.quantidadeEsperada ?? 0,
+              contado: div.quantidadeRecebida ?? 0,
             };
           }),
         );
@@ -178,7 +194,7 @@ export function useTerminoProcesso(demandId: string) {
       dock: demand?.dock ?? context?.dock ?? '—',
       avarias,
       naoConferidos,
-      divergencias,
+      divergencias: divergenciasVisiveis,
       tempoTotal,
       acuracia,
       isAccordionAvariaOpen,

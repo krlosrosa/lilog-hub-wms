@@ -24,22 +24,64 @@ import {
   formatarDuracaoSegundos,
   metaLargadaClassName,
 } from '@/features/torre-controle-expedicao/lib/formatar-tempo';
-import type { TransporteRisco } from '@/features/torre-controle-expedicao/types/torre-controle.schema';
+import {
+  STATUS_TRANSPORTE_TORRE_LABELS,
+  statusTransporteTorreSchema,
+  type StatusTransporteTorre,
+  type TransporteRisco,
+} from '@/features/torre-controle-expedicao/types/torre-controle.schema';
+
+const STATUS_CHIP_VARIANTE: Record<StatusTransporteTorre, 'default' | 'success' | 'warning' | 'destructive'> = {
+  PENDENTE: 'default',
+  ALOCADO: 'default',
+  PARCIAL: 'warning',
+  EM_SEPARACAO: 'warning',
+  SEPARADO: 'success',
+  EM_CONFERENCIA: 'warning',
+  CONFERIDO: 'success',
+  EM_CARREGAMENTO: 'warning',
+  CARREGADO: 'success',
+  EM_VIAGEM: 'success',
+  VIAGEM_FINALIZADA: 'default',
+};
+
+function statusChipClassName(ativo: boolean, variante: 'default' | 'success' | 'warning' | 'destructive') {
+  return cn(
+    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors whitespace-nowrap',
+    ativo
+      ? variante === 'destructive'
+        ? 'bg-destructive/15 text-destructive ring-1 ring-inset ring-destructive/25'
+        : variante === 'success'
+          ? 'bg-emerald-500/15 text-emerald-600 ring-1 ring-inset ring-emerald-500/25 dark:text-emerald-400'
+          : variante === 'warning'
+            ? 'bg-amber-500/15 text-amber-600 ring-1 ring-inset ring-amber-500/25 dark:text-amber-400'
+            : 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/20'
+      : 'bg-surface-highest/60 text-muted-foreground ring-1 ring-inset ring-outline-variant/50 hover:bg-surface-highest',
+  );
+}
 
 export type PainelCriticidadeTableProps = {
   transportes: TransporteRisco[];
   transportesReferencia?: TransporteRisco[];
   apenasNaoFinalizados: boolean;
   onApenasNaoFinalizadosChange: (value: boolean) => void;
+  filtroStatus: StatusTransporteTorre | 'todos';
+  onFiltroStatusChange: (status: StatusTransporteTorre | 'todos') => void;
+  contadoresStatus: Record<StatusTransporteTorre, number>;
   onVerTransporte: (transporte: TransporteRisco) => void;
   className?: string;
 };
+
+const STATUS_TODOS = statusTransporteTorreSchema.options;
 
 export function PainelCriticidadeTable({
   transportes,
   transportesReferencia,
   apenasNaoFinalizados,
   onApenasNaoFinalizadosChange,
+  filtroStatus,
+  onFiltroStatusChange,
+  contadoresStatus,
   onVerTransporte,
   className,
 }: PainelCriticidadeTableProps) {
@@ -50,6 +92,11 @@ export function PainelCriticidadeTable({
   const finalizados = referencia.filter(
     (transporte) => transporte.etapaAtual === 'finalizado',
   ).length;
+
+  const statusComTransportes = STATUS_TODOS.filter(
+    (s) => contadoresStatus[s] > 0,
+  );
+
   return (
     <section
       id="painel-criticidade"
@@ -93,6 +140,42 @@ export function PainelCriticidadeTable({
           </p>
         </div>
       </div>
+
+      {statusComTransportes.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-outline-variant/50 bg-surface-low/30 px-gutter py-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Status
+          </span>
+          <button
+            type="button"
+            onClick={() => onFiltroStatusChange('todos')}
+            className={statusChipClassName(filtroStatus === 'todos', 'default')}
+          >
+            Todos
+            <span className="tabular-nums opacity-80">
+              ({referencia.length})
+            </span>
+          </button>
+          {statusComTransportes.map((status) => (
+            <button
+              key={status}
+              type="button"
+              onClick={() =>
+                onFiltroStatusChange(filtroStatus === status ? 'todos' : status)
+              }
+              className={statusChipClassName(
+                filtroStatus === status,
+                STATUS_CHIP_VARIANTE[status],
+              )}
+            >
+              {STATUS_TRANSPORTE_TORRE_LABELS[status]}
+              <span className="tabular-nums opacity-80">
+                ({contadoresStatus[status]})
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto">
         <table className={compactTableClassName}>

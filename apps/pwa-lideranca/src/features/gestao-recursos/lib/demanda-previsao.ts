@@ -100,7 +100,7 @@ export function computeDemandaTimeline(
   const tasks: TaskItem[] = sorted.map((demanda, index) => {
     let start: Date;
 
-    if (demanda.status === 'em_andamento' && demanda.iniciadoEm) {
+    if (index === activeIndex && demanda.iniciadoEm) {
       start = new Date(demanda.iniciadoEm);
     } else if (index === 0) {
       start = new Date(demanda.iniciadoEm ?? now);
@@ -124,7 +124,7 @@ export function computeDemandaTimeline(
       activeTaskEnd = end;
     }
 
-    const isActive = demanda.status === 'em_andamento';
+    const isActive = index === activeIndex;
     const pausaExtraMinutos =
       pausaExtraMs > 0 ? Math.ceil(pausaExtraMs / 60_000) : undefined;
 

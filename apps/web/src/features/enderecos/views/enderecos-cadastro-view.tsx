@@ -23,16 +23,14 @@ import {
 } from '@/features/enderecos/components/form-field-classes';
 import { LabelPreviewCard } from '@/features/enderecos/components/label-preview';
 import { useEnderecoCadastro } from '@/features/enderecos/hooks/use-endereco-cadastro';
-import { TIPO_ESTRUTURA_OPCOES } from '@/features/enderecos/mocks/enderecos-detail-mock-data';
-import { ENDERECO_TIPO_LABELS } from '@/features/enderecos/types/enderecos-gestao.schema';
+import { ENDERECO_TIPO_LABELS, getTipoEstruturaOpcoes, isEnderecoTipoEstruturado } from '@/features/enderecos/types/enderecos-gestao.schema';
 import type { CurvaAbc } from '@/features/enderecos/types/enderecos-gestao.schema';
 
 export function EnderecosCadastroView() {
   const {
     form,
     isSubmitting,
-    isLoadingCentros,
-    centroOpcoes,
+    unidadeLabel,
     onSubmit,
     cancelar,
     volumeTeoricoM3,
@@ -48,8 +46,10 @@ export function EnderecosCadastroView() {
   } = form;
 
   const curvaAbc = watch('curvaAbc');
+  const tipo = watch('tipo');
   const vinculoSkuFixo = watch('vinculoSkuFixo');
   const regraLoteUnico = watch('regraLoteUnico');
+  const isTipoEstruturado = isEnderecoTipoEstruturado(tipo);
 
   return (
     <FormProvider {...form}>
@@ -82,7 +82,7 @@ export function EnderecosCadastroView() {
             <Button
               type="submit"
               form="endereco-cadastro-form"
-              disabled={isSubmitting || isLoadingCentros || centroOpcoes.length === 0}
+              disabled={isSubmitting || !unidadeLabel || unidadeLabel === '—'}
               className="min-w-[9rem]"
             >
               {isSubmitting ? (
@@ -113,12 +113,12 @@ export function EnderecosCadastroView() {
                 Novo Endereço
               </h1>
               <p className="mt-1 max-w-2xl text-body-md text-muted-foreground">
-                Defina a identificação, dimensões e regras logísticas da nova
-                posição no armazém. A máscara{' '}
+                Cadastre locais físicos do armazém — posições de rack, docas
+                ou áreas operacionais. O código segue o padrão{' '}
                 <span className="font-mono font-semibold text-primary">
-                  CD-ZN-RU-BL-NV-AP
-                </span>{' '}
-                identifica coordenadas precisas no layout.
+                  ZONA · RUA · POSIÇÃO · NÍVEL
+                </span>
+                .
               </p>
             </div>
 
@@ -141,26 +141,10 @@ export function EnderecosCadastroView() {
                       </div>
                     </div>
                     <div>
-                      <label className={fieldLabelClassName} htmlFor="centroId">
-                        Centro
-                      </label>
-                      <select
-                        id="centroId"
-                        className={cn(fieldInputClassName, 'mt-2')}
-                        disabled={isLoadingCentros || centroOpcoes.length === 0}
-                        {...register('centroId')}
-                      >
-                        {centroOpcoes.map((c) => (
-                          <option key={c.value} value={c.value}>
-                            {c.label}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.centroId && (
-                        <p className={fieldErrorClassName}>
-                          {errors.centroId.message}
-                        </p>
-                      )}
+                      <label className={fieldLabelClassName}>Unidade</label>
+                      <div className="mt-2 rounded-lg border border-outline-variant bg-surface-low px-4 py-3 text-body-md">
+                        {unidadeLabel}
+                      </div>
                     </div>
                     <div>
                       <label className={fieldLabelClassName} htmlFor="zona">
@@ -183,11 +167,16 @@ export function EnderecosCadastroView() {
                     <div>
                       <label className={fieldLabelClassName} htmlFor="rua">
                         Rua
+                        {!isTipoEstruturado && (
+                          <span className="ml-1 font-normal text-muted-foreground">
+                            (opcional)
+                          </span>
+                        )}
                       </label>
                       <input
                         id="rua"
                         type="text"
-                        placeholder="0001"
+                        placeholder={isTipoEstruturado ? '001' : '— (opcional)'}
                         className={cn(fieldInputClassName, 'mt-2 font-mono')}
                         {...register('rua')}
                       />
@@ -200,11 +189,16 @@ export function EnderecosCadastroView() {
                     <div>
                       <label className={fieldLabelClassName} htmlFor="posicao">
                         Posição
+                        {!isTipoEstruturado && (
+                          <span className="ml-1 font-normal text-muted-foreground">
+                            (opcional)
+                          </span>
+                        )}
                       </label>
                       <input
                         id="posicao"
                         type="text"
-                        placeholder="001"
+                        placeholder={isTipoEstruturado ? '0001' : '— (opcional)'}
                         className={cn(fieldInputClassName, 'mt-2 font-mono')}
                         {...register('posicao')}
                       />
@@ -217,11 +211,16 @@ export function EnderecosCadastroView() {
                     <div>
                       <label className={fieldLabelClassName} htmlFor="nivel">
                         Nível
+                        {!isTipoEstruturado && (
+                          <span className="ml-1 font-normal text-muted-foreground">
+                            (opcional)
+                          </span>
+                        )}
                       </label>
                       <input
                         id="nivel"
                         type="text"
-                        placeholder="01"
+                        placeholder={isTipoEstruturado ? '01' : '— (opcional)'}
                         className={cn(fieldInputClassName, 'mt-2 font-mono')}
                         {...register('nivel')}
                       />
@@ -263,7 +262,7 @@ export function EnderecosCadastroView() {
                         className={cn(fieldInputClassName, 'mt-2')}
                         {...register('tipoEstrutura')}
                       >
-                        {TIPO_ESTRUTURA_OPCOES.map((t) => (
+                        {getTipoEstruturaOpcoes(tipo).map((t) => (
                           <option key={t.value} value={t.value}>
                             {t.label}
                           </option>
@@ -271,6 +270,17 @@ export function EnderecosCadastroView() {
                       </select>
                     </div>
                   </div>
+                  {!isTipoEstruturado && (
+                    <p className="mt-4 rounded-lg border border-outline-variant/40 bg-surface-lowest px-4 py-3 text-sm text-muted-foreground">
+                      Para tipos como Área Operacional, Recebimento, Expedição,
+                      Avaria e Cross-docking, basta informar a{' '}
+                      <span className="font-semibold text-foreground">Zona</span>{' '}
+                      (ex: <span className="font-mono">DOCA-1</span> ou{' '}
+                      <span className="font-mono">RECEB</span>). O código final
+                      será apenas a zona quando Rua, Posição e Nível estiverem
+                      vazios.
+                    </p>
+                  )}
                 </section>
 
                 <section className={sectionCardClassName}>

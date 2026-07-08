@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Boxes,
   ChevronRight,
-  PackagePlus,
   RotateCcw,
   Search,
   Warehouse,
@@ -46,14 +45,6 @@ const SUB_MODULES: SubModuleItem[] = [
     icon: RotateCcw,
     to: '/estoque/recuperacao',
     iconTone: 'warning',
-  },
-  {
-    id: 'armazenagem',
-    title: 'Armazenagem',
-    description: 'Guardar produtos nos endereços de picking',
-    icon: PackagePlus,
-    to: '/estoque/armazenagem',
-    iconTone: 'secondary',
   },
 ];
 

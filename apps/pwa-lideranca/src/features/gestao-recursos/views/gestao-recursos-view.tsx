@@ -2,6 +2,7 @@ import { cn } from '@lilog/ui';
 import { Loader2, RefreshCw, Search, Users } from 'lucide-react';
 
 import { GestaoRecursosFilterChips } from '@/features/gestao-recursos/components/gestao-recursos-filter-chips';
+import { GestaoRecursosProcessoChips } from '@/features/gestao-recursos/components/gestao-recursos-processo-chips';
 import { GestaoRecursosResumoCard } from '@/features/gestao-recursos/components/gestao-recursos-resumo-card';
 import { OperadorRecursoCard } from '@/features/gestao-recursos/components/operador-recurso-card';
 import { PrecisaPausaAlertBanner } from '@/features/gestao-recursos/components/precisa-pausa-alert-banner';
@@ -48,6 +49,7 @@ export function GestaoRecursosView() {
     filteredOperators,
     searchQuery,
     filter,
+    processoFilter,
     isLoading,
     isRefreshing,
     canShowPainel,
@@ -55,6 +57,7 @@ export function GestaoRecursosView() {
     loadError,
     setSearchQuery,
     setFilter,
+    setProcessoFilter,
     triggerRefresh,
   } = useGestaoRecursosPwa();
 
@@ -122,6 +125,11 @@ export function GestaoRecursosView() {
             <PrecisaPausaAlertBanner
               count={counts.precisa_pausa}
               atrasadosCount={atrasadosCount}
+            />
+
+            <GestaoRecursosProcessoChips
+              active={processoFilter}
+              onChange={setProcessoFilter}
             />
 
             <GestaoRecursosFilterChips

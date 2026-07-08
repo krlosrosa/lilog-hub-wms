@@ -6,10 +6,20 @@ import {
 } from '@nestjs/common';
 
 import {
+  CATEGORIA_CONFERENCIA,
+  DOMINIO_RECEBIMENTO,
+  ParametrosRecebimentoConferenciaSchema,
+  SUBTIPO_PARAMETROS,
+} from '../../../domain/model/configuracao-operacional/configuracao-operacional.model.js';
+import {
   ConferirItemInputSchema,
   type ConferirItemInput,
 } from '../../../domain/model/recebimento/recebimento.model.js';
 import { RECEBIMENTO_EVENT } from '../../../domain/model/recebimento/recebimento.events.js';
+import {
+  CONFIGURACAO_OPERACIONAL_REPOSITORY,
+  type IConfiguracaoOperacionalRepository,
+} from '../../../domain/repositories/configuracao-operacional/configuracao-operacional.repository.js';
 import {
   PRODUTO_REPOSITORY,
   type IProdutoRepository,
@@ -26,10 +36,12 @@ import {
   ARMAZENAGEM_REPOSITORY,
   type IArmazenagemRepository,
 } from '../../../domain/repositories/armazenagem/armazenagem.repository.js';
+import type { ProdutoConferenciaConfig } from '../../../domain/services/recebimento-produto-rules.js';
 import {
   resolveProdutoConferenciaConfig,
   validateConferirItemFields,
 } from '../../../domain/services/recebimento-produto-rules.js';
+import { EtiquetaPesagemDuplicadaError } from '../../../infra/db/recebimento/create-pesagem-recebimento.drizzle.js';
 import { RecebimentoEventPublisher } from '../../services/recebimento-event.publisher.js';
 
 export type ConferirItemUseCaseInput = {
@@ -37,6 +49,27 @@ export type ConferirItemUseCaseInput = {
   data: ConferirItemInput;
   userId: number | null;
 };
+
+function applyParametrosToItemConfig(
+  config: ProdutoConferenciaConfig,
+  solicitarPesoPvar: boolean,
+  exigirEtiquetaPesoVariavel: boolean,
+): ProdutoConferenciaConfig {
+  if (!solicitarPesoPvar) {
+    return {
+      ...config,
+      controlaPeso: false,
+      pesoVariavel: false,
+      exigirEtiquetaPesoVariavel: false,
+    };
+  }
+
+  return {
+    ...config,
+    exigirEtiquetaPesoVariavel:
+      config.pesoVariavel && exigirEtiquetaPesoVariavel,
+  };
+}
 
 @Injectable()
 export class ConferirItemUseCase {
@@ -47,6 +80,8 @@ export class ConferirItemUseCase {
     private readonly preRecebimentoRepository: IPreRecebimentoRepository,
     @Inject(PRODUTO_REPOSITORY)
     private readonly produtoRepository: IProdutoRepository,
+    @Inject(CONFIGURACAO_OPERACIONAL_REPOSITORY)
+    private readonly configuracaoOperacionalRepository: IConfiguracaoOperacionalRepository,
     @Inject(ARMAZENAGEM_REPOSITORY)
     private readonly armazenagemRepository: IArmazenagemRepository,
     private readonly recebimentoEventPublisher: RecebimentoEventPublisher,
@@ -54,29 +89,23 @@ export class ConferirItemUseCase {
 
   async execute({ recebimentoId, data, userId }: ConferirItemUseCaseInput) {
     const parsed = ConferirItemInputSchema.parse(data);
+
     const recebimento = await this.recebimentoRepository.findById(recebimentoId);
 
     if (!recebimento) {
       throw new NotFoundException(`Recebimento "${recebimentoId}" não encontrado`);
     }
 
-    if (recebimento.situacao !== 'em_recebimento') {
+    if (recebimento.situacao !== 'em_conferencia') {
       throw new BadRequestException(
         'Conferência só é permitida com recebimento em andamento',
       );
     }
 
-    const produto = await this.produtoRepository.findById(parsed.produtoId);
+    const produto = await this.produtoRepository.findByProdutoId(parsed.produtoId);
 
     if (!produto) {
       throw new NotFoundException(`Produto "${parsed.produtoId}" não encontrado`);
-    }
-
-    const config = resolveProdutoConferenciaConfig(produto);
-    const validationErrors = validateConferirItemFields(parsed, config);
-
-    if (validationErrors.length > 0) {
-      throw new BadRequestException(validationErrors.join('; '));
     }
 
     const preRecebimento = await this.preRecebimentoRepository.findById(
@@ -87,12 +116,60 @@ export class ConferirItemUseCase {
       throw new NotFoundException('Pré-recebimento vinculado não encontrado');
     }
 
+    const configuracoes = await this.configuracaoOperacionalRepository.list({
+      unidadeId: preRecebimento.unidadeId,
+      dominio: DOMINIO_RECEBIMENTO,
+      categoria: CATEGORIA_CONFERENCIA,
+      subtipo: SUBTIPO_PARAMETROS,
+      ativo: true,
+    });
+
+    const configPadrao =
+      configuracoes.find((item) => item.isPadrao) ?? configuracoes[0];
+    const parametrosConferencia = ParametrosRecebimentoConferenciaSchema.parse(
+      configPadrao?.parametros ?? {},
+    );
+
+    const config = applyParametrosToItemConfig(
+      resolveProdutoConferenciaConfig(
+        produto,
+        parametrosConferencia.solicitarPesoPvar,
+        parametrosConferencia.exigirEtiquetaPesoVariavel,
+      ),
+      parametrosConferencia.solicitarPesoPvar,
+      parametrosConferencia.exigirEtiquetaPesoVariavel,
+    );
+
+    const validationErrors = validateConferirItemFields(
+      parsed,
+      config,
+      parametrosConferencia.loteModo,
+    );
+
+    if (validationErrors.length > 0) {
+      throw new BadRequestException(validationErrors.join('; '));
+    }
+
+    const etiquetaNormalizada = parsed.etiquetaCodigo?.trim();
+    if (etiquetaNormalizada) {
+      const existing = await this.recebimentoRepository.findPesagemByEtiqueta(
+        preRecebimento.unidadeId,
+        etiquetaNormalizada,
+      );
+
+      if (existing) {
+        throw new BadRequestException(
+          `Etiqueta "${etiquetaNormalizada}" já está em uso nesta unidade`,
+        );
+      }
+    }
+
     let unitizadorId: string | null = null;
 
-    if (recebimento.modoUnitizacao === 'bipar_palete_no_recebimento') {
+    if (parametrosConferencia.controlaPalete) {
       if (!parsed.unitizadorCodigo) {
         throw new BadRequestException(
-          'unitizadorCodigo é obrigatório no modo bipar_palete_no_recebimento',
+          'unitizadorCodigo é obrigatório quando o controle de palete está ativo',
         );
       }
 
@@ -146,15 +223,31 @@ export class ConferirItemUseCase {
       }
     } else if (parsed.unitizadorCodigo) {
       throw new BadRequestException(
-        'unitizadorCodigo não é permitido no modo gerar_etiqueta_na_armazenagem',
+        'unitizadorCodigo não é permitido quando o controle de palete está desativado',
       );
     }
 
-    const item = await this.recebimentoRepository.addItem(
-      recebimentoId,
-      parsed,
-      unitizadorId,
-    );
+    let result;
+
+    try {
+      result = await this.recebimentoRepository.addItem(
+        recebimentoId,
+        preRecebimento.unidadeId,
+        parsed,
+        {
+          unitizadorId,
+          pesoVariavel: config.pesoVariavel,
+        },
+      );
+    } catch (error) {
+      if (error instanceof EtiquetaPesagemDuplicadaError) {
+        throw new BadRequestException(error.message);
+      }
+
+      throw error;
+    }
+
+    const { item, pesagem } = result;
 
     await this.recebimentoEventPublisher.publish({
       type: RECEBIMENTO_EVENT.ITEM_CONFERIDO,
@@ -165,6 +258,9 @@ export class ConferirItemUseCase {
       metadata: {
         produtoId: parsed.produtoId,
         quantidadeRecebida: parsed.quantidadeRecebida,
+        pesoRecebido: parsed.pesoRecebido,
+        etiquetaCodigo: parsed.etiquetaCodigo,
+        pesagemId: pesagem?.id,
       },
     });
 
@@ -173,6 +269,9 @@ export class ConferirItemUseCase {
       produtoId: item.produtoId,
       quantidadeRecebida: item.quantidadeRecebida,
       unidadeMedida: item.unidadeMedida,
+      pesoRecebido: pesagem?.pesoKg ?? item.pesoRecebido,
+      etiquetaCodigo: pesagem?.etiquetaCodigo ?? null,
+      pesagemId: pesagem?.id ?? null,
     };
   }
 }

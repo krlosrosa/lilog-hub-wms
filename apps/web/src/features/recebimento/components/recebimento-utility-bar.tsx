@@ -17,6 +17,7 @@ type RecebimentoUtilityBarProps = {
   onBuscaChange: (value: string) => void;
   onExportar?: () => void;
   onFiltrosAvancados?: () => void;
+  filtrosAvancadosAtivos?: number;
 };
 
 export function RecebimentoUtilityBar({
@@ -27,6 +28,7 @@ export function RecebimentoUtilityBar({
   onBuscaChange,
   onExportar,
   onFiltrosAvancados,
+  filtrosAvancadosAtivos = 0,
 }: RecebimentoUtilityBarProps) {
   return (
     <div
@@ -88,10 +90,20 @@ export function RecebimentoUtilityBar({
           <button
             type="button"
             onClick={onFiltrosAvancados}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-surface-highest hover:text-foreground"
+            aria-label="Filtros avançados"
+            className={cn(
+              'relative inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-surface-highest hover:text-foreground',
+              filtrosAvancadosAtivos > 0 &&
+                'bg-primary/5 text-primary ring-1 ring-inset ring-primary/20',
+            )}
           >
             <Filter className="size-3.5 shrink-0" aria-hidden />
             Filtros
+            {filtrosAvancadosAtivos > 0 ? (
+              <span className="flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                {filtrosAvancadosAtivos}
+              </span>
+            ) : null}
           </button>
           <button
             type="button"

@@ -22,16 +22,20 @@ export async function listRecebimentosDb(
   }
 
   if (filter.situacao) {
-    if (filter.situacao === 'agendado' || filter.situacao === 'veiculo_chegou') {
+    if (
+      filter.situacao === 'agendado' ||
+      filter.situacao === 'aguardando' ||
+      filter.situacao === 'liberado_para_conferencia'
+    ) {
       conditions.push(eq(preRecebimentos.situacao, filter.situacao));
     } else {
       conditions.push(eq(recebimentos.situacao, filter.situacao));
     }
   }
 
-  if (filter.transportadoraId) {
+  if (filter.transportadoraNome) {
     conditions.push(
-      eq(preRecebimentos.transportadoraId, filter.transportadoraId),
+      eq(preRecebimentos.transportadoraNome, filter.transportadoraNome),
     );
   }
 
@@ -81,7 +85,7 @@ export async function listRecebimentosDb(
     items: rows.map(({ recebimento, preRecebimento }) => ({
       ...mapRecebimentoRow(recebimento),
       unidadeId: preRecebimento.unidadeId,
-      transportadoraId: preRecebimento.transportadoraId,
+      transportadoraNome: preRecebimento.transportadoraNome,
       placa: preRecebimento.placa,
       preRecebimentoSituacao: preRecebimento.situacao,
     })),

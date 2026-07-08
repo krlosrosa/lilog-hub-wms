@@ -1,11 +1,15 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
+  index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgSchema,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
@@ -21,19 +25,18 @@ export const preRecebimentoSituacaoEnum = pgEnum(
   'pre_recebimento_situacao_type',
   [
     'agendado',
-    'veiculo_chegou',
-    'em_recebimento',
-    'aguardando_aprovacao',
-    'aprovado',
+    'aguardando',
+    'liberado_para_conferencia',
+    'em_conferencia',
+    'conferido',
     'finalizado',
     'cancelado',
   ],
 );
 
 export const recebimentoSituacaoEnum = pgEnum('recebimento_situacao_type', [
-  'em_recebimento',
-  'aguardando_aprovacao',
-  'aprovado',
+  'em_conferencia',
+  'conferido',
   'finalizado',
   'cancelado',
 ]);
@@ -53,8 +56,16 @@ export const preRecebimentos = recebimentoPgSchema.table('pre_recebimentos', {
   unidadeId: varchar('unidade_id', { length: 50 })
     .notNull()
     .references(() => unidades.id, { onDelete: 'restrict' }),
-  transportadoraId: varchar('transportadora_id', { length: 50 }).notNull(),
-  placa: varchar('placa', { length: 20 }).notNull(),
+  transportadoraNome: varchar('transportadora_nome', { length: 255 }),
+  placa: varchar('placa', { length: 20 }),
+  motoristaNome: varchar('motorista_nome', { length: 255 }),
+  motoristaTelefone: varchar('motorista_telefone', { length: 20 }),
+  grauPrioridade: varchar('grau_prioridade', { length: 20 }),
+  numeroOcr: varchar('numero_ocr', { length: 100 }),
+  numeroTransporte: varchar('numero_transporte', { length: 100 }),
+  origemDados: varchar('origem_dados', { length: 30 })
+    .notNull()
+    .default('manual'),
   horarioPrevisto: timestamp('horario_previsto', {
     withTimezone: true,
   }).notNull(),
@@ -63,6 +74,8 @@ export const preRecebimentos = recebimentoPgSchema.table('pre_recebimentos', {
     .notNull()
     .default('agendado'),
   dataChegada: timestamp('data_chegada', { withTimezone: true }),
+  docaId: uuid('doca_id').references(() => docas.id, { onDelete: 'set null' }),
+  rastreioToken: uuid('rastreio_token'),
   userId: integer('user_id'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
@@ -72,6 +85,34 @@ export const preRecebimentos = recebimentoPgSchema.table('pre_recebimentos', {
     .notNull(),
 });
 
+export const notasFiscaisPreRecebimento = recebimentoPgSchema.table(
+  'notas_fiscais_pre_recebimento',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    preRecebimentoId: uuid('pre_recebimento_id')
+      .notNull()
+      .references(() => preRecebimentos.id, { onDelete: 'cascade' }),
+    numeroNf: varchar('numero_nf', { length: 20 }).notNull(),
+    serie: varchar('serie', { length: 5 }),
+    chaveAcesso: varchar('chave_acesso', { length: 44 }),
+    numeroRemessa: varchar('numero_remessa', { length: 100 }),
+    fornecedorNome: varchar('fornecedor_nome', { length: 255 }),
+    fornecedorDocumento: varchar('fornecedor_documento', { length: 20 }),
+    pesoTotal: numeric('peso_total', { precision: 12, scale: 3 }),
+    volumeTotal: numeric('volume_total', { precision: 12, scale: 3 }),
+    observacao: text('observacao'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('nfs_pre_recebimento_pre_id_idx').on(table.preRecebimentoId),
+    uniqueIndex('nfs_pre_recebimento_chave_acesso_unique_idx')
+      .on(table.chaveAcesso)
+      .where(sql`${table.chaveAcesso} is not null`),
+  ],
+);
+
 export const itensPreRecebimento = recebimentoPgSchema.table(
   'itens_pre_recebimento',
   {
@@ -79,9 +120,9 @@ export const itensPreRecebimento = recebimentoPgSchema.table(
     preRecebimentoId: uuid('pre_recebimento_id')
       .notNull()
       .references(() => preRecebimentos.id, { onDelete: 'cascade' }),
-    produtoId: uuid('produto_id')
+    produtoId: varchar('produto_id', { length: 50 })
       .notNull()
-      .references(() => produtos.id, { onDelete: 'restrict' }),
+      .references(() => produtos.produtoId, { onDelete: 'restrict' }),
     quantidadeEsperada: numeric('quantidade_esperada', {
       precision: 12,
       scale: 3,
@@ -100,7 +141,7 @@ export const recebimentos = recebimentoPgSchema.table('recebimentos', {
   id: uuid('id').defaultRandom().primaryKey(),
   preRecebimentoId: uuid('pre_recebimento_id')
     .notNull()
-    .references(() => preRecebimentos.id, { onDelete: 'restrict' }),
+    .references(() => preRecebimentos.id, { onDelete: 'cascade' }),
   docaId: uuid('doca_id').references(() => docas.id, { onDelete: 'set null' }),
   responsavelId: integer('responsavel_id')
     .notNull()
@@ -109,7 +150,7 @@ export const recebimentos = recebimentoPgSchema.table('recebimentos', {
   dataFim: timestamp('data_fim', { withTimezone: true }),
   situacao: recebimentoSituacaoEnum('situacao')
     .notNull()
-    .default('em_recebimento'),
+    .default('em_conferencia'),
   modoUnitizacao: varchar('modo_unitizacao', { length: 50 })
     .notNull()
     .default('gerar_etiqueta_na_armazenagem'),
@@ -122,37 +163,69 @@ export const recebimentos = recebimentoPgSchema.table('recebimentos', {
     .notNull(),
 });
 
-export const itensRecebimento = recebimentoPgSchema.table('itens_recebimento', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  recebimentoId: uuid('recebimento_id')
-    .notNull()
-    .references(() => recebimentos.id, { onDelete: 'cascade' }),
-  produtoId: uuid('produto_id')
-    .notNull()
-    .references(() => produtos.id, { onDelete: 'restrict' }),
-  quantidadeRecebida: numeric('quantidade_recebida', {
-    precision: 12,
-    scale: 3,
-  }).notNull(),
-  unidadeMedida: varchar('unidade_medida', { length: 20 }).notNull(),
-  loteRecebido: varchar('lote_recebido', { length: 100 }),
-  pesoRecebido: numeric('peso_recebido', { precision: 12, scale: 3 }),
-  validade: timestamp('validade', { withTimezone: true }),
-  numeroSerie: varchar('numero_serie', { length: 100 }),
-  unitizadorId: uuid('unitizador_id').references(() => unitizadores.id, {
-    onDelete: 'set null',
-  }),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const itensRecebimento = recebimentoPgSchema.table(
+  'itens_recebimento',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    recebimentoId: uuid('recebimento_id')
+      .notNull()
+      .references(() => recebimentos.id, { onDelete: 'cascade' }),
+    unidadeId: varchar('unidade_id', { length: 50 })
+      .notNull()
+      .references(() => unidades.id, { onDelete: 'restrict' }),
+    produtoId: varchar('produto_id', { length: 50 })
+      .notNull()
+      .references(() => produtos.produtoId, { onDelete: 'restrict' }),
+    quantidadeRecebida: numeric('quantidade_recebida', {
+      precision: 12,
+      scale: 3,
+    }).notNull(),
+    unidadeMedida: varchar('unidade_medida', { length: 20 }).notNull(),
+    loteRecebido: varchar('lote_recebido', { length: 100 }),
+    pesoRecebido: numeric('peso_recebido', { precision: 12, scale: 3 }),
+    validade: timestamp('validade', { withTimezone: true }),
+    numeroSerie: varchar('numero_serie', { length: 100 }),
+    unitizadorId: uuid('unitizador_id').references(() => unitizadores.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index('itens_recebimento_unidade_id_idx').on(table.unidadeId)],
+);
+
+export const pesagensRecebimento = recebimentoPgSchema.table(
+  'pesagens_recebimento',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    recebimentoItemId: uuid('recebimento_item_id')
+      .notNull()
+      .references(() => itensRecebimento.id, { onDelete: 'cascade' }),
+    unidadeId: varchar('unidade_id', { length: 50 })
+      .notNull()
+      .references(() => unidades.id, { onDelete: 'restrict' }),
+    sequenciaCaixa: integer('sequencia_caixa').notNull().default(1),
+    etiquetaCodigo: varchar('etiqueta_codigo', { length: 100 }),
+    pesoKg: numeric('peso_kg', { precision: 12, scale: 3 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('pesagens_recebimento_item_idx').on(table.recebimentoItemId),
+    uniqueIndex('pesagens_recebimento_etiqueta_unidade_idx')
+      .on(table.unidadeId, table.etiquetaCodigo)
+      .where(sql`${table.etiquetaCodigo} is not null`),
+  ],
+);
 
 export const recebimentoAvarias = recebimentoPgSchema.table('recebimento_avarias', {
   id: uuid('id').defaultRandom().primaryKey(),
   recebimentoId: uuid('recebimento_id')
     .notNull()
     .references(() => recebimentos.id, { onDelete: 'cascade' }),
-  produtoId: uuid('produto_id').references(() => produtos.id, {
+  produtoId: varchar('produto_id', { length: 50 }).references(() => produtos.produtoId, {
     onDelete: 'set null',
   }),
   tipo: varchar('tipo', { length: 50 }).notNull(),
@@ -160,6 +233,9 @@ export const recebimentoAvarias = recebimentoPgSchema.table('recebimento_avarias
   causa: varchar('causa', { length: 50 }).notNull(),
   quantidadeCaixas: integer('quantidade_caixas').notNull().default(0),
   quantidadeUnidades: integer('quantidade_unidades').notNull().default(0),
+  lote: varchar('lote', { length: 100 }),
+  validade: timestamp('validade', { withTimezone: true }),
+  numeroSerie: varchar('numero_serie', { length: 100 }),
   photoCount: integer('photo_count').notNull().default(0),
   replicado: boolean('replicado').notNull().default(false),
   operatorId: integer('operator_id')
@@ -185,6 +261,7 @@ export const checklistRecebimento = recebimentoPgSchema.table(
     condicaoOdor: boolean('condicao_odor').notNull().default(false),
     condicaoEstrutura: boolean('condicao_estrutura').notNull().default(false),
     condicaoVedacao: boolean('condicao_vedacao').notNull().default(false),
+    conditions: jsonb('conditions').$type<Record<string, boolean>>().default({}),
     observacoes: text('observacoes'),
     photoCount: integer('photo_count').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -200,7 +277,7 @@ export const divergenciasRecebimento = recebimentoPgSchema.table(
     recebimentoId: uuid('recebimento_id')
       .notNull()
       .references(() => recebimentos.id, { onDelete: 'cascade' }),
-    produtoId: uuid('produto_id').references(() => produtos.id, {
+    produtoId: varchar('produto_id', { length: 50 }).references(() => produtos.produtoId, {
       onDelete: 'set null',
     }),
     tipoDivergencia: tipoDivergenciaEnum('tipo_divergencia').notNull(),

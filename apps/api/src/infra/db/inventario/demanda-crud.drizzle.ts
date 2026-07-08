@@ -1,4 +1,4 @@
-import { and, eq, notInArray, sql } from 'drizzle-orm';
+import { and, eq, notInArray, or, sql } from 'drizzle-orm';
 
 import type { CreateDemandaContagemInput } from '../../../domain/model/inventario/inventario.model.js';
 import type {
@@ -10,6 +10,7 @@ import {
   demandaEnderecos,
   demandasContagem,
   enderecos,
+  inventarioDivergenciaRecontagens,
   inventarios,
   users,
 } from '../providers/drizzle/config/migrations/schema.js';
@@ -49,6 +50,15 @@ export async function createDemandaDb(
   data: CreateDemandaContagemInput,
   enderecoIds: string[],
 ): Promise<DemandaContagemRecord> {
+  const [inventario] = await db
+    .select({ status: inventarios.status })
+    .from(inventarios)
+    .where(eq(inventarios.id, data.inventarioId))
+    .limit(1);
+
+  const demandaStatus =
+    inventario?.status === 'em_progresso' ? 'em_andamento' : 'aguardando_inicio';
+
   const [demanda] = await db
     .insert(demandasContagem)
     .values({
@@ -56,6 +66,7 @@ export async function createDemandaDb(
       nome: data.nome.trim(),
       tipo: data.tipo,
       prioridade: data.prioridade,
+      status: demandaStatus,
       responsavelId: data.responsavelId,
       ativo: data.ativo,
       filtros: data.filtros,
@@ -150,11 +161,18 @@ export async function listAllContagemDemandasDb(
     .innerJoin(users, eq(demandasContagem.responsavelId, users.id))
     .innerJoin(inventarios, eq(demandasContagem.inventarioId, inventarios.id))
     .leftJoin(demandaEnderecos, eq(demandaEnderecos.demandaId, demandasContagem.id))
+    .leftJoin(
+      inventarioDivergenciaRecontagens,
+      eq(inventarioDivergenciaRecontagens.demandaId, demandasContagem.id),
+    )
     .where(
       and(
         eq(demandasContagem.ativo, true),
         notInArray(demandasContagem.status, ['concluida', 'cancelada']),
-        notInArray(inventarios.status, ['concluido']),
+        or(
+          notInArray(inventarios.status, ['concluido']),
+          sql`${inventarioDivergenciaRecontagens.id} is not null`,
+        ),
       ),
     )
     .groupBy(demandasContagem.id, users.name)
@@ -214,6 +232,7 @@ export async function listDemandaEnderecosDb(
     .select({
       item: demandaEnderecos,
       enderecoMascarado: enderecos.enderecoMascarado,
+      unidadeId: enderecos.unidadeId,
       zona: enderecos.zona,
     })
     .from(demandaEnderecos)
@@ -225,6 +244,7 @@ export async function listDemandaEnderecosDb(
     mapDemandaEnderecoRow(
       row.item,
       row.enderecoMascarado,
+      row.unidadeId,
       row.zona,
     ),
   );
@@ -239,6 +259,7 @@ export async function findDemandaEnderecoByIdDb(
     .select({
       item: demandaEnderecos,
       enderecoMascarado: enderecos.enderecoMascarado,
+      unidadeId: enderecos.unidadeId,
       zona: enderecos.zona,
     })
     .from(demandaEnderecos)
@@ -257,6 +278,7 @@ export async function findDemandaEnderecoByIdDb(
   return mapDemandaEnderecoRow(
     row.item,
     row.enderecoMascarado,
+    row.unidadeId,
     row.zona,
   );
 }
@@ -275,6 +297,55 @@ export async function markDemandaEnderecoEmAndamentoDb(
       and(
         eq(demandaEnderecos.id, itemId),
         eq(demandaEnderecos.status, 'pendente'),
+      ),
+    );
+}
+
+export async function activateDemandaContagemDb(
+  db: DrizzleClient,
+  demandaId: string,
+): Promise<void> {
+  await db
+    .update(demandasContagem)
+    .set({
+      status: 'em_andamento',
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(demandasContagem.id, demandaId),
+        eq(demandasContagem.status, 'aguardando_inicio'),
+      ),
+    );
+}
+
+export async function concluirDemandaContagemSeCompletaDb(
+  db: DrizzleClient,
+  demandaId: string,
+): Promise<void> {
+  const rows = await db
+    .select({
+      total: sql<number>`count(${demandaEnderecos.id})::int`,
+      conferidos: sql<number>`count(*) filter (where ${demandaEnderecos.status} = 'conferido')::int`,
+    })
+    .from(demandaEnderecos)
+    .where(eq(demandaEnderecos.demandaId, demandaId));
+
+  const stats = rows[0];
+  if (!stats || stats.total === 0 || stats.conferidos < stats.total) {
+    return;
+  }
+
+  await db
+    .update(demandasContagem)
+    .set({
+      status: 'concluida',
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(demandasContagem.id, demandaId),
+        notInArray(demandasContagem.status, ['concluida', 'cancelada']),
       ),
     );
 }

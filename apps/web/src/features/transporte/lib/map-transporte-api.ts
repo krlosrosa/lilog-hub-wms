@@ -60,6 +60,8 @@ function mapRemessa(remessa: RemessaTransporteApiItem): RemessaItem {
     volume: remessa.volume,
     origem: remessa.origem,
     motivoReentrega: remessa.motivoReentrega ?? undefined,
+    itinerario: remessa.itinerario ?? null,
+    itinerarioId: remessa.itinerarioId ?? null,
     itens,
   };
 }
@@ -72,8 +74,8 @@ export function mapTransporteApiToGrupo(item: TransporteApiItem): TransporteGrup
     id: item.id,
     uploadLoteId: item.uploadLoteId,
     rota: item.rota,
-    regiao: item.regiao,
-    cidade: item.cidade,
+    regiao: item.regiao ?? '',
+    cidade: item.cidade ?? '',
     bairro: item.bairro ?? '',
     remessas: item.remessas.map(mapRemessa),
     quantidadeRemessas: item.quantidadeRemessas,
@@ -81,6 +83,7 @@ export function mapTransporteApiToGrupo(item: TransporteApiItem): TransporteGrup
     volumeTotal: item.volumeTotal,
     distanciaKm: item.distanciaKm ?? 0,
     itinerario: item.itinerario ?? null,
+    itinerarioId: item.itinerarioId ?? null,
     perfilEsperado,
     status: item.status,
     custoPrevisto: item.custoPrevisto ?? undefined,
@@ -94,6 +97,7 @@ export function mapTransporteApiToGrupo(item: TransporteApiItem): TransporteGrup
     horarioExpectativaSaida: item.horarioExpectativaSaida ?? null,
     mapaGeradoEm: item.mapaGeradoEm ?? null,
     ultimoMapaLoteId: item.ultimoMapaLoteId ?? null,
+    temMapaConferenciaReentrega: item.temMapaConferenciaReentrega,
   };
 
   if (item.placa) {

@@ -25,6 +25,7 @@ export type RecebimentoRecord = {
 export type ItemRecebimentoRecord = {
   id: string;
   recebimentoId: string;
+  unidadeId: string;
   produtoId: string;
   quantidadeRecebida: number;
   unidadeMedida: string;
@@ -33,7 +34,23 @@ export type ItemRecebimentoRecord = {
   validade: Date | null;
   numeroSerie: string | null;
   unitizadorId: string | null;
+  unitizadorCodigo?: string | null;
   createdAt: Date;
+};
+
+export type PesagemRecebimentoRecord = {
+  id: string;
+  recebimentoItemId: string;
+  unidadeId: string;
+  sequenciaCaixa: number;
+  etiquetaCodigo: string | null;
+  pesoKg: number;
+  createdAt: Date;
+};
+
+export type AddItemRecebimentoResult = {
+  item: ItemRecebimentoRecord;
+  pesagem: PesagemRecebimentoRecord | null;
 };
 
 export type DivergenciaRecebimentoRecord = {
@@ -66,7 +83,7 @@ export type ListRecebimentosFilter = {
   limit?: number;
   unidadeId: string;
   situacao?: RecebimentoSituacao | PreRecebimentoSituacao;
-  transportadoraId?: string;
+  transportadoraNome?: string;
   responsavelId?: number;
   docaId?: string;
   dataInicio?: Date;
@@ -77,14 +94,43 @@ export type ListRecebimentosResult = {
   items: Array<
     RecebimentoRecord & {
       unidadeId: string;
-      transportadoraId: string;
-      placa: string;
+      transportadoraNome: string | null;
+      placa: string | null;
       preRecebimentoSituacao: PreRecebimentoSituacao;
     }
   >;
   total: number;
   page: number;
   limit: number;
+};
+
+export type RemoveItemsByProdutoResult = {
+  produtoId: string;
+  removedCount: number;
+};
+
+export type RemoveItemConferenciaByIdResult = {
+  itemId: string;
+  removed: boolean;
+  produtoId?: string;
+};
+
+export type RemoveItensConferenciaByUnitizadorResult = {
+  unitizadorId: string;
+  removedCount: number;
+};
+
+export type RemovePesagemRecebimentoResult = {
+  pesagemId: string;
+  removed: boolean;
+  produtoId?: string;
+  recebimentoItemId?: string;
+  itemRemoved?: boolean;
+};
+
+export type AddItemRecebimentoOptions = {
+  unitizadorId?: string | null;
+  pesoVariavel?: boolean;
 };
 
 export interface IRecebimentoRepository {
@@ -100,9 +146,31 @@ export interface IRecebimentoRepository {
   list(filter: ListRecebimentosFilter): Promise<ListRecebimentosResult>;
   addItem(
     recebimentoId: string,
+    unidadeId: string,
     data: ConferirItemInput,
-    unitizadorId?: string | null,
-  ): Promise<ItemRecebimentoRecord>;
+    options?: AddItemRecebimentoOptions,
+  ): Promise<AddItemRecebimentoResult>;
+  findPesagemByEtiqueta(
+    unidadeId: string,
+    etiquetaCodigo: string,
+  ): Promise<PesagemRecebimentoRecord | null>;
+  removePesagem(
+    recebimentoId: string,
+    pesagemId: string,
+  ): Promise<RemovePesagemRecebimentoResult>;
+  removeItemsByProduto(
+    recebimentoId: string,
+    produtoId: string,
+  ): Promise<RemoveItemsByProdutoResult>;
+  removeItemConferenciaById(
+    recebimentoId: string,
+    itemId: string,
+  ): Promise<RemoveItemConferenciaByIdResult>;
+  removeItensConferenciaByUnitizador(
+    recebimentoId: string,
+    unitizadorId: string,
+    produtoId?: string,
+  ): Promise<RemoveItensConferenciaByUnitizadorResult>;
   findItemsByRecebimento(
     recebimentoId: string,
   ): Promise<ItemRecebimentoRecord[]>;

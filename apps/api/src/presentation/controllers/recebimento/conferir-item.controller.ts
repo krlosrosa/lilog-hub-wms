@@ -20,11 +20,12 @@ import {
 } from '../../../shared/utils/request-user.js';
 
 const ConferirItemBodySchema = z.object({
-  produtoId: z.uuid(),
+  produtoId: z.string().min(1).max(50),
   quantidadeRecebida: z.number().nonnegative(),
   unidadeMedida: z.string().min(1).max(20),
   loteRecebido: z.string().optional(),
   pesoRecebido: z.number().positive().optional(),
+  etiquetaCodigo: z.string().min(1).max(100).optional(),
   validade: z.iso.datetime().optional(),
   numeroSerie: z.string().optional(),
   unitizadorCodigo: z.string().min(1).optional(),

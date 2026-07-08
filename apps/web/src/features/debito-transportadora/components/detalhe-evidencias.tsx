@@ -1,15 +1,9 @@
 'use client';
 
 import { Button } from '@lilog/ui';
-import {
-  Camera,
-  CloudUpload,
-  Download,
-  Eye,
-  FileText,
-  Filter,
-} from 'lucide-react';
+import { Camera, CloudUpload, Download, Eye, FileText } from 'lucide-react';
 
+import { DetalheSection } from '@/features/debito-transportadora/components/detalhe-section';
 import type { DebitoEvidencia } from '@/features/debito-transportadora/types/debito.schema';
 
 type DetalheEvidenciasProps = {
@@ -34,98 +28,99 @@ export function DetalheEvidencias({
   const documentos = evidencias.filter((ev) => ev.tipo === 'documento');
 
   return (
-    <article className="rounded-xl border border-outline-variant/50 bg-glass-bg p-6 shadow-inner-glow backdrop-blur-glass">
-      <div className="mb-6 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-headline-md font-medium text-foreground">
-          <Camera className="size-5 text-primary" aria-hidden />
-          Evidências Visuais
-        </h3>
-        <div className="flex gap-2">
-          <Button type="button" variant="ghost" size="icon" aria-label="Filtrar">
-            <Filter className="size-4" aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="gap-2 font-bold"
-            onClick={onUpload}
-          >
-            <CloudUpload className="size-4" aria-hidden />
-            Upload
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <DetalheSection
+      id="titulo-evidencias"
+      title="Evidências"
+      icon={Camera}
+      badge={
+        evidencias.length > 0 ? (
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            {evidencias.length}
+          </span>
+        ) : undefined
+      }
+      action={
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1.5 text-[11px]"
+          onClick={onUpload}
+        >
+          <CloudUpload className="size-3" aria-hidden />
+          Upload
+        </Button>
+      }
+    >
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
         {imagens.map((ev) => (
           <div
             key={ev.id}
-            className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg bg-surface-highest"
+            className="group relative aspect-square cursor-pointer overflow-hidden rounded-md bg-surface-highest"
           >
             {ev.url ? (
               // eslint-disable-next-line @next/next/no-img-element -- URLs externas de mock
               <img
                 src={ev.url}
                 alt={ev.nome}
-                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
             ) : null}
-            <div className="absolute inset-0 flex items-center justify-center gap-2 bg-background/40 opacity-0 transition-opacity group-hover:opacity-100">
-              <Eye className="size-5 text-foreground" aria-hidden />
-              <Download className="size-5 text-foreground" aria-hidden />
+            <div className="absolute inset-0 flex items-center justify-center gap-1.5 bg-background/50 opacity-0 transition-opacity group-hover:opacity-100">
+              <Eye className="size-4 text-foreground" aria-hidden />
+              <Download className="size-4 text-foreground" aria-hidden />
             </div>
           </div>
         ))}
 
         <button
           type="button"
-          className="flex aspect-square flex-col items-center justify-center rounded-lg border-2 border-dashed border-outline-variant transition-all hover:border-primary/50 hover:bg-surface-low"
+          className="flex aspect-square flex-col items-center justify-center rounded-md border border-dashed border-outline-variant transition-colors hover:border-primary/40 hover:bg-surface-low"
           onClick={onUpload}
         >
-          <Camera className="mb-2 size-6 text-muted-foreground" aria-hidden />
-          <span className="text-caption text-muted-foreground">Adicionar Foto</span>
+          <Camera className="size-4 text-muted-foreground" aria-hidden />
+          <span className="mt-1 text-[10px] text-muted-foreground">Foto</span>
         </button>
 
         <button
           type="button"
-          className="flex aspect-square flex-col items-center justify-center rounded-lg border-2 border-dashed border-outline-variant transition-all hover:border-primary/50 hover:bg-surface-low"
+          className="flex aspect-square flex-col items-center justify-center rounded-md border border-dashed border-outline-variant transition-colors hover:border-primary/40 hover:bg-surface-low"
           onClick={onUpload}
         >
-          <FileText className="mb-2 size-6 text-muted-foreground" aria-hidden />
-          <span className="text-caption text-muted-foreground">Anexar DOC</span>
+          <FileText className="size-4 text-muted-foreground" aria-hidden />
+          <span className="mt-1 text-[10px] text-muted-foreground">Doc</span>
         </button>
       </div>
 
       {documentos.length > 0 ? (
-        <div className="mt-6 space-y-2">
+        <div className="mt-3 space-y-1.5 border-t border-outline-variant/60 pt-3">
           {documentos.map((doc) => (
             <div
               key={doc.id}
-              className="flex items-center justify-between rounded-lg border border-outline-variant bg-surface p-3"
+              className="flex items-center justify-between rounded-md border border-outline-variant/60 bg-surface px-2.5 py-2"
             >
-              <div className="flex items-center gap-3">
-                <FileText className="size-5 text-destructive" aria-hidden />
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileText className="size-4 shrink-0 text-destructive" aria-hidden />
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold text-foreground">
                     {doc.nome}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[10px] text-muted-foreground">
                     {formatFileSize(doc.tamanhoBytes)}
-                    {doc.dataUpload ? ` • ${doc.dataUpload}` : ''}
+                    {doc.dataUpload ? ` · ${doc.dataUpload}` : ''}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                className="text-xs font-bold text-primary hover:underline"
+                className="shrink-0 text-[10px] font-semibold text-primary hover:underline"
               >
-                VISUALIZAR
+                Ver
               </button>
             </div>
           ))}
         </div>
       ) : null}
-    </article>
+    </DetalheSection>
   );
 }

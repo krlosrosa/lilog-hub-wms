@@ -10,7 +10,7 @@ export type OperatorStatus = z.infer<typeof operatorStatusSchema>;
 export const taskItemSchema = z.object({
   id: z.string(),
   mapaGrupoId: z.string().optional(),
-  processo: z.custom<MapaGrupoProcessoApi>().optional(),
+  processo: z.custom<MapaGrupoProcessoApi | 'devolucao'>().optional(),
   label: z.string(),
   startTime: z.string().optional(),
   expectedEndTime: z.string().optional(),

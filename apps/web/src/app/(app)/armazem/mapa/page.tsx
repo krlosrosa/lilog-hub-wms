@@ -1,15 +1,20 @@
 'use client';
 
-import { SidebarMain } from '@/components/layout/sidebar';
+import dynamic from 'next/dynamic';
+
+const ArmazemLayoutBuilderScreen = dynamic(
+  () =>
+    import('@/features/armazem-layout').then((mod) => mod.ArmazemLayoutBuilderScreen),
+  {
+    loading: () => (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <span className="text-sm text-muted-foreground">Carregando mapa do armazém...</span>
+      </div>
+    ),
+    ssr: false,
+  },
+);
 
 export default function ArmazemMapaPage() {
-  return (
-    <SidebarMain className="flex h-dvh flex-col overflow-hidden p-0">
-      <iframe
-        src="/armazem/mapa-armazem.html"
-        className="min-h-0 w-full flex-1 border-0"
-        title="Mapa do Armazém WMS"
-      />
-    </SidebarMain>
-  );
+  return <ArmazemLayoutBuilderScreen />;
 }

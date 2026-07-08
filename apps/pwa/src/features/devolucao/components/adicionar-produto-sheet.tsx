@@ -16,6 +16,7 @@ interface AdicionarProdutoSheetProps {
   skuInput: string;
   onSkuInputChange: (value: string) => void;
   preview: SkuConferenciaPreview | null;
+  catalogPreviewDescricao?: string | null;
   error: string | null;
   isValidating: boolean;
   onValidate: () => void;
@@ -27,6 +28,7 @@ export function AdicionarProdutoSheet({
   skuInput,
   onSkuInputChange,
   preview,
+  catalogPreviewDescricao,
   error,
   isValidating,
   onValidate,
@@ -96,9 +98,15 @@ export function AdicionarProdutoSheet({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-mono text-label-md font-bold text-primary">{preview.sku}</p>
-                <p className="text-body-sm text-on-surface-variant">
-                  Item novo fora da lista da carga
-                </p>
+                {catalogPreviewDescricao ? (
+                  <p className="line-clamp-2 text-body-sm text-on-surface-variant">
+                    {catalogPreviewDescricao}
+                  </p>
+                ) : (
+                  <p className="text-body-sm text-on-surface-variant">
+                    Item novo fora da lista da carga
+                  </p>
+                )}
                 <p className="mt-1 text-label-sm text-on-surface-variant">
                   Será conferido como entrada avulsa
                 </p>

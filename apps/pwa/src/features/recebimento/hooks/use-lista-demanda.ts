@@ -87,18 +87,22 @@ export function useListaDemanda() {
 
   const filteredDemands = useMemo(() => {
     const term = search.toLowerCase().trim();
-    const aguardando = demands.filter((d) => d.status === 'aguardando');
+    const demandasAtivas = demands.filter(
+      (d) =>
+        d.status === 'liberado_para_conferencia' ||
+        d.status === 'em_conferencia',
+    );
     const list =
       term === 'prioritário' || term === 'prioritario' || term === 'prioridade'
-        ? aguardando.filter((d) => d.isPriority)
+        ? demandasAtivas.filter((d) => d.isPriority)
         : term
-          ? aguardando.filter(
+          ? demandasAtivas.filter(
               (d) =>
                 d.id.toLowerCase().includes(term) ||
                 d.supplier.toLowerCase().includes(term) ||
                 d.companies?.some((c) => c.toLowerCase().includes(term))
             )
-          : aguardando;
+          : demandasAtivas;
 
     return [...list].sort((a, b) => {
       const priorityDiff = Number(b.isPriority) - Number(a.isPriority);

@@ -9,6 +9,9 @@ export type RecebimentoAvariaRecord = {
   causa: string;
   quantidadeCaixas: number;
   quantidadeUnidades: number;
+  lote: string | null;
+  validade: Date | null;
+  numeroSerie: string | null;
   photoCount: number;
   replicado: boolean;
   operatorId: number;
@@ -23,6 +26,9 @@ export type CreateRecebimentoAvariaInput = {
   causa: string;
   quantidadeCaixas: number;
   quantidadeUnidades: number;
+  lote?: string | null;
+  validade?: Date | null;
+  numeroSerie?: string | null;
   photoCount: number;
   replicado: boolean;
   operatorId: number;

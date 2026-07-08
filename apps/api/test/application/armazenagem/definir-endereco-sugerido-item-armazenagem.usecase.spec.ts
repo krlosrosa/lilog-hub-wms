@@ -54,13 +54,12 @@ const demandaMock = {
 const enderecoMock = {
   id: enderecoId,
   enderecoMascarado: 'A-01-01',
-  centroId: '00000000-0000-4000-8000-000000000007',
-  centro: {
-    id: '00000000-0000-4000-8000-000000000007',
-    unidadeId,
-    centro: '01',
-    empresa: '01',
-    nome: 'Centro 01',
+  unidadeId,
+  unidade: {
+    id: unidadeId,
+    nome: 'Unidade Seed',
+    cluster: 'Cross' as const,
+    nomeFilial: 'Filial Seed',
   },
   zona: 'A',
   rua: '01',

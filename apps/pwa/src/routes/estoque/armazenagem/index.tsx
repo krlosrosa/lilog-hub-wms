@@ -1,7 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router';
-
-import { ListaArmazenagemView } from '@/features/estoque/armazenagem/views/lista-armazenagem-view';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/estoque/armazenagem/')({
-  component: ListaArmazenagemView,
+  beforeLoad: () => {
+    throw redirect({ to: '/movimentacao/armazenagem' });
+  },
 });

@@ -35,7 +35,10 @@ async function markEnderecoConferido(
 
 export async function submitContagemCegaDb(
   db: DrizzleClient,
-  input: SubmitContagemCegaInput,
+  input: SubmitContagemCegaInput & {
+    produtoId?: string | null;
+    saldoEnderecoId?: string | null;
+  },
 ): Promise<ContagemRecord> {
   const [row] = await db
     .insert(contagens)
@@ -43,11 +46,14 @@ export async function submitContagemCegaDb(
       demandaEnderecoId: input.demandaEnderecoId,
       tipo: 'cega',
       operatorId: input.operatorId,
-      codigoProduto: input.codigoProduto.trim(),
+      codigoProduto: input.codigoProduto?.trim() || 'N/A',
+      produtoId: input.produtoId ?? null,
+      saldoEnderecoId: input.saldoEnderecoId ?? null,
       quantidadeCaixas: input.quantidadeCaixas,
       quantidadeUnidades: input.quantidadeUnidades,
-      lote: input.lote.trim(),
-      peso: String(input.peso),
+      lote: input.lote?.trim() ?? null,
+      peso: input.peso != null ? String(input.peso) : null,
+      enderecoVazio: input.enderecoVazio,
     })
     .returning();
 
@@ -60,9 +66,14 @@ export async function submitContagemCegaDb(
   return mapContagemRow(row);
 }
 
+export type SubmitContagemValidacaoDbInput = SubmitContagemValidacaoInput & {
+  produtoId?: string | null;
+  saldoEnderecoId?: string | null;
+};
+
 export async function submitContagemValidacaoDb(
   db: DrizzleClient,
-  input: SubmitContagemValidacaoInput,
+  input: SubmitContagemValidacaoDbInput,
 ): Promise<ContagemRecord> {
   const [row] = await db
     .insert(contagens)
@@ -71,6 +82,8 @@ export async function submitContagemValidacaoDb(
       tipo: 'validacao',
       operatorId: input.operatorId,
       codigoProduto: input.codigoProduto.trim() || 'N/A',
+      produtoId: input.produtoId ?? null,
+      saldoEnderecoId: input.saldoEnderecoId ?? null,
       quantidadeCaixas: input.quantidadeCaixas,
       quantidadeUnidades: input.quantidadeUnidades,
       lote: input.lote?.trim() ?? null,
@@ -79,6 +92,7 @@ export async function submitContagemValidacaoDb(
       sscc: input.sscc?.trim() ?? null,
       enderecoVazio: input.enderecoVazio,
       anomaliaEncontrada: input.anomaliaEncontrada,
+      correspondeAoEsperado: input.correspondeAoEsperado,
     })
     .returning();
 

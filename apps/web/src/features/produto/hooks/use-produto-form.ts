@@ -115,7 +115,7 @@ export function useProdutoForm(options?: UseProdutoFormOptions) {
       if (isEditMode && produtoId) {
         const updated = await updateProduto(produtoId, payload);
 
-        if (!updated?.id) {
+        if (!updated?.produtoId) {
           throw new ApiClientError(
             'A API não retornou o produto atualizado. Tente novamente.',
             500,
@@ -128,7 +128,7 @@ export function useProdutoForm(options?: UseProdutoFormOptions) {
       } else {
         const created = await createProduto(payload);
 
-        if (!created?.id) {
+        if (!created?.produtoId) {
           throw new ApiClientError(
             'A API não retornou o produto criado. Tente novamente.',
             500,

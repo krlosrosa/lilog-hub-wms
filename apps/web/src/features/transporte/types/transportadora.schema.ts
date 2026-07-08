@@ -21,6 +21,7 @@ export const transportadoraListaItemSchema = z.object({
   cnpj: z.string(),
   status: transportadoraStatusSchema,
   quantidadeVeiculos: z.number().int().nonnegative(),
+  emails: z.array(z.string()).default([]),
 });
 
 export type TransportadoraListaItem = z.infer<

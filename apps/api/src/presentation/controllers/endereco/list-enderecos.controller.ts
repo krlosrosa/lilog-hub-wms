@@ -48,10 +48,7 @@ export class ListEnderecosController {
     operationId: 'getEnderecoKpi',
   })
   @ApiSuccessResponse(EnderecoKpiResponseDto)
-  getKpi(
-    @Query('centroId') centroId?: string,
-    @Query('unidadeId') unidadeId?: string,
-  ) {
-    return this.getEnderecoKpiUseCase.execute({ centroId, unidadeId });
+  getKpi(@Query('unidadeId') unidadeId?: string) {
+    return this.getEnderecoKpiUseCase.execute({ unidadeId });
   }
 }

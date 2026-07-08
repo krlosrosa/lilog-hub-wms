@@ -77,7 +77,29 @@ export function AvariaView({ demandId }: AvariaViewProps) {
     itensConferidosCount,
     podeReplicar,
     form,
+    parametrosConferencia,
+    conferidoTotais,
   } = state;
+
+  const { quantidadeModo } = parametrosConferencia;
+  const showCaixa = quantidadeModo === 'caixa' || quantidadeModo === 'ambos';
+  const showUnidade = quantidadeModo === 'unidade' || quantidadeModo === 'ambos';
+
+  const conferidoLabel = (() => {
+    if (!conferidoTotais.hasConferencia) {
+      return '—';
+    }
+
+    const parts: string[] = [];
+    if (showCaixa && conferidoTotais.caixa > 0) {
+      parts.push(`${conferidoTotais.caixa} cx`);
+    }
+    if (showUnidade && conferidoTotais.unidade > 0) {
+      parts.push(`${conferidoTotais.unidade} un`);
+    }
+
+    return parts.length > 0 ? parts.join(' · ') : '—';
+  })();
 
   const quantidadeCaixa = form.watch('quantidadeCaixa') ?? 0;
   const quantidadeUnidade = form.watch('quantidadeUnidade') ?? 0;
@@ -126,9 +148,9 @@ export function AvariaView({ demandId }: AvariaViewProps) {
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div className="rounded-lg border border-outline-variant/80 bg-surface-container-low px-3 py-2 text-center">
-              <span className="block text-label-sm text-on-surface-variant">Recebido</span>
+              <span className="block text-label-sm text-on-surface-variant">Conferido</span>
               <span className="font-mono text-label-md font-semibold text-on-surface">
-                {item.received} un
+                {conferidoLabel}
               </span>
             </div>
             <div className="rounded-lg border border-outline-variant/80 bg-surface-container-low px-3 py-2 text-center">
@@ -150,31 +172,40 @@ export function AvariaView({ demandId }: AvariaViewProps) {
 
           <div className="space-y-3">
             <p className="text-label-md text-on-surface-variant">Quantidade avariada</p>
-            <div className="grid grid-cols-2 gap-3">
-              <QuantityField
-                id="qtd-caixa"
-                label="Caixas"
-                suffix="cx"
-                value={quantidadeCaixa}
-                onChange={(e) =>
-                  form.setValue('quantidadeCaixa', Number(e.target.value) || 0, {
-                    shouldValidate: true,
-                  })
-                }
-                error={errors.quantidadeCaixa?.message}
-              />
-              <QuantityField
-                id="qtd-unidade"
-                label="Unidades"
-                suffix="un"
-                value={quantidadeUnidade}
-                onChange={(e) =>
-                  form.setValue('quantidadeUnidade', Number(e.target.value) || 0, {
-                    shouldValidate: true,
-                  })
-                }
-                error={errors.quantidadeUnidade?.message}
-              />
+            <div
+              className={cn(
+                'grid gap-3',
+                showCaixa && showUnidade ? 'grid-cols-2' : 'grid-cols-1',
+              )}
+            >
+              {showCaixa ? (
+                <QuantityField
+                  id="qtd-caixa"
+                  label="Caixas"
+                  suffix="cx"
+                  value={quantidadeCaixa}
+                  onChange={(e) =>
+                    form.setValue('quantidadeCaixa', Number(e.target.value) || 0, {
+                      shouldValidate: true,
+                    })
+                  }
+                  error={errors.quantidadeCaixa?.message}
+                />
+              ) : null}
+              {showUnidade ? (
+                <QuantityField
+                  id="qtd-unidade"
+                  label="Unidades"
+                  suffix="un"
+                  value={quantidadeUnidade}
+                  onChange={(e) =>
+                    form.setValue('quantidadeUnidade', Number(e.target.value) || 0, {
+                      shouldValidate: true,
+                    })
+                  }
+                  error={errors.quantidadeUnidade?.message}
+                />
+              ) : null}
             </div>
           </div>
 

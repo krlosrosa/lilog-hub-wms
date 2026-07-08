@@ -21,6 +21,7 @@ import type { ItemArmazenagemPainelRow } from '../hooks/use-armazenagem-painel';
 const HEADERS = [
   { label: 'Demanda', className: 'w-[72px]' },
   { label: 'Receb.', className: 'w-[72px]' },
+  { label: 'Palete', className: 'min-w-[88px] max-w-[110px]' },
   { label: 'SKU', className: 'min-w-[88px] max-w-[100px]' },
   { label: 'Produto', className: 'min-w-[120px] max-w-[180px]' },
   { label: 'Qtd', className: 'w-14 text-center' },
@@ -112,6 +113,15 @@ export function ArmazenagemItensTable({
                       title={item.recebimentoId}
                     >
                       {shortId(item.recebimentoId)}
+                    </td>
+                    <td
+                      className={cn(
+                        compactTableCellClassName,
+                        'truncate font-mono font-medium',
+                      )}
+                      title={item.unitizadorCodigo ?? undefined}
+                    >
+                      {item.unitizadorCodigo ?? '—'}
                     </td>
                     <td
                       className={cn(

@@ -1,4 +1,5 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 
 
@@ -16,13 +17,13 @@ import {
 
 } from '../providers/drizzle/config/migrations/schema.js';
 
+const preDocas = alias(docas, 'pre_docas');
+
 
 
 const OPERADOR_SITUACOES = [
-  'aguardando_aprovacao',
-  'agendado',
-  'veiculo_chegou',
-  'em_recebimento',
+  'liberado_para_conferencia',
+  'em_conferencia',
 ] as const;
 
 
@@ -60,6 +61,7 @@ export async function listOperadorDemandasDb(
       recebimento: recebimentos,
 
       docaCodigo: docas.codigo,
+      preDocaCodigo: preDocas.codigo,
 
       skuCount: sql<number>`(
 
@@ -84,6 +86,7 @@ export async function listOperadorDemandasDb(
     )
 
     .leftJoin(docas, eq(recebimentos.docaId, docas.id))
+    .leftJoin(preDocas, eq(preRecebimentos.docaId, preDocas.id))
 
     .where(and(...conditions))
 
@@ -91,7 +94,7 @@ export async function listOperadorDemandasDb(
 
 
 
-  return rows.map(({ preRecebimento, recebimento, docaCodigo, skuCount }) => ({
+  return rows.map(({ preRecebimento, recebimento, docaCodigo, preDocaCodigo, skuCount }) => ({
 
     preRecebimentoId: preRecebimento.id,
 
@@ -101,11 +104,11 @@ export async function listOperadorDemandasDb(
 
     placa: preRecebimento.placa,
 
-    transportadoraId: preRecebimento.transportadoraId,
+    transportadoraNome: preRecebimento.transportadoraNome,
 
     situacao: preRecebimento.situacao,
 
-    dock: docaCodigo ?? null,
+    dock: docaCodigo ?? preDocaCodigo ?? null,
 
     skuCount: skuCount ?? 0,
 

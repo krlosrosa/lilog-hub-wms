@@ -10,57 +10,15 @@ import type {
   ConferenciaStatus,
   FotoEvidencia,
   InspecaoTermica,
-  ProcessoInternoRecebimento,
+  LoteDetalheItem,
   RecebimentoDetalhe,
 } from '@/features/recebimento/types/recebimento-detalhe.schema';
 import type { RecebimentoStatus } from '@/features/recebimento/types/recebimento-lista.schema';
 
 function mapSituacaoToStatus(
   situacao: PreRecebimentoSituacaoApi,
-  recebimento?: RecebimentoApi | null,
 ): RecebimentoStatus {
-  if (recebimento?.situacao === 'finalizado' || situacao === 'finalizado') {
-    return 'concluido';
-  }
-
-  if (
-    recebimento?.situacao === 'em_recebimento' ||
-    recebimento?.situacao === 'aguardando_aprovacao' ||
-    recebimento?.situacao === 'aprovado' ||
-    situacao === 'em_recebimento' ||
-    situacao === 'aguardando_aprovacao'
-  ) {
-    return 'descarregando';
-  }
-
-  if (situacao === 'veiculo_chegou') {
-    return 'em-transito';
-  }
-
-  return 'agendado';
-}
-
-function mapProcessoAtual(
-  situacao: PreRecebimentoSituacaoApi,
-  recebimento?: RecebimentoApi | null,
-): ProcessoInternoRecebimento {
-  if (
-    recebimento?.situacao === 'finalizado' ||
-    situacao === 'finalizado' ||
-    situacao === 'aprovado'
-  ) {
-    return 'finalizado';
-  }
-
-  if (
-    recebimento ||
-    situacao === 'em_recebimento' ||
-    situacao === 'aguardando_aprovacao'
-  ) {
-    return 'conferindo';
-  }
-
-  return 'nao-iniciado';
+  return situacao;
 }
 
 function formatDataInicio(iso: string, unidade: string): string {
@@ -96,6 +54,198 @@ function buildConferenciaStatus(
   return 'concluido';
 }
 
+function formatLoteLabel(lotes: string[]): string {
+  if (lotes.length === 1) {
+    return lotes[0] ?? '—';
+  }
+
+  if (lotes.length > 1) {
+    return `${lotes.length} lotes`;
+  }
+
+  return '—';
+}
+
+const SEM_LOTE_KEY = '__sem_lote__';
+
+function toLoteKey(lote: string | null | undefined): string {
+  return lote ?? SEM_LOTE_KEY;
+}
+
+function loteKeyToLabel(loteKey: string): string | null {
+  return loteKey === SEM_LOTE_KEY ? null : loteKey;
+}
+
+type EsperadoLinha = {
+  lote: string | null;
+  qtdEsperada: number;
+};
+
+type EsperadoAgrupado = {
+  firstId: string;
+  qtdXml: number;
+  lotesEsperados: string[];
+  linhas: EsperadoLinha[];
+};
+
+function groupEsperadosPorProduto(
+  itensEsperados: NonNullable<PreRecebimentoApi['itens']>,
+): Map<string, EsperadoAgrupado> {
+  const esperadoPorProduto = new Map<string, EsperadoAgrupado>();
+
+  for (const esperado of itensEsperados) {
+    const qtdXml = toBaseUnits(
+      esperado.quantidadeEsperada,
+      esperado.unidadeMedida,
+      esperado.unidadesPorCaixa ?? 1,
+    );
+    const linha: EsperadoLinha = {
+      lote: esperado.loteEsperado ?? null,
+      qtdEsperada: qtdXml,
+    };
+    const current = esperadoPorProduto.get(esperado.produtoId);
+
+    if (current) {
+      current.qtdXml += qtdXml;
+      current.linhas.push(linha);
+      if (esperado.loteEsperado) {
+        current.lotesEsperados.push(esperado.loteEsperado);
+      }
+      continue;
+    }
+
+    esperadoPorProduto.set(esperado.produtoId, {
+      firstId: esperado.id,
+      qtdXml,
+      lotesEsperados: esperado.loteEsperado ? [esperado.loteEsperado] : [],
+      linhas: [linha],
+    });
+  }
+
+  return esperadoPorProduto;
+}
+
+function groupRecebidosPorProduto(
+  itensRecebidos: NonNullable<RecebimentoApi['itens']>,
+): {
+  qtdFisicaPorProduto: Map<string, number>;
+  lotesRecebidosPorProduto: Map<string, string[]>;
+  recebidoPorLote: Map<string, Map<string, number>>;
+} {
+  const qtdFisicaPorProduto = new Map<string, number>();
+  const lotesRecebidosPorProduto = new Map<string, string[]>();
+  const recebidoPorLote = new Map<string, Map<string, number>>();
+
+  for (const recebido of itensRecebidos) {
+    qtdFisicaPorProduto.set(
+      recebido.produtoId,
+      (qtdFisicaPorProduto.get(recebido.produtoId) ?? 0) +
+        recebido.quantidadeRecebida,
+    );
+
+    const loteKey = toLoteKey(recebido.loteRecebido);
+    const porLote =
+      recebidoPorLote.get(recebido.produtoId) ?? new Map<string, number>();
+    porLote.set(
+      loteKey,
+      (porLote.get(loteKey) ?? 0) + recebido.quantidadeRecebida,
+    );
+    recebidoPorLote.set(recebido.produtoId, porLote);
+
+    if (!recebido.loteRecebido) {
+      continue;
+    }
+
+    const lotes = lotesRecebidosPorProduto.get(recebido.produtoId) ?? [];
+    lotes.push(recebido.loteRecebido);
+    lotesRecebidosPorProduto.set(recebido.produtoId, lotes);
+  }
+
+  return { qtdFisicaPorProduto, lotesRecebidosPorProduto, recebidoPorLote };
+}
+
+function shouldIncludeLotesDetalhe(input: {
+  linhas: EsperadoLinha[];
+  recebidoPorLote?: Map<string, number>;
+}): boolean {
+  if (input.linhas.length > 1) {
+    return true;
+  }
+
+  if (input.linhas.some((linha) => linha.lote)) {
+    return true;
+  }
+
+  if (input.recebidoPorLote && input.recebidoPorLote.size > 0) {
+    return true;
+  }
+
+  return false;
+}
+
+function buildLotesDetalheFromEsperado(input: {
+  linhas: EsperadoLinha[];
+  recebidoPorLote?: Map<string, number>;
+}): LoteDetalheItem[] {
+  const { linhas, recebidoPorLote } = input;
+
+  if (!shouldIncludeLotesDetalhe({ linhas, recebidoPorLote })) {
+    return [];
+  }
+
+  const usedLoteKeys = new Set<string>();
+  const detalhes: LoteDetalheItem[] = linhas.map((linha) => {
+    const loteKey = toLoteKey(linha.lote);
+    usedLoteKeys.add(loteKey);
+
+    return {
+      lote: linha.lote,
+      qtdEsperada: linha.qtdEsperada,
+      qtdRecebida: recebidoPorLote?.get(loteKey) ?? 0,
+    };
+  });
+
+  if (recebidoPorLote) {
+    for (const [loteKey, qtdRecebida] of recebidoPorLote) {
+      if (usedLoteKeys.has(loteKey)) {
+        continue;
+      }
+
+      detalhes.push({
+        lote: loteKeyToLabel(loteKey),
+        qtdEsperada: 0,
+        qtdRecebida,
+      });
+    }
+  }
+
+  return detalhes;
+}
+
+function buildLotesDetalheFromRecebido(
+  recebidos: NonNullable<RecebimentoApi['itens']>,
+): LoteDetalheItem[] {
+  const porLote = new Map<string, number>();
+
+  for (const recebido of recebidos) {
+    const loteKey = toLoteKey(recebido.loteRecebido);
+    porLote.set(
+      loteKey,
+      (porLote.get(loteKey) ?? 0) + recebido.quantidadeRecebida,
+    );
+  }
+
+  if (porLote.size === 0) {
+    return [];
+  }
+
+  return [...porLote.entries()].map(([loteKey, qtdRecebida]) => ({
+    lote: loteKeyToLabel(loteKey),
+    qtdEsperada: 0,
+    qtdRecebida,
+  }));
+}
+
 function buildConferencia(
   preRecebimento: PreRecebimentoApi,
   recebimento: RecebimentoApi | null,
@@ -103,33 +253,83 @@ function buildConferencia(
 ): ConferenciaItem[] {
   const itensEsperados = preRecebimento.itens ?? [];
   const itensRecebidos = recebimento?.itens ?? [];
-  const recebidoPorProduto = new Map(
-    itensRecebidos.map((item) => [item.produtoId, item]),
+  const esperadoProdutoIds = new Set(
+    itensEsperados.map((item) => item.produtoId),
   );
+  const esperadoPorProduto = groupEsperadosPorProduto(itensEsperados);
+  const { qtdFisicaPorProduto, lotesRecebidosPorProduto, recebidoPorLote } =
+    groupRecebidosPorProduto(itensRecebidos);
 
-  return itensEsperados.map((esperado) => {
-    const produto = produtoMap.get(esperado.produtoId);
-    const recebido = recebidoPorProduto.get(esperado.produtoId);
-    const qtdXml = toBaseUnits(
-      esperado.quantidadeEsperada,
-      esperado.unidadeMedida,
-      esperado.unidadesPorCaixa ?? 1,
-    );
-    const qtdFisica = recebido?.quantidadeRecebida ?? 0;
+  const expectedRows: ConferenciaItem[] = [
+    ...esperadoPorProduto.entries(),
+  ].map(([produtoId, grupo]) => {
+    const produto = produtoMap.get(produtoId);
+    const qtdXml = grupo.qtdXml;
+    const qtdFisica = qtdFisicaPorProduto.get(produtoId) ?? 0;
+    const lotesEsperados = grupo.lotesEsperados;
+    const lotesRecebidos = lotesRecebidosPorProduto.get(produtoId) ?? [];
+    const lotesParaExibir =
+      lotesEsperados.length > 0 ? lotesEsperados : lotesRecebidos;
+    const lotesDetalhe = buildLotesDetalheFromEsperado({
+      linhas: grupo.linhas,
+      recebidoPorLote: recebidoPorLote.get(produtoId),
+    });
 
     return {
-      id: esperado.id,
-      produtoId: esperado.produtoId,
-      sku: produto?.sku ?? esperado.produtoId.slice(0, 8).toUpperCase(),
+      id: grupo.firstId,
+      produtoId,
+      sku: produto?.sku ?? produtoId.toUpperCase(),
       produto: produto?.descricao ?? 'Produto não identificado',
-      lote: esperado.loteEsperado ?? recebido?.loteRecebido ?? '—',
+      lote: formatLoteLabel(lotesParaExibir),
       ean: produto?.ean ?? '—',
       qtdXml,
       qtdFisica,
       status: buildConferenciaStatus(qtdXml, qtdFisica, Boolean(recebimento)),
       avarias: [],
+      lotesDetalhe,
     };
   });
+
+  const orphanPorProduto = new Map<string, typeof itensRecebidos>();
+  for (const recebido of itensRecebidos) {
+    if (esperadoProdutoIds.has(recebido.produtoId)) {
+      continue;
+    }
+
+    const current = orphanPorProduto.get(recebido.produtoId) ?? [];
+    current.push(recebido);
+    orphanPorProduto.set(recebido.produtoId, current);
+  }
+
+  const orphanRows: ConferenciaItem[] = [...orphanPorProduto.entries()].map(
+    ([produtoId, recebidos]) => {
+      const produto = produtoMap.get(produtoId);
+      const qtdFisica = recebidos.reduce(
+        (acc, row) => acc + row.quantidadeRecebida,
+        0,
+      );
+      const lotes = recebidos
+        .map((row) => row.loteRecebido)
+        .filter((lote): lote is string => Boolean(lote));
+      const lotesDetalhe = buildLotesDetalheFromRecebido(recebidos);
+
+      return {
+        id: recebidos[0]!.id,
+        produtoId,
+        sku: produto?.sku ?? produtoId.toUpperCase(),
+        produto: produto?.descricao ?? 'Produto não identificado',
+        lote: formatLoteLabel(lotes),
+        ean: produto?.ean ?? '—',
+        qtdXml: 0,
+        qtdFisica,
+        status: buildConferenciaStatus(0, qtdFisica, Boolean(recebimento)),
+        avarias: [],
+        lotesDetalhe,
+      };
+    },
+  );
+
+  return [...expectedRows, ...orphanRows];
 }
 
 const CONDITION_LABELS: Record<keyof ChecklistRecebimentoApi['conditions'], string> =
@@ -140,7 +340,7 @@ const CONDITION_LABELS: Record<keyof ChecklistRecebimentoApi['conditions'], stri
     vedacao: 'Vedação das portas',
   };
 
-function mapChecklistToInspecao(
+export function mapChecklistToInspecao(
   checklist: ChecklistRecebimentoApi | null,
   divergenciasCount: number,
 ): InspecaoTermica {
@@ -206,6 +406,10 @@ export function mapRecebimentoDetalhe(input: {
   const dataReferencia =
     recebimento?.dataInicio ?? preRecebimento.horarioPrevisto;
 
+  const temPaletesBipados = (recebimento?.itens ?? []).some(
+    (item) => Boolean(item.unitizadorId) || Boolean(item.unitizadorCodigo),
+  );
+
   return {
     id: preRecebimento.id,
     numero: `PR-${preRecebimento.id.slice(0, 8).toUpperCase()}`,
@@ -214,11 +418,10 @@ export function mapRecebimentoDetalhe(input: {
       preRecebimento.unidadeId,
     ),
     unidade: preRecebimento.unidadeId,
-    placa: preRecebimento.placa,
-    transportador: preRecebimento.transportadoraId,
+    placa: preRecebimento.placa ?? 'Sem placa',
+    transportador: preRecebimento.transportadoraNome ?? '—',
     documentacaoOk: Boolean(preRecebimento.dataChegada),
-    status: mapSituacaoToStatus(preRecebimento.situacao, recebimento),
-    processoAtual: mapProcessoAtual(preRecebimento.situacao, recebimento),
+    status: mapSituacaoToStatus(preRecebimento.situacao),
     inspecao: mapChecklistToInspecao(checklist, divergenciasCount),
     fotos,
     fotoTotalInformado: fotoTotalInformado || checklist?.photoCount || fotos.length,
@@ -228,5 +431,9 @@ export function mapRecebimentoDetalhe(input: {
     recebimentoId: recebimento?.id ?? null,
     preRecebimentoSituacao: preRecebimento.situacao,
     recebimentoSituacao: recebimento?.situacao ?? null,
+    modoUnitizacao:
+      (recebimento?.modoUnitizacao as RecebimentoDetalhe['modoUnitizacao']) ??
+      null,
+    temPaletesBipados,
   };
 }

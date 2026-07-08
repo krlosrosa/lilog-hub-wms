@@ -23,7 +23,7 @@ import {
   type EnderecoItemMapaCampos,
 } from './endereco-item-mapa.js';
 import {
-  coletarProdutoUuidsParaSlotting,
+  coletarProdutoIdsParaSlotting,
   montarMapaEnderecoPorProdutoCodigo,
   resolverEnderecoItemMapa,
 } from './resolver-endereco-produto-slotting.js';
@@ -97,11 +97,11 @@ export async function montarMapasDeTransportes(
 
   const transportesPorRota = new Map<string, string>();
   const transportesContext: TransporteMapaContext[] = rows.map((row) => {
-    transportesPorRota.set(row.rota, row.id);
+    transportesPorRota.set(row.numeroTransporte, row.numeroTransporte);
 
     return {
-      id: row.id,
-      rota: row.rota,
+      id: row.numeroTransporte,
+      rota: row.numeroTransporte,
       placa: row.placa,
       transportadora: row.transportadora,
       mapaGeradoEm: row.mapaGeradoEm ?? null,
@@ -125,7 +125,9 @@ export async function montarMapasDeTransportes(
     };
   }
 
-  const remessaIds = rows.flatMap((row) => row.remessas.map((r) => r.id));
+  const remessaIds = rows.flatMap((row) =>
+    row.remessas.filter((r) => r.origem === 'upload').map((r) => r.id),
+  );
   const itensRows = await listRemessaItensByRemessaIdsDb(db, remessaIds);
 
   const produtoCodigos = [
@@ -136,10 +138,10 @@ export async function montarMapasDeTransportes(
     ),
   ];
 
-  const produtoUuids = [
+  const produtoIds = [
     ...new Set(
       itensRows.flatMap((row) =>
-        coletarProdutoUuidsParaSlotting({
+        coletarProdutoIdsParaSlotting({
           produtoId: row.produtoId,
           produtoIdResolvido: row.produtoIdResolvido,
           produtoCodigo: row.produtoCodigo,
@@ -151,7 +153,7 @@ export async function montarMapasDeTransportes(
 
   const slottingRows = await listProdutoEnderecosByProdutoIdsDb(db, {
     unidadeId: input.unidadeId,
-    produtoUuids,
+    produtoIds,
     produtoCodigos,
   });
 
@@ -173,7 +175,7 @@ export async function montarMapasDeTransportes(
 
     const enderecoCampos: EnderecoItemMapaCampos = enderecoItemMapaParaCampos(
       resolverEnderecoItemMapa({
-        produtoUuid: row.produtoIdResolvido ?? row.produtoId,
+        produtoId: row.produtoIdResolvido ?? row.produtoId,
         produtoCodigo: row.produtoCodigo,
         sku: row.sku,
         enderecoPorProdutoCodigo,
@@ -217,13 +219,15 @@ export async function montarMapasDeTransportes(
   });
 
   const transportes: TransporteParaMapa[] = rows.map((row) => ({
-    id: row.id,
-    rota: row.rota,
+    id: row.numeroTransporte,
+    rota: row.numeroTransporte,
     cidade: row.cidade,
     bairro: row.bairro,
     placa: row.placa,
     transportadora: row.transportadora,
-    remessas: row.remessas.map((remessa) => ({
+    remessas: row.remessas
+      .filter((remessa) => remessa.origem === 'upload')
+      .map((remessa) => ({
       id: remessa.id,
       remessa: remessa.remessa,
       codCliente: remessa.codCliente,

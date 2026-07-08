@@ -38,7 +38,7 @@ export function useDirecionamento(tarefaId: string) {
       hapticMedium();
       await new Promise((r) => setTimeout(r, 400));
       void navigate({
-        to: '/movimentacao/$id/conclusao',
+        to: '/movimentacao/ressuprimento/$id/conclusao',
         params: { id: tarefaId },
       });
     }),

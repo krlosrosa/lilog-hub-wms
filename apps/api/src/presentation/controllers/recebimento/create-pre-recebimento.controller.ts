@@ -20,7 +20,7 @@ import {
 } from '../../../shared/utils/request-user.js';
 
 const CreatePreRecebimentoItemBodySchema = z.object({
-  produtoId: z.uuid(),
+  produtoId: z.string().min(1).max(50),
   quantidadeEsperada: z.number().positive(),
   unidadeMedida: z.string().min(1).max(20),
   loteEsperado: z.string().optional(),
@@ -28,13 +28,29 @@ const CreatePreRecebimentoItemBodySchema = z.object({
   validadeEsperada: z.iso.datetime().optional(),
 });
 
+const CreateNotaFiscalPreRecebimentoBodySchema = z.object({
+  numeroNf: z.string().min(1).max(20),
+  serie: z.string().max(5).optional(),
+  chaveAcesso: z.string().max(44).optional(),
+  numeroRemessa: z.string().max(100).optional(),
+  fornecedorNome: z.string().max(255).optional(),
+  fornecedorDocumento: z.string().max(20).optional(),
+  pesoTotal: z.number().nonnegative().optional(),
+  volumeTotal: z.number().nonnegative().optional(),
+  observacao: z.string().optional(),
+});
+
 const CreatePreRecebimentoBodySchema = z.object({
   unidadeId: z.string().min(1).max(50),
-  transportadoraId: z.string().min(1).max(50),
-  placa: z.string().min(1).max(20),
+  transportadoraNome: z.string().max(255).optional(),
+  placa: z.string().max(20).optional(),
+  numeroOcr: z.string().max(100).optional(),
+  numeroTransporte: z.string().max(100).optional(),
+  origemDados: z.enum(['manual', 'xlsx', 'xml', 'ocr']).default('manual'),
   horarioPrevisto: z.iso.datetime(),
   observacao: z.string().optional(),
   itens: z.array(CreatePreRecebimentoItemBodySchema).min(1),
+  notasFiscais: z.array(CreateNotaFiscalPreRecebimentoBodySchema).optional(),
 });
 
 class CreatePreRecebimentoBodyDto extends createZodDto(

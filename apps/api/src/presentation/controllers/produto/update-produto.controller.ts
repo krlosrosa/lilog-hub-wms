@@ -23,6 +23,7 @@ const UpdateProdutoBodySchema = z.object({
   descricao: z.string().min(1).optional(),
   empresa: EmpresaProdutoSchema.optional(),
   categoria: CategoriaProdutoSchema.optional(),
+  grupo: z.string().optional().nullable(),
   tipo: TipoProdutoSchema.optional(),
   ean: z.string().optional().nullable(),
   dum: z.string().optional().nullable(),
@@ -45,13 +46,16 @@ export class UpdateProdutoController {
   constructor(private readonly updateProdutoUseCase: UpdateProdutoUseCase) {}
 
   @Auditable({ action: 'update', resource: 'produto' })
-  @Patch(':id')
+  @Patch(':produtoId')
   @ApiOperation({
     summary: 'Update produto',
     operationId: 'updateProduto',
   })
   @ApiSuccessResponse(ProdutoResponseDto)
-  handle(@Param('id') id: string, @Body() body: UpdateProdutoBodyDto) {
-    return this.updateProdutoUseCase.execute(id, body);
+  handle(
+    @Param('produtoId') produtoId: string,
+    @Body() body: UpdateProdutoBodyDto
+  ) {
+    return this.updateProdutoUseCase.execute(produtoId, body);
   }
 }

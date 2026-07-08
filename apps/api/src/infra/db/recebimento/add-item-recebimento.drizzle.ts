@@ -1,13 +1,20 @@
-import { and, eq } from 'drizzle-orm';
+import { and, count, eq, sum } from 'drizzle-orm';
 
 import type { ConferirItemInput } from '../../../domain/model/recebimento/recebimento.model.js';
-import type { ItemRecebimentoRecord } from '../../../domain/repositories/recebimento/recebimento.repository.js';
+import type {
+  AddItemRecebimentoResult,
+  ItemRecebimentoRecord,
+} from '../../../domain/repositories/recebimento/recebimento.repository.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
-import { itensRecebimento } from '../providers/drizzle/config/migrations/schema.js';
+import {
+  itensRecebimento,
+  pesagensRecebimento,
+} from '../providers/drizzle/config/migrations/schema.js';
 import {
   normalizeLote,
   normalizeNumeroSerie,
 } from '../estoque/map-estoque.drizzle.js';
+import { createPesagemRecebimentoDb } from './create-pesagem-recebimento.drizzle.js';
 import {
   mapItemRecebimentoRow,
   toItemRecebimentoInsertValues,
@@ -22,7 +29,8 @@ function matchesConferenciaKey(
     normalizeLote(row.loteRecebido) === normalizeLote(data.loteRecebido) &&
     normalizeNumeroSerie(row.numeroSerie) ===
       normalizeNumeroSerie(data.numeroSerie) &&
-    (row.unitizadorId ?? null) === (unitizadorId ?? null)
+    (row.unitizadorId ?? null) === (unitizadorId ?? null) &&
+    (row.validade?.getTime() ?? null) === (data.validade?.getTime() ?? null)
   );
 }
 
@@ -43,11 +51,43 @@ function isSameConferenciaPayload(
   );
 }
 
-export async function addItemRecebimentoDb(
+async function syncItemTotalsFromPesagens(
+  db: DrizzleClient,
+  itemId: string,
+): Promise<ItemRecebimentoRecord> {
+  const [aggregate] = await db
+    .select({
+      totalPeso: sum(pesagensRecebimento.pesoKg),
+      totalCaixas: count(pesagensRecebimento.id),
+    })
+    .from(pesagensRecebimento)
+    .where(eq(pesagensRecebimento.recebimentoItemId, itemId));
+
+  const totalCaixas = Number(aggregate?.totalCaixas ?? 0);
+
+  const [updated] = await db
+    .update(itensRecebimento)
+    .set({
+      quantidadeRecebida: String(totalCaixas),
+      pesoRecebido: aggregate?.totalPeso ?? null,
+      unidadeMedida: 'CX',
+    })
+    .where(eq(itensRecebimento.id, itemId))
+    .returning();
+
+  if (!updated) {
+    throw new Error('Failed to sync PVAR item totals from pesagens');
+  }
+
+  return mapItemRecebimentoRow(updated);
+}
+
+async function findOrCreatePvarItem(
   db: DrizzleClient,
   recebimentoId: string,
+  unidadeId: string,
   data: ConferirItemInput,
-  unitizadorId?: string | null,
+  unitizadorId: string | null,
 ): Promise<ItemRecebimentoRecord> {
   const existingRows = await db
     .select()
@@ -64,8 +104,99 @@ export async function addItemRecebimentoDb(
   );
 
   if (match) {
+    if (data.validade && match.validade?.getTime() !== data.validade.getTime()) {
+      const [updated] = await db
+        .update(itensRecebimento)
+        .set({ validade: data.validade })
+        .where(eq(itensRecebimento.id, match.id))
+        .returning();
+
+      if (!updated) {
+        throw new Error('Failed to update PVAR item validade');
+      }
+
+      return mapItemRecebimentoRow(updated);
+    }
+
+    return mapItemRecebimentoRow(match);
+  }
+
+  const insertValues = {
+    ...toItemRecebimentoInsertValues(
+      recebimentoId,
+      unidadeId,
+      data,
+      unitizadorId,
+    ),
+    quantidadeRecebida: '0',
+    pesoRecebido: null,
+    unidadeMedida: 'CX',
+  };
+
+  const [record] = await db
+    .insert(itensRecebimento)
+    .values(insertValues)
+    .returning();
+
+  if (!record) {
+    throw new Error('Failed to add PVAR item to recebimento');
+  }
+
+  return mapItemRecebimentoRow(record);
+}
+
+export async function addItemRecebimentoDb(
+  db: DrizzleClient,
+  recebimentoId: string,
+  unidadeId: string,
+  data: ConferirItemInput,
+  options?: { unitizadorId?: string | null; pesoVariavel?: boolean },
+): Promise<AddItemRecebimentoResult> {
+  const unitizadorId = options?.unitizadorId ?? null;
+  const pesoVariavel = options?.pesoVariavel ?? false;
+
+  if (pesoVariavel) {
+    const itemBase = await findOrCreatePvarItem(
+      db,
+      recebimentoId,
+      unidadeId,
+      data,
+      unitizadorId,
+    );
+
+    if (data.pesoRecebido === undefined) {
+      throw new Error('pesoRecebido is required for PVAR items');
+    }
+
+    const pesagem = await createPesagemRecebimentoDb(db, {
+      recebimentoItemId: itemBase.id,
+      unidadeId,
+      pesoKg: data.pesoRecebido,
+      etiquetaCodigo: data.etiquetaCodigo,
+    });
+
+    const item = await syncItemTotalsFromPesagens(db, itemBase.id);
+
+    return { item, pesagem };
+  }
+
+  const existingRows = await db
+    .select()
+    .from(itensRecebimento)
+    .where(
+      and(
+        eq(itensRecebimento.recebimentoId, recebimentoId),
+        eq(itensRecebimento.produtoId, data.produtoId),
+      ),
+    );
+
+  const match = existingRows.find((row) =>
+    matchesConferenciaKey(row, data, unitizadorId),
+  );
+
+  if (match) {
     if (isSameConferenciaPayload(match, data)) {
-      return mapItemRecebimentoRow(match);
+      return { item: mapItemRecebimentoRow(match), pesagem: null };
     }
 
     const [updated] = await db
@@ -86,17 +217,24 @@ export async function addItemRecebimentoDb(
       throw new Error('Failed to update conferido item');
     }
 
-    return mapItemRecebimentoRow(updated);
+    return { item: mapItemRecebimentoRow(updated), pesagem: null };
   }
 
   const [record] = await db
     .insert(itensRecebimento)
-    .values(toItemRecebimentoInsertValues(recebimentoId, data, unitizadorId))
+    .values(
+      toItemRecebimentoInsertValues(
+        recebimentoId,
+        unidadeId,
+        data,
+        unitizadorId,
+      ),
+    )
     .returning();
 
   if (!record) {
     throw new Error('Failed to add item to recebimento');
   }
 
-  return mapItemRecebimentoRow(record);
+  return { item: mapItemRecebimentoRow(record), pesagem: null };
 }

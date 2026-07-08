@@ -36,6 +36,12 @@ export type ListDocasResult = {
   limit: number;
 };
 
+export type BulkCreateDocasResult = {
+  criadas: number;
+  duplicadas: number;
+  items: DocaRecord[];
+};
+
 export interface IDocaRepository {
   list(filter: ListDocasFilter): Promise<ListDocasResult>;
   findById(id: string): Promise<DocaRecord | null>;
@@ -45,6 +51,7 @@ export interface IDocaRepository {
   ): Promise<DocaRecord | null>;
   hasOperationalHistory(id: string): Promise<boolean>;
   create(data: CreateDocaInput): Promise<DocaRecord>;
+  createBulk(items: CreateDocaInput[]): Promise<BulkCreateDocasResult>;
   update(id: string, data: UpdateDocaInput): Promise<DocaRecord | null>;
   delete(id: string): Promise<void>;
 }

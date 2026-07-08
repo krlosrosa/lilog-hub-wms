@@ -2,12 +2,19 @@ import { request } from '@/lib/api-client';
 
 import type {
   ListSessoesApiResponse,
+  RecursosDevolucaoSessaoApiResponse,
   RecursosSessaoApiResponse,
 } from '@/features/gestao-recursos/types/gestao-recursos.api';
 
 export function getRecursosSessao(sessaoId: string) {
   return request<RecursosSessaoApiResponse>(
     `/op-wms/sessoes/${encodeURIComponent(sessaoId)}/recursos`,
+  );
+}
+
+export function getRecursosDevolucaoSessao(sessaoId: string) {
+  return request<RecursosDevolucaoSessaoApiResponse>(
+    `/devolucao/sessoes/${encodeURIComponent(sessaoId)}/recursos`,
   );
 }
 

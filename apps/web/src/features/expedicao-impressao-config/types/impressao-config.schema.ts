@@ -76,18 +76,24 @@ export const ORDEM_IMPRESSAO_LABELS: Record<OrdemImpressaoItem, string> = {
 
 export const ALL_ORDEM_IMPRESSAO_ITEMS = ordemImpressaoItemSchema.options;
 
-export const ordemImpressaoContextSchema = z.enum(['separacao', 'conferencia']);
+export const ordemImpressaoContextSchema = z.enum([
+  'separacao',
+  'conferencia',
+  'conferencia_reentrega',
+]);
 
 export type OrdemImpressaoContext = z.infer<typeof ordemImpressaoContextSchema>;
 
 export const ORDEM_IMPRESSAO_CONTEXT_LABELS: Record<OrdemImpressaoContext, string> = {
   separacao: 'Separação',
   conferencia: 'Conferência',
+  conferencia_reentrega: 'Conferência Reentrega',
 };
 
 export const layoutCabecalhoSchema = z.object({
   separacao: z.string(),
   conferencia: z.string(),
+  conferencia_reentrega: z.string(),
   carregamento: z.string(),
 });
 
@@ -121,6 +127,7 @@ export type QrCodeTipoConfig = z.infer<typeof qrCodeTipoConfigSchema>;
 export const qrCodeMapaSchema = z.object({
   separacao: qrCodeTipoConfigSchema,
   conferencia: qrCodeTipoConfigSchema,
+  conferencia_reentrega: qrCodeTipoConfigSchema,
   carregamento: qrCodeTipoConfigSchema,
 });
 
@@ -180,6 +187,7 @@ export const impressaoConfigSchema = z.object({
   opcoesConferencia: opcoesConferenciaSchema,
   ordemImpressaoSeparacao: z.array(ordemImpressaoItemSchema).min(1),
   ordemImpressaoConferencia: z.array(ordemImpressaoItemSchema).min(1),
+  ordemImpressaoConferenciaReentrega: z.array(ordemImpressaoItemSchema).min(1),
   layoutCabecalho: layoutCabecalhoSchema,
   qrCodeMapa: qrCodeMapaSchema,
   opcoesTabelasCarregamento: opcoesTabelasCarregamentoSchema,

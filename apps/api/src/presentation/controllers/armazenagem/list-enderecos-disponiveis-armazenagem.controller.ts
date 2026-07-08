@@ -20,6 +20,15 @@ class EnderecosDisponiveisParamsDto extends createZodDto(
   EnderecosDisponiveisParamsSchema,
 ) {}
 
+const EnderecosDisponiveisTarefaParamsSchema = z.object({
+  id: z.uuid(),
+  tarefaId: z.uuid(),
+});
+
+class EnderecosDisponiveisTarefaParamsDto extends createZodDto(
+  EnderecosDisponiveisTarefaParamsSchema,
+) {}
+
 const EnderecosDisponiveisQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -53,6 +62,25 @@ export class ListEnderecosDisponiveisArmazenagemController {
     return this.listEnderecosDisponiveisArmazenagemUseCase.execute({
       demandaId: params.id,
       itemId: params.itemId,
+      page: query.page,
+      limit: query.limit,
+      search: query.search,
+    });
+  }
+
+  @Get(':id/tarefas/:tarefaId/enderecos-disponiveis')
+  @ApiOperation({
+    summary: 'List available addresses for storage task (pallet)',
+    operationId: 'listEnderecosDisponiveisTarefaArmazenagem',
+  })
+  @ApiSuccessResponse(ListEnderecosResponseDto)
+  handleTarefa(
+    @Param() params: EnderecosDisponiveisTarefaParamsDto,
+    @Query() query: EnderecosDisponiveisQueryDto,
+  ) {
+    return this.listEnderecosDisponiveisArmazenagemUseCase.execute({
+      demandaId: params.id,
+      tarefaId: params.tarefaId,
       page: query.page,
       limit: query.limit,
       search: query.search,

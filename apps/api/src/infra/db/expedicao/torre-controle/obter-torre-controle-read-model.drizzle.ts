@@ -69,7 +69,7 @@ export async function obterTorreControleReadModelDb(
         .orderBy(asc(vwTransporteOperacional.horarioExpectativaSaida)),
       db
         .select({
-          id: transportes.id,
+          id: transportes.numeroTransporte,
           viagemId: transportes.viagemId,
           viagemInicioEm: transportes.viagemInicioEm,
           viagemFimEm: transportes.viagemFimEm,
@@ -115,7 +115,7 @@ export async function obterTorreControleReadModelDb(
           finalizadoEm: mapaGrupos.finalizadoEm,
         })
         .from(mapaGrupos)
-        .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.id))
+        .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.numeroTransporte))
         .where(
           and(
             eq(transportes.unidadeId, filtro.unidadeId),

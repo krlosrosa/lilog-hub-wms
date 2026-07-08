@@ -33,6 +33,21 @@ export type CriarLoteInput = {
   criadoPor: number | null;
 };
 
+export type AtualizarItinerarioRemessaInput = {
+  remessa: string;
+  itinerario: string;
+};
+
+export type AtualizarItinerarioInput = {
+  uploadLoteId: string;
+  itinerarios: AtualizarItinerarioRemessaInput[];
+};
+
+export type AtualizarItinerarioRecord = {
+  atualizados: number;
+  naoEncontrados: number;
+};
+
 export type UploadLoteRecord = {
   id: string;
   unidadeId: string;
@@ -49,4 +64,7 @@ export type UploadLoteRecord = {
 export interface IUploadLoteRepository {
   criar(input: CriarLoteInput): Promise<UploadLoteRecord>;
   listar(unidadeId: string): Promise<UploadLoteRecord[]>;
+  atualizarItinerarios(
+    input: AtualizarItinerarioInput,
+  ): Promise<AtualizarItinerarioRecord>;
 }

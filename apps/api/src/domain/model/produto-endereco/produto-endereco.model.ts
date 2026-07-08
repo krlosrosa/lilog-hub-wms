@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import type { EnderecoTipo } from '../endereco/endereco.model.js';
+
 export const ProdutoEnderecoPapelSchema = z.enum([
   'picking_primario',
   'picking_secundario',
@@ -10,7 +12,7 @@ export type ProdutoEnderecoPapel = z.infer<typeof ProdutoEnderecoPapelSchema>;
 
 export const CreateProdutoEnderecoInputSchema = z.object({
   centroId: z.uuid(),
-  produtoId: z.uuid(),
+  produtoId: z.string().min(1).max(50),
   enderecoId: z.uuid(),
   papel: ProdutoEnderecoPapelSchema,
   ordem: z.number().int().min(1).max(32767).default(1),
@@ -36,4 +38,10 @@ export function enderecoTipoEsperadoParaPapel(
   papel: ProdutoEnderecoPapel,
 ): 'picking' | 'pulmao' {
   return papel === 'pulmao' ? 'pulmao' : 'picking';
+}
+
+export function enderecoTiposCompativeisComPapel(
+  papel: ProdutoEnderecoPapel,
+): EnderecoTipo[] {
+  return papel === 'pulmao' ? ['pulmao', 'aereo'] : ['picking'];
 }

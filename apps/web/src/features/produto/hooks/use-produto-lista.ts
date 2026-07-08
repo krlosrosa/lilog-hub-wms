@@ -70,9 +70,9 @@ export function useProdutoLista() {
   }, [carregarLista]);
 
   const removerProduto = useCallback(
-    async (id: string) => {
+    async (produtoId: string) => {
       try {
-        await deleteProduto(id);
+        await deleteProduto(produtoId);
         toast.success('Produto removido');
         await carregarLista();
       } catch (error) {

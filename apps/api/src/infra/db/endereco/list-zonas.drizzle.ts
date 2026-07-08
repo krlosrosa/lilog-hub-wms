@@ -2,15 +2,15 @@ import { and, eq } from 'drizzle-orm';
 
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import {
-  centros,
   enderecos,
+  unidades,
 } from '../providers/drizzle/config/migrations/schema.js';
 
 export async function listDistinctZonasDb(
   db: DrizzleClient,
-  centroId?: string,
+  unidadeId?: string,
 ) {
-  const conditions = centroId ? [eq(enderecos.centroId, centroId)] : [];
+  const conditions = unidadeId ? [eq(enderecos.unidadeId, unidadeId)] : [];
 
   const rows = await db
     .selectDistinct({ zona: enderecos.zona })
@@ -21,11 +21,11 @@ export async function listDistinctZonasDb(
   return rows.map((row) => row.zona);
 }
 
-export async function centroExistsDb(db: DrizzleClient, centroId: string) {
+export async function unidadeExistsDb(db: DrizzleClient, unidadeId: string) {
   const rows = await db
-    .select({ id: centros.id })
-    .from(centros)
-    .where(eq(centros.id, centroId))
+    .select({ id: unidades.id })
+    .from(unidades)
+    .where(eq(unidades.id, unidadeId))
     .limit(1);
 
   return rows.length > 0;

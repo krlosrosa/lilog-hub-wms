@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 
+import { useUnidade } from '@/features/unidade';
 import { db } from '@/lib/offline/db';
 import { fetchDevolucaoDemands } from '@/lib/offline/api-client';
 import { useOfflineQuery } from '@/lib/offline/hooks/use-offline-query';
@@ -15,38 +16,50 @@ const PATIO_STATS = {
   totalDocks: 20,
 };
 
+function isDemandaVisivelPwa(demand: Demand): boolean {
+  return demand.status === 'aguardando' || demand.status === 'em_conferencia';
+}
+
 export function useListaDemanda() {
   const [search, setSearch] = useState('');
+  const { unidadeSelecionada, isLoading: isUnidadeLoading } = useUnidade();
+  const unidadeId = unidadeSelecionada?.id ?? '';
 
   const {
     data: demands,
-    isLoading,
+    isLoading: isQueryLoading,
     isStale,
     isRefreshing,
     refresh,
   } = useOfflineQuery({
     table: db.devolucaoDemands,
     seed: SEED_DEMANDS,
-    fetcher: () => fetchDevolucaoDemands<Demand>(),
+    enabled: Boolean(unidadeId),
+    fetcher: () => fetchDevolucaoDemands<Demand>(unidadeId),
   });
+
+  const openDemands = useMemo(
+    () => demands.filter(isDemandaVisivelPwa),
+    [demands],
+  );
 
   const filteredDemands = useMemo(() => {
     const term = search.toLowerCase().trim();
     const list =
       term === 'prioritário' || term === 'prioritario' || term === 'prioridade'
-        ? demands.filter((d) => d.isPriority)
+        ? openDemands.filter((d) => d.isPriority)
         : term === 'segregada' ||
             term === 'segregadas' ||
             term === 'carga segregada'
-          ? demands.filter((d) => d.cargaSegregada)
+          ? openDemands.filter((d) => d.cargaSegregada)
           : term
-            ? demands.filter(
+            ? openDemands.filter(
                 (d) =>
                   d.id.toLowerCase().includes(term) ||
                   d.supplier.toLowerCase().includes(term) ||
                   d.companies?.some((c) => c.toLowerCase().includes(term))
               )
-            : demands;
+            : openDemands;
 
     return [...list].sort((a, b) => {
       const priorityDiff = Number(b.isPriority) - Number(a.isPriority);
@@ -55,7 +68,10 @@ export function useListaDemanda() {
       if (segregadaDiff !== 0) return segregadaDiff;
       return a.arrival.localeCompare(b.arrival);
     });
-  }, [demands, search]);
+  }, [openDemands, search]);
+
+  const isLoading =
+    isUnidadeLoading || (Boolean(unidadeId) && isQueryLoading);
 
   return {
     state: {
@@ -66,6 +82,7 @@ export function useListaDemanda() {
       isLoading,
       isStale,
       isRefreshing,
+      missingUnidadeId: !isUnidadeLoading && !unidadeId,
     },
     actions: {
       setSearch,

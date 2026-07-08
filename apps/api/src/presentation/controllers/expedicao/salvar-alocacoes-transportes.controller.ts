@@ -16,8 +16,8 @@ import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard.js';
 
 const SalvarAlocacaoItemSchema = z.object({
-  transporteId: z.uuid(),
-  placaTransportadoraId: z.uuid(),
+  transporteId: z.string().min(1).max(100),
+  placaTransportadoraId: z.string().min(1).max(100),
   placa: z.string().min(1).max(20),
   transportadora: z.string().min(1).max(255),
   motorista: z.string().max(255).nullable().optional(),
@@ -35,6 +35,7 @@ const SalvarAlocacaoItemSchema = z.object({
   cidade: z.string().max(100).optional(),
   bairro: z.string().max(100).nullable().optional(),
   isPrioridade: z.boolean().optional(),
+  custoPrevisto: z.number().nullable().optional(),
 });
 
 const SalvarAlocacoesTransportesBodySchema = z.object({

@@ -27,6 +27,18 @@ import {
   type PerfilTarifaPermission,
 } from './perfil-tarifa-permissions.js';
 import {
+  resolveDevolucaoRolePermissions,
+  type DevolucaoPermission,
+} from './devolucao-permissions.js';
+import {
+  resolveCobrancaTransportadoraRolePermissions,
+  type CobrancaTransportadoraPermission,
+} from './cobranca-transportadora-permissions.js';
+import {
+  resolveInventarioRolePermissions,
+  type InventarioPermission,
+} from './inventario-permissions.js';
+import {
   resolveRecebimentoRolePermissions,
   type RecebimentoPermission,
 } from './recebimento-permissions.js';
@@ -44,7 +56,10 @@ export type AppPermission =
   | CncPermission
   | ExpedicaoPermission
   | TransportadoraPermission
-  | PerfilTarifaPermission;
+  | PerfilTarifaPermission
+  | DevolucaoPermission
+  | CobrancaTransportadoraPermission
+  | InventarioPermission;
 
 export function resolveAllRolePermissions(role: string): AppPermission[] {
   return [
@@ -57,5 +72,8 @@ export function resolveAllRolePermissions(role: string): AppPermission[] {
     ...resolveExpedicaoRolePermissions(role),
     ...resolveTransportadoraRolePermissions(role),
     ...resolvePerfilTarifaRolePermissions(role),
+    ...resolveDevolucaoRolePermissions(role),
+    ...resolveCobrancaTransportadoraRolePermissions(role),
+    ...resolveInventarioRolePermissions(role),
   ];
 }

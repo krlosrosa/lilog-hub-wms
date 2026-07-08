@@ -183,12 +183,12 @@ export async function insertMapaLoteDb(
 ): Promise<MapaLoteRecord> {
   return db.transaction(async (tx) => {
     const transportesValidos = await tx
-      .select({ id: transportes.id })
+      .select({ id: transportes.numeroTransporte })
       .from(transportes)
       .where(
         and(
           eq(transportes.unidadeId, input.unidadeId),
-          inArray(transportes.id, input.transporteIds),
+          inArray(transportes.numeroTransporte, input.transporteIds),
         ),
       );
 
@@ -275,7 +275,7 @@ export async function insertMapaLoteDb(
       .where(
         and(
           eq(transportes.unidadeId, input.unidadeId),
-          inArray(transportes.id, input.transporteIds),
+          inArray(transportes.numeroTransporte, input.transporteIds),
         ),
       );
 

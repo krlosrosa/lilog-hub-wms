@@ -14,19 +14,27 @@ import {
   CheckCheck,
   ChevronDown,
   ChevronUp,
+  FilePlus,
   MapPin,
   MoreHorizontal,
   Package,
   RotateCcw,
-  Truck,
   Trash2,
+  Truck,
+  Unlink,
 } from 'lucide-react';
 
 import { accentSubtleIconClassName } from '@/lib/semantic-badge-classes';
+import { formatarMoeda } from '@/features/transporte/lib/calcular-custo';
+import {
+  calcularMetricasTransporte,
+  resolverCustoPrevistoExibicao,
+} from '@/features/transporte/lib/calcular-custo-frete';
 import { PerfilVeiculoBadge } from '@/features/transporte/components/perfil-veiculo-badge';
 import { PrioridadeTransporteBadge } from '@/features/transporte/components/prioridade-transporte-badge';
 import { TransporteStatusBadge } from '@/features/transporte/components/transporte-status-badge';
-import type { StatusTransporte, TransporteGrupo } from '@/features/transporte/types/transporte.schema';
+import type { RemessaItem, StatusTransporte, TransporteGrupo } from '@/features/transporte/types/transporte.schema';
+import type { PerfilTarifaItem } from '@/features/transporte/types/perfil-tarifa.schema';
 
 const nf = new Intl.NumberFormat('pt-BR');
 
@@ -128,8 +136,46 @@ function formatarDataHora(iso: string): string {
   }).format(new Date(iso));
 }
 
+function formatarCustoPrevistoFrete(
+  transporte: TransporteGrupo,
+  perfisTarifas: PerfilTarifaItem[],
+): string {
+  if (transporte.freteSemCusto) {
+    return 'Sem custo';
+  }
+
+  const custoPrevisto = resolverCustoPrevistoExibicao(transporte, perfisTarifas);
+
+  if (custoPrevisto != null) {
+    return formatarMoeda(custoPrevisto);
+  }
+
+  return '—';
+}
+
+function resolverItinerarioTransporte(transporte: TransporteGrupo): string {
+  const deRemessas = [
+    ...new Set(
+      transporte.remessas
+        .map((remessa) => remessa.itinerario?.trim())
+        .filter((valor): valor is string => Boolean(valor)),
+    ),
+  ];
+
+  if (deRemessas.length === 1) {
+    return deRemessas[0]!;
+  }
+
+  if (deRemessas.length > 1) {
+    return deRemessas.join(', ');
+  }
+
+  return transporte.itinerario?.trim() || '—';
+}
+
 type TransporteRowProps = {
   transporte: TransporteGrupo;
+  perfisTarifas: PerfilTarifaItem[];
   selecionado: boolean;
   expandido: boolean;
   processando: boolean;
@@ -137,11 +183,15 @@ type TransporteRowProps = {
   onToggleExpandido: (id: string) => void;
   onAlocar: (transporte: TransporteGrupo) => void;
   onAbrirPrioridade: (transporte: TransporteGrupo) => void;
+  onAdicionarNf: (transporte: TransporteGrupo) => void;
   onExcluir?: (transporte: TransporteGrupo) => void;
+  onDesalocarReentrega?: (transporte: TransporteGrupo, remessa: RemessaItem) => void;
+  onExcluirMapaConferenciaReentrega?: (transporte: TransporteGrupo) => void;
 };
 
 export const TransporteRow = memo(function TransporteRow({
   transporte,
+  perfisTarifas,
   selecionado,
   expandido,
   processando,
@@ -149,7 +199,10 @@ export const TransporteRow = memo(function TransporteRow({
   onToggleExpandido,
   onAlocar,
   onAbrirPrioridade,
+  onAdicionarNf,
   onExcluir,
+  onDesalocarReentrega,
+  onExcluirMapaConferenciaReentrega,
 }: TransporteRowProps) {
   const accent = transporte.reentregaExclusiva
     ? {
@@ -167,6 +220,19 @@ export const TransporteRow = memo(function TransporteRow({
 
   const perfilAlocado = transporte.veiculoAlocado?.tipo;
   const perfilAlocadoNome = transporte.veiculoAlocado?.perfilTarifaNome;
+  const itinerarioLabel = resolverItinerarioTransporte(transporte);
+  const custoPrevistoExibicao = resolverCustoPrevistoExibicao(
+    transporte,
+    perfisTarifas,
+  );
+  const custoPrevistoLabel = formatarCustoPrevistoFrete(
+    transporte,
+    perfisTarifas,
+  );
+  const { custoPorTon, dropsize, entregas, ocupacao } = calcularMetricasTransporte(
+    transporte,
+    custoPrevistoExibicao,
+  );
   const perfilDivergente =
     perfilAlocado !== undefined &&
     perfilAlocado !== transporte.perfilEsperado;
@@ -249,7 +315,7 @@ export const TransporteRow = memo(function TransporteRow({
                 </span>
               )}
               <p className="truncate text-[10px] text-muted-foreground sm:hidden">
-                {transporte.cidade} · {transporte.bairro}
+                {itinerarioLabel} · {transporte.bairro}
               </p>
             </div>
           </div>
@@ -270,9 +336,9 @@ export const TransporteRow = memo(function TransporteRow({
         >
           <span
             className="block truncate text-[11px] text-foreground"
-            title={transporte.cidade}
+            title={itinerarioLabel !== '—' ? itinerarioLabel : undefined}
           >
-            {transporte.cidade}
+            {itinerarioLabel}
           </span>
         </td>
         <td
@@ -353,6 +419,76 @@ export const TransporteRow = memo(function TransporteRow({
               <span className="text-[10px] text-muted-foreground">—</span>
             )}
           </div>
+        </td>
+        <td className={cn(CELL, 'hidden text-right md:table-cell')}>
+          <span
+            className={cn(
+              'font-mono text-[11px] tabular-nums',
+              custoPrevistoExibicao != null || transporte.freteSemCusto
+                ? 'font-semibold text-foreground'
+                : 'text-muted-foreground/70',
+            )}
+            title={
+              custoPrevistoExibicao != null
+                ? 'Custo previsto de frete (itinerário mais caro)'
+                : undefined
+            }
+          >
+            {custoPrevistoLabel}
+          </span>
+        </td>
+        <td className={cn(CELL, 'hidden text-right lg:table-cell')}>
+          <span
+            className={cn(
+              'font-mono text-[11px] tabular-nums',
+              custoPorTon > 0
+                ? 'font-semibold text-foreground'
+                : 'text-muted-foreground/70',
+            )}
+            title={
+              custoPorTon > 0
+                ? 'Custo previsto ÷ peso em toneladas (com placa alocada)'
+                : 'Disponível após alocar placa'
+            }
+          >
+            {custoPorTon > 0 ? formatarMoeda(custoPorTon) : '—'}
+          </span>
+        </td>
+        <td className={cn(CELL, 'hidden text-right lg:table-cell')}>
+          <span
+            className={cn(
+              'font-mono text-[11px] tabular-nums',
+              dropsize > 0
+                ? 'font-semibold text-foreground'
+                : 'text-muted-foreground/70',
+            )}
+            title={
+              dropsize > 0
+                ? `Peso médio por cliente · ${entregas} entrega${entregas === 1 ? '' : 's'} (com placa alocada)`
+                : 'Disponível após alocar placa'
+            }
+          >
+            {dropsize > 0 ? formatarPesoCompacto(dropsize) : '—'}
+          </span>
+        </td>
+        <td className={cn(CELL, 'hidden text-right lg:table-cell')}>
+          <span
+            className={cn(
+              'font-mono text-[11px] tabular-nums',
+              ocupacao > 0
+                ? 'font-semibold text-foreground'
+                : 'text-muted-foreground/70',
+            )}
+            title={
+              ocupacao > 0
+                ? 'Peso ÷ capacidade do veículo alocado'
+                : 'Disponível após alocar placa'
+            }
+          >
+            {ocupacao > 0
+              ? `${ocupacao.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
+              : '—'}
+          </span>
         </td>
         <td className={cn(CELL, 'hidden w-[88px] sm:table-cell')}>
           {transporte.isPrioridade && transporte.nivelPrioridade ? (
@@ -439,11 +575,28 @@ export const TransporteRow = memo(function TransporteRow({
                   <Truck className="size-3.5" aria-hidden />
                   {expandido ? 'Recolher remessas' : 'Ver remessas'}
                 </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onAdicionarNf(transporte)}>
+                  <FilePlus className="size-3.5" aria-hidden />
+                  Adicionar NF
+                </DropdownMenuItem>
                 {transporte.status === 'ALOCADO' && (
                   <DropdownMenuItem onSelect={() => onAlocar(transporte)}>
                     Realocar placa
                   </DropdownMenuItem>
                 )}
+                {onExcluirMapaConferenciaReentrega &&
+                  temReentrega &&
+                  transporte.temMapaConferenciaReentrega && (
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        onExcluirMapaConferenciaReentrega(transporte)
+                      }
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="size-3.5" aria-hidden />
+                      Excluir mapa conf. reentrega
+                    </DropdownMenuItem>
+                  )}
                 {onExcluir && (
                   <DropdownMenuItem
                     disabled={transporte.ultimoMapaLoteId != null}
@@ -467,7 +620,7 @@ export const TransporteRow = memo(function TransporteRow({
 
       {expandido && (
         <tr className="border-b border-outline-variant/40 bg-surface-low/50">
-          <td colSpan={18} className="p-0">
+          <td colSpan={22} className="p-0">
             <div className="border-t border-outline-variant/30 px-4 py-3 sm:px-5">
               <div className="overflow-hidden rounded-lg border border-outline-variant/60 bg-glass-bg/80">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/50 bg-surface-highest/40 px-3 py-2">
@@ -487,6 +640,29 @@ export const TransporteRow = memo(function TransporteRow({
                       Parcialmente alocado
                     </span>
                   )}
+                  {transporte.temMapaConferenciaReentrega && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-warning ring-1 ring-inset ring-warning/20">
+                      <RotateCcw className="size-3 shrink-0" aria-hidden />
+                      Mapa conf. reentrega
+                    </span>
+                  )}
+                  {onExcluirMapaConferenciaReentrega &&
+                    transporte.temMapaConferenciaReentrega && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={processando}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onExcluirMapaConferenciaReentrega(transporte);
+                        }}
+                        className="h-7 gap-1 px-2 text-[10px] font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="size-3" aria-hidden />
+                        Excluir mapa
+                      </Button>
+                    )}
                 </div>
 
                 <div className="overflow-x-auto">
@@ -494,24 +670,52 @@ export const TransporteRow = memo(function TransporteRow({
                     <thead>
                       <tr className="border-b border-outline-variant/40 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                         <th className="px-3 py-2">Remessa</th>
+                        <th className="px-3 py-2">Origem</th>
                         <th className="px-3 py-2">Empresa</th>
                         <th className="px-3 py-2">Cod. Cliente</th>
                         <th className="px-3 py-2">Cliente</th>
-                        <th className="px-3 py-2">Cidade</th>
+                        <th className="px-3 py-2">Itinerário</th>
                         <th className="px-3 py-2 text-right">Peso</th>
+                        {onDesalocarReentrega && reentregas.length > 0 && (
+                          <th className="px-3 py-2 text-right">Ações</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
-                      {transporte.remessas.map((remessa, index) => (
+                      {transporte.remessas.map((remessa, index) => {
+                        const isReentrega = remessa.origem === 'reentrega';
+
+                        return (
                         <tr
                           key={remessa.id}
                           className={cn(
                             'border-b border-outline-variant/20 transition-colors last:border-0 hover:bg-surface-highest/30',
                             index % 2 === 1 && 'bg-surface-highest/10',
+                            isReentrega && 'bg-secondary/[0.04]',
                           )}
                         >
                           <td className="px-3 py-2 font-mono text-foreground">
                             {remessa.remessa}
+                          </td>
+                          <td className="px-3 py-2">
+                            {isReentrega ? (
+                              <span
+                                className="inline-flex max-w-[160px] items-center gap-1 rounded-full bg-secondary/15 px-2 py-0.5 text-[10px] font-semibold text-secondary ring-1 ring-inset ring-secondary/20"
+                                title={remessa.motivoReentrega ?? 'Reentrega'}
+                              >
+                                <RotateCcw className="size-3 shrink-0" aria-hidden />
+                                <span className="truncate">
+                                  Reentrega
+                                  {remessa.motivoReentrega
+                                    ? ` · ${remessa.motivoReentrega}`
+                                    : ''}
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground/70">
+                                Upload
+                              </span>
+                            )}
                           </td>
                           <td className="max-w-[140px] truncate px-3 py-2 text-foreground">
                             {remessa.empresa}
@@ -523,13 +727,37 @@ export const TransporteRow = memo(function TransporteRow({
                             {remessa.cliente}
                           </td>
                           <td className="px-3 py-2 text-foreground">
-                            {remessa.cidade}
+                            {remessa.itinerario ?? '—'}
                           </td>
                           <td className="px-3 py-2 text-right font-mono tabular-nums">
                             {nf.format(remessa.peso)} kg
                           </td>
+                          {onDesalocarReentrega && reentregas.length > 0 && (
+                            <td className="px-3 py-2 text-right">
+                              {isReentrega ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={processando}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    onDesalocarReentrega(transporte, remessa);
+                                  }}
+                                  title="Desalocar reentrega deste transporte"
+                                  className="h-7 gap-1 px-2 text-[10px] font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                >
+                                  <Unlink className="size-3" aria-hidden />
+                                  Desalocar
+                                </Button>
+                              ) : (
+                                <span className="text-muted-foreground/40">—</span>
+                              )}
+                            </td>
+                          )}
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

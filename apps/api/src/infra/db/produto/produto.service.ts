@@ -17,9 +17,9 @@ import { bulkCreateProdutoDb } from './bulk-create-produto.drizzle.js';
 import { createProdutoDb } from './create-produto.drizzle.js';
 import { deleteProdutoDb } from './delete-produto.drizzle.js';
 import {
-  findProdutoByIdDb,
   findProdutoByProdutoIdDb,
   findProdutoBySkuDb,
+  resolveProdutoPorCodigoDb,
 } from './find-produto.drizzle.js';
 import { findProdutosByCodigosRemessaDb } from './find-produtos-by-codigos-remessa.drizzle.js';
 import { listProdutosDb } from './list-produtos.drizzle.js';
@@ -35,16 +35,16 @@ export class ProdutoService implements IProdutoRepository {
     return listProdutosDb(this.db, filter);
   }
 
-  findById(id: string) {
-    return findProdutoByIdDb(this.db, id);
+  findByProdutoId(produtoId: string) {
+    return findProdutoByProdutoIdDb(this.db, produtoId);
   }
 
   findBySku(sku: string) {
     return findProdutoBySkuDb(this.db, sku);
   }
 
-  findByProdutoId(produtoId: string) {
-    return findProdutoByProdutoIdDb(this.db, produtoId);
+  resolvePorCodigo(codigo: string) {
+    return resolveProdutoPorCodigoDb(this.db, codigo);
   }
 
   findByCodigosRemessa(codigos: string[]) {
@@ -59,11 +59,13 @@ export class ProdutoService implements IProdutoRepository {
     return bulkCreateProdutoDb(this.db, items);
   }
 
-  update(id: string, data: UpdateProdutoInput) {
-    return updateProdutoDb(this.db, id, data);
+  update(produtoId: string, data: UpdateProdutoInput) {
+    return updateProdutoDb(this.db, produtoId, data);
   }
 
-  delete(id: string) {
-    return deleteProdutoDb(this.db, id);
+  delete(produtoId: string) {
+    return deleteProdutoDb(this.db, produtoId);
   }
 }
+
+export { PRODUTO_REPOSITORY };

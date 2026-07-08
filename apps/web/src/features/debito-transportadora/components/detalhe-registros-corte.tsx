@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
+
 import { Button, cn } from '@lilog/ui';
-import { Download, Loader2, Package, Scissors } from 'lucide-react';
+import { ChevronRight, Download, Loader2, Package, Scissors } from 'lucide-react';
 
 import type {
   DebitoMapaSeparacao,
@@ -25,11 +27,12 @@ const COMPACT_STATUS_LABELS: Record<DebitoRegistroCorteStatus, string> = {
   concluido: 'Concl.',
   em_andamento: 'Andam.',
   cancelado: 'Cancel.',
+  solicitado: 'Solic.',
 };
 
 type DetalheRegistrosCorteProps = {
   registros: readonly DebitoRegistroCorte[];
-  mapaSeparacao: DebitoMapaSeparacao;
+  mapaSeparacao: DebitoMapaSeparacao | null;
   baixandoMapa: boolean;
   onBaixarMapa: () => void;
 };
@@ -39,6 +42,7 @@ const STATUS_STYLES: Record<DebitoRegistroCorteStatus, string> = {
     'border-status-active/30 bg-status-active/10 text-status-active',
   em_andamento: 'border-primary/30 bg-primary/10 text-primary',
   cancelado: 'border-muted bg-muted/30 text-muted-foreground',
+  solicitado: 'border-secondary/30 bg-secondary/10 text-secondary',
 };
 
 export function DetalheRegistrosCorte({
@@ -47,25 +51,53 @@ export function DetalheRegistrosCorte({
   baixandoMapa,
   onBaixarMapa,
 }: DetalheRegistrosCorteProps) {
+  const [expandido, setExpandido] = useState(false);
+
   return (
     <section
-      className="overflow-hidden rounded-xl border border-outline-variant/50 bg-glass-bg shadow-inner-glow backdrop-blur-glass"
+      className="overflow-hidden rounded-lg border border-outline-variant/50 bg-glass-bg shadow-inner-glow backdrop-blur-glass"
       aria-labelledby="titulo-registros-corte"
     >
-      <div className="flex flex-col gap-2 border-b border-outline-variant bg-surface-low px-3 py-2 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h2
-            id="titulo-registros-corte"
-            className="flex items-center gap-1.5 text-xs font-semibold text-foreground"
-          >
-            <Scissors className="size-3.5 text-primary" aria-hidden />
-            Registros de Corte
-          </h2>
-          <p className="mt-0.5 max-w-xl text-[11px] text-muted-foreground">
-            Histórico de cortes e separações vinculados ao transporte.
-          </p>
-        </div>
+      <div
+        className={cn(
+          'flex flex-col gap-2 bg-surface-low px-3 py-2 lg:flex-row lg:items-start lg:justify-between',
+          expandido && 'border-b border-outline-variant',
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setExpandido((prev) => !prev)}
+          className="flex min-w-0 flex-1 items-start gap-2 rounded-md px-0.5 py-0.5 text-left transition-colors hover:bg-surface-low/60"
+          aria-expanded={expandido}
+          aria-controls="conteudo-registros-corte"
+        >
+          <ChevronRight
+            className={cn(
+              'mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform',
+              expandido && 'rotate-90',
+            )}
+            aria-hidden
+          />
+          <div className="min-w-0">
+            <h2
+              id="titulo-registros-corte"
+              className="flex items-center gap-1.5 text-xs font-semibold text-foreground"
+            >
+              <Scissors className="size-3.5 text-primary" aria-hidden />
+              Registros de Corte
+              {registros.length > 0 ? (
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  {registros.length}
+                </span>
+              ) : null}
+            </h2>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Cortes e separações vinculados
+            </p>
+          </div>
+        </button>
 
+        {mapaSeparacao ? (
         <div className="flex min-w-[14rem] flex-col gap-2 rounded-lg border border-outline-variant bg-surface p-2.5 lg:min-w-[16rem]">
           <div className="flex items-start gap-2">
             <div className="rounded-md bg-primary/10 p-1.5 text-primary">
@@ -105,9 +137,11 @@ export function DetalheRegistrosCorte({
             )}
           </Button>
         </div>
+        ) : null}
       </div>
 
-      <div className="overflow-x-auto">
+      {expandido ? (
+      <div id="conteudo-registros-corte" className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-xs">
           <thead>
             <tr className="sticky top-0 bg-surface-highest/50 backdrop-blur-md">
@@ -179,6 +213,7 @@ export function DetalheRegistrosCorte({
           </tbody>
         </table>
       </div>
+      ) : null}
     </section>
   );
 }

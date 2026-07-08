@@ -1,9 +1,11 @@
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   BadRequestException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { Cache } from 'cache-manager';
 
 import { UpsertFaixasKmInputSchema } from '../../../domain/model/perfil-tarifa/perfil-tarifa.model.js';
 import {
@@ -11,6 +13,7 @@ import {
   type IPerfilTarifaRepository,
 } from '../../../domain/repositories/perfil-tarifa/perfil-tarifa.repository.js';
 import { mapPerfilTarifaToResponse } from '../../dtos/perfil-tarifa/map-perfil-tarifa-response.js';
+import { invalidatePerfisTarifasCache } from './invalidate-perfis-tarifas-cache.js';
 
 function validateFaixasOverlap(
   faixas: Array<{ kmInicial: number; kmFinal?: number | null }>,
@@ -52,6 +55,8 @@ export class UpsertFaixasKmUseCase {
   constructor(
     @Inject(PERFIL_TARIFA_REPOSITORY)
     private readonly perfilTarifaRepository: IPerfilTarifaRepository,
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
   ) {}
 
   async execute(id: string, data: unknown) {
@@ -73,6 +78,11 @@ export class UpsertFaixasKmUseCase {
     if (!updated) {
       throw new NotFoundException(`Perfil tarifa "${id}" não encontrado`);
     }
+
+    await invalidatePerfisTarifasCache(
+      this.cacheManager,
+      existing.unidadeId,
+    );
 
     return mapPerfilTarifaToResponse(updated);
   }

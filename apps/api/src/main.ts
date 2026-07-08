@@ -16,7 +16,16 @@ import { cleanupOpenApiDoc, ZodValidationPipe } from 'nestjs-zod';
 import { AppModule } from './app.module.js';
 import { AuditInterceptor } from './shared/interceptors/audit.interceptor.js';
 
-const DEV_CORS_PORTS = new Set(['3000', '5174', '5175', '5176', '4173', '4175']);
+const DEV_CORS_PORTS = new Set([
+  '3000',
+  '3001',
+  '3002',
+  '5174',
+  '5175',
+  '5176',
+  '4173',
+  '4175',
+]);
 
 function isDevCorsOrigin(origin: string): boolean {
   try {
@@ -76,7 +85,7 @@ async function bootstrap() {
 
   const rawOrigins = configService.get<string>(
     'CORS_ORIGIN',
-    'http://localhost:3000,http://localhost:5174,http://localhost:5175',
+    'http://localhost:3000,http://localhost:3001,http://localhost:5174,http://localhost:5175',
   );
   const allowedOrigins = rawOrigins.split(',').map((o) => o.trim());
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
@@ -126,6 +135,7 @@ async function bootstrap() {
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-unidade-id'],
+    exposedHeaders: ['Content-Disposition'],
   });
   app.useGlobalPipes(new ZodValidationPipe());
   app.useGlobalInterceptors(app.get(AuditInterceptor));

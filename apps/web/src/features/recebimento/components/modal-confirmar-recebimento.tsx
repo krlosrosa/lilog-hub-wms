@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@lilog/ui';
-import { AlertTriangle, DoorOpen } from 'lucide-react';
+import { AlertTriangle, DoorOpen, Loader2 } from 'lucide-react';
 
 import { MOCK_DOCAS } from '@/features/recebimento/mocks/recebimentos-mock-data';
 import type { RecebimentoDetalhe } from '@/features/recebimento/types/recebimento-detalhe.schema';
@@ -20,6 +20,7 @@ type ModalConfirmarRecebimentoProps = {
   onClose: () => void;
   onConfirm: (liberarPortaria: boolean) => void;
   recebimento: RecebimentoDetalhe;
+  isSubmitting?: boolean;
 };
 
 type ResumoCardProps = {
@@ -72,6 +73,7 @@ export function ModalConfirmarRecebimento({
   onClose,
   onConfirm,
   recebimento,
+  isSubmitting = false,
 }: ModalConfirmarRecebimentoProps) {
   const [liberarPortaria, setLiberarPortaria] = useState(false);
 
@@ -105,11 +107,11 @@ export function ModalConfirmarRecebimento({
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
-      if (!nextOpen) {
+      if (!nextOpen && !isSubmitting) {
         onClose();
       }
     },
-    [onClose],
+    [isSubmitting, onClose],
   );
 
   const handleConfirm = useCallback(() => {
@@ -172,8 +174,9 @@ export function ModalConfirmarRecebimento({
               <input
                 type="checkbox"
                 checked={liberarPortaria}
+                disabled={isSubmitting}
                 onChange={(event) => setLiberarPortaria(event.target.checked)}
-                className="mt-0.5 size-5 shrink-0 rounded border-outline-variant bg-surface-highest text-primary transition-all focus:ring-primary focus:ring-offset-background"
+                className="mt-0.5 size-5 shrink-0 rounded border-outline-variant bg-surface-highest text-primary transition-all focus:ring-primary focus:ring-offset-background disabled:opacity-50"
               />
               <span className="text-label-md leading-snug text-foreground transition-colors group-hover:text-primary">
                 Liberar Portaria automaticamente após finalizar
@@ -187,6 +190,7 @@ export function ModalConfirmarRecebimento({
             type="button"
             variant="outline"
             className="flex-1 border-outline-variant font-bold"
+            disabled={isSubmitting}
             onClick={onClose}
           >
             Cancelar
@@ -194,9 +198,17 @@ export function ModalConfirmarRecebimento({
           <Button
             type="button"
             className="flex-1 bg-gradient-to-r from-primary-container to-secondary-container font-bold text-primary-foreground shadow-lg hover:opacity-90"
+            disabled={isSubmitting}
             onClick={handleConfirm}
           >
-            Confirmar e Finalizar
+            {isSubmitting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+                Finalizando…
+              </>
+            ) : (
+              'Confirmar e Finalizar'
+            )}
           </Button>
         </div>
       </DialogContent>

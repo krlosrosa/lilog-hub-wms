@@ -57,3 +57,36 @@ export const configuracoesOperacionais = operacionalPgSchema.table(
       .where(sql`${table.isPadrao} = true`),
   ],
 );
+
+export const regrasProcesso = operacionalPgSchema.table(
+  'regras_processo',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    unidadeId: varchar('unidade_id', { length: 50 })
+      .notNull()
+      .references(() => unidades.id, { onDelete: 'cascade' }),
+    nome: varchar('nome', { length: 100 }).notNull(),
+    descricao: text('descricao'),
+    gatilho: varchar('gatilho', { length: 50 }).notNull(),
+    prioridade: integer('prioridade').notNull().default(10),
+    modoAvaliacao: varchar('modo_avaliacao', { length: 50 })
+      .notNull()
+      .default('parar_no_primeiro_match'),
+    arvoreCondicoes: jsonb('arvore_condicoes').notNull(),
+    acoes: jsonb('acoes').notNull(),
+    ativo: boolean('ativo').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique('regras_processo_unidade_gatilho_nome_unique').on(
+      table.unidadeId,
+      table.gatilho,
+      table.nome,
+    ),
+  ],
+);

@@ -52,3 +52,14 @@ export const users = authPgSchema.table('users', {
   }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const usuariosTerceiros = authPgSchema.table('usuarios_terceiros', {
+  id: serial('id').primaryKey(),
+  nome: varchar('nome', { length: 100 }).notNull(),
+  email: varchar('email', { length: 200 }).notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  role: varchar('role', { length: 20 }).notNull().default('viewer'),
+  status: varchar('status', { length: 20 }).notNull().default('ativo'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});

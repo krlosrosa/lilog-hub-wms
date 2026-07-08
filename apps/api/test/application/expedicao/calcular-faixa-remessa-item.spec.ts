@@ -8,7 +8,6 @@ import {
 import type { ProdutoRecord } from '../../../src/domain/repositories/produto/produto.repository.js';
 
 const produtoBase: ProdutoRecord = {
-  id: 'prod-1',
   produtoId: 'P001',
   sku: 'SKU001',
   descricao: 'Produto teste',

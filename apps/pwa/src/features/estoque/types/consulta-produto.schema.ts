@@ -56,7 +56,7 @@ export const localizacaoSchema = z.object({
 export type Localizacao = z.infer<typeof localizacaoSchema>;
 
 export const produtoResultSchema = z.object({
-  id: z.string(),
+  produtoId: z.string(),
   nome: z.string(),
   sku: z.string(),
   categoria: z.string(),

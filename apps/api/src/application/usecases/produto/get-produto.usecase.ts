@@ -12,11 +12,11 @@ export class GetProdutoUseCase {
     private readonly produtoRepository: IProdutoRepository,
   ) {}
 
-  async execute(id: string) {
-    const produto = await this.produtoRepository.findById(id);
+  async execute(produtoId: string) {
+    const produto = await this.produtoRepository.findByProdutoId(produtoId);
 
     if (!produto) {
-      throw new NotFoundException(`Produto "${id}" não encontrado`);
+      throw new NotFoundException(`Produto "${produtoId}" não encontrado`);
     }
 
     return produto;

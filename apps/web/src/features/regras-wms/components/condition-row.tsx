@@ -11,6 +11,7 @@ import {
 import {
   CAMPO_CONDICAO_GRUPOS,
   CAMPO_CONDICAO_LABELS,
+  CAMPOS_CONDICAO_HABILITADOS,
   CAMPOS_SELECT,
   OPERADOR_CONDICAO_LABELS,
   getCampoInputType,
@@ -40,6 +41,8 @@ export function ConditionRow({
   const selectOptions = CAMPOS_SELECT[campo];
   const isEntre = operador === 'entre';
 
+  const camposHabilitados = new Set<CampoCondicao>(CAMPOS_CONDICAO_HABILITADOS);
+
   const handleCampoChange = (novoCampo: CampoCondicao) => {
     const novosOperadores = getOperadoresForCampo(novoCampo);
     const novoOperador = novosOperadores.includes(operador)
@@ -63,15 +66,22 @@ export function ConditionRow({
           className={cn(fieldSelectClassName, 'min-w-0 flex-[2]')}
           onChange={(e) => handleCampoChange(e.target.value as CampoCondicao)}
         >
-          {Object.entries(CAMPO_CONDICAO_GRUPOS).map(([grupo, campos]) => (
-            <optgroup key={grupo} label={grupo}>
-              {campos.map((c) => (
-                <option key={c} value={c}>
-                  {CAMPO_CONDICAO_LABELS[c]}
-                </option>
-              ))}
-            </optgroup>
-          ))}
+          {Object.entries(CAMPO_CONDICAO_GRUPOS).map(([grupo, campos]) => {
+            const camposFiltrados = campos.filter((c) => camposHabilitados.has(c));
+            if (camposFiltrados.length === 0) {
+              return null;
+            }
+
+            return (
+              <optgroup key={grupo} label={grupo}>
+                {camposFiltrados.map((c) => (
+                  <option key={c} value={c}>
+                    {CAMPO_CONDICAO_LABELS[c]}
+                  </option>
+                ))}
+              </optgroup>
+            );
+          })}
         </select>
 
         <select

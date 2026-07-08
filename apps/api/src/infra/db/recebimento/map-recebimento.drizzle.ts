@@ -2,30 +2,37 @@ import type {
   ConferirItemInput,
   CreatePreRecebimentoInput,
   IniciarRecebimentoInput,
+  NotaFiscalPreRecebimentoInput,
   UpdatePreRecebimentoInput,
 } from '../../../domain/model/recebimento/recebimento.model.js';
 import type {
   ItemPreRecebimentoRecord,
+  NotaFiscalPreRecebimentoRecord,
   PreRecebimentoRecord,
 } from '../../../domain/repositories/recebimento/pre-recebimento.repository.js';
 import type {
   CreateDivergenciaInput,
   DivergenciaRecebimentoRecord,
   ItemRecebimentoRecord,
+  PesagemRecebimentoRecord,
   RecebimentoRecord,
 } from '../../../domain/repositories/recebimento/recebimento.repository.js';
 import type {
   divergenciasRecebimento,
   itensPreRecebimento,
   itensRecebimento,
+  notasFiscaisPreRecebimento,
+  pesagensRecebimento,
   preRecebimentos,
   recebimentos,
 } from '../providers/drizzle/config/migrations/schema.js';
 
 type PreRecebimentoRow = typeof preRecebimentos.$inferSelect;
 type ItemPreRecebimentoRow = typeof itensPreRecebimento.$inferSelect;
+type NotaFiscalPreRecebimentoRow = typeof notasFiscaisPreRecebimento.$inferSelect;
 type RecebimentoRow = typeof recebimentos.$inferSelect;
 type ItemRecebimentoRow = typeof itensRecebimento.$inferSelect;
+type PesagemRecebimentoRow = typeof pesagensRecebimento.$inferSelect;
 type DivergenciaRow = typeof divergenciasRecebimento.$inferSelect;
 
 function toNumber(value: string | null | undefined): number | null {
@@ -36,19 +43,51 @@ function toNumber(value: string | null | undefined): number | null {
   return Number(value);
 }
 
+function normalizePlaca(placa?: string | null): string | null {
+  const trimmed = placa?.trim();
+  return trimmed ? trimmed.toUpperCase() : null;
+}
+
 export function mapPreRecebimentoRow(row: PreRecebimentoRow): PreRecebimentoRecord {
   return {
     id: row.id,
     unidadeId: row.unidadeId,
-    transportadoraId: row.transportadoraId,
+    transportadoraNome: row.transportadoraNome,
     placa: row.placa,
+    motoristaNome: row.motoristaNome,
+    motoristaTelefone: row.motoristaTelefone,
+    grauPrioridade: row.grauPrioridade,
+    numeroOcr: row.numeroOcr,
+    numeroTransporte: row.numeroTransporte,
+    origemDados: row.origemDados as PreRecebimentoRecord['origemDados'],
     horarioPrevisto: row.horarioPrevisto,
     observacao: row.observacao,
     situacao: row.situacao,
     dataChegada: row.dataChegada,
+    docaId: row.docaId,
+    rastreioToken: row.rastreioToken,
     userId: row.userId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  };
+}
+
+export function mapNotaFiscalPreRecebimentoRow(
+  row: NotaFiscalPreRecebimentoRow,
+): NotaFiscalPreRecebimentoRecord {
+  return {
+    id: row.id,
+    preRecebimentoId: row.preRecebimentoId,
+    numeroNf: row.numeroNf,
+    serie: row.serie,
+    chaveAcesso: row.chaveAcesso,
+    numeroRemessa: row.numeroRemessa,
+    fornecedorNome: row.fornecedorNome,
+    fornecedorDocumento: row.fornecedorDocumento,
+    pesoTotal: toNumber(row.pesoTotal),
+    volumeTotal: toNumber(row.volumeTotal),
+    observacao: row.observacao,
+    createdAt: row.createdAt,
   };
 }
 
@@ -92,6 +131,7 @@ export function mapItemRecebimentoRow(
   return {
     id: row.id,
     recebimentoId: row.recebimentoId,
+    unidadeId: row.unidadeId,
     produtoId: row.produtoId,
     quantidadeRecebida: Number(row.quantidadeRecebida),
     unidadeMedida: row.unidadeMedida,
@@ -100,6 +140,20 @@ export function mapItemRecebimentoRow(
     validade: row.validade,
     numeroSerie: row.numeroSerie,
     unitizadorId: row.unitizadorId,
+    createdAt: row.createdAt,
+  };
+}
+
+export function mapPesagemRecebimentoRow(
+  row: PesagemRecebimentoRow,
+): PesagemRecebimentoRecord {
+  return {
+    id: row.id,
+    recebimentoItemId: row.recebimentoItemId,
+    unidadeId: row.unidadeId,
+    sequenciaCaixa: row.sequenciaCaixa,
+    etiquetaCodigo: row.etiquetaCodigo,
+    pesoKg: Number(row.pesoKg),
     createdAt: row.createdAt,
   };
 }
@@ -125,12 +179,35 @@ export function toPreRecebimentoInsertValues(
 ) {
   return {
     unidadeId: data.unidadeId,
-    transportadoraId: data.transportadoraId,
-    placa: data.placa.trim().toUpperCase(),
+    transportadoraNome: data.transportadoraNome?.trim() || null,
+    placa: normalizePlaca(data.placa),
+    numeroOcr: data.numeroOcr?.trim() || null,
+    numeroTransporte: data.numeroTransporte?.trim() || null,
+    origemDados: data.origemDados ?? 'manual',
     horarioPrevisto: data.horarioPrevisto,
     observacao: data.observacao ?? null,
     situacao: 'agendado' as PreRecebimentoRow['situacao'],
     userId,
+  };
+}
+
+export function toNotaFiscalPreRecebimentoInsertValues(
+  preRecebimentoId: string,
+  nota: NotaFiscalPreRecebimentoInput,
+) {
+  return {
+    preRecebimentoId,
+    numeroNf: nota.numeroNf.trim(),
+    serie: nota.serie?.trim() || null,
+    chaveAcesso: nota.chaveAcesso?.trim() || null,
+    numeroRemessa: nota.numeroRemessa?.trim() || null,
+    fornecedorNome: nota.fornecedorNome?.trim() || null,
+    fornecedorDocumento: nota.fornecedorDocumento?.trim() || null,
+    pesoTotal:
+      nota.pesoTotal !== undefined ? String(nota.pesoTotal) : null,
+    volumeTotal:
+      nota.volumeTotal !== undefined ? String(nota.volumeTotal) : null,
+    observacao: nota.observacao ?? null,
   };
 }
 
@@ -155,12 +232,24 @@ export function toPreRecebimentoUpdateValues(data: UpdatePreRecebimentoInput) {
     updatedAt: new Date(),
   };
 
-  if (data.transportadoraId !== undefined) {
-    values.transportadoraId = data.transportadoraId;
+  if (data.transportadoraNome !== undefined) {
+    values.transportadoraNome = data.transportadoraNome?.trim() || null;
   }
 
   if (data.placa !== undefined) {
-    values.placa = data.placa.trim().toUpperCase();
+    values.placa = normalizePlaca(data.placa);
+  }
+
+  if (data.numeroOcr !== undefined) {
+    values.numeroOcr = data.numeroOcr?.trim() || null;
+  }
+
+  if (data.numeroTransporte !== undefined) {
+    values.numeroTransporte = data.numeroTransporte?.trim() || null;
+  }
+
+  if (data.origemDados !== undefined) {
+    values.origemDados = data.origemDados;
   }
 
   if (data.horarioPrevisto !== undefined) {
@@ -184,7 +273,7 @@ export function toRecebimentoInsertValues(
     docaId: data.docaId ?? null,
     responsavelId: data.responsavelId,
     dataInicio: new Date(),
-    situacao: 'em_recebimento' as RecebimentoRow['situacao'],
+    situacao: 'em_conferencia' as RecebimentoRow['situacao'],
     modoUnitizacao,
     userId,
   };
@@ -192,11 +281,13 @@ export function toRecebimentoInsertValues(
 
 export function toItemRecebimentoInsertValues(
   recebimentoId: string,
+  unidadeId: string,
   data: ConferirItemInput,
   unitizadorId?: string | null,
 ) {
   return {
     recebimentoId,
+    unidadeId,
     produtoId: data.produtoId,
     quantidadeRecebida: String(data.quantidadeRecebida),
     unidadeMedida: data.unidadeMedida,

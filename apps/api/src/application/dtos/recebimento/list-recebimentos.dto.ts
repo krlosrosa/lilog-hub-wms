@@ -1,7 +1,10 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
+import { ModoUnitizacaoSchema } from '../../../domain/model/armazenagem/armazenagem.model.js';
 import {
+  GrauPrioridadePreRecebimentoSchema,
+  OrigemDadosPreRecebimentoSchema,
   PreRecebimentoSituacaoSchema,
   RecebimentoSituacaoSchema,
   TipoDivergenciaSchema,
@@ -14,7 +17,7 @@ export const ListRecebimentosQuerySchema = z.object({
   situacao: z
     .union([RecebimentoSituacaoSchema, PreRecebimentoSituacaoSchema])
     .optional(),
-  transportadoraId: z.string().min(1).max(50).optional(),
+  transportadoraNome: z.string().min(1).max(255).optional(),
   responsavelId: z.coerce.number().int().positive().optional(),
   docaId: z.uuid().optional(),
   dataInicio: z.iso.datetime().optional(),
@@ -27,7 +30,7 @@ export class ListRecebimentosQueryDto extends createZodDto(
 
 export const ItemPreRecebimentoResponseSchema = z.object({
   id: z.uuid(),
-  produtoId: z.uuid(),
+  produtoId: z.string().min(1).max(50),
   quantidadeEsperada: z.number(),
   unidadeMedida: z.string(),
   unidadesPorCaixa: z.number(),
@@ -36,16 +39,38 @@ export const ItemPreRecebimentoResponseSchema = z.object({
   validadeEsperada: z.iso.datetime().nullable(),
 });
 
+export const NotaFiscalPreRecebimentoResponseSchema = z.object({
+  id: z.uuid(),
+  numeroNf: z.string(),
+  serie: z.string().nullable(),
+  chaveAcesso: z.string().nullable(),
+  numeroRemessa: z.string().nullable(),
+  fornecedorNome: z.string().nullable(),
+  fornecedorDocumento: z.string().nullable(),
+  pesoTotal: z.number().nullable(),
+  volumeTotal: z.number().nullable(),
+  observacao: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+});
+
 export const PreRecebimentoResponseSchema = z.object({
   id: z.uuid(),
   unidadeId: z.string(),
-  transportadoraId: z.string(),
-  placa: z.string(),
+  transportadoraNome: z.string().nullable(),
+  placa: z.string().nullable(),
+  motoristaNome: z.string().nullable(),
+  motoristaTelefone: z.string().nullable(),
+  grauPrioridade: GrauPrioridadePreRecebimentoSchema.nullable(),
+  numeroOcr: z.string().nullable(),
+  numeroTransporte: z.string().nullable(),
+  origemDados: OrigemDadosPreRecebimentoSchema,
   horarioPrevisto: z.iso.datetime(),
   observacao: z.string().nullable(),
   situacao: PreRecebimentoSituacaoSchema,
   dataChegada: z.iso.datetime().nullable(),
+  docaId: z.uuid().nullable(),
   itens: z.array(ItemPreRecebimentoResponseSchema).optional(),
+  notasFiscais: z.array(NotaFiscalPreRecebimentoResponseSchema).optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -56,18 +81,20 @@ export class PreRecebimentoResponseDto extends createZodDto(
 
 export const ItemRecebimentoResponseSchema = z.object({
   id: z.uuid(),
-  produtoId: z.uuid(),
+  produtoId: z.string().min(1).max(50),
   quantidadeRecebida: z.number(),
   unidadeMedida: z.string(),
   loteRecebido: z.string().nullable(),
   pesoRecebido: z.number().nullable(),
   validade: z.iso.datetime().nullable(),
   numeroSerie: z.string().nullable(),
+  unitizadorId: z.uuid().nullable().optional(),
+  unitizadorCodigo: z.string().nullable().optional(),
 });
 
 export const DivergenciaResponseSchema = z.object({
   id: z.uuid(),
-  produtoId: z.uuid().nullable(),
+  produtoId: z.string().min(1).max(50).nullable(),
   tipoDivergencia: TipoDivergenciaSchema,
   quantidadeEsperada: z.number().nullable(),
   quantidadeRecebida: z.number().nullable(),
@@ -82,6 +109,7 @@ export const RecebimentoResponseSchema = z.object({
   dataInicio: z.iso.datetime(),
   dataFim: z.iso.datetime().nullable(),
   situacao: RecebimentoSituacaoSchema,
+  modoUnitizacao: ModoUnitizacaoSchema.or(z.string()),
   itens: z.array(ItemRecebimentoResponseSchema).optional(),
   divergencias: z.array(DivergenciaResponseSchema).optional(),
   createdAt: z.iso.datetime(),
@@ -96,8 +124,8 @@ export const ListRecebimentosResponseSchema = z.object({
   items: z.array(
     RecebimentoResponseSchema.extend({
       unidadeId: z.string(),
-      transportadoraId: z.string(),
-      placa: z.string(),
+      transportadoraNome: z.string().nullable(),
+      placa: z.string().nullable(),
       preRecebimentoSituacao: PreRecebimentoSituacaoSchema,
     }),
   ),
@@ -112,9 +140,12 @@ export class ListRecebimentosResponseDto extends createZodDto(
 
 export const ConferirItemCegoResponseSchema = z.object({
   id: z.uuid(),
-  produtoId: z.uuid(),
+  produtoId: z.string().min(1).max(50),
   quantidadeRecebida: z.number(),
   unidadeMedida: z.string(),
+  pesoRecebido: z.number().nullable().optional(),
+  etiquetaCodigo: z.string().nullable().optional(),
+  pesagemId: z.uuid().nullable().optional(),
 });
 
 export class ConferirItemCegoResponseDto extends createZodDto(

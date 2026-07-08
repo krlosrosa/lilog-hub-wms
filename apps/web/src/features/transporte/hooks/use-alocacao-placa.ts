@@ -1,18 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { toast } from 'sonner';
 
 import { useUnidadeContext } from '@/contexts/unidade-context';
 import { ApiClientError } from '@/lib/api';
+import type { ItinerarioImportResultado } from '@/features/transporte/components/itinerario-import-modal';
 import type { PrioridadeTransporteConfirmPayload } from '@/features/transporte/components/prioridade-transporte-modal';
 import type { RemessaUploadConfirmPayload } from '@/features/transporte/components/remessa-upload-modal';
 import type { RoteirizacaoImportResultado } from '@/features/transporte/components/roteirizacao-import-modal';
 import {
   atualizarPrioridadeTransporte,
+  atualizarItinerarioRemessas,
   deleteTransporte,
+  desvincularNfsDevolucaoTransporte,
+  excluirMapaConferenciaReentregaTransporte,
   listTransportes,
   parseUploadConflitoBody,
   salvarAlocacoesTransportes,
@@ -44,17 +48,37 @@ import {
   parseRoteirizacaoXlsx,
   stripLeadingZeros,
 } from '@/features/transporte/lib/parse-roteirizacao-xlsx';
-import { imprimirMapasApi, type TipoMapaImpressao } from '@/features/transporte/lib/imprimir-mapas-api';
+import {
+  ParseItinerarioError,
+  parseItinerarioXlsx,
+} from '@/features/transporte/lib/parse-itinerario-xlsx';
+import { imprimirMapasApi, imprimirMapaConferenciaReentregaApi, type TipoMapaImpressao } from '@/features/transporte/lib/imprimir-mapas-api';
 import { saveMapaSelecao, saveMapaTransportes } from '@/features/transporte/storage/mapa-impressao-storage';
 import { persistUploadLoteAtivo } from '@/features/expedicao/storage/upload-lote-ativo-storage';
 import {
   buildTorreControleExpedicaoHref,
   resolverUploadLoteIdTransportes,
 } from '@/features/torre-controle-expedicao/lib/torre-controle-routes';
-import { formatarDataIso } from '@/features/torre-controle-expedicao/lib/intervalo-data';
+import {
+  calcularMetricasResumoTransportes,
+  resolverCustoPrevistoExibicao,
+  resolverCustoPrevistoPorPerfil,
+} from '@/features/transporte/lib/calcular-custo-frete';
+import {
+  contarTransportesPorFiltroRapido,
+  filtrarTransportesExpedicao,
+} from '@/features/transporte/lib/filtrar-transportes-expedicao';
+import {
+  criarIntervaloPadraoHoje,
+  filtrarTransportesPorIntervalo,
+  normalizarIntervaloData,
+  type IntervaloData,
+} from '@/features/torre-controle-expedicao/lib/intervalo-data';
 import type {
+  FiltroRapidoTransporte,
   FiltroStatusTransporte,
   PagamentoAlocacao,
+  RemessaItem,
   TipoVeiculo,
   TransporteGrupo,
   TransporteSummary,
@@ -85,18 +109,30 @@ function filtrarPorRegiao(
   return items.filter((item) => item.regiao === regiao);
 }
 
-function filtrarPorData(
-  items: TransporteGrupo[],
-  data: string,
-): TransporteGrupo[] {
-  if (!data.trim()) {
-    return items;
-  }
-
-  return items.filter((item) => item.dataTransporte === data);
+function intervaloDataPreenchido(intervalo: IntervaloData): boolean {
+  return Boolean(intervalo.dataInicio.trim() && intervalo.dataFim.trim());
 }
 
-function calcularSummary(transportes: TransporteGrupo[]): TransporteSummary {
+function filtrarPorIntervalo(
+  items: TransporteGrupo[],
+  intervalo: IntervaloData,
+): TransporteGrupo[] {
+  if (!intervaloDataPreenchido(intervalo)) {
+    return [];
+  }
+
+  return filtrarTransportesPorIntervalo(items, intervalo);
+}
+
+function formatarRotuloIntervalo(intervalo: IntervaloData): string {
+  const { dataInicio, dataFim } = normalizarIntervaloData(intervalo);
+  return dataInicio === dataFim ? dataInicio : `${dataInicio} — ${dataFim}`;
+}
+
+function calcularSummary(
+  transportes: TransporteGrupo[],
+  perfisTarifas: PerfilTarifaItem[],
+): TransporteSummary {
   const totalRemessas = transportes.reduce(
     (acc, transporte) => acc + transporte.quantidadeRemessas,
     0,
@@ -108,11 +144,29 @@ function calcularSummary(transportes: TransporteGrupo[]): TransporteSummary {
   const placasAlocadas = transportes.filter(
     (transporte) => transporte.status === 'ALOCADO',
   ).length;
+  const transportesComPlaca = transportes.filter(
+    (transporte) => Boolean(transporte.veiculoAlocado?.placa?.trim()),
+  );
+  const custoPrevistoTotal = transportes.reduce((acc, transporte) => {
+    const custo = resolverCustoPrevistoExibicao(transporte, perfisTarifas);
+    return acc + (custo ?? 0);
+  }, 0);
+  const custoPrevistoAlocado = transportesComPlaca.reduce((acc, transporte) => {
+    const custo = resolverCustoPrevistoExibicao(transporte, perfisTarifas);
+    return acc + (custo ?? 0);
+  }, 0);
+  const metricas = calcularMetricasResumoTransportes(
+    transportes,
+    custoPrevistoAlocado,
+  );
 
   return {
+    totalTransportes: transportes.length,
     totalRemessas,
     transportesPendentes,
     placasAlocadas,
+    custoPrevistoTotal,
+    ...metricas,
   };
 }
 
@@ -191,17 +245,45 @@ async function enriquecerTransportesComPlacas(
   });
 }
 
+function enriquecerTransportesComCustoPrevisto(
+  items: TransporteGrupo[],
+  perfisTarifas: PerfilTarifaItem[],
+): TransporteGrupo[] {
+  if (!perfisTarifas.length) {
+    return items;
+  }
+
+  return items.map((transporte) => {
+    const custoPrevisto = resolverCustoPrevistoPorPerfil(transporte, perfisTarifas);
+
+    if (custoPrevisto == null || transporte.custoPrevisto === custoPrevisto) {
+      return transporte;
+    }
+
+    return {
+      ...transporte,
+      custoPrevisto,
+    };
+  });
+}
+
 export function useAlocacaoPlaca() {
   const router = useRouter();
   const { unidadeSelecionada } = useUnidadeContext();
   const [transportes, setTransportes] = useState<TransporteGrupo[]>([]);
   const [veiculosBase, setVeiculosBase] = useState<Veiculo[]>([]);
   const [perfisTarifas, setPerfisTarifas] = useState<PerfilTarifaItem[]>([]);
+  const perfisTarifasRef = useRef(perfisTarifas);
+  perfisTarifasRef.current = perfisTarifas;
   const [transportadorasOpcoes, setTransportadorasOpcoes] = useState<string[]>([]);
   const [filtroStatus, setFiltroStatus] =
     useState<FiltroStatusTransporte>('todos');
   const [filtroRegiao, setFiltroRegiao] = useState('todas');
-  const [filtroData, setFiltroData] = useState('');
+  const [intervaloData, setIntervaloData] = useState<IntervaloData>(() =>
+    criarIntervaloPadraoHoje(),
+  );
+  const [filtroRapido, setFiltroRapido] =
+    useState<FiltroRapidoTransporte>('todos');
   const [carregandoTransportes, setCarregandoTransportes] = useState(false);
   const [carregandoVeiculos, setCarregandoVeiculos] = useState(false);
   const [selecionados, setSelecionados] = useState<Set<string>>(() => new Set());
@@ -209,13 +291,17 @@ export function useAlocacaoPlaca() {
   const [processando, setProcessando] = useState(false);
   const [modalUploadAberto, setModalUploadAberto] = useState(false);
   const [modalRoteirizacaoAberto, setModalRoteirizacaoAberto] = useState(false);
+  const [modalItinerarioAberto, setModalItinerarioAberto] = useState(false);
   const [modalAlocarAberto, setModalAlocarAberto] = useState(false);
   const [modalPrioridadeAberto, setModalPrioridadeAberto] = useState(false);
   const [modalImprimirAberto, setModalImprimirAberto] = useState(false);
+  const [modalAdicionarNfAberto, setModalAdicionarNfAberto] = useState(false);
   const [gerandoPdfMapas, setGerandoPdfMapas] = useState(false);
   const [transporteSelecionado, setTransporteSelecionado] =
     useState<TransporteGrupo | null>(null);
   const [transportePrioridadeSelecionado, setTransportePrioridadeSelecionado] =
+    useState<TransporteGrupo | null>(null);
+  const [transporteAdicionarNfSelecionado, setTransporteAdicionarNfSelecionado] =
     useState<TransporteGrupo | null>(null);
   const [alocacoesPendentesSalvar, setAlocacoesPendentesSalvar] = useState<
     Set<string>
@@ -225,6 +311,16 @@ export function useAlocacaoPlaca() {
     open: boolean;
     target: TransporteGrupo | null;
   }>({ open: false, target: null });
+  const [desalocarReentregaDialog, setDesalocarReentregaDialog] = useState<{
+    open: boolean;
+    transporte: TransporteGrupo | null;
+    remessa: RemessaItem | null;
+  }>({ open: false, transporte: null, remessa: null });
+  const [excluirMapaConfReentregaDialog, setExcluirMapaConfReentregaDialog] =
+    useState<{
+      open: boolean;
+      transporte: TransporteGrupo | null;
+    }>({ open: false, transporte: null });
   const [uploadConflitoDialog, setUploadConflitoDialog] = useState<{
     open: boolean;
     rotas: RotaConflitanteUpload[];
@@ -242,11 +338,16 @@ export function useAlocacaoPlaca() {
     try {
       const resultado = await listTransportes(unidadeSelecionada.id);
       const grupos = mapTransportesApiToGrupos(resultado.transportes);
-      const enriquecidos = await enriquecerTransportesComPlacas(
+      const enriquecidosComPlacas = await enriquecerTransportesComPlacas(
         unidadeSelecionada.id,
         grupos,
       );
-      setTransportes(enriquecidos);
+      setTransportes(
+        enriquecerTransportesComCustoPrevisto(
+          enriquecidosComPlacas,
+          perfisTarifasRef.current,
+        ),
+      );
       setAlocacoesPendentesSalvar(new Set());
     } catch (error) {
       const message =
@@ -263,6 +364,20 @@ export function useAlocacaoPlaca() {
   useEffect(() => {
     void carregarTransportes();
   }, [carregarTransportes]);
+
+  useEffect(() => {
+    if (!perfisTarifas.length) {
+      return;
+    }
+
+    setTransportes((prev) => {
+      if (!prev.length) {
+        return prev;
+      }
+
+      return enriquecerTransportesComCustoPrevisto(prev, perfisTarifas);
+    });
+  }, [perfisTarifas]);
 
   const carregarVeiculos = useCallback(async () => {
     if (!unidadeSelecionada?.id) {
@@ -382,15 +497,31 @@ export function useAlocacaoPlaca() {
     }));
   }, [transportes, veiculosBase]);
 
-  const summary = useMemo(() => calcularSummary(transportes), [transportes]);
+  const transportesPorIntervalo = useMemo(
+    () => filtrarPorIntervalo(transportes, intervaloData),
+    [transportes, intervaloData],
+  );
 
-  const filtrados = useMemo(() => {
-    let items = transportes;
+  const summary = useMemo(
+    () => calcularSummary(transportesPorIntervalo, perfisTarifas),
+    [transportesPorIntervalo, perfisTarifas],
+  );
+
+  const baseFiltrada = useMemo(() => {
+    let items = transportesPorIntervalo;
     items = filtrarPorStatus(items, filtroStatus);
     items = filtrarPorRegiao(items, filtroRegiao);
-    items = filtrarPorData(items, filtroData);
     return items;
-  }, [transportes, filtroStatus, filtroRegiao, filtroData]);
+  }, [transportesPorIntervalo, filtroStatus, filtroRegiao]);
+
+  const contadoresFiltroRapido = useMemo(
+    () => contarTransportesPorFiltroRapido(baseFiltrada),
+    [baseFiltrada],
+  );
+
+  const filtrados = useMemo(() => {
+    return filtrarTransportesExpedicao(baseFiltrada, filtroRapido);
+  }, [baseFiltrada, filtroRapido]);
 
   const uploadLoteIdTorre = useMemo(() => {
     const fromTransportes = resolverUploadLoteIdTransportes(filtrados);
@@ -401,24 +532,31 @@ export function useAlocacaoPlaca() {
     ? buildTorreControleExpedicaoHref(
         uploadLoteIdTorre,
         unidadeSelecionada?.id,
-        filtroData
-          ? { dataInicio: filtroData, dataFim: filtroData }
-          : { dataInicio: formatarDataIso(new Date()), dataFim: formatarDataIso(new Date()) },
+        intervaloDataPreenchido(intervaloData)
+          ? normalizarIntervaloData(intervaloData)
+          : criarIntervaloPadraoHoje(),
       )
     : null;
 
   const regioes = useMemo(
-    () => [...new Set(transportes.map((transporte) => transporte.regiao))],
-    [transportes],
+    () =>
+      [
+        ...new Set(
+          transportesPorIntervalo
+            .map((transporte) => transporte.regiao)
+            .filter((regiao) => regiao.trim().length > 0),
+        ),
+      ],
+    [transportesPorIntervalo],
   );
 
   const transportesPendentes = useMemo(
     () =>
-      transportes.filter(
+      transportesPorIntervalo.filter(
         (transporte) =>
           transporte.status === 'PENDENTE' || transporte.status === 'PARCIAL',
       ),
-    [transportes],
+    [transportesPorIntervalo],
   );
 
   const transportesSelecionados = useMemo(
@@ -491,6 +629,14 @@ export function useAlocacaoPlaca() {
     setModalRoteirizacaoAberto(false);
   }, []);
 
+  const abrirModalItinerario = useCallback(() => {
+    setModalItinerarioAberto(true);
+  }, []);
+
+  const fecharModalItinerario = useCallback(() => {
+    setModalItinerarioAberto(false);
+  }, []);
+
   const abrirModalAlocar = useCallback((transporte: TransporteGrupo) => {
     setTransporteSelecionado(transporte);
     setModalAlocarAberto(true);
@@ -509,6 +655,16 @@ export function useAlocacaoPlaca() {
   const fecharModalPrioridade = useCallback(() => {
     setModalPrioridadeAberto(false);
     setTransportePrioridadeSelecionado(null);
+  }, []);
+
+  const abrirModalAdicionarNf = useCallback((transporte: TransporteGrupo) => {
+    setTransporteAdicionarNfSelecionado(transporte);
+    setModalAdicionarNfAberto(true);
+  }, []);
+
+  const fecharModalAdicionarNf = useCallback(() => {
+    setModalAdicionarNfAberto(false);
+    setTransporteAdicionarNfSelecionado(null);
   }, []);
 
   const abrirModalImprimir = useCallback(() => {
@@ -535,7 +691,21 @@ export function useAlocacaoPlaca() {
         return;
       }
 
-      if (transportesSemMapaSalvo.length > 0) {
+      const transportesSemRemessaReentrega = transportesSelecionados.filter(
+        (transporte) =>
+          !transporte.remessas.some((remessa) => remessa.origem === 'reentrega'),
+      );
+
+      if (tipoMapa === 'conferencia_reentrega') {
+        if (transportesSemRemessaReentrega.length > 0) {
+          toast.error('Nenhuma remessa de reentrega nos transportes selecionados.', {
+            description: transportesSemRemessaReentrega
+              .map((transporte) => transporte.rota)
+              .join(', '),
+          });
+          return;
+        }
+      } else if (transportesSemMapaSalvo.length > 0) {
         toast.error('Salve os mapas antes de imprimir.', {
           description: transportesSemMapaSalvo
             .map((transporte) => transporte.rota)
@@ -547,12 +717,19 @@ export function useAlocacaoPlaca() {
       setGerandoPdfMapas(true);
 
       try {
-        const { filename } = await imprimirMapasApi({
-          unidadeId: unidadeSelecionada.id,
-          transporteIds,
-          configuracaoImpressaoId,
-          tipoMapa,
-        });
+        const { filename } =
+          tipoMapa === 'conferencia_reentrega'
+            ? await imprimirMapaConferenciaReentregaApi({
+                unidadeId: unidadeSelecionada.id,
+                transporteIds,
+                configuracaoImpressaoId,
+              })
+            : await imprimirMapasApi({
+                unidadeId: unidadeSelecionada.id,
+                transporteIds,
+                configuracaoImpressaoId,
+                tipoMapa,
+              });
 
         setModalImprimirAberto(false);
         toast.success('PDF gerado com sucesso', {
@@ -599,6 +776,17 @@ export function useAlocacaoPlaca() {
       }
 
       const alocado = buildVeiculoAlocadoFromVeiculo(veiculo);
+      const custoPrevisto = resolverCustoPrevistoPorPerfil(
+        transporteSelecionado,
+        perfisTarifas,
+        {
+          perfilTarifaId: veiculo.perfilTarifaId ?? null,
+          perfilPagamentoId: pagamento.semCusto
+            ? null
+            : pagamento.perfilPagamentoId,
+          semCusto: pagamento.semCusto,
+        },
+      );
 
       setTransportes((prev) =>
         prev.map((item) =>
@@ -615,6 +803,7 @@ export function useAlocacaoPlaca() {
                   ? null
                   : pagamento.perfilPagamentoNome,
                 freteSemCusto: pagamento.semCusto,
+                ...(custoPrevisto != null ? { custoPrevisto } : {}),
               },
         ),
       );
@@ -634,7 +823,7 @@ export function useAlocacaoPlaca() {
         description: `${transporteSelecionado.rota} · ${descricaoPagamento}. Clique em "Salvar Alocações" para persistir.`,
       });
     },
-    [transporteSelecionado, veiculos],
+    [transporteSelecionado, veiculos, perfisTarifas],
   );
 
   const confirmarUpload = useCallback(
@@ -656,7 +845,10 @@ export function useAlocacaoPlaca() {
 
         setUploadLoteIdAtivo(resultado.loteId);
         persistUploadLoteAtivo(unidadeSelecionada.id, resultado.loteId);
-        setFiltroData(payload.dataReferencia);
+        setIntervaloData({
+          dataInicio: payload.dataReferencia,
+          dataFim: payload.dataReferencia,
+        });
         await carregarTransportes();
 
         setProcessando(false);
@@ -713,10 +905,8 @@ export function useAlocacaoPlaca() {
 
         const placasCadastro = buildPlacaCadastroMap(placasCadastroLista);
 
-        const transportesDoUpload = filtroData
-          ? transportes.filter(
-              (transporte) => transporte.dataTransporte === filtroData,
-            )
+        const transportesDoUpload = intervaloDataPreenchido(intervaloData)
+          ? filtrarTransportesPorIntervalo(transportes, intervaloData)
           : transportes;
 
         const transportesPorRota = new Map(
@@ -753,6 +943,15 @@ export function useAlocacaoPlaca() {
             continue;
           }
 
+          const custoPrevisto = resolverCustoPrevistoPorPerfil(
+            transporte,
+            perfisTarifas,
+            {
+              perfilTarifaId: placaRegistro.perfilTarifaId ?? null,
+              perfilPagamentoId: placaRegistro.perfilTarifaId ?? null,
+            },
+          );
+
           atualizacoes.set(transporte.id, {
             ...transporte,
             status: 'ALOCADO',
@@ -774,6 +973,7 @@ export function useAlocacaoPlaca() {
               : {}),
             ...(linha.cidade ? { cidade: linha.cidade } : {}),
             ...(linha.bairro ? { bairro: linha.bairro } : {}),
+            ...(custoPrevisto != null ? { custoPrevisto } : {}),
           });
           alocados += 1;
         }
@@ -820,7 +1020,7 @@ export function useAlocacaoPlaca() {
 
           if (naoEncontrados > 0) {
             partes.push(
-              `${naoEncontrados} transporte${naoEncontrados !== 1 ? 's' : ''} da planilha não encontrado${naoEncontrados !== 1 ? 's' : ''} no upload${filtroData ? ` da data ${filtroData}` : ''}`,
+              `${naoEncontrados} transporte${naoEncontrados !== 1 ? 's' : ''} da planilha não encontrado${naoEncontrados !== 1 ? 's' : ''} no upload${intervaloDataPreenchido(intervaloData) ? ` do período ${formatarRotuloIntervalo(intervaloData)}` : ''}`,
             );
           }
 
@@ -862,7 +1062,69 @@ export function useAlocacaoPlaca() {
         setProcessando(false);
       }
     },
-    [transportes, unidadeSelecionada?.id, filtroData],
+    [transportes, unidadeSelecionada?.id, intervaloData, perfisTarifas],
+  );
+
+  const importarItinerario = useCallback(
+    async (arquivo: File): Promise<ItinerarioImportResultado> => {
+      if (!unidadeSelecionada?.id) {
+        toast.error('Selecione uma unidade antes de importar o itinerário.');
+        return { atualizados: 0, naoEncontrados: 0 };
+      }
+
+      const uploadLoteId = resolverUploadLoteIdTransportes(transportes);
+
+      if (!uploadLoteId) {
+        toast.error('Nenhum upload ativo encontrado para importar o itinerário.');
+        return { atualizados: 0, naoEncontrados: 0 };
+      }
+
+      setProcessando(true);
+
+      try {
+        const linhas = await parseItinerarioXlsx(arquivo);
+        const resultado = await atualizarItinerarioRemessas(uploadLoteId, {
+          itinerarios: linhas,
+        });
+
+        await carregarTransportes();
+
+        if (resultado.atualizados > 0) {
+          const avisos: string[] = [];
+
+          if (resultado.naoEncontrados > 0) {
+            avisos.push(
+              `${resultado.naoEncontrados} remessa${resultado.naoEncontrados !== 1 ? 's' : ''} não encontrada${resultado.naoEncontrados !== 1 ? 's' : ''}`,
+            );
+          }
+
+          toast.success('Itinerário importado', {
+            description:
+              avisos.length > 0
+                ? `${resultado.atualizados} remessa${resultado.atualizados !== 1 ? 's' : ''} atualizada${resultado.atualizados !== 1 ? 's' : ''}. ${avisos.join('. ')}.`
+                : `${resultado.atualizados} remessa${resultado.atualizados !== 1 ? 's' : ''} atualizada${resultado.atualizados !== 1 ? 's' : ''}.`,
+          });
+        } else if (resultado.naoEncontrados > 0) {
+          toast.warning('Nenhuma remessa atualizada', {
+            description: `${resultado.naoEncontrados} remessa${resultado.naoEncontrados !== 1 ? 's' : ''} da planilha não encontrada${resultado.naoEncontrados !== 1 ? 's' : ''} no upload.`,
+          });
+        }
+
+        return resultado;
+      } catch (error) {
+        const message =
+          error instanceof ParseItinerarioError
+            ? error.message
+            : error instanceof ApiClientError
+              ? error.message
+              : 'Não foi possível importar o itinerário.';
+        toast.error(message);
+        return { atualizados: 0, naoEncontrados: 0 };
+      } finally {
+        setProcessando(false);
+      }
+    },
+    [carregarTransportes, transportes, unidadeSelecionada?.id],
   );
 
   const salvarAlocacoes = useCallback(async () => {
@@ -871,12 +1133,30 @@ export function useAlocacaoPlaca() {
       return;
     }
 
-    const transportesParaSalvar = transportes.filter(
+    const transportesPendentes = transportes.filter(
       (transporte) =>
         alocacoesPendentesSalvar.has(transporte.id) &&
         transporte.veiculoAlocado?.placa &&
         transporte.veiculoAlocado.transportadora,
     );
+
+    const transportesParaSalvar = transportesPendentes.filter(
+      (transporte) =>
+        transporte.freteSemCusto || Boolean(transporte.perfilPagamentoId),
+    );
+
+    const puladosLocalmente =
+      transportesPendentes.length - transportesParaSalvar.length;
+
+    if (puladosLocalmente > 0) {
+      toast.warning(
+        `${puladosLocalmente} transporte${puladosLocalmente !== 1 ? 's' : ''} sem perfil de pagamento`,
+        {
+          description:
+            'Informe o perfil de pagamento ou marque como sem custo antes de salvar.',
+        },
+      );
+    }
 
     if (!transportesParaSalvar.length) {
       toast.error('Nenhuma alocação pendente para salvar.');
@@ -888,34 +1168,49 @@ export function useAlocacaoPlaca() {
     try {
       const resultado = await salvarAlocacoesTransportes({
         unidadeId: unidadeSelecionada.id,
-        alocacoes: transportesParaSalvar.map((transporte) => ({
-          transporteId: transporte.id,
-          placaTransportadoraId: transporte.veiculoAlocado!.veiculoId,
-          placa: transporte.veiculoAlocado!.placa,
-          transportadora: transporte.veiculoAlocado!.transportadora,
-          motorista: transporte.veiculoAlocado!.motorista || null,
-          perfilTarifaId: transporte.veiculoAlocado!.perfilTarifaId ?? null,
-          perfilTarifaNome: transporte.veiculoAlocado!.perfilTarifaNome ?? null,
-          perfilPagamentoId: transporte.freteSemCusto
-            ? null
-            : transporte.perfilPagamentoId ?? null,
-          perfilPagamentoNome: transporte.freteSemCusto
-            ? null
-            : transporte.perfilPagamentoNome ?? null,
-          semCusto: transporte.freteSemCusto ?? false,
-          itinerario: transporte.itinerario ?? null,
-          nivelPrioridade: transporte.nivelPrioridade ?? null,
-          horarioExpectativaSaida: transporte.horarioExpectativaSaida ?? null,
-          cidade: transporte.cidade,
-          bairro: transporte.bairro || null,
-          isPrioridade: transporte.isPrioridade ?? false,
-        })),
+        alocacoes: transportesParaSalvar.map((transporte) => {
+          const custoPrevisto = resolverCustoPrevistoPorPerfil(
+            transporte,
+            perfisTarifas,
+          );
+
+          return {
+            transporteId: transporte.id,
+            placaTransportadoraId: transporte.veiculoAlocado!.veiculoId,
+            placa: transporte.veiculoAlocado!.placa,
+            transportadora: transporte.veiculoAlocado!.transportadora,
+            motorista: transporte.veiculoAlocado!.motorista || null,
+            perfilTarifaId: transporte.veiculoAlocado!.perfilTarifaId ?? null,
+            perfilTarifaNome: transporte.veiculoAlocado!.perfilTarifaNome ?? null,
+            perfilPagamentoId: transporte.freteSemCusto
+              ? null
+              : transporte.perfilPagamentoId ?? null,
+            perfilPagamentoNome: transporte.freteSemCusto
+              ? null
+              : transporte.perfilPagamentoNome ?? null,
+            semCusto: transporte.freteSemCusto ?? false,
+            itinerario: transporte.itinerario ?? null,
+            nivelPrioridade: transporte.nivelPrioridade ?? null,
+            horarioExpectativaSaida: transporte.horarioExpectativaSaida ?? null,
+            cidade: transporte.cidade,
+            bairro: transporte.bairro || null,
+            isPrioridade: transporte.isPrioridade ?? false,
+            custoPrevisto,
+          };
+        }),
       });
 
       await carregarTransportes();
 
+      const totalPulados = (resultado.pulados ?? 0) + puladosLocalmente;
+      const descricaoAtualizados = `${resultado.atualizados} transporte${resultado.atualizados !== 1 ? 's' : ''} atualizado${resultado.atualizados !== 1 ? 's' : ''} no banco.`;
+      const descricaoPulados =
+        totalPulados > 0
+          ? ` ${totalPulados} pulado${totalPulados !== 1 ? 's' : ''} por falta de perfil de pagamento.`
+          : '';
+
       toast.success('Alocações salvas', {
-        description: `${resultado.atualizados} transporte${resultado.atualizados !== 1 ? 's' : ''} atualizado${resultado.atualizados !== 1 ? 's' : ''} no banco.`,
+        description: descricaoAtualizados + descricaoPulados,
       });
     } catch (error) {
       const message =
@@ -929,6 +1224,7 @@ export function useAlocacaoPlaca() {
   }, [
     alocacoesPendentesSalvar,
     carregarTransportes,
+    perfisTarifas,
     transportes,
     unidadeSelecionada?.id,
   ]);
@@ -1005,6 +1301,102 @@ export function useAlocacaoPlaca() {
     }
   }, [carregarTransportes, deleteDialog.target, unidadeSelecionada?.id]);
 
+  const abrirDesalocarReentregaDialog = useCallback(
+    (transporte: TransporteGrupo, remessa: RemessaItem) => {
+      setDesalocarReentregaDialog({ open: true, transporte, remessa });
+    },
+    [],
+  );
+
+  const fecharDesalocarReentregaDialog = useCallback(() => {
+    if (processando) {
+      return;
+    }
+
+    setDesalocarReentregaDialog({ open: false, transporte: null, remessa: null });
+  }, [processando]);
+
+  const confirmarDesalocarReentrega = useCallback(async () => {
+    const { transporte, remessa } = desalocarReentregaDialog;
+
+    if (!transporte || !remessa || !unidadeSelecionada?.id) {
+      return;
+    }
+
+    setProcessando(true);
+
+    try {
+      await desvincularNfsDevolucaoTransporte(transporte.id, {
+        unidadeId: unidadeSelecionada.id,
+        remessaIds: [remessa.id],
+      });
+      setDesalocarReentregaDialog({ open: false, transporte: null, remessa: null });
+      await carregarTransportes();
+      toast.success(`NF ${remessa.remessa} desalocada do transporte ${transporte.rota}.`);
+    } catch (error) {
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Não foi possível desalocar a reentrega.';
+      toast.error(message);
+    } finally {
+      setProcessando(false);
+    }
+  }, [
+    carregarTransportes,
+    desalocarReentregaDialog,
+    unidadeSelecionada?.id,
+  ]);
+
+  const abrirExcluirMapaConfReentregaDialog = useCallback(
+    (transporte: TransporteGrupo) => {
+      setExcluirMapaConfReentregaDialog({ open: true, transporte });
+    },
+    [],
+  );
+
+  const fecharExcluirMapaConfReentregaDialog = useCallback(() => {
+    if (processando) {
+      return;
+    }
+
+    setExcluirMapaConfReentregaDialog({ open: false, transporte: null });
+  }, [processando]);
+
+  const confirmarExcluirMapaConfReentrega = useCallback(async () => {
+    const target = excluirMapaConfReentregaDialog.transporte;
+
+    if (!target || !unidadeSelecionada?.id) {
+      return;
+    }
+
+    setProcessando(true);
+
+    try {
+      await excluirMapaConferenciaReentregaTransporte(
+        target.id,
+        unidadeSelecionada.id,
+      );
+      setExcluirMapaConfReentregaDialog({ open: false, transporte: null });
+      await carregarTransportes();
+      toast.success(
+        `Mapa de conferência reentrega excluído do transporte ${target.rota}.`,
+      );
+    } catch (error) {
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Não foi possível excluir o mapa de conferência reentrega.';
+      toast.error(message);
+    } finally {
+      setProcessando(false);
+    }
+  }, [
+    carregarTransportes,
+    excluirMapaConfReentregaDialog.transporte,
+    unidadeSelecionada?.id,
+  ]);
+
   const confirmarPrioridade = useCallback(
     async (payload: PrioridadeTransporteConfirmPayload) => {
       const target = transportePrioridadeSelecionado;
@@ -1059,8 +1451,12 @@ export function useAlocacaoPlaca() {
     setFiltroStatus,
     filtroRegiao,
     setFiltroRegiao,
-    filtroData,
-    setFiltroData,
+    intervaloData,
+    setIntervaloData,
+    filtroRapido,
+    setFiltroRapido,
+    contadoresFiltroRapido,
+    intervaloDataPreenchido: intervaloDataPreenchido(intervaloData),
     selecionados,
     expandidos,
     processando,
@@ -1069,12 +1465,17 @@ export function useAlocacaoPlaca() {
     todosSelecionados,
     modalUploadAberto,
     modalRoteirizacaoAberto,
+    modalItinerarioAberto,
     modalAlocarAberto,
     modalPrioridadeAberto,
     modalImprimirAberto,
+    modalAdicionarNfAberto,
     transporteSelecionado,
     transportePrioridadeSelecionado,
+    transporteAdicionarNfSelecionado,
     deleteDialog,
+    desalocarReentregaDialog,
+    excluirMapaConfReentregaDialog,
     uploadConflitoDialog,
     transportesSelecionados,
     transportesSemMapaSalvo,
@@ -1091,15 +1492,20 @@ export function useAlocacaoPlaca() {
     fecharModalUpload,
     abrirModalRoteirizacao,
     fecharModalRoteirizacao,
+    abrirModalItinerario,
+    fecharModalItinerario,
     abrirModalAlocar,
     fecharModalAlocar,
     abrirModalPrioridade,
     fecharModalPrioridade,
+    abrirModalAdicionarNf,
+    fecharModalAdicionarNf,
     abrirModalImprimir,
     fecharModalImprimir,
     imprimirMapas,
     confirmarUpload,
     importarRoteirizacao,
+    importarItinerario,
     confirmarAlocacao,
     confirmarPrioridade,
     salvarAlocacoes,
@@ -1108,6 +1514,13 @@ export function useAlocacaoPlaca() {
     abrirDeleteDialog,
     fecharDeleteDialog,
     confirmarExclusaoTransporte,
+    abrirDesalocarReentregaDialog,
+    fecharDesalocarReentregaDialog,
+    confirmarDesalocarReentrega,
+    abrirExcluirMapaConfReentregaDialog,
+    fecharExcluirMapaConfReentregaDialog,
+    confirmarExcluirMapaConfReentrega,
     fecharUploadConflitoDialog,
+    recarregarTransportes: carregarTransportes,
   };
 }

@@ -4,7 +4,6 @@ import {
 } from '@/features/recebimento/lib/conferencia-context-store';
 import { mapConferenciaContext } from '@/features/recebimento/lib/map-conferencia-itens';
 import {
-  checkinVeiculo,
   fetchConferenciaContext,
   getRecebimentoByPreRecebimento,
   iniciarRecebimento,
@@ -30,23 +29,16 @@ export async function syncChecklistDrafts(): Promise<{
 
   for (const draft of drafts) {
     try {
-      let situacao = draft.situacao;
+      const situacao = draft.situacao;
       let recebimentoId = draft.recebimentoId;
 
       if (situacao === 'agendado') {
-        try {
-          await checkinVeiculo(draft.demandId);
-          situacao = 'veiculo_chegou';
-        } catch (error) {
-          if (error instanceof ApiClientError && error.status === 400) {
-            situacao = 'veiculo_chegou';
-          } else {
-            throw error;
-          }
-        }
+        throw new Error(
+          'Carga ainda não liberada para conferência no painel web.',
+        );
       }
 
-      if (!recebimentoId && situacao === 'veiculo_chegou') {
+      if (!recebimentoId && situacao === 'liberado_para_conferencia') {
         if (!draft.responsavelId) {
           throw new Error('Responsável não definido para sincronizar checklist');
         }
@@ -103,7 +95,7 @@ export async function syncChecklistDrafts(): Promise<{
           dock: draft.dockLabel,
           recebimentoId,
           status: 'em_conferencia',
-          preRecebimentoSituacao: 'em_recebimento',
+          preRecebimentoSituacao: 'em_conferencia',
         });
       }
 

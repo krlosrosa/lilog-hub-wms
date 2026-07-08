@@ -7,12 +7,12 @@ import type { TipoProduto } from '@/features/produto/types/produto.schema';
 export type EmpresaProdutoApi = 'ITB' | 'LDB' | 'DPA';
 
 export type ProdutoApi = {
-  id: string;
   produtoId: string;
   sku: string;
   descricao: string;
   empresa: EmpresaProdutoApi;
   categoria: ProdutoCategoria;
+  grupo?: string | null;
   tipo: TipoProduto;
   ean?: string | null;
   dum?: string | null;
@@ -35,6 +35,7 @@ export type CreateProdutoPayload = {
   descricao: string;
   empresa: EmpresaProdutoApi;
   categoria: ProdutoCategoria;
+  grupo?: string | null;
   tipo: TipoProduto;
   ean?: string;
   dum?: string;

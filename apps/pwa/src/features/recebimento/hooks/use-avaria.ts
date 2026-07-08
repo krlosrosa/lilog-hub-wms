@@ -1,7 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useMemo, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import { useUnidade } from '@/features/unidade';
 import { isApiConfigured } from '@/lib/offline/api-client';
 import { useOfflineMutation } from '@/lib/offline/hooks/use-offline-mutation';
 import { usePhotoCapture } from '@/lib/offline/hooks/use-photo-capture';
@@ -11,19 +14,41 @@ import {
   AVARIA_NATUREZA_OPTIONS,
   AVARIA_TIPO_OPTIONS,
 } from '../lib/avaria-labels';
-import { addAvariaRegistrada } from '../lib/conferencia-avarias-store';
+import { addAvariaRegistrada, getAvariasRegistradas } from '../lib/conferencia-avarias-store';
+import { peekConferenciaNavigation } from '../lib/conferencia-conferidos-store';
 import { getConferenciaContextStore } from '../lib/conferencia-context-store';
-import { getConferenciaSkuSession } from '../lib/conferencia-sku-session';
+import {
+  getConferenciaSkuSession,
+  setConferenciaEntryStep,
+} from '../lib/conferencia-sku-session';
+import { buildLotesDisponiveisPorProduto } from '../lib/build-paletes-conferidos-resumo';
+import { buildAvariaRelatedId } from '../lib/avaria-evidencia-utils';
+import { validateAvariaQuantidadeForSkus } from '../lib/avaria-quantidade';
 import { mapAvariaApiToRegistro } from '../lib/map-avaria-api';
+import {
+  fetchParametrosRecebimentoConferencia,
+  getCachedParametrosRecebimentoConferencia,
+} from '../lib/recebimento-config';
+import {
+  getRecebimentoConferenciaRascunho,
+  listRecebimentoConferenciaRascunhos,
+} from '../lib/recebimento-conferencia-rascunho';
+import { resolveConferidoTotaisForSkuRecebimento } from '../lib/resolve-conferido-totais';
 import { submitAvaria } from '../lib/recebimento-api';
 import { uploadAvariaPhotos } from '../lib/upload-avaria-photos';
-import { avariaSchema, type AvariaForm } from '../types/recebimento.schema';
+import {
+  buildAvariaSchema,
+  DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA,
+  type AvariaForm,
+  type ParametrosRecebimentoConferencia,
+} from '../types/recebimento.schema';
 import { useDemandById } from './use-demand-by-id';
 import { getSkuItemsByDemandId } from './use-lista-itens';
 
 const DEFAULT_VALUES: AvariaForm = {
   quantidadeCaixa: 0,
   quantidadeUnidade: 0,
+  lote: '',
   tipo: '',
   natureza: '',
   causa: '',
@@ -33,18 +58,9 @@ const DEFAULT_VALUES: AvariaForm = {
 const MIN_PHOTOS = 2;
 
 export function useAvaria(demandId: string) {
+  const navigate = useNavigate();
   const demand = useDemandById(demandId);
-  const { photos, capture, remove, getPhotoIds, hiddenInput } = usePhotoCapture({
-    relatedId: `avaria-${demandId}`,
-  });
-  const { mutate, isPending: isOfflinePending } = useOfflineMutation();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
-  const form = useForm<AvariaForm>({
-    resolver: zodResolver(avariaSchema),
-    defaultValues: DEFAULT_VALUES,
-  });
+  const { unidadeSelecionada } = useUnidade();
 
   const itensConferidos = useMemo(
     () => getSkuItemsByDemandId(demandId).filter((item) => item.status === 'conferido'),
@@ -55,8 +71,185 @@ export function useAvaria(demandId: string) {
     return getConferenciaSkuSession(demandId) ?? itensConferidos[0]?.sku ?? '';
   }, [demandId, itensConferidos]);
 
+  const avariaRelatedId = useMemo(
+    () => buildAvariaRelatedId(demandId, activeSku),
+    [activeSku, demandId],
+  );
+
+  const {
+    photos,
+    capture,
+    remove,
+    getPhotoIds,
+    hiddenInput,
+    captureError,
+    isProcessing,
+  } = usePhotoCapture({
+    relatedId: avariaRelatedId,
+  });
+  const { mutate, isPending: isOfflinePending } = useOfflineMutation();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [avariasRegistradas, setAvariasRegistradas] = useState(() =>
+    getAvariasRegistradas(demandId),
+  );
+  const [parametrosConferencia, setParametrosConferencia] =
+    useState<ParametrosRecebimentoConferencia>(() => {
+      const unidadeId = unidadeSelecionada?.id ?? demand?.unidadeId;
+      return unidadeId
+        ? getCachedParametrosRecebimentoConferencia(unidadeId)
+        : DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA;
+    });
+
+  const avariaFormSchema = useMemo(
+    () => buildAvariaSchema(parametrosConferencia.quantidadeModo),
+    [parametrosConferencia.quantidadeModo],
+  );
+
+  const form = useForm<AvariaForm>({
+    resolver: zodResolver(avariaFormSchema),
+    defaultValues: DEFAULT_VALUES,
+  });
+
+  useEffect(() => {
+    form.clearErrors();
+  }, [avariaFormSchema, form]);
+
+  useEffect(() => {
+    setAvariasRegistradas(getAvariasRegistradas(demandId));
+  }, [demandId]);
+
+  useEffect(() => {
+    const unidadeId = unidadeSelecionada?.id ?? demand?.unidadeId;
+    if (!unidadeId) return;
+
+    setParametrosConferencia(getCachedParametrosRecebimentoConferencia(unidadeId));
+    void fetchParametrosRecebimentoConferencia(unidadeId).then(setParametrosConferencia);
+  }, [demand?.unidadeId, unidadeSelecionada?.id]);
+
+  const activeProdutoId = useMemo(() => {
+    const context = getConferenciaContextStore(demandId);
+    return context?.itemMetaBySku[activeSku.toLowerCase()]?.produtoId ?? null;
+  }, [activeSku, demandId]);
+
+  const lotesDisponiveis = useMemo(() => {
+    const context = getConferenciaContextStore(demandId);
+    if (!activeProdutoId || !context) {
+      return [];
+    }
+
+    const conferidos =
+      context.conferidosDetalheByProdutoId?.[activeProdutoId] ?? [];
+
+    return buildLotesDisponiveisPorProduto(conferidos, activeProdutoId);
+  }, [activeProdutoId, demandId]);
+
+  const exigeSelecaoLote = lotesDisponiveis.length > 1;
+
+  useEffect(() => {
+    if (lotesDisponiveis.length === 1) {
+      form.setValue('lote', lotesDisponiveis[0]!, { shouldValidate: true });
+    }
+  }, [form, lotesDisponiveis]);
+
+  const rascunho = useLiveQuery(
+    () =>
+      activeSku
+        ? getRecebimentoConferenciaRascunho(demandId, activeSku)
+        : undefined,
+    [demandId, activeSku],
+  );
+
+  const conferenciaRascunhos = useLiveQuery(
+    () => listRecebimentoConferenciaRascunhos(demandId),
+    [demandId],
+  ) ?? [];
+
+  const conferidoTotais = useMemo(
+    () =>
+      resolveConferidoTotaisForSkuRecebimento({
+        demandId,
+        sku: activeSku,
+        quantidadeModo: parametrosConferencia.quantidadeModo,
+        rascunhoLotes: rascunho?.lotes,
+      }),
+    [
+      activeSku,
+      demandId,
+      parametrosConferencia.quantidadeModo,
+      rascunho?.lotes,
+    ],
+  );
+
   const replicarParaTodosConferidos = form.watch('replicarParaTodosConferidos') ?? false;
+  const quantidadeCaixa = form.watch('quantidadeCaixa') ?? 0;
+  const quantidadeUnidade = form.watch('quantidadeUnidade') ?? 0;
   const podeReplicar = itensConferidos.length > 0;
+
+  const resolveSkusParaValidacao = useCallback(
+    (replicar: boolean) => {
+      if (replicar && podeReplicar) {
+        return [...new Set(itensConferidos.map((item) => item.sku))];
+      }
+
+      return activeSku ? [activeSku] : [];
+    },
+    [activeSku, itensConferidos, podeReplicar],
+  );
+
+  const validateQuantidadeLimites = useCallback(
+    (values: AvariaForm, replicar: boolean) => {
+      const skus = resolveSkusParaValidacao(replicar);
+      if (skus.length === 0) {
+        return null;
+      }
+
+      return validateAvariaQuantidadeForSkus({
+        demandId,
+        skus,
+        quantidadeCaixa: values.quantidadeCaixa,
+        quantidadeUnidade: values.quantidadeUnidade,
+        quantidadeModo: parametrosConferencia.quantidadeModo,
+        avariasRegistradas,
+        rascunhos: conferenciaRascunhos,
+      });
+    },
+    [
+      avariasRegistradas,
+      conferenciaRascunhos,
+      demandId,
+      parametrosConferencia.quantidadeModo,
+      resolveSkusParaValidacao,
+    ],
+  );
+
+  useEffect(() => {
+    const replicar = replicarParaTodosConferidos && podeReplicar;
+    const error = validateQuantidadeLimites(
+      {
+        ...form.getValues(),
+        quantidadeCaixa,
+        quantidadeUnidade,
+        replicarParaTodosConferidos: replicar,
+      },
+      replicar,
+    );
+
+    if (error) {
+      form.setError(error.field, { message: error.message });
+      return;
+    }
+
+    form.clearErrors(['quantidadeCaixa', 'quantidadeUnidade']);
+  }, [
+    avariasRegistradas,
+    form,
+    podeReplicar,
+    quantidadeCaixa,
+    quantidadeUnidade,
+    replicarParaTodosConferidos,
+    validateQuantidadeLimites,
+  ]);
 
   const recebimentoId =
     getConferenciaContextStore(demandId)?.recebimentoId ??
@@ -77,6 +270,16 @@ export function useAvaria(demandId: string) {
     await Promise.all(photos.map((photo) => remove(photo.id)));
   }, [photos, remove]);
 
+  const navigateToConferencia = useCallback(() => {
+    const navigation = peekConferenciaNavigation(demandId);
+    setConferenciaEntryStep(demandId, navigation?.step ?? 3);
+    void navigate({
+      to: '/recebimento/$id/',
+      params: { id: demandId },
+      search: { init: String(Date.now()) },
+    });
+  }, [demandId, navigate]);
+
   const handleSubmit = form.handleSubmit(async (values) => {
     if (!recebimentoId) {
       form.setError('quantidadeCaixa', {
@@ -94,6 +297,18 @@ export function useAvaria(demandId: string) {
     setSubmitError(null);
     const label = `Avaria ${demand?.id ?? demandId}`;
     const replicar = values.replicarParaTodosConferidos && podeReplicar;
+    const quantidadeError = validateQuantidadeLimites(values, replicar);
+
+    if (quantidadeError) {
+      form.setError(quantidadeError.field, { message: quantidadeError.message });
+      return;
+    }
+
+    if (!replicar && exigeSelecaoLote && !values.lote?.trim()) {
+      form.setError('lote', { message: 'Selecione o lote avariado' });
+      return;
+    }
+
     const skusAlvo = replicar
       ? itensConferidos.map((item) => item.sku)
       : activeSku
@@ -101,6 +316,8 @@ export function useAvaria(demandId: string) {
         : [];
 
     const payload = {
+      produtoId: activeProdutoId ?? undefined,
+      lote: replicar ? undefined : values.lote?.trim() || undefined,
       tipo: values.tipo,
       natureza: values.natureza,
       causa: values.causa,
@@ -118,11 +335,14 @@ export function useAvaria(demandId: string) {
         const result = await submitAvaria(recebimentoId, payload);
 
         for (const item of result.items) {
-          addAvariaRegistrada(demandId, mapAvariaApiToRegistro(item));
+          addAvariaRegistrada(demandId, mapAvariaApiToRegistro(item, demandId));
         }
+
+        setAvariasRegistradas(getAvariasRegistradas(demandId));
 
         form.reset(DEFAULT_VALUES);
         await clearPhotos();
+        navigateToConferencia();
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Falha ao registrar avaria';
@@ -145,6 +365,7 @@ export function useAvaria(demandId: string) {
 
       form.reset(DEFAULT_VALUES);
       await clearPhotos();
+      navigateToConferencia();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Falha ao registrar avaria';
@@ -164,7 +385,6 @@ export function useAvaria(demandId: string) {
           ]?.descricao ??
           itensConferidos.find((i) => i.sku === activeSku)?.name ??
           'Item conferido',
-        received: 0,
         location: demand?.dock ?? '—',
         cargoRef: demand ? `Carga ${demand.id}` : `Carga ${demandId}`,
       },
@@ -181,6 +401,12 @@ export function useAvaria(demandId: string) {
       itensConferidosCount: itensConferidos.length,
       podeReplicar,
       recebimentoId,
+      parametrosConferencia,
+      conferidoTotais,
+      lotesDisponiveis,
+      exigeSelecaoLote,
+      captureError,
+      isProcessingPhoto: isProcessing,
     },
     actions: {
       capture,

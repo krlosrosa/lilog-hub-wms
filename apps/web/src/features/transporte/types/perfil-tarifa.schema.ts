@@ -8,7 +8,7 @@ export const faixaKmFormSchema = z.object({
   kmInicial: z.coerce.number().nonnegative('Informe o km inicial'),
   kmFinal: z.coerce.number().positive('Informe o km final').nullable().optional(),
   valor: z.coerce.number().positive('Informe um valor maior que zero'),
-  itinerario: z.string().nullable().optional(),
+  itinerarios: z.array(z.string().min(1)).optional(),
 });
 
 export type FaixaKmFormValues = z.infer<typeof faixaKmFormSchema>;
@@ -47,12 +47,17 @@ export type PerfilTarifaItem = {
   updatedAt: string;
 };
 
+export type ItinerarioFaixaItem = {
+  id?: string;
+  codigo: string;
+};
+
 export type FaixaKmItem = {
   id?: string;
   kmInicial: number;
   kmFinal: number | null;
   valor: number;
-  itinerario?: string | null;
+  itinerarios: ItinerarioFaixaItem[];
 };
 
 export const TIPO_CARGA_LABELS: Record<TipoCarga, string> = {
@@ -73,7 +78,7 @@ export const DEFAULT_FAIXA_KM_FORM: FaixaKmFormValues = {
   kmInicial: 0,
   kmFinal: null,
   valor: 0,
-  itinerario: null,
+  itinerarios: [],
 };
 
 export function parseDecimal(value: string | number | null | undefined): number {

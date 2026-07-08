@@ -2,6 +2,7 @@ import {
   calcularCustoPrevisto,
   resolverTipoTarifaCusto,
 } from '@/features/transporte/lib/calcular-custo';
+import type { FaixaKmItem, PerfilTarifaItem } from '@/features/transporte/types/perfil-tarifa.schema';
 import type {
   CustoAdicionalItem,
   CustoFreteGraficos,
@@ -13,6 +14,7 @@ import type {
   NivelCusto,
   RankingTipoAdicional,
   RankingTransportadoraCusto,
+  RemessaItem,
   StatusCustoFrete,
   TipoCustoAdicional,
   TipoVeiculo,
@@ -42,6 +44,16 @@ export const CAPACIDADE_POR_TIPO: Record<
 
 function arredondar(valor: number): number {
   return Math.round(valor * 100) / 100;
+}
+
+export function calcularCustoPorTon(custo: number, pesoKg: number): number {
+  const pesoTon = pesoKg / 1000;
+
+  if (pesoTon <= 0 || custo <= 0) {
+    return 0;
+  }
+
+  return arredondar(custo / pesoTon);
 }
 
 export function calcularTotalAdicionais(itens: CustoAdicionalItem[]): number {
@@ -84,13 +96,185 @@ export function resolverStatusCusto(variacao: VariacaoCusto): NivelCusto {
   return variacao.nivel;
 }
 
-function resolverCustoPrevisto(transporte: TransporteGrupo): number {
+export function normalizarItinerarioChave(valor: string): string {
+  return valor.trim().toLocaleLowerCase('pt-BR');
+}
+
+export function coletarItinerariosTransporte(
+  remessas: RemessaItem[],
+  itinerarioTransporte?: string | null,
+): Set<string> {
+  const chaves = new Set<string>();
+
+  for (const remessa of remessas) {
+    const itinerario = remessa.itinerario?.trim();
+    if (itinerario) {
+      chaves.add(normalizarItinerarioChave(itinerario));
+    }
+  }
+
+  const itinerarioDoTransporte = itinerarioTransporte?.trim();
+  if (itinerarioDoTransporte) {
+    chaves.add(normalizarItinerarioChave(itinerarioDoTransporte));
+  }
+
+  return chaves;
+}
+
+export function coletarItinerarioIdsTransporte(
+  remessas: RemessaItem[],
+  itinerarioTransporteId?: string | null,
+): Set<string> {
+  const ids = new Set<string>();
+
+  if (itinerarioTransporteId) {
+    ids.add(itinerarioTransporteId);
+  }
+
+  for (const remessa of remessas) {
+    if (remessa.itinerarioId) {
+      ids.add(remessa.itinerarioId);
+    }
+  }
+
+  return ids;
+}
+
+export function faixaCombinaItinerarioTransporte(
+  faixa: FaixaKmItem,
+  chaves: Set<string>,
+  ids: Set<string>,
+): boolean {
+  if (faixa.itinerarios.length === 0) {
+    return false;
+  }
+
+  return faixa.itinerarios.some(
+    (item) =>
+      (item.id ? ids.has(item.id) : false) ||
+      chaves.has(normalizarItinerarioChave(item.codigo)),
+  );
+}
+
+export function calcularCustoPrevistoByItinerario(
+  remessas: RemessaItem[],
+  faixasKm: FaixaKmItem[],
+  itinerarioTransporte?: string | null,
+  itinerarioTransporteId?: string | null,
+): number | null {
+  const chaves = coletarItinerariosTransporte(remessas, itinerarioTransporte);
+  const ids = coletarItinerarioIdsTransporte(remessas, itinerarioTransporteId);
+
+  if (chaves.size === 0 && ids.size === 0) {
+    return null;
+  }
+
+  const matches = faixasKm.filter((faixa) =>
+    faixaCombinaItinerarioTransporte(faixa, chaves, ids),
+  );
+
+  if (matches.length === 0) {
+    return null;
+  }
+
+  return Math.max(...matches.map((faixa) => faixa.valor));
+}
+
+export function resolverPerfilIdParaCustoTarifa(
+  transporte: TransporteGrupo,
+  perfilTarifaIdOverride?: string | null,
+  perfilPagamentoIdOverride?: string | null,
+): string | null {
+  if (transporte.freteSemCusto) {
+    return null;
+  }
+
+  return (
+    perfilPagamentoIdOverride ??
+    transporte.perfilPagamentoId ??
+    perfilTarifaIdOverride ??
+    transporte.veiculoAlocado?.perfilTarifaId ??
+    null
+  );
+}
+
+export function resolverCustoPrevistoPorPerfil(
+  transporte: TransporteGrupo,
+  perfisTarifas: PerfilTarifaItem[],
+  options?: {
+    perfilTarifaId?: string | null;
+    perfilPagamentoId?: string | null;
+    semCusto?: boolean;
+  },
+): number | null {
+  if (options?.semCusto || transporte.freteSemCusto) {
+    return 0;
+  }
+
+  const perfilId = resolverPerfilIdParaCustoTarifa(
+    transporte,
+    options?.perfilTarifaId,
+    options?.perfilPagamentoId,
+  );
+
+  if (!perfilId) {
+    return null;
+  }
+
+  const perfil = perfisTarifas.find((item) => item.id === perfilId);
+
+  if (!perfil) {
+    return null;
+  }
+
+  return calcularCustoPrevistoByItinerario(
+    transporte.remessas,
+    perfil.faixasKm,
+    transporte.itinerario,
+    transporte.itinerarioId,
+  );
+}
+
+export function resolverCustoPrevistoExibicao(
+  transporte: TransporteGrupo,
+  perfisTarifas: PerfilTarifaItem[],
+): number | null {
+  if (transporte.freteSemCusto) {
+    return 0;
+  }
+
+  const calculado = resolverCustoPrevistoPorPerfil(transporte, perfisTarifas);
+
+  if (calculado != null) {
+    return calculado;
+  }
+
+  return transporte.custoPrevisto ?? null;
+}
+
+function resolverCustoPrevisto(
+  transporte: TransporteGrupo,
+  faixasKm?: FaixaKmItem[],
+): number {
   if (transporte.freteSemCusto) {
     return 0;
   }
 
   if (transporte.custoPrevisto != null) {
     return transporte.custoPrevisto;
+  }
+
+  if (faixasKm?.length) {
+    const custoPorItinerario = calcularCustoPrevistoByItinerario(
+      transporte.remessas,
+      faixasKm,
+      transporte.itinerario,
+      transporte.itinerarioId,
+    );
+
+    if (custoPorItinerario != null) {
+      return custoPorItinerario;
+    }
   }
 
   const tipoVeiculo = resolverTipoTarifaCusto(transporte);
@@ -128,6 +312,10 @@ export function calcularCustoFreteSummary(
   const pendentesLancamento = items.filter(
     (item) => item.custoFrete.status === 'pendente',
   ).length;
+  const itensComPago = items.filter((item) => item.custoFrete.totalPago > 0);
+  const pesoTotalKg = arredondar(
+    itensComPago.reduce((acc, item) => acc + item.transporte.pesoTotal, 0),
+  );
 
   return {
     totalPrevisto,
@@ -135,6 +323,8 @@ export function calcularCustoFreteSummary(
     variacaoValor: variacao.valor,
     variacaoPercentual: variacao.percentual,
     pendentesLancamento,
+    pesoTotalKg,
+    custoPorTon: calcularCustoPorTon(totalPago, pesoTotalKg),
   };
 }
 
@@ -334,14 +524,138 @@ function resolverTipoVeiculo(item: CustoFreteItem): TipoVeiculo {
   );
 }
 
-function calcularDropsize(item: CustoFreteItem): number {
-  if (item.transporte.quantidadeRemessas <= 0) {
+function resolverChaveCliente(remessa: RemessaItem): string | null {
+  const chave = remessa.codCliente.trim() || remessa.cliente.trim();
+  return chave.length > 0 ? chave : null;
+}
+
+export function calcularDropsizePorCliente(remessas: RemessaItem[]): {
+  dropsize: number;
+  entregas: number;
+} {
+  const pesoPorCliente = new Map<string, number>();
+
+  for (const remessa of remessas) {
+    const chave = resolverChaveCliente(remessa);
+    if (!chave) {
+      continue;
+    }
+
+    pesoPorCliente.set(chave, (pesoPorCliente.get(chave) ?? 0) + remessa.peso);
+  }
+
+  const entregas = pesoPorCliente.size;
+
+  if (entregas <= 0) {
+    return { dropsize: 0, entregas: 0 };
+  }
+
+  const pesoTotal = [...pesoPorCliente.values()].reduce(
+    (acc, peso) => acc + peso,
+    0,
+  );
+
+  return {
+    dropsize: arredondar(pesoTotal / entregas),
+    entregas,
+  };
+}
+
+export function transporteTemPlacaAlocada(transporte: TransporteGrupo): boolean {
+  return Boolean(transporte.veiculoAlocado?.placa?.trim());
+}
+
+export function resolverTipoVeiculoTransporte(
+  transporte: TransporteGrupo,
+): TipoVeiculo {
+  return transporte.veiculoAlocado?.tipo ?? transporte.perfilEsperado;
+}
+
+export function calcularOcupacaoTransporte(transporte: TransporteGrupo): number {
+  const tipo = resolverTipoVeiculoTransporte(transporte);
+  const capacidade = CAPACIDADE_POR_TIPO[tipo].peso;
+
+  if (capacidade <= 0) {
     return 0;
   }
 
-  return arredondar(
-    item.transporte.pesoTotal / item.transporte.quantidadeRemessas,
+  return arredondar((transporte.pesoTotal / capacidade) * 100);
+}
+
+export function calcularMetricasTransporte(
+  transporte: TransporteGrupo,
+  custoPrevisto: number | null,
+): {
+  custoPorTon: number;
+  dropsize: number;
+  entregas: number;
+  ocupacao: number;
+} {
+  const { dropsize, entregas } = calcularDropsizePorCliente(transporte.remessas);
+  const comPlaca = transporteTemPlacaAlocada(transporte);
+
+  return {
+    custoPorTon:
+      comPlaca && custoPrevisto != null && custoPrevisto > 0
+        ? calcularCustoPorTon(custoPrevisto, transporte.pesoTotal)
+        : 0,
+    dropsize: comPlaca ? dropsize : 0,
+    entregas: comPlaca ? entregas : 0,
+    ocupacao: comPlaca ? calcularOcupacaoTransporte(transporte) : 0,
+  };
+}
+
+export function calcularMetricasResumoTransportes(
+  transportes: TransporteGrupo[],
+  custoPrevistoTotal: number,
+): {
+  transportesComPlaca: number;
+  pesoTotalKg: number;
+  custoPorTon: number;
+  dropsizeMedio: number;
+  totalEntregas: number;
+  ocupacaoMedia: number;
+} {
+  const transportesComPlaca = transportes.filter(transporteTemPlacaAlocada);
+  const pesoTotalKg = arredondar(
+    transportesComPlaca.reduce((acc, transporte) => acc + transporte.pesoTotal, 0),
   );
+  const dropsizes = transportesComPlaca.map((transporte) =>
+    calcularDropsizePorCliente(transporte.remessas),
+  );
+  const dropsizeMedio = mediaPonderada(
+    dropsizes.map((item) => ({
+      valor: item.dropsize,
+      peso: item.entregas,
+    })),
+  );
+  const totalEntregas = dropsizes.reduce(
+    (acc, item) => acc + item.entregas,
+    0,
+  );
+  const ocupacaoMedia = mediaPonderada(
+    transportesComPlaca.map((transporte) => ({
+      valor: calcularOcupacaoTransporte(transporte),
+      peso: transporte.pesoTotal,
+    })),
+  );
+
+  return {
+    transportesComPlaca: transportesComPlaca.length,
+    pesoTotalKg,
+    custoPorTon: calcularCustoPorTon(custoPrevistoTotal, pesoTotalKg),
+    dropsizeMedio,
+    totalEntregas,
+    ocupacaoMedia,
+  };
+}
+
+function calcularDropsize(item: CustoFreteItem): number {
+  return calcularDropsizePorCliente(item.transporte.remessas).dropsize;
+}
+
+function contarEntregas(item: CustoFreteItem): number {
+  return calcularDropsizePorCliente(item.transporte.remessas).entregas;
 }
 
 function calcularOcupacao(item: CustoFreteItem): number {
@@ -376,6 +690,7 @@ export function calcularIndicadoresTransporte(
       dropsizeMedio: 0,
       ocupacaoMedia: 0,
       custoPorKgMedio: 0,
+      custoPorTonMedio: 0,
       custoPorKmMedio: 0,
       rankingOcupacaoPorRota: [],
       rankingDropsizePorRota: [],
@@ -385,7 +700,7 @@ export function calcularIndicadoresTransporte(
   const dropsizeMedio = mediaPonderada(
     items.map((item) => ({
       valor: calcularDropsize(item),
-      peso: item.transporte.quantidadeRemessas,
+      peso: contarEntregas(item),
     })),
   );
 
@@ -428,17 +743,24 @@ export function calcularIndicadoresTransporte(
     .sort((a, b) => b.ocupacao - a.ocupacao);
 
   const rankingDropsizePorRota = items
-    .map((item) => ({
-      rota: item.transporte.rota,
-      dropsize: calcularDropsize(item),
-      remessas: item.transporte.quantidadeRemessas,
-    }))
+    .map((item) => {
+      const { dropsize, entregas } = calcularDropsizePorCliente(
+        item.transporte.remessas,
+      );
+
+      return {
+        rota: item.transporte.rota,
+        dropsize,
+        entregas,
+      };
+    })
     .sort((a, b) => b.dropsize - a.dropsize);
 
   return {
     dropsizeMedio,
     ocupacaoMedia,
     custoPorKgMedio,
+    custoPorTonMedio: arredondar(custoPorKgMedio * 1000),
     custoPorKmMedio,
     rankingOcupacaoPorRota,
     rankingDropsizePorRota,
@@ -448,14 +770,22 @@ export function calcularIndicadoresTransporte(
 export function calcularRankingTransportadora(
   items: CustoFreteItem[],
 ): RankingTransportadoraCusto[] {
-  const mapa = new Map<string, { transportes: number; totalPago: number }>();
+  const mapa = new Map<
+    string,
+    { transportes: number; totalPago: number; pesoTotalKg: number }
+  >();
 
   for (const item of items) {
     const nome = resolverTransportadora(item);
-    const atual = mapa.get(nome) ?? { transportes: 0, totalPago: 0 };
+    const atual = mapa.get(nome) ?? {
+      transportes: 0,
+      totalPago: 0,
+      pesoTotalKg: 0,
+    };
     mapa.set(nome, {
       transportes: atual.transportes + 1,
       totalPago: arredondar(atual.totalPago + item.custoFrete.totalPago),
+      pesoTotalKg: arredondar(atual.pesoTotalKg + item.transporte.pesoTotal),
     });
   }
 
@@ -468,6 +798,8 @@ export function calcularRankingTransportadora(
       transportadora,
       transportes: dados.transportes,
       totalPago: dados.totalPago,
+      pesoTotalKg: dados.pesoTotalKg,
+      custoPorTon: calcularCustoPorTon(dados.totalPago, dados.pesoTotalKg),
       percentualTotal:
         totalGeral > 0
           ? arredondar((dados.totalPago / totalGeral) * 100)

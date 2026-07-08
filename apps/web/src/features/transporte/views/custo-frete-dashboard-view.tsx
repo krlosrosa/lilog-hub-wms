@@ -256,11 +256,11 @@ export function CustoFreteDashboardView() {
                 Eficiência de carga e custo unitário
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
               <IndicadorCard
                 label="Dropsize médio"
                 value={formatarPeso(indicadores.dropsizeMedio)}
-                subValue="por entrega"
+                subValue="por cliente (entrega)"
                 icon={Package}
                 accent="text-secondary"
               />
@@ -275,6 +275,13 @@ export function CustoFreteDashboardView() {
                 label="Custo por kg"
                 value={formatarMoeda(indicadores.custoPorKgMedio)}
                 subValue="entregue"
+                icon={Scale}
+                accent="text-primary"
+              />
+              <IndicadorCard
+                label="R$/Ton"
+                value={formatarMoeda(indicadores.custoPorTonMedio)}
+                subValue="custo por tonelada"
                 icon={Scale}
                 accent="text-primary"
               />
@@ -343,6 +350,11 @@ export function CustoFreteDashboardView() {
                         <th
                           className={compactTableHeadCellClassName('text-right')}
                         >
+                          R$/Ton
+                        </th>
+                        <th
+                          className={compactTableHeadCellClassName('text-right')}
+                        >
                           %
                         </th>
                       </tr>
@@ -351,7 +363,7 @@ export function CustoFreteDashboardView() {
                       {rankingTransportadora.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={3}
+                            colSpan={4}
                             className={compactTableEmptyCellClassName}
                           >
                             Nenhum dado.
@@ -376,6 +388,11 @@ export function CustoFreteDashboardView() {
                             </td>
                             <td className="px-2 py-2 text-right font-mono text-xs">
                               {formatarMoeda(item.totalPago)}
+                            </td>
+                            <td className="px-2 py-2 text-right font-mono text-xs">
+                              {item.custoPorTon > 0
+                                ? formatarMoeda(item.custoPorTon)
+                                : '—'}
                             </td>
                             <td className="px-2 py-2 text-right font-mono text-xs text-muted-foreground">
                               {formatarPercentual(item.percentualTotal)}

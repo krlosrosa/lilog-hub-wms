@@ -82,8 +82,8 @@ export class ImprimirMapasUseCase {
       throw new BadRequestException({
         message:
           'Salve os mapas antes de imprimir. Alguns transportes não possuem lote salvo.',
-        transporteIdsSemMapa: transportesSemMapa.map((t) => t.id),
-        rotas: transportesSemMapa.map((t) => t.rota),
+        transporteIdsSemMapa: transportesSemMapa.map((t) => t.numeroTransporte),
+        rotas: transportesSemMapa.map((t) => t.numeroTransporte),
       });
     }
 

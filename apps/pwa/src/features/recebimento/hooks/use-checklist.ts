@@ -1,21 +1,24 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { hapticMedium } from '@/lib/haptics';
+import { useUnidade } from '@/features/unidade';
 import {
   docasToOptions,
+  findDockOptionValue,
+  getChecklistDraft,
   loadUnitDocasFromDb,
   saveOfflineChecklistDraft,
   saveUnitDocasToDb,
+  type DockOption,
 } from '@/lib/offline/checklist-cache';
 import { db } from '@/lib/offline/db';
 import { ApiClientError, isApiConfigured } from '@/lib/offline/api-client';
 import { usePhotoCapture, type CapturedPhoto } from '@/lib/offline/hooks/use-photo-capture';
 
 import {
-  checkinVeiculo,
   fetchAuthMe,
   fetchConferenciaContext,
   getRecebimentoByPreRecebimento,
@@ -31,10 +34,17 @@ import {
 } from '../lib/conferencia-context-store';
 import { mapConferenciaContext } from '../lib/map-conferencia-itens';
 import { uploadChecklistPhotos } from '../lib/upload-checklist-photos';
+import {
+  fetchParametrosRecebimentoConferencia,
+  getCachedParametrosRecebimentoConferencia,
+} from '../lib/recebimento-config';
 import { useDemandById } from './use-demand-by-id';
 import {
+  buildDefaultChecklistConditions,
   checklistSchema,
+  DEFAULT_CONDICOES_CHECKLIST,
   type ChecklistForm,
+  type CondicaoChecklistItem,
 } from '../types/recebimento.schema';
 
 export const CHECKLIST_REQUIRED_PHOTO_SLOTS = [
@@ -63,12 +73,7 @@ const DEFAULT_VALUES: ChecklistForm = {
   lacre: '',
   tempBau: undefined,
   tempProd: undefined,
-  conditions: {
-    limpeza: false,
-    odor: false,
-    estrutura: false,
-    vedacao: false,
-  },
+  conditions: {},
   observacoes: '',
 };
 
@@ -101,14 +106,19 @@ export type ChecklistPhotoSlotState = {
 export function useChecklist(demandId: string) {
   const navigate = useNavigate();
   const demand = useDemandById(demandId);
+  const { unidadeSelecionada } = useUnidade();
   const [showSuccess, setShowSuccess] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [dockOptions, setDockOptions] = useState<{ value: string; label: string }[]>([]);
+  const [dockOptions, setDockOptions] = useState<DockOption[]>([]);
   const [photoErrors, setPhotoErrors] = useState<Partial<Record<ChecklistRequiredPhotoSlotId, string>>>(
     {}
   );
+  const [condicoesChecklist, setCondicoesChecklist] = useState<CondicaoChecklistItem[]>(
+    DEFAULT_CONDICOES_CHECKLIST,
+  );
+  const conditionsInitializedRef = useRef(false);
 
   const lacrePhotos = usePhotoCapture({
     relatedId: checklistPhotoRelatedId(demandId, 'lacre'),
@@ -162,16 +172,47 @@ export function useChecklist(demandId: string) {
     void ensureConferenciaContext(demandId);
   }, [demandId]);
 
+  const checklistDone = demand?.preRecebimentoSituacao === 'em_conferencia';
+
+  useEffect(() => {
+    if (demand === undefined) return;
+    if (checklistDone && demand != null) {
+      navigate({ to: '/recebimento/$id/itens', params: { id: demandId }, replace: true });
+    }
+  }, [checklistDone, demand, demandId, navigate]);
+
+  useEffect(() => {
+    const unidadeId = unidadeSelecionada?.id ?? demand?.unidadeId;
+    if (!unidadeId) return;
+
+    const applyConfig = (condicoes: CondicaoChecklistItem[]) => {
+      setCondicoesChecklist(condicoes);
+      if (!conditionsInitializedRef.current) {
+        form.setValue('conditions', buildDefaultChecklistConditions(condicoes));
+        conditionsInitializedRef.current = true;
+      }
+    };
+
+    const cached = getCachedParametrosRecebimentoConferencia(unidadeId);
+    applyConfig(cached.condicoesChecklist);
+
+    void fetchParametrosRecebimentoConferencia(unidadeId).then((parametros) => {
+      applyConfig(parametros.condicoesChecklist);
+    });
+  }, [demand?.unidadeId, form, unidadeSelecionada?.id]);
+
   useEffect(() => {
     const unidadeId = demand?.unidadeId;
     if (!unidadeId) return;
 
+    const resolvedUnidadeId = unidadeId;
+
     async function loadDocas() {
       if (isApiConfigured() && navigator.onLine) {
         try {
-          const docas = await listDocas(unidadeId);
+          const docas = await listDocas(resolvedUnidadeId);
           if (docas.length > 0) {
-            await saveUnitDocasToDb(unidadeId, docas);
+            await saveUnitDocasToDb(resolvedUnidadeId, docas);
             setDockOptions(docasToOptions(docas));
             return;
           }
@@ -180,7 +221,7 @@ export function useChecklist(demandId: string) {
         }
       }
 
-      const cached = await loadUnitDocasFromDb(unidadeId);
+      const cached = await loadUnitDocasFromDb(resolvedUnidadeId);
       if (cached.length > 0) {
         setDockOptions(docasToOptions(cached));
         return;
@@ -195,22 +236,53 @@ export function useChecklist(demandId: string) {
   }, [demand?.dock, demand?.unidadeId]);
 
   useEffect(() => {
-    if (!demand?.dock) return;
+    if (dockOptions.length === 0) return;
+
     const currentDock = form.getValues('dock');
-    if (!currentDock && dockOptions.length > 0) {
-      const match = dockOptions.find((option) =>
-        option.label.toLowerCase().includes(demand.dock.toLowerCase()),
-      );
-      if (match) {
-        form.setValue('dock', match.value, { shouldValidate: true });
+    if (currentDock) return;
+
+    async function preselectDock() {
+      const draft = await getChecklistDraft(demandId);
+      if (draft?.dockId && dockOptions.some((option) => option.value === draft.dockId)) {
+        form.setValue('dock', draft.dockId, { shouldValidate: true });
+        return;
+      }
+
+      if (demand?.recebimentoId && isApiConfigured() && navigator.onLine) {
+        try {
+          const recebimento = await getRecebimentoByPreRecebimento(demandId);
+          if (
+            recebimento?.docaId &&
+            dockOptions.some((option) => option.value === recebimento.docaId)
+          ) {
+            form.setValue('dock', recebimento.docaId, { shouldValidate: true });
+            return;
+          }
+        } catch {
+          // segue para demais fontes de doca
+        }
+      }
+
+      const context = await ensureConferenciaContext(demandId);
+      const contextMatch = findDockOptionValue(context?.dock, dockOptions);
+      if (contextMatch) {
+        form.setValue('dock', contextMatch, { shouldValidate: true });
+        return;
+      }
+
+      const demandMatch = findDockOptionValue(demand?.dock, dockOptions);
+      if (demandMatch) {
+        form.setValue('dock', demandMatch, { shouldValidate: true });
       }
     }
-  }, [demand?.dock, demand?.id, dockOptions, form]);
+
+    void preselectDock();
+  }, [demand?.dock, demand?.id, demand?.recebimentoId, demandId, dockOptions, form]);
 
   const selectedDock = form.watch('dock');
 
   const toggleCondition = useCallback(
-    (key: keyof ChecklistForm['conditions']) => {
+    (key: string) => {
       const current = form.getValues('conditions');
       form.setValue('conditions', {
         ...current,
@@ -299,7 +371,7 @@ export function useChecklist(demandId: string) {
             ...cachedDemand,
             dock: dockLabel,
             status: 'em_conferencia',
-            preRecebimentoSituacao: 'em_recebimento',
+            preRecebimentoSituacao: 'em_conferencia',
           });
         }
 
@@ -308,25 +380,18 @@ export function useChecklist(demandId: string) {
         }
       } else if (isApiConfigured()) {
         const context = await fetchConferenciaContext(demandId);
-        let situacao = context.situacao;
+        const situacao = context.situacao;
 
         if (situacao === 'agendado') {
-          try {
-            await checkinVeiculo(demandId);
-            situacao = 'veiculo_chegou';
-          } catch (error) {
-            if (error instanceof ApiClientError && error.status === 400) {
-              situacao = 'veiculo_chegou';
-            } else {
-              throw error;
-            }
-          }
+          throw new Error(
+            'Carga ainda não liberada para conferência no painel web.',
+          );
         }
 
         recebimentoId =
           context.recebimentoId ?? recebimentoId ?? null;
 
-        if (!recebimentoId && situacao === 'veiculo_chegou') {
+        if (!recebimentoId && situacao === 'liberado_para_conferencia') {
           const me = await fetchAuthMe();
           if (!me?.funcionarioId) {
             throw new Error(
@@ -366,7 +431,7 @@ export function useChecklist(demandId: string) {
               dock: dockLabel,
               recebimentoId,
               status: 'em_conferencia',
-              preRecebimentoSituacao: 'em_recebimento',
+              preRecebimentoSituacao: 'em_conferencia',
             });
           } catch {
             // não bloqueia navegação se o Dexie estiver em upgrade
@@ -458,10 +523,22 @@ export function useChecklist(demandId: string) {
       extraPhotos,
       requiredPhotosComplete,
       photoErrors,
+      photoCaptureError:
+        lacrePhotos.captureError ??
+        bauFechadoPhotos.captureError ??
+        bauAbertoPhotos.captureError ??
+        extrasPhotos.captureError ??
+        null,
+      isProcessingPhoto:
+        lacrePhotos.isProcessing ||
+        bauFechadoPhotos.isProcessing ||
+        bauAbertoPhotos.isProcessing ||
+        extrasPhotos.isProcessing,
       requiredPhotoCount: CHECKLIST_REQUIRED_PHOTO_SLOTS.length,
       extraPhotoCount: extraPhotos.length,
       selectedDock,
       dockOptions,
+      condicoesChecklist,
     },
     actions: {
       toggleCondition,

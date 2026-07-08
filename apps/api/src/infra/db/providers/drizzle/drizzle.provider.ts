@@ -25,11 +25,13 @@ export function createPostgresClient(
 ): postgres.Sql {
   const connectionString = configService.getOrThrow<string>('DATABASE_URL');
   const max = Number.parseInt(configService.get<string>('DB_POOL_MAX', '10'), 10);
+  const usesPooler = connectionString.includes('-pooler');
 
   return postgres(connectionString, {
     max: Number.isFinite(max) && max > 0 ? max : 10,
     idle_timeout: 20,
-    connect_timeout: 10,
+    connect_timeout: 30,
+    ...(usesPooler ? { prepare: false } : {}),
   });
 }
 

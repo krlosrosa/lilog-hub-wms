@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Inject,
   Injectable,
   NotFoundException,
@@ -17,6 +18,10 @@ import {
   type IProdutoEnderecoRepository,
 } from '../../../domain/repositories/produto-endereco/produto-endereco.repository.js';
 import {
+  UNIDADE_REPOSITORY,
+  type IUnidadeRepository,
+} from '../../../domain/repositories/unidade/unidade.repository.js';
+import {
   assertEnderecoCompativelComAlocacao,
   mapProdutoEnderecoConstraintError,
   resolveCreateMutation,
@@ -33,12 +38,16 @@ export class CreateProdutoEnderecoUseCase {
     private readonly produtoEnderecoRepository: IProdutoEnderecoRepository,
     @Inject(ENDERECO_REPOSITORY)
     private readonly enderecoRepository: IEnderecoRepository,
+    @Inject(UNIDADE_REPOSITORY)
+    private readonly unidadeRepository: IUnidadeRepository,
   ) {}
 
   async execute({ data }: CreateProdutoEnderecoUseCaseInput) {
     const parsed: CreateProdutoEnderecoData =
       CreateProdutoEnderecoInputSchema.parse(data);
     const mutation = resolveCreateMutation(parsed);
+
+    const centroUnidadeId = await this.resolveCentroUnidadeId(mutation.centroId);
 
     const endereco = await this.enderecoRepository.findById(
       mutation.enderecoId,
@@ -50,7 +59,7 @@ export class CreateProdutoEnderecoUseCase {
 
     assertEnderecoCompativelComAlocacao(
       endereco,
-      mutation.centroId,
+      centroUnidadeId,
       mutation.papel,
     );
 
@@ -59,5 +68,16 @@ export class CreateProdutoEnderecoUseCase {
     } catch (error) {
       mapProdutoEnderecoConstraintError(error);
     }
+  }
+
+  private async resolveCentroUnidadeId(centroId: string): Promise<string> {
+    const centros = await this.unidadeRepository.listCentros();
+    const centro = centros.find((item) => item.id === centroId);
+
+    if (!centro) {
+      throw new BadRequestException('Centro informado não encontrado');
+    }
+
+    return centro.unidadeId;
   }
 }

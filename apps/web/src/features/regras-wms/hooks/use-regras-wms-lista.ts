@@ -1,74 +1,98 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { useUnidadeContext } from '@/contexts/unidade-context';
 import { cloneArvoreCondicoes } from '@/features/regras-wms/lib/arvore-condicoes-utils';
 import {
-  MOCK_REGRAS_WMS,
-  MOCK_REGRAS_WMS_STATS,
-} from '@/features/regras-wms/mocks/regras-wms-mock-data';
+  createRegraWms,
+  deleteRegraWms,
+  listRegrasWms,
+  updateRegraWms,
+} from '@/features/regras-wms/lib/regras-wms-api';
+import { mapRegraProcessoToRegraWmsV2 } from '@/features/regras-wms/types/regra-wms.api';
 import {
   REGRAS_WMS_PAGE_SIZE,
   type FiltroAtivo,
   type FiltroGatilho,
 } from '@/features/regras-wms/types/regra-wms.schema';
 import type { RegraWmsV2 } from '@/features/regras-wms/types/regra-wms-tree.schema';
+import { ApiClientError } from '@/lib/api';
 
 export function useRegrasWmsLista() {
-  const [regras, setRegras] = useState<RegraWmsV2[]>(() => [
-    ...MOCK_REGRAS_WMS,
-  ]);
+  const { unidadeSelecionada } = useUnidadeContext();
+  const unidadeId = unidadeSelecionada?.id;
+
+  const [regras, setRegras] = useState<RegraWmsV2[]>([]);
+  const [totalFiltrados, setTotalFiltrados] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const [filtroGatilho, setFiltroGatilhoState] =
     useState<FiltroGatilho>('todos');
   const [filtroAtivo, setFiltroAtivoState] = useState<FiltroAtivo>('todos');
   const [busca, setBuscaState] = useState('');
   const [pagina, setPagina] = useState(1);
 
-  const filtrados = useMemo(() => {
-    let items = regras;
-
-    if (filtroGatilho !== 'todos') {
-      items = items.filter((r) => r.gatilho === filtroGatilho);
+  const recarregar = useCallback(async () => {
+    if (!unidadeId) {
+      setRegras([]);
+      setTotalFiltrados(0);
+      setIsLoading(false);
+      return;
     }
 
-    if (filtroAtivo === 'ativo') {
-      items = items.filter((r) => r.ativo);
-    } else if (filtroAtivo === 'inativo') {
-      items = items.filter((r) => !r.ativo);
-    }
+    setIsLoading(true);
 
-    const term = busca.trim().toLowerCase();
-    if (term) {
-      items = items.filter(
-        (r) =>
-          r.nome.toLowerCase().includes(term) ||
-          r.descricao?.toLowerCase().includes(term),
-      );
-    }
+    try {
+      const response = await listRegrasWms({
+        unidadeId,
+        page: pagina,
+        limit: REGRAS_WMS_PAGE_SIZE,
+        gatilho: filtroGatilho === 'todos' ? undefined : filtroGatilho,
+        ativo:
+          filtroAtivo === 'todos'
+            ? undefined
+            : filtroAtivo === 'ativo'
+              ? true
+              : false,
+        search: busca.trim() || undefined,
+      });
 
-    return items;
-  }, [regras, filtroGatilho, filtroAtivo, busca]);
+      setRegras(response.items.map(mapRegraProcessoToRegraWmsV2));
+      setTotalFiltrados(response.total);
+    } catch (error) {
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Não foi possível carregar as regras.';
+      toast.error(message);
+      setRegras([]);
+      setTotalFiltrados(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [busca, filtroAtivo, filtroGatilho, pagina, unidadeId]);
+
+  useEffect(() => {
+    void recarregar();
+  }, [recarregar]);
 
   const totalPaginas = Math.max(
     1,
-    Math.ceil(filtrados.length / REGRAS_WMS_PAGE_SIZE),
+    Math.ceil(totalFiltrados / REGRAS_WMS_PAGE_SIZE),
   );
   const paginaSegura = Math.min(pagina, totalPaginas);
   const itemsInicio = (paginaSegura - 1) * REGRAS_WMS_PAGE_SIZE;
-  const itemsPagina = filtrados.slice(
-    itemsInicio,
-    itemsInicio + REGRAS_WMS_PAGE_SIZE,
-  );
+  const itemsPagina = regras;
 
   const stats = useMemo(
     () => ({
-      total: regras.length,
+      total: totalFiltrados,
       ativas: regras.filter((r) => r.ativo).length,
       inativas: regras.filter((r) => !r.ativo).length,
-      conflitosPotenciais: MOCK_REGRAS_WMS_STATS.conflitosPotenciais,
+      conflitosPotenciais: 0,
     }),
-    [regras],
+    [regras, totalFiltrados],
   );
 
   const setFiltroGatilho = useCallback((value: FiltroGatilho) => {
@@ -86,51 +110,92 @@ export function useRegrasWmsLista() {
     setPagina(1);
   }, []);
 
-  const toggleAtivo = useCallback((id: string) => {
-    setRegras((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        const novoAtivo = !r.ativo;
-        toast.success(novoAtivo ? 'Regra ativada' : 'Regra desativada', {
-          description: r.nome,
-        });
-        return { ...r, ativo: novoAtivo, atualizadoEm: new Date().toISOString() };
-      }),
-    );
-  }, []);
-
-  const duplicarRegra = useCallback((id: string) => {
-    setRegras((prev) => {
-      const original = prev.find((r) => r.id === id);
-      if (!original) return prev;
-
-      const copia: RegraWmsV2 = {
-        ...original,
-        id: `rw-${Date.now()}`,
-        nome: `${original.nome} (cópia)`,
-        ativo: false,
-        arvoreCondicoes: cloneArvoreCondicoes(original.arvoreCondicoes),
-        criadoEm: new Date().toISOString(),
-        atualizadoEm: new Date().toISOString(),
-      };
-
-      toast.success('Regra duplicada', { description: copia.nome });
-      return [copia, ...prev];
-    });
-  }, []);
-
-  const excluirRegra = useCallback((id: string) => {
-    setRegras((prev) => {
-      const regra = prev.find((r) => r.id === id);
-      if (regra) {
-        toast.success('Regra excluída', { description: regra.nome });
+  const toggleAtivo = useCallback(
+    async (id: string) => {
+      const regra = regras.find((item) => item.id === id);
+      if (!regra) {
+        return;
       }
-      return prev.filter((r) => r.id !== id);
-    });
-  }, []);
+
+      try {
+        await updateRegraWms(id, { ativo: !regra.ativo });
+        toast.success(regra.ativo ? 'Regra desativada' : 'Regra ativada', {
+          description: regra.nome,
+        });
+        await recarregar();
+      } catch (error) {
+        const message =
+          error instanceof ApiClientError
+            ? error.message
+            : 'Não foi possível alterar o status da regra.';
+        toast.error(message);
+      }
+    },
+    [recarregar, regras],
+  );
+
+  const duplicarRegra = useCallback(
+    async (id: string) => {
+      if (!unidadeId) {
+        toast.error('Selecione uma unidade para continuar.');
+        return;
+      }
+
+      const original = regras.find((item) => item.id === id);
+      if (!original) {
+        return;
+      }
+
+      try {
+        await createRegraWms({
+          unidadeId,
+          nome: `${original.nome} (cópia)`,
+          descricao: original.descricao,
+          gatilho: original.gatilho,
+          prioridade: original.prioridade,
+          arvoreCondicoes: cloneArvoreCondicoes(original.arvoreCondicoes),
+          acoes: [original.acao],
+          ativo: false,
+        });
+        toast.success('Regra duplicada', {
+          description: `${original.nome} (cópia)`,
+        });
+        await recarregar();
+      } catch (error) {
+        const message =
+          error instanceof ApiClientError
+            ? error.message
+            : 'Não foi possível duplicar a regra.';
+        toast.error(message);
+      }
+    },
+    [recarregar, regras, unidadeId],
+  );
+
+  const excluirRegra = useCallback(
+    async (id: string) => {
+      const regra = regras.find((item) => item.id === id);
+
+      try {
+        await deleteRegraWms(id);
+        if (regra) {
+          toast.success('Regra excluída', { description: regra.nome });
+        }
+        await recarregar();
+      } catch (error) {
+        const message =
+          error instanceof ApiClientError
+            ? error.message
+            : 'Não foi possível excluir a regra.';
+        toast.error(message);
+      }
+    },
+    [recarregar, regras],
+  );
 
   return {
     regras,
+    isLoading,
     filtroGatilho,
     setFiltroGatilho,
     filtroAtivo,
@@ -142,11 +207,12 @@ export function useRegrasWmsLista() {
     totalPaginas,
     itemsPagina,
     itemsInicio,
-    totalFiltrados: filtrados.length,
+    totalFiltrados,
     pageSize: REGRAS_WMS_PAGE_SIZE,
     stats,
     toggleAtivo,
     duplicarRegra,
     excluirRegra,
+    recarregar,
   };
 }

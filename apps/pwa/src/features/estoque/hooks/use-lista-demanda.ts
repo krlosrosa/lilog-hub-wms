@@ -53,7 +53,7 @@ export function useListaDemanda() {
       } else {
         list = list.filter(
           (d) =>
-            d.id.toLowerCase().includes(term) ||
+            d.codigo.toLowerCase().includes(term) ||
             d.zone.toLowerCase().includes(term) ||
             d.aisle.toLowerCase().includes(term)
         );
@@ -63,7 +63,7 @@ export function useListaDemanda() {
     return [...list].sort((a, b) => {
       const priorityDiff = Number(b.isPriority) - Number(a.isPriority);
       if (priorityDiff !== 0) return priorityDiff;
-      return a.id.localeCompare(b.id);
+      return a.codigo.localeCompare(b.codigo);
     });
   }, [demands, search, filter]);
 

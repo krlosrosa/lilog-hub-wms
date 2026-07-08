@@ -5,30 +5,39 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   CheckCircle2,
-  Dock,
   Loader2,
-  Warehouse,
+  QrCode,
+  RotateCcw,
+  Tags,
+  Trash2,
+  Truck,
+  Unlock,
 } from 'lucide-react';
 
-import { Button } from '@lilog/ui';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+} from '@lilog/ui';
 
 import { SidebarMain } from '@/components/layout/sidebar';
 
 import { ConferenciaTable } from '@/features/recebimento/components/conferencia-table';
 import { FotosEvidencias } from '@/features/recebimento/components/fotos-evidencia';
 import { InspecaoCard } from '@/features/recebimento/components/inspecao-card';
-import { ModalAlocarDoca } from '@/features/recebimento/components/modal-alocar-doca';
 import { ModalConfirmarRecebimento } from '@/features/recebimento/components/modal-confirmar-recebimento';
+import { LiberarConferenciaSheet } from '@/features/recebimento/components/liberar-conferencia-sheet';
+import { ModalLinkRastreio } from '@/features/recebimento/components/modal-link-rastreio';
+import { RecepcionarCarroSheet } from '@/features/recebimento/components/recepcionar-carro-sheet';
 import { VeiculoCard } from '@/features/recebimento/components/veiculo-card';
 import { RecebimentoStatusBadge } from '@/features/recebimento/components/recebimento-status-badge';
 import { useRecebimentoDetalhe } from '@/features/recebimento/hooks/use-recebimento-detalhe';
-import type { ProcessoInternoRecebimento } from '@/features/recebimento/types/recebimento-detalhe.schema';
-
-const LABEL_PROCESSO: Record<ProcessoInternoRecebimento, string> = {
-  'nao-iniciado': 'Não iniciado',
-  conferindo: 'Em conferência',
-  finalizado: 'Processo encerrado',
-};
+import { canReabrirRecebimento } from '@/features/recebimento/types/recebimento-detalhe.schema';
 
 type RecebimentoDetalheViewProps = {
   recebimentoId: string;
@@ -42,16 +51,27 @@ export function RecebimentoDetalheView({
     isSubmitting,
     recebimento,
     voltar,
-    docas,
-    isAlocarDocaOpen,
-    openAlocarDoca,
-    closeAlocarDoca,
-    confirmarAlocarDoca,
-    liberarArmazem,
+    isLiberarOpen,
+    openLiberarConferencia,
+    closeLiberarConferencia,
+    confirmarLiberarConferencia,
+    isRecepcionarOpen,
+    openRecepcionar,
+    closeRecepcionar,
+    confirmarRecepcionarCarro,
     isFinalizarOpen,
     openFinalizar,
     closeFinalizar,
     confirmarFinalizar,
+    reimprimirEtiquetas,
+    reabrirDemanda,
+    isExcluirOpen,
+    openExcluir,
+    closeExcluir,
+    confirmarExcluir,
+    isLinkRastreioOpen,
+    openLinkRastreio,
+    closeLinkRastreio,
     conferenciaPagina,
     conferenciaTotalPaginas,
     conferenciaItensPagina,
@@ -93,6 +113,18 @@ export function RecebimentoDetalheView({
   }
 
   const r = recebimento;
+  const podeRecepcionar = r.status === 'agendado';
+  const podeLiberar = r.status === 'aguardando';
+  const podeFinalizar = r.status === 'conferido';
+  const podeReimprimirEtiquetas =
+    r.status === 'finalizado' &&
+    Boolean(r.recebimentoId) &&
+    !r.temPaletesBipados &&
+    (r.modoUnitizacao === 'gerar_etiqueta_na_armazenagem' ||
+      r.modoUnitizacao === 'bipar_palete_no_recebimento');
+  const podeReabrir = canReabrirRecebimento(r.status);
+  const podeExcluir = r.status !== 'finalizado' && r.status !== 'cancelado';
+  const podeGerarLinkRastreio = r.status !== 'cancelado';
 
   return (
     <SidebarMain className="flex min-h-dvh flex-col">
@@ -118,13 +150,6 @@ export function RecebimentoDetalheView({
             <h1 className="truncate text-sm font-semibold text-foreground">
               #{r.numero}
             </h1>
-            <span
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-secondary/25 bg-secondary/10 px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground"
-              role="status"
-            >
-              <span className="size-1.5 animate-pulse rounded-full bg-status-active" />
-              {LABEL_PROCESSO[r.processoAtual]}
-            </span>
             <RecebimentoStatusBadge status={r.status} compact />
           </nav>
 
@@ -135,40 +160,109 @@ export function RecebimentoDetalheView({
             </p>
 
             <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 gap-1.5 border-outline-variant px-2.5 text-xs"
-                disabled={isSubmitting}
-                onClick={openAlocarDoca}
-              >
-                <Dock className="size-3.5" aria-hidden />
-                <span className="hidden sm:inline">Alocar doca</span>
-                <span className="sm:hidden">Doca</span>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 gap-1.5 border-outline-variant px-2.5 text-xs"
-                disabled={isSubmitting}
-                onClick={() => void liberarArmazem(r)}
-              >
-                <Warehouse className="size-3.5" aria-hidden />
-                <span className="hidden sm:inline">Liberar p/ armazém</span>
-                <span className="sm:hidden">Armazém</span>
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="h-7 gap-1.5 px-2.5 text-xs shadow-sm"
-                disabled={isSubmitting}
-                onClick={openFinalizar}
-              >
-                <CheckCircle2 className="size-3.5" aria-hidden />
-                Finalizar
-              </Button>
+              {podeGerarLinkRastreio ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 border-outline-variant px-2.5 text-xs"
+                  disabled={isSubmitting}
+                  onClick={openLinkRastreio}
+                >
+                  <QrCode className="size-3.5" aria-hidden />
+                  <span className="hidden sm:inline">Link motorista</span>
+                  <span className="sm:hidden">Link</span>
+                </Button>
+              ) : null}
+              {podeExcluir ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 border-outline-variant px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  disabled={isSubmitting}
+                  onClick={openExcluir}
+                >
+                  <Trash2 className="size-3.5" aria-hidden />
+                  <span className="hidden sm:inline">Excluir demanda</span>
+                  <span className="sm:hidden">Excluir</span>
+                </Button>
+              ) : null}
+              {podeRecepcionar ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 border-outline-variant px-2.5 text-xs"
+                  disabled={isSubmitting}
+                  onClick={openRecepcionar}
+                >
+                  <Truck className="size-3.5" aria-hidden />
+                  <span className="hidden sm:inline">Recepcionar carro</span>
+                  <span className="sm:hidden">Recepcionar</span>
+                </Button>
+              ) : null}
+              {podeLiberar ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 border-outline-variant px-2.5 text-xs"
+                  disabled={isSubmitting}
+                  onClick={openLiberarConferencia}
+                >
+                  <Unlock className="size-3.5" aria-hidden />
+                  <span className="hidden sm:inline">Liberar p/ conferência</span>
+                  <span className="sm:hidden">Liberar</span>
+                </Button>
+              ) : null}
+              {podeReabrir ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 border-primary/30 px-2.5 text-xs text-primary hover:bg-primary/10"
+                  disabled={isSubmitting}
+                  onClick={() => void reabrirDemanda()}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <RotateCcw className="size-3.5" aria-hidden />
+                  )}
+                  <span className="hidden sm:inline">Reabrir demanda</span>
+                  <span className="sm:hidden">Reabrir</span>
+                </Button>
+              ) : null}
+              {podeReimprimirEtiquetas ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 gap-1.5 px-2.5 text-xs shadow-sm"
+                  disabled={isSubmitting}
+                  onClick={() => void reimprimirEtiquetas()}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <Tags className="size-3.5" aria-hidden />
+                  )}
+                  <span className="hidden sm:inline">Reimprimir etiquetas</span>
+                  <span className="sm:hidden">Reimprimir</span>
+                </Button>
+              ) : null}
+              {podeFinalizar ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 gap-1.5 px-2.5 text-xs shadow-sm"
+                  disabled={isSubmitting}
+                  onClick={openFinalizar}
+                >
+                  <CheckCircle2 className="size-3.5" aria-hidden />
+                  Finalizar
+                </Button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -176,6 +270,33 @@ export function RecebimentoDetalheView({
 
       <main className="flex-1 px-margin-mobile py-4 md:px-margin-desktop md:py-5">
         <div className="mx-auto flex max-w-container flex-col gap-4">
+          {podeReimprimirEtiquetas ? (
+            <section className="flex flex-col gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">
+                  Recebimento finalizado
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  As etiquetas de palete já foram geradas. Baixe o PDF novamente
+                  quando precisar reimprimir.
+                </p>
+              </div>
+              <Button
+                type="button"
+                className="shrink-0 gap-2"
+                disabled={isSubmitting}
+                onClick={() => void reimprimirEtiquetas()}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <Tags className="size-4" aria-hidden />
+                )}
+                Reimprimir etiquetas
+              </Button>
+            </section>
+          ) : null}
+
           <section className="grid grid-cols-1 gap-3 lg:grid-cols-12">
             <div className="lg:col-span-4">
               <VeiculoCard
@@ -204,12 +325,33 @@ export function RecebimentoDetalheView({
         </div>
       </main>
 
-      <ModalAlocarDoca
-        open={isAlocarDocaOpen}
-        onClose={closeAlocarDoca}
-        onConfirm={(docaNumero) => void confirmarAlocarDoca(docaNumero)}
+      <LiberarConferenciaSheet
+        open={isLiberarOpen}
+        onOpenChange={(aberto) => {
+          if (!aberto) {
+            closeLiberarConferencia();
+          } else {
+            openLiberarConferencia();
+          }
+        }}
+        onConfirm={confirmarLiberarConferencia}
         placa={r.placa}
-        docas={docas}
+        unidadeId={r.unidade}
+        isSubmitting={isSubmitting}
+      />
+
+      <RecepcionarCarroSheet
+        open={isRecepcionarOpen}
+        onOpenChange={(aberto) => {
+          if (!aberto) {
+            closeRecepcionar();
+          } else {
+            openRecepcionar();
+          }
+        }}
+        placa={r.placa}
+        isSubmitting={isSubmitting}
+        onConfirm={confirmarRecepcionarCarro}
       />
 
       <ModalConfirmarRecebimento
@@ -219,7 +361,57 @@ export function RecebimentoDetalheView({
           void confirmarFinalizar(liberarPortaria, r)
         }
         recebimento={r}
+        isSubmitting={isSubmitting}
       />
+
+      <ModalLinkRastreio
+        open={isLinkRastreioOpen}
+        onClose={closeLinkRastreio}
+        preRecebimentoId={r.id}
+        placa={r.placa}
+      />
+
+      <AlertDialog
+        open={isExcluirOpen}
+        onOpenChange={(aberto) => {
+          if (!aberto && !isSubmitting) {
+            closeExcluir();
+          }
+        }}
+      >
+        <AlertDialogContent className="border-outline-variant bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground">
+              Cancelar pré-recebimento?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              O agendamento será cancelado na API. Veículo{' '}
+              <span className="font-semibold text-foreground">{r.placa}</span>{' '}
+              ({r.transportador}).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button" disabled={isSubmitting}>
+              Voltar
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isSubmitting}
+              onClick={() => void confirmarExcluir()}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  Cancelando…
+                </>
+              ) : (
+                'Confirmar cancelamento'
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SidebarMain>
   );
 }

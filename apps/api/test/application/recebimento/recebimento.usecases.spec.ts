@@ -3,14 +3,34 @@ import { Test } from '@nestjs/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ConferirItemUseCase } from '../../../src/application/usecases/recebimento/conferir-item.usecase.js';
+import { RemoverConferenciaItemUseCase } from '../../../src/application/usecases/recebimento/remover-conferencia-item.usecase.js';
+import { RemoverLinhaConferenciaRecebimentoUseCase } from '../../../src/application/usecases/recebimento/remover-linha-conferencia-recebimento.usecase.js';
+import { RemoverPaleteConferenciaRecebimentoUseCase } from '../../../src/application/usecases/recebimento/remover-palete-conferencia-recebimento.usecase.js';
 import { EncerrarConferenciaUseCase } from '../../../src/application/usecases/recebimento/encerrar-conferencia.usecase.js';
+import { ReabrirConferenciaUseCase } from '../../../src/application/usecases/recebimento/reabrir-conferencia.usecase.js';
 import { FinalizarRecebimentoUseCase } from '../../../src/application/usecases/recebimento/finalizar-recebimento.usecase.js';
 import { GetConferenciaContextUseCase } from '../../../src/application/usecases/recebimento/get-conferencia-context.usecase.js';
 import { ListOperadorDemandasUseCase } from '../../../src/application/usecases/recebimento/list-operador-demandas.usecase.js';
 import { RegistrarAvariaUseCase } from '../../../src/application/usecases/recebimento/registrar-avaria.usecase.js';
 import { CncEventPublisher } from '../../../src/application/services/cnc-event.publisher.js';
 import { RecebimentoEventPublisher } from '../../../src/application/services/recebimento-event.publisher.js';
-import { DistribuirSaldoRecebimentoFinalizadoUseCase } from '../../../src/application/usecases/estoque/distribuir-saldo-recebimento-finalizado.usecase.js';
+import { RecebimentoSaldoEventPublisher } from '../../../src/application/services/recebimento-saldo-event.publisher.js';
+import { GerarDemandaArmazenagemUseCase } from '../../../src/application/usecases/armazenagem/gerar-demanda-armazenagem.usecase.js';
+import { ExecutarRegrasProcessoUseCase } from '../../../src/application/usecases/regra-processo/executar-regras-processo.usecase.js';
+import {
+  ARMAZENAGEM_REPOSITORY,
+} from '../../../src/domain/repositories/armazenagem/armazenagem.repository.js';
+import {
+  ESTOQUE_REPOSITORY,
+  type IEstoqueRepository,
+} from '../../../src/domain/repositories/estoque/estoque.repository.js';
+import {
+  PRODUTO_REPOSITORY,
+  type IProdutoRepository,
+} from '../../../src/domain/repositories/produto/produto.repository.js';
+import {
+  CONFIGURACAO_OPERACIONAL_REPOSITORY,
+} from '../../../src/domain/repositories/configuracao-operacional/configuracao-operacional.repository.js';
 import {
   CONFERENCIA_REPOSITORY,
   type IConferenciaRepository,
@@ -45,8 +65,8 @@ describe('ListOperadorDemandasUseCase', () => {
           recebimentoId: null,
           unidadeId: 'ITB',
           placa: 'ABC1D23',
-          transportadoraId: 'trans-1',
-          situacao: 'veiculo_chegou',
+          transportadoraNome: 'trans-1',
+          situacao: 'liberado_para_conferencia',
           dock: '04',
           skuCount: 3,
           horarioPrevisto: new Date('2026-06-07T10:00:00.000Z'),
@@ -85,11 +105,13 @@ describe('GetConferenciaContextUseCase', () => {
         recebimentoId: 'rec-1',
         unidadeId: 'ITB',
         placa: 'ABC1D23',
-        transportadoraId: 'trans-1',
-        situacao: 'em_recebimento',
-        recebimentoSituacao: 'em_recebimento',
+        transportadoraNome: 'trans-1',
+        situacao: 'em_conferencia',
+        recebimentoSituacao: 'em_conferencia',
         dock: '04',
         checklistPreenchido: true,
+        modoUnitizacao: 'gerar_etiqueta_na_armazenagem',
+        exigePaleteConferencia: false,
         itens: [
           {
             produtoId: 'prod-1',
@@ -102,11 +124,13 @@ describe('GetConferenciaContextUseCase', () => {
               controlaValidade: false,
               controlaPeso: false,
               pesoVariavel: false,
+              exigirEtiquetaPesoVariavel: false,
               controlaNumeroSerie: false,
             },
           },
         ],
         conferidos: [],
+        resumoConferido: [],
       }),
     };
 
@@ -114,6 +138,10 @@ describe('GetConferenciaContextUseCase', () => {
       providers: [
         GetConferenciaContextUseCase,
         { provide: CONFERENCIA_REPOSITORY, useValue: repository },
+        {
+          provide: CONFIGURACAO_OPERACIONAL_REPOSITORY,
+          useValue: { list: vi.fn().mockResolvedValue([]) },
+        },
       ],
     }).compile();
 
@@ -131,13 +159,16 @@ describe('GetConferenciaContextUseCase', () => {
         recebimentoId: null,
         unidadeId: 'ITB',
         placa: 'ABC1D23',
-        transportadoraId: 'trans-1',
+        transportadoraNome: 'trans-1',
         situacao: 'finalizado',
         recebimentoSituacao: null,
         dock: null,
         checklistPreenchido: false,
+        modoUnitizacao: 'gerar_etiqueta_na_armazenagem',
+        exigePaleteConferencia: false,
         itens: [],
         conferidos: [],
+        resumoConferido: [],
       }),
     };
 
@@ -145,6 +176,10 @@ describe('GetConferenciaContextUseCase', () => {
       providers: [
         GetConferenciaContextUseCase,
         { provide: CONFERENCIA_REPOSITORY, useValue: repository },
+        {
+          provide: CONFIGURACAO_OPERACIONAL_REPOSITORY,
+          useValue: { list: vi.fn().mockResolvedValue([]) },
+        },
       ],
     }).compile();
 
@@ -157,12 +192,12 @@ describe('GetConferenciaContextUseCase', () => {
 });
 
 describe('ConferirItemUseCase', () => {
-  it('rejects conferir when recebimento is not em_recebimento', async () => {
+  it('rejects conferir when recebimento is not em_conferencia', async () => {
     const recebimentoRepository: Partial<IRecebimentoRepository> = {
       findById: vi.fn().mockResolvedValue({
         id: 'rec-1',
         preRecebimentoId: 'pre-1',
-        situacao: 'aguardando_aprovacao',
+        situacao: 'conferido',
       }),
     };
 
@@ -172,6 +207,11 @@ describe('ConferirItemUseCase', () => {
         { provide: RECEBIMENTO_REPOSITORY, useValue: recebimentoRepository },
         { provide: PRE_RECEBIMENTO_REPOSITORY, useValue: {} },
         { provide: PRODUTO_REPOSITORY, useValue: {} },
+        {
+          provide: CONFIGURACAO_OPERACIONAL_REPOSITORY,
+          useValue: { list: vi.fn().mockResolvedValue([]) },
+        },
+        { provide: ARMAZENAGEM_REPOSITORY, useValue: {} },
         {
           provide: RecebimentoEventPublisher,
           useValue: { publish: vi.fn() },
@@ -185,13 +225,261 @@ describe('ConferirItemUseCase', () => {
       useCase.execute({
         recebimentoId: 'rec-1',
         data: {
-          produtoId: '00000000-0000-4000-8000-000000000001',
+          produtoId: 'PROD-001',
           quantidadeRecebida: 1,
           unidadeMedida: 'UN',
         },
         userId: 1,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('RemoverConferenciaItemUseCase', () => {
+  it('removes conferencia rows for a product during active conference', async () => {
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        preRecebimentoId: 'pre-1',
+        situacao: 'em_conferencia',
+      }),
+      removeItemsByProduto: vi.fn().mockResolvedValue({
+        produtoId: 'PROD-001',
+        removedCount: 2,
+      }),
+    };
+
+    const preRecebimentoRepository: Partial<IPreRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'pre-1',
+        unidadeId: 'ITB',
+      }),
+    };
+
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const eventPublisher = { publish } as unknown as RecebimentoEventPublisher;
+
+    const useCase = new RemoverConferenciaItemUseCase(
+      recebimentoRepository as IRecebimentoRepository,
+      preRecebimentoRepository as IPreRecebimentoRepository,
+      eventPublisher,
+    );
+    const result = await useCase.execute({
+      recebimentoId: 'rec-1',
+      produtoId: 'PROD-001',
+      userId: 1,
+    });
+
+    expect(result.removedCount).toBe(2);
+    expect(recebimentoRepository.removeItemsByProduto).toHaveBeenCalledWith(
+      'rec-1',
+      'PROD-001',
+    );
+    expect(publish).toHaveBeenCalled();
+  });
+
+  it('rejects removal when recebimento is not in conference', async () => {
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        preRecebimentoId: 'pre-1',
+        situacao: 'conferido',
+      }),
+    };
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        RemoverConferenciaItemUseCase,
+        { provide: RECEBIMENTO_REPOSITORY, useValue: recebimentoRepository },
+        {
+          provide: PRE_RECEBIMENTO_REPOSITORY,
+          useValue: { findById: vi.fn() },
+        },
+        {
+          provide: RecebimentoEventPublisher,
+          useValue: { publish: vi.fn() },
+        },
+      ],
+    }).compile();
+
+    const useCase = moduleRef.get(RemoverConferenciaItemUseCase);
+
+    await expect(
+      useCase.execute({
+        recebimentoId: 'rec-1',
+        produtoId: 'PROD-001',
+        userId: 1,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('RemoverLinhaConferenciaRecebimentoUseCase', () => {
+  it('removes a single conferencia row during active conference', async () => {
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        preRecebimentoId: 'pre-1',
+        situacao: 'em_conferencia',
+      }),
+      removeItemConferenciaById: vi.fn().mockResolvedValue({
+        itemId: 'item-1',
+        removed: true,
+        produtoId: 'PROD-001',
+      }),
+    };
+
+    const preRecebimentoRepository: Partial<IPreRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'pre-1',
+        unidadeId: 'ITB',
+      }),
+    };
+
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const eventPublisher = { publish } as unknown as RecebimentoEventPublisher;
+
+    const useCase = new RemoverLinhaConferenciaRecebimentoUseCase(
+      recebimentoRepository as IRecebimentoRepository,
+      preRecebimentoRepository as IPreRecebimentoRepository,
+      eventPublisher,
+    );
+
+    const result = await useCase.execute({
+      recebimentoId: 'rec-1',
+      itemId: 'item-1',
+      userId: 1,
+    });
+
+    expect(result.removed).toBe(true);
+    expect(recebimentoRepository.removeItemConferenciaById).toHaveBeenCalledWith(
+      'rec-1',
+      'item-1',
+    );
+    expect(publish).toHaveBeenCalled();
+  });
+
+  it('throws when conferencia row is not found', async () => {
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        preRecebimentoId: 'pre-1',
+        situacao: 'em_conferencia',
+      }),
+      removeItemConferenciaById: vi.fn().mockResolvedValue({
+        itemId: 'item-1',
+        removed: false,
+      }),
+    };
+
+    const useCase = new RemoverLinhaConferenciaRecebimentoUseCase(
+      recebimentoRepository as IRecebimentoRepository,
+      {
+        findById: vi.fn().mockResolvedValue({ id: 'pre-1', unidadeId: 'ITB' }),
+      } as IPreRecebimentoRepository,
+      { publish: vi.fn() } as unknown as RecebimentoEventPublisher,
+    );
+
+    await expect(
+      useCase.execute({
+        recebimentoId: 'rec-1',
+        itemId: 'item-1',
+        userId: 1,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('RemoverPaleteConferenciaRecebimentoUseCase', () => {
+  it('removes conferencia rows for a palete during active conference', async () => {
+    const unitizadorId = '00000000-0000-4000-8000-000000000010';
+
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        preRecebimentoId: 'pre-1',
+        situacao: 'em_conferencia',
+      }),
+      removeItensConferenciaByUnitizador: vi.fn().mockResolvedValue({
+        unitizadorId,
+        removedCount: 3,
+      }),
+    };
+
+    const preRecebimentoRepository: Partial<IPreRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'pre-1',
+        unidadeId: 'ITB',
+      }),
+    };
+
+    const armazenagemRepository = {
+      findUnitizadorByCodigo: vi.fn().mockResolvedValue({
+        id: unitizadorId,
+        codigo: 'PLT-001',
+      }),
+    };
+
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const eventPublisher = { publish } as unknown as RecebimentoEventPublisher;
+
+    const useCase = new RemoverPaleteConferenciaRecebimentoUseCase(
+      recebimentoRepository as IRecebimentoRepository,
+      preRecebimentoRepository as IPreRecebimentoRepository,
+      armazenagemRepository as never,
+      eventPublisher,
+    );
+
+    const result = await useCase.execute({
+      recebimentoId: 'rec-1',
+      unitizadorCodigo: 'PLT-001',
+      produtoId: 'PROD-001',
+      userId: 1,
+    });
+
+    expect(result.removedCount).toBe(3);
+    expect(
+      recebimentoRepository.removeItensConferenciaByUnitizador,
+    ).toHaveBeenCalledWith('rec-1', unitizadorId, 'PROD-001');
+    expect(publish).toHaveBeenCalled();
+  });
+
+  it('throws when palete has no conferencia rows', async () => {
+    const unitizadorId = '00000000-0000-4000-8000-000000000010';
+
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        preRecebimentoId: 'pre-1',
+        situacao: 'em_conferencia',
+      }),
+      removeItensConferenciaByUnitizador: vi.fn().mockResolvedValue({
+        unitizadorId,
+        removedCount: 0,
+      }),
+    };
+
+    const useCase = new RemoverPaleteConferenciaRecebimentoUseCase(
+      recebimentoRepository as IRecebimentoRepository,
+      {
+        findById: vi.fn().mockResolvedValue({ id: 'pre-1', unidadeId: 'ITB' }),
+      } as IPreRecebimentoRepository,
+      {
+        findUnitizadorByCodigo: vi.fn().mockResolvedValue({
+          id: unitizadorId,
+          codigo: 'PLT-001',
+        }),
+      } as never,
+      { publish: vi.fn() } as unknown as RecebimentoEventPublisher,
+    );
+
+    await expect(
+      useCase.execute({
+        recebimentoId: 'rec-1',
+        unitizadorCodigo: 'PLT-001',
+        userId: 1,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
 
@@ -203,13 +491,13 @@ describe('EncerrarConferenciaUseCase', () => {
         .mockResolvedValueOnce({
           id: 'rec-1',
           preRecebimentoId: 'pre-1',
-          situacao: 'em_recebimento',
+          situacao: 'em_conferencia',
           responsavelId: 10,
         })
         .mockResolvedValueOnce({
           id: 'rec-1',
           preRecebimentoId: 'pre-1',
-          situacao: 'aguardando_aprovacao',
+          situacao: 'conferido',
           divergencias: [{ id: 'div-1' }],
         }),
       findItemsByRecebimento: vi.fn().mockResolvedValue([
@@ -234,7 +522,7 @@ describe('EncerrarConferenciaUseCase', () => {
       }),
       updateStatus: vi.fn().mockResolvedValue({
         id: 'rec-1',
-        situacao: 'aguardando_aprovacao',
+        situacao: 'conferido',
       }),
     };
 
@@ -242,7 +530,7 @@ describe('EncerrarConferenciaUseCase', () => {
       findById: vi.fn().mockResolvedValue({
         id: 'pre-1',
         unidadeId: 'ITB',
-        transportadoraId: 'transp-1',
+        transportadoraNome: 'transp-1',
         itens: [
           {
             id: 'pre-item-1',
@@ -275,36 +563,382 @@ describe('EncerrarConferenciaUseCase', () => {
     expect(publish).toHaveBeenCalled();
     expect(recebimentoRepository.updateStatus).toHaveBeenCalledWith(
       'rec-1',
-      'aguardando_aprovacao',
+      'conferido',
       expect.any(Date),
     );
-    expect(result?.situacao).toBe('aguardando_aprovacao');
+    expect(result?.situacao).toBe('conferido');
   });
 });
 
-describe('FinalizarRecebimentoUseCase', () => {
-  it('publishes CNC event when finalizing with divergencias or avarias', async () => {
+describe('ReabrirConferenciaUseCase', () => {
+  it('reopens conferencia from conferido to em_conferencia', async () => {
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi
+        .fn()
+        .mockResolvedValueOnce({
+          id: 'rec-1',
+          preRecebimentoId: 'pre-1',
+          situacao: 'conferido',
+          dataFim: new Date(),
+          itens: [{ produtoId: 'prod-1' }],
+          divergencias: [{ id: 'div-1' }],
+        })
+        .mockResolvedValueOnce({
+          id: 'rec-1',
+          preRecebimentoId: 'pre-1',
+          situacao: 'em_conferencia',
+          dataFim: null,
+          itens: [{ produtoId: 'prod-1' }],
+          divergencias: [],
+        }),
+      clearDivergencias: vi.fn(),
+      updateStatus: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        situacao: 'em_conferencia',
+      }),
+    };
+
+    const preRecebimentoRepository: Partial<IPreRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'pre-1',
+        unidadeId: 'ITB',
+        situacao: 'conferido',
+      }),
+      updateSituacao: vi.fn(),
+    };
+
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const eventPublisher = { publish } as unknown as RecebimentoEventPublisher;
+
+    const useCase = new ReabrirConferenciaUseCase(
+      recebimentoRepository as IRecebimentoRepository,
+      preRecebimentoRepository as IPreRecebimentoRepository,
+      eventPublisher,
+    );
+
+    const result = await useCase.execute({ recebimentoId: 'rec-1', userId: 1 });
+
+    expect(recebimentoRepository.clearDivergencias).toHaveBeenCalledWith('rec-1');
+    expect(recebimentoRepository.updateStatus).toHaveBeenCalledWith(
+      'rec-1',
+      'em_conferencia',
+      null,
+    );
+    expect(preRecebimentoRepository.updateSituacao).toHaveBeenCalledWith(
+      'pre-1',
+      'em_conferencia',
+    );
+    expect(publish).toHaveBeenCalled();
+    expect(result?.situacao).toBe('em_conferencia');
+  });
+
+  it('rejects reopen when recebimento is not conferido', async () => {
     const recebimentoRepository: Partial<IRecebimentoRepository> = {
       findById: vi.fn().mockResolvedValue({
         id: 'rec-1',
         preRecebimentoId: 'pre-1',
-        situacao: 'aprovado',
+        situacao: 'em_conferencia',
+      }),
+    };
+
+    const useCase = new ReabrirConferenciaUseCase(
+      recebimentoRepository as IRecebimentoRepository,
+      {} as IPreRecebimentoRepository,
+      { publish: vi.fn() } as unknown as RecebimentoEventPublisher,
+    );
+
+    await expect(
+      useCase.execute({ recebimentoId: 'rec-1', userId: 1 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('throws when recebimento is not found', async () => {
+    const useCase = new ReabrirConferenciaUseCase(
+      { findById: vi.fn().mockResolvedValue(null) } as IRecebimentoRepository,
+      {} as IPreRecebimentoRepository,
+      { publish: vi.fn() } as unknown as RecebimentoEventPublisher,
+    );
+
+    await expect(
+      useCase.execute({ recebimentoId: 'missing', userId: 1 }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('FinalizarRecebimentoUseCase', () => {
+  const unitizadorId = '00000000-0000-4000-8000-000000000010';
+
+  const conferidoComUnitizador = {
+    id: 'item-1',
+    recebimentoId: 'rec-1',
+    produtoId: 'prod-1',
+    quantidadeRecebida: 8,
+    unidadeMedida: 'UN',
+    loteRecebido: null,
+    pesoRecebido: null,
+    validade: null,
+    numeroSerie: null,
+    unitizadorId,
+    createdAt: new Date(),
+  };
+
+  function createUseCase(overrides?: {
+    recebimento?: Record<string, unknown>;
+    itensAguardando?: Array<Record<string, unknown>>;
+    endereco?: Record<string, unknown> | null;
+    itensConferidos?: Array<Record<string, unknown>>;
+    avarias?: Array<Record<string, unknown>>;
+  }) {
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        preRecebimentoId: 'pre-1',
+        situacao: 'conferido',
         dataFim: new Date(),
         responsavelId: 10,
-        itens: [{ produtoId: 'prod-1' }],
-        divergencias: [
-          {
-            id: 'div-1',
-            tipoDivergencia: 'quantidade_menor',
-            produtoId: 'prod-1',
-          },
-        ],
+        modoUnitizacao: 'gerar_etiqueta_na_armazenagem',
+        divergencias: [],
+        ...overrides?.recebimento,
       }),
       updateStatus: vi.fn().mockResolvedValue({
         id: 'rec-1',
         situacao: 'finalizado',
       }),
-      findItemsByRecebimento: vi.fn().mockResolvedValue([
+      findItemsByRecebimento: vi.fn().mockResolvedValue(
+        overrides?.itensConferidos ?? [
+          {
+            id: 'item-1',
+            recebimentoId: 'rec-1',
+            produtoId: 'prod-1',
+            quantidadeRecebida: 8,
+            unidadeMedida: 'UN',
+            loteRecebido: null,
+            pesoRecebido: null,
+            validade: null,
+            numeroSerie: null,
+            unitizadorId: null,
+            createdAt: new Date(),
+          },
+        ],
+      ),
+    };
+
+    const preRecebimentoRepository: Partial<IPreRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'pre-1',
+        unidadeId: 'ITB',
+        transportadoraNome: 'transp-1',
+        itens: [{ produtoId: 'prod-1' }],
+      }),
+      updateSituacao: vi.fn(),
+    };
+
+    const avariaRepository: Partial<IRecebimentoAvariaRepository> = {
+      listByRecebimento: vi.fn().mockResolvedValue(overrides?.avarias ?? []),
+    };
+
+    const armazenagemRepository = {
+      resolveDocumentoRefByRecebimentoId: vi.fn().mockResolvedValue('REC-001'),
+      criarUnitizador: vi.fn().mockResolvedValue({
+        id: unitizadorId,
+        codigo: 'PAL-001',
+      }),
+    };
+
+    const enderecoRepository = {
+      findById: vi.fn().mockResolvedValue(overrides?.endereco ?? null),
+    };
+
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const eventPublisher = { publish } as unknown as RecebimentoEventPublisher;
+    const cncPublish = vi.fn().mockResolvedValue(undefined);
+    const cncEventPublisher = {
+      publish: cncPublish,
+    } as unknown as CncEventPublisher;
+
+    const publishSaldo = vi.fn().mockResolvedValue(undefined);
+    const recebimentoSaldoEventPublisher = {
+      publishProcessarSaldo: publishSaldo,
+    } as unknown as RecebimentoSaldoEventPublisher;
+
+    const itensAguardandoDefault = overrides?.itensAguardando ?? [
+      {
+        unitizadorId: null,
+        produtoId: 'prod-1',
+        quantidade: 8,
+        unidadeMedida: 'UN',
+        lote: null,
+        validade: null,
+        numeroSerie: null,
+      },
+    ];
+
+    const montarItensAguardandoArmazenagemRecebimentoService = {
+      execute: vi.fn().mockResolvedValue(itensAguardandoDefault),
+    };
+
+    const montarPaletesArmazenagemService = {
+      execute: vi.fn().mockReturnValue([
+        {
+          produtoId: 'prod-1',
+          sequenciaGlobal: 1,
+          sequenciaProduto: 1,
+          quantidade: 8,
+          unidadeMedida: 'UN',
+          lote: null,
+          validade: null,
+          numeroSerie: null,
+          codigoUnitizador: 'PAL-001',
+          itemBase: itensAguardandoDefault[0],
+        },
+      ]),
+    };
+
+    const gerarDemandaArmazenagem = {
+      execute: vi.fn().mockResolvedValue({ id: 'demanda-1', tarefas: [], itens: [] }),
+    } as unknown as GerarDemandaArmazenagemUseCase;
+
+    const produtoRepository: Partial<IProdutoRepository> = {
+      findByProdutoId: vi.fn().mockResolvedValue({ produtoId: 'prod-1' }),
+    };
+
+    const useCase = new FinalizarRecebimentoUseCase(
+      recebimentoRepository as IRecebimentoRepository,
+      preRecebimentoRepository as IPreRecebimentoRepository,
+      avariaRepository as IRecebimentoAvariaRepository,
+      produtoRepository as IProdutoRepository,
+      armazenagemRepository as never,
+      enderecoRepository as never,
+      eventPublisher,
+      cncEventPublisher,
+      recebimentoSaldoEventPublisher,
+      montarItensAguardandoArmazenagemRecebimentoService as never,
+      montarPaletesArmazenagemService as never,
+      gerarDemandaArmazenagem,
+    );
+
+    return {
+      useCase,
+      gerarDemandaArmazenagem,
+      armazenagemRepository,
+      recebimentoRepository,
+      enderecoRepository,
+      publishSaldo,
+      cncPublish,
+    };
+  }
+
+  it('publishes CNC event when finalizing with divergencias or avarias', async () => {
+    const { useCase, gerarDemandaArmazenagem, recebimentoRepository, publishSaldo, cncPublish } =
+      createUseCase({
+        recebimento: {
+          divergencias: [
+            {
+              id: 'div-1',
+              tipoDivergencia: 'quantidade_menor',
+              produtoId: 'prod-1',
+              quantidadeEsperada: 10,
+              quantidadeRecebida: 8,
+            },
+          ],
+        },
+      });
+
+    await useCase.execute({ recebimentoId: 'rec-1', userId: 1 });
+
+    expect(gerarDemandaArmazenagem.execute).toHaveBeenCalled();
+    expect(recebimentoRepository.updateStatus).toHaveBeenCalledWith(
+      'rec-1',
+      'finalizado',
+    );
+    expect(publishSaldo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recebimentoId: 'rec-1',
+        unidadeId: 'ITB',
+      }),
+    );
+    expect(cncPublish).toHaveBeenCalled();
+  });
+
+  it('builds tarefas from bipados unitizadores without creating new unitizadores', async () => {
+    const { useCase, gerarDemandaArmazenagem, armazenagemRepository } = createUseCase({
+      recebimento: {
+        modoUnitizacao: 'bipar_palete_no_recebimento',
+      },
+      itensConferidos: [conferidoComUnitizador],
+      itensAguardando: [
+        {
+          unitizadorId,
+          produtoId: 'prod-1',
+          quantidade: 8,
+          unidadeMedida: 'UN',
+          lote: null,
+          validade: null,
+          numeroSerie: null,
+        },
+      ],
+    });
+
+    await useCase.execute({ recebimentoId: 'rec-1', userId: 1 });
+
+    expect(armazenagemRepository.criarUnitizador).not.toHaveBeenCalled();
+    expect(gerarDemandaArmazenagem.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        modoUnitizacao: 'bipar_palete_no_recebimento',
+        tarefas: [
+          expect.objectContaining({
+            unitizadorId,
+            sequencia: 1,
+            itens: [
+              expect.objectContaining({ produtoId: 'prod-1', quantidade: 8 }),
+            ],
+          }),
+        ],
+        itens: undefined,
+      }),
+    );
+  });
+
+  it('detects bipados unitizadores even when recebimento modo is gerar_etiqueta', async () => {
+    const { useCase, gerarDemandaArmazenagem, armazenagemRepository } = createUseCase({
+      recebimento: {
+        modoUnitizacao: 'gerar_etiqueta_na_armazenagem',
+      },
+      itensConferidos: [conferidoComUnitizador],
+      itensAguardando: [
+        {
+          unitizadorId,
+          produtoId: 'prod-1',
+          quantidade: 8,
+          unidadeMedida: 'UN',
+          lote: null,
+          validade: null,
+          numeroSerie: null,
+        },
+      ],
+    });
+
+    await useCase.execute({ recebimentoId: 'rec-1', userId: 1 });
+
+    expect(armazenagemRepository.criarUnitizador).not.toHaveBeenCalled();
+    expect(gerarDemandaArmazenagem.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        modoUnitizacao: 'bipar_palete_no_recebimento',
+        tarefas: [
+          expect.objectContaining({
+            unitizadorId,
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('rejects paletes payload in bipar_palete_no_recebimento mode when bipados exist', async () => {
+    const { useCase } = createUseCase({
+      recebimento: {
+        modoUnitizacao: 'bipar_palete_no_recebimento',
+      },
+      itensConferidos: [
         {
           id: 'item-1',
           recebimentoId: 'rec-1',
@@ -315,53 +949,151 @@ describe('FinalizarRecebimentoUseCase', () => {
           pesoRecebido: null,
           validade: null,
           numeroSerie: null,
+          unitizadorId,
           createdAt: new Date(),
         },
-      ]),
-    };
+      ],
+      itensAguardando: [
+        {
+          unitizadorId,
+          produtoId: 'prod-1',
+          quantidade: 8,
+          unidadeMedida: 'UN',
+          lote: null,
+          validade: null,
+          numeroSerie: null,
+        },
+      ],
+    });
 
-    const preRecebimentoRepository: Partial<IPreRecebimentoRepository> = {
-      findById: vi.fn().mockResolvedValue({
-        id: 'pre-1',
-        unidadeId: 'ITB',
-        transportadoraId: 'transp-1',
-        itens: [{ produtoId: 'prod-1' }],
+    await expect(
+      useCase.execute({
+        recebimentoId: 'rec-1',
+        userId: 1,
+        paletes: [{ produtoId: 'prod-1', qtdPaletes: 1 }],
       }),
-      updateSituacao: vi.fn(),
-    };
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
 
-    const avariaRepository: Partial<IRecebimentoAvariaRepository> = {
-      listByRecebimento: vi.fn().mockResolvedValue([]),
-    };
-
-    const publish = vi.fn().mockResolvedValue(undefined);
-    const eventPublisher = { publish } as unknown as RecebimentoEventPublisher;
-    const cncPublish = vi.fn().mockResolvedValue(undefined);
-    const cncEventPublisher = {
-      publish: cncPublish,
-    } as unknown as CncEventPublisher;
-
-    const distribuirSaldo = {
-      execute: vi.fn().mockResolvedValue({ itensAguardandoArmazenagem: [] }),
-    } as unknown as DistribuirSaldoRecebimentoFinalizadoUseCase;
-
-    const useCase = new FinalizarRecebimentoUseCase(
-      recebimentoRepository as IRecebimentoRepository,
-      preRecebimentoRepository as IPreRecebimentoRepository,
-      avariaRepository as IRecebimentoAvariaRepository,
-      eventPublisher,
-      cncEventPublisher,
-      distribuirSaldo,
-    );
+  it('blocks saldo lines matching avaria produto+lote on finalize', async () => {
+    const { useCase, publishSaldo } = createUseCase({
+      itensConferidos: [
+        {
+          id: 'item-1',
+          recebimentoId: 'rec-1',
+          produtoId: 'prod-1',
+          quantidadeRecebida: 5,
+          unidadeMedida: 'UN',
+          loteRecebido: 'L1',
+          pesoRecebido: null,
+          validade: null,
+          numeroSerie: null,
+          unitizadorId: unitizadorId,
+          createdAt: new Date(),
+        },
+        {
+          id: 'item-2',
+          recebimentoId: 'rec-1',
+          produtoId: 'prod-1',
+          quantidadeRecebida: 3,
+          unidadeMedida: 'UN',
+          loteRecebido: 'L2',
+          pesoRecebido: null,
+          validade: null,
+          numeroSerie: null,
+          unitizadorId: '00000000-0000-4000-8000-000000000011',
+          createdAt: new Date(),
+        },
+      ],
+      avarias: [
+        {
+          id: 'av-1',
+          recebimentoId: 'rec-1',
+          produtoId: 'prod-1',
+          lote: 'L1',
+          tipo: 'fisica',
+          natureza: 'parcial',
+          causa: 'transporte',
+          quantidadeCaixas: 1,
+          quantidadeUnidades: 0,
+          photoCount: 0,
+          replicado: false,
+          operatorId: 1,
+          createdAt: new Date(),
+        },
+      ],
+    });
 
     await useCase.execute({ recebimentoId: 'rec-1', userId: 1 });
 
-    expect(distribuirSaldo.execute).toHaveBeenCalled();
-    expect(recebimentoRepository.updateStatus).toHaveBeenCalledWith(
-      'rec-1',
-      'finalizado',
+    expect(publishSaldo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        linhas: expect.arrayContaining([
+          expect.objectContaining({
+            produtoId: 'prod-1',
+            lote: 'L1',
+            status: 'bloqueado',
+            tipoAnomalia: 'avaria',
+          }),
+          expect.objectContaining({
+            produtoId: 'prod-1',
+            lote: 'L2',
+            status: 'liberado',
+            tipoAnomalia: null,
+          }),
+        ]),
+      }),
     );
-    expect(cncPublish).toHaveBeenCalled();
+  });
+
+  it('applies validated addresses and forwards enderecosJaValidados to gerar demanda', async () => {
+    const enderecoId = '00000000-0000-4000-8000-000000000011';
+    const { useCase, gerarDemandaArmazenagem } = createUseCase({
+      recebimento: {
+        modoUnitizacao: 'bipar_palete_no_recebimento',
+      },
+      itensConferidos: [conferidoComUnitizador],
+      itensAguardando: [
+        {
+          unitizadorId,
+          produtoId: 'prod-1',
+          quantidade: 8,
+          unidadeMedida: 'UN',
+          lote: null,
+          validade: null,
+          numeroSerie: null,
+        },
+      ],
+      endereco: {
+        id: enderecoId,
+        unidadeId: 'ITB',
+        enderecoMascarado: 'A-01-01',
+      },
+    });
+
+    await useCase.execute({
+      recebimentoId: 'rec-1',
+      userId: 1,
+      paletesBipadosValidados: [
+        {
+          unitizadorId,
+          enderecoSugeridoId: enderecoId,
+        },
+      ],
+    });
+
+    expect(gerarDemandaArmazenagem.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enderecosJaValidados: true,
+        userId: 1,
+        tarefas: [
+          expect.objectContaining({
+            unitizadorId,
+            enderecoSugeridoId: enderecoId,
+          }),
+        ],
+      }),
+    );
   });
 });
 
@@ -395,7 +1127,7 @@ describe('RegistrarAvariaUseCase', () => {
     const recebimentoRepository: Partial<IRecebimentoRepository> = {
       findById: vi.fn().mockResolvedValue({
         id: 'rec-1',
-        situacao: 'em_recebimento',
+        situacao: 'em_conferencia',
       }),
       findItemsByRecebimento: vi.fn().mockResolvedValue([
         { id: 'item-1', produtoId: 'prod-1', quantidadeRecebida: 5, unidadeMedida: 'UN' },
@@ -404,11 +1136,10 @@ describe('RegistrarAvariaUseCase', () => {
     };
 
     const produtoRepository: Partial<IProdutoRepository> = {
-      findById: vi
+      findByProdutoId: vi
         .fn()
-        .mockImplementation(async (id: string) => ({
-          id,
-          sku: id === 'prod-1' ? 'SKU-1' : 'SKU-2',
+        .mockImplementation(async (produtoId: string) => ({
+          sku: produtoId === 'prod-1' ? 'SKU-1' : 'SKU-2',
           descricao: 'Produto',
           empresa: 'ITB',
           categoria: 'seco',
@@ -423,7 +1154,7 @@ describe('RegistrarAvariaUseCase', () => {
           caixasPorPalete: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
-          produtoId: id,
+          produtoId,
         })),
     };
 
@@ -519,5 +1250,119 @@ describe('RegistrarAvariaUseCase', () => {
         operatorId: 1,
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('persists lote when informed for single product avaria', async () => {
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        situacao: 'em_conferencia',
+      }),
+      findItemsByRecebimento: vi.fn().mockResolvedValue([
+        {
+          id: 'item-1',
+          produtoId: 'prod-1',
+          quantidadeRecebida: 5,
+          unidadeMedida: 'UN',
+          loteRecebido: 'L1',
+        },
+      ]),
+    };
+
+    const avariaRepository: Partial<IRecebimentoAvariaRepository> = {
+      createMany: vi.fn().mockResolvedValue([
+        {
+          id: 'av-1',
+          recebimentoId: 'rec-1',
+          produtoId: 'prod-1',
+          lote: 'L1',
+          tipo: 'fisica',
+          natureza: 'parcial',
+          causa: 'transporte',
+          quantidadeCaixas: 1,
+          quantidadeUnidades: 0,
+          photoCount: 0,
+          replicado: false,
+          operatorId: 1,
+          createdAt: new Date(),
+        },
+      ]),
+    };
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        RegistrarAvariaUseCase,
+        { provide: RECEBIMENTO_REPOSITORY, useValue: recebimentoRepository },
+        { provide: RECEBIMENTO_AVARIA_REPOSITORY, useValue: avariaRepository },
+        { provide: PRODUTO_REPOSITORY, useValue: {} },
+      ],
+    }).compile();
+
+    const useCase = moduleRef.get(RegistrarAvariaUseCase);
+
+    await useCase.execute({
+      recebimentoId: 'rec-1',
+      produtoId: 'prod-1',
+      lote: 'L1',
+      tipo: 'fisica',
+      natureza: 'parcial',
+      causa: 'transporte',
+      quantidadeCaixas: 1,
+      quantidadeUnidades: 0,
+      operatorId: 1,
+    });
+
+    expect(avariaRepository.createMany).toHaveBeenCalledWith([
+      expect.objectContaining({ produtoId: 'prod-1', lote: 'L1' }),
+    ]);
+  });
+
+  it('requires lote selection when product has multiple conferidos lotes', async () => {
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        situacao: 'em_conferencia',
+      }),
+      findItemsByRecebimento: vi.fn().mockResolvedValue([
+        {
+          id: 'item-1',
+          produtoId: 'prod-1',
+          quantidadeRecebida: 5,
+          unidadeMedida: 'UN',
+          loteRecebido: 'L1',
+        },
+        {
+          id: 'item-2',
+          produtoId: 'prod-1',
+          quantidadeRecebida: 3,
+          unidadeMedida: 'UN',
+          loteRecebido: 'L2',
+        },
+      ]),
+    };
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        RegistrarAvariaUseCase,
+        { provide: RECEBIMENTO_REPOSITORY, useValue: recebimentoRepository },
+        { provide: RECEBIMENTO_AVARIA_REPOSITORY, useValue: {} },
+        { provide: PRODUTO_REPOSITORY, useValue: {} },
+      ],
+    }).compile();
+
+    const useCase = moduleRef.get(RegistrarAvariaUseCase);
+
+    await expect(
+      useCase.execute({
+        recebimentoId: 'rec-1',
+        produtoId: 'prod-1',
+        tipo: 'fisica',
+        natureza: 'parcial',
+        causa: 'transporte',
+        quantidadeCaixas: 1,
+        quantidadeUnidades: 0,
+        operatorId: 1,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

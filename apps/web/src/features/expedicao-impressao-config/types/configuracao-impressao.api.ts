@@ -3,6 +3,7 @@ import type {
   ImpressaoConfigConteudo,
   PreConfiguracaoImpressao,
 } from '@/features/expedicao-impressao-config/types/impressao-config.schema';
+import { TEMPLATE_CONFERENCIA_REENTREGA_PADRAO } from '@/features/expedicao-impressao-config/types/layout-mapa';
 
 export type ConfiguracaoImpressaoConteudoApi = Omit<
   ImpressaoConfigConteudo,
@@ -58,9 +59,26 @@ export function mergeApiToConteudo(
   configuracao: ConfiguracaoImpressaoConteudoApi,
   templatesHtml: TemplatesHtmlApi,
 ): ImpressaoConfigConteudo {
+  const templatesNormalizados = {
+    ...templatesHtml,
+    conferencia_reentrega:
+      templatesHtml.conferencia_reentrega?.trim().length
+        ? templatesHtml.conferencia_reentrega
+        : TEMPLATE_CONFERENCIA_REENTREGA_PADRAO,
+  };
+
   return {
     ...configuracao,
-    layoutCabecalho: templatesHtml,
+    layoutCabecalho: templatesNormalizados,
+    ordemImpressaoConferenciaReentrega:
+      configuracao.ordemImpressaoConferenciaReentrega ??
+      configuracao.ordemImpressaoConferencia,
+    qrCodeMapa: {
+      ...configuracao.qrCodeMapa,
+      conferencia_reentrega:
+        configuracao.qrCodeMapa?.conferencia_reentrega ??
+        configuracao.qrCodeMapa?.conferencia,
+    },
   };
 }
 

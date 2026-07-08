@@ -8,6 +8,7 @@ import {
   PRODUTO_ENDERECO_REPOSITORY,
   type IProdutoEnderecoRepository,
   type ListProdutoEnderecosFilter,
+  type ListSlottingProdutoEnderecosFilter,
 } from '../../../domain/repositories/produto-endereco/produto-endereco.repository.js';
 import {
   DRIZZLE_PROVIDER,
@@ -16,8 +17,11 @@ import {
 import { createProdutoEnderecoDb } from './create-produto-endereco.drizzle.js';
 import { deleteProdutoEnderecoDb } from './delete-produto-endereco.drizzle.js';
 import { findProdutoEnderecoByIdDb } from './find-produto-endereco.drizzle.js';
+import { listGruposEnderecosDb } from './list-grupos-enderecos.drizzle.js';
 import { listProdutoEnderecosDb } from './list-produto-enderecos.drizzle.js';
+import { listSlottingProdutoEnderecosDb } from './list-slotting-produto-enderecos.drizzle.js';
 import { updateProdutoEnderecoDb } from './update-produto-endereco.drizzle.js';
+import { upsertBulkProdutoEnderecoDb } from './upsert-bulk-produto-endereco.drizzle.js';
 
 @Injectable()
 export class ProdutoEnderecoService implements IProdutoEnderecoRepository {
@@ -27,6 +31,14 @@ export class ProdutoEnderecoService implements IProdutoEnderecoRepository {
 
   list(filter: ListProdutoEnderecosFilter) {
     return listProdutoEnderecosDb(this.db, filter);
+  }
+
+  listSlotting(filter: ListSlottingProdutoEnderecosFilter) {
+    return listSlottingProdutoEnderecosDb(this.db, filter);
+  }
+
+  listGruposComEnderecos(centroId: string) {
+    return listGruposEnderecosDb(this.db, centroId);
   }
 
   findById(id: string) {
@@ -43,5 +55,9 @@ export class ProdutoEnderecoService implements IProdutoEnderecoRepository {
 
   delete(id: string) {
     return deleteProdutoEnderecoDb(this.db, id);
+  }
+
+  upsertBulk(rows: CreateProdutoEnderecoData[]) {
+    return upsertBulkProdutoEnderecoDb(this.db, rows);
   }
 }

@@ -36,13 +36,13 @@ export async function updateTransportePrioridadeDb(
     })
     .where(
       and(
-        eq(transportes.id, input.id),
+        eq(transportes.numeroTransporte, input.id),
         eq(transportes.unidadeId, input.unidadeId),
       ),
     )
     .returning({
-      id: transportes.id,
-      rota: transportes.rota,
+      id: transportes.numeroTransporte,
+      rota: transportes.numeroTransporte,
       isPrioridade: transportes.isPrioridade,
       nivelPrioridade: transportes.nivelPrioridade,
     });

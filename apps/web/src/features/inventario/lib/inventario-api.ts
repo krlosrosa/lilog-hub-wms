@@ -11,6 +11,25 @@ import type {
 } from '@/features/inventario/types/inventario-lista.schema';
 import type { InventarioCadastroFormValues } from '@/features/inventario/types/inventario-cadastro.schema';
 import type { ResponsavelGestorOption } from '@/features/inventario/types/inventario-cadastro.schema';
+import type { DemandaProgressoItem } from '@/features/inventario/types/inventario-detalhe.schema';
+import type {
+  DivergenciaItem,
+  RecontagemAtual,
+} from '@/features/inventario/types/inventario-detalhe.schema';
+
+const OPEN_RECONTAGEM_STATUSES = ['aguardando_inicio', 'em_andamento'] as const;
+
+function isRecontagemAberta(
+  recontagem: RecontagemAtual | null | undefined,
+): boolean {
+  if (!recontagem) {
+    return false;
+  }
+
+  return OPEN_RECONTAGEM_STATUSES.includes(
+    recontagem.demandaStatus as (typeof OPEN_RECONTAGEM_STATUSES)[number],
+  );
+}
 
 export type InventarioApi = {
   id: string;
@@ -30,6 +49,7 @@ export type InventarioDetalheApi = InventarioApi & {
   itensTotal: number;
   acuraciaPercent: number | null;
   divergenciasCount: number;
+  ajustesPendentesCount: number;
   startedAt: string | null;
   setoresProgresso: Array<{
     id: string;
@@ -38,6 +58,52 @@ export type InventarioDetalheApi = InventarioApi & {
     skuContados: number;
     skuTotal: number;
   }>;
+  divergencias: Array<{
+    id: string;
+    contagemId: string;
+    sku: string;
+    produtoNome: string;
+    setor: string;
+    endereco: string;
+    esperadoLabel: string;
+    encontradoLabel: string;
+    diferencaLabel: string;
+    tipo: 'falta' | 'sobra';
+    enderecoVazio: boolean;
+    anomaliaEncontrada: boolean;
+    pendenteAjuste: boolean;
+  }>;
+};
+
+export type DivergenciaInventarioApi = {
+  id: string;
+  inventarioId: string;
+  contagemId: string | null;
+  enderecoId: string;
+  enderecoMascarado: string;
+  zona: string;
+  saldoEnderecoId: string | null;
+  depositoId: string | null;
+  produtoId: string | null;
+  sku: string;
+  produtoNome: string;
+  quantidadeEsperada: number;
+  quantidadeContada: number;
+  delta: number;
+  unidadeMedida: string | null;
+  lote: string | null;
+  tipo: 'falta' | 'sobra' | 'endereco_vazio' | 'anomalia';
+  status: 'pendente' | 'aprovada' | 'reprovada' | 'aplicada';
+  aprovadaPor: number | null;
+  aprovadaEm: string | null;
+  motivoAprovacao: string | null;
+  reprovadaPor: number | null;
+  reprovadaEm: string | null;
+  motivoReprovacao: string | null;
+  documentoRef: string;
+  recontagemAtual: RecontagemAtual | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type DemandaContagemApi = {
@@ -138,8 +204,36 @@ export function mapDemandaToUiItem(item: DemandaContagemApi): DemandaContagemIte
     localSubtitulo: rackLabel,
     responsavelNome: item.responsavelNome,
     tipo: item.tipo,
-    status: 'aguardando-inicio',
+    status:
+      item.status === 'aguardando_inicio' ? 'aguardando-inicio' : 'aguardando-inicio',
     iconName: item.tipo === 'cega' ? 'grid' : 'snow',
+  };
+}
+
+export function mapDemandaToProgressoItem(
+  item: DemandaContagemApi,
+): DemandaProgressoItem {
+  const progressPercent =
+    item.totalEnderecos > 0
+      ? Math.min(
+          100,
+          Math.round((item.enderecosConferidos / item.totalEnderecos) * 100),
+        )
+      : item.status === 'concluida'
+        ? 100
+        : 0;
+
+  return {
+    id: item.id,
+    nome: item.nome,
+    tipo: item.tipo,
+    prioridade: item.prioridade,
+    status: item.status,
+    responsavelNome: item.responsavelNome,
+    totalEnderecos: item.totalEnderecos,
+    enderecosConferidos: item.enderecosConferidos,
+    progressPercent,
+    ativo: item.ativo,
   };
 }
 
@@ -174,6 +268,81 @@ export function getInventarioTrend() {
 
 export function getInventario(id: string) {
   return apiRequest<InventarioDetalheApi>(`/inventarios/${encodeURIComponent(id)}`);
+}
+
+export function listDivergenciasInventario(inventarioId: string) {
+  return apiRequest<{ items: DivergenciaInventarioApi[] }>(
+    `/inventarios/${encodeURIComponent(inventarioId)}/divergencias`,
+  );
+}
+
+export function mapDivergenciaApiToItem(
+  item: DivergenciaInventarioApi,
+): DivergenciaItem {
+  const recontagemAberta = isRecontagemAberta(item.recontagemAtual);
+
+  return {
+    id: item.id,
+    sku: item.sku,
+    produtoNome: item.produtoNome,
+    setor: item.zona,
+    endereco: item.enderecoMascarado,
+    esperadoLabel: String(item.quantidadeEsperada),
+    encontradoLabel: String(item.quantidadeContada),
+    diferencaLabel:
+      item.delta > 0 ? `+${item.delta}` : String(item.delta),
+    tipo: item.tipo,
+    status: item.status,
+    recontagemAtual: item.recontagemAtual,
+    podeAprovar: item.status === 'pendente' && !recontagemAberta,
+    podeRecontar: item.status === 'pendente' && !recontagemAberta,
+  };
+}
+
+export function aprovarDivergenciaInventario(
+  inventarioId: string,
+  divergenciaId: string,
+  payload?: { motivoAprovacao?: string },
+) {
+  return apiRequest<DivergenciaInventarioApi>(
+    `/inventarios/${encodeURIComponent(inventarioId)}/divergencias/${encodeURIComponent(divergenciaId)}/aprovar`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload ?? {}),
+    },
+  );
+}
+
+export function reprovarDivergenciaInventario(
+  inventarioId: string,
+  divergenciaId: string,
+  payload: { motivoReprovacao: string },
+) {
+  return apiRequest<DivergenciaInventarioApi>(
+    `/inventarios/${encodeURIComponent(inventarioId)}/divergencias/${encodeURIComponent(divergenciaId)}/reprovar`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function solicitarRecontagemDivergenciaInventario(
+  inventarioId: string,
+  divergenciaId: string,
+  payload: {
+    responsavelId: number;
+    prioridade?: 'baixa' | 'media' | 'alta' | 'critica';
+    motivo?: string;
+  },
+) {
+  return apiRequest<DivergenciaInventarioApi>(
+    `/inventarios/${encodeURIComponent(inventarioId)}/divergencias/${encodeURIComponent(divergenciaId)}/recontagens`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 export function createInventario(payload: InventarioCadastroFormValues) {
@@ -233,7 +402,6 @@ export function createDemanda(
           zonas: payload.zonas,
           rackInicio: payload.rackInicio || undefined,
           rackFim: payload.rackFim || undefined,
-          categorias: payload.categorias,
           skuBusca: payload.skuBusca || undefined,
         },
         observacoes: payload.observacoes,
@@ -250,11 +418,27 @@ export function deleteDemanda(inventarioId: string, demandaId: string) {
   );
 }
 
-export function listZonas(centroId?: string) {
-  const path = centroId
-    ? `/enderecos/zonas?centroId=${encodeURIComponent(centroId)}`
+export function listZonas(unidadeId?: string) {
+  const path = unidadeId
+    ? `/enderecos/zonas?unidadeId=${encodeURIComponent(unidadeId)}`
     : '/enderecos/zonas';
   return apiRequest<Array<{ zona: string }>>(path);
+}
+
+export function listRuas(params?: { unidadeId?: string; zona?: string }) {
+  const searchParams = new URLSearchParams();
+
+  if (params?.unidadeId) {
+    searchParams.set('unidadeId', params.unidadeId);
+  }
+
+  if (params?.zona?.trim()) {
+    searchParams.set('zona', params.zona.trim());
+  }
+
+  const query = searchParams.toString();
+  const path = query ? `/enderecos/ruas?${query}` : '/enderecos/ruas';
+  return apiRequest<Array<{ rua: string }>>(path);
 }
 
 export function listOperators() {

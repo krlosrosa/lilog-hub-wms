@@ -144,14 +144,14 @@ export async function findDemandaDetalheByIdDb(
       mapaGrupoMicroUuid: mapaGrupos.microUuid,
       mapaGrupoProcesso: mapaGrupos.processo,
       transporteId: mapaGrupos.transporteId,
-      transporteRota: transportes.rota,
+      transporteRota: transportes.numeroTransporte,
       transporteDocaId: transportes.docaId,
       transporteLacreCarregamento: transportes.lacreCarregamento,
       tempoEsperado: mapaGrupos.tempoEsperado,
     })
     .from(demandasSeparacao)
     .innerJoin(mapaGrupos, eq(demandasSeparacao.mapaGrupoId, mapaGrupos.id))
-    .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.id))
+    .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.numeroTransporte))
     .innerJoin(
       sessaoFuncionarios,
       eq(demandasSeparacao.sessaoFuncionarioId, sessaoFuncionarios.id),
@@ -211,7 +211,7 @@ export async function listDemandasSeparacaoBySessaoDb(
 
       transporteId: mapaGrupos.transporteId,
 
-      transporteRota: transportes.rota,
+      transporteRota: transportes.numeroTransporte,
 
       transporteDocaId: transportes.docaId,
 
@@ -225,7 +225,7 @@ export async function listDemandasSeparacaoBySessaoDb(
 
     .innerJoin(mapaGrupos, eq(demandasSeparacao.mapaGrupoId, mapaGrupos.id))
 
-    .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.id))
+    .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.numeroTransporte))
 
     .innerJoin(
 
@@ -295,7 +295,7 @@ export async function listMapasGrupoDisponiveisDb(
 
       transporteId: mapaGrupos.transporteId,
 
-      transporteRota: transportes.rota,
+      transporteRota: transportes.numeroTransporte,
 
       empresa: sql<string>`coalesce(${mapaGrupos.cabecalho}->>'empresa', '')`,
 
@@ -319,7 +319,7 @@ export async function listMapasGrupoDisponiveisDb(
 
     .innerJoin(mapaLotes, eq(mapaGrupos.mapaLoteId, mapaLotes.id))
 
-    .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.id))
+    .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.numeroTransporte))
 
     .where(
 
@@ -619,7 +619,7 @@ export async function insertDemandasSeparacaoDb(
 
         transporteId: mapaGrupos.transporteId,
 
-        transporteRota: transportes.rota,
+        transporteRota: transportes.numeroTransporte,
 
         transporteDocaId: transportes.docaId,
 
@@ -633,7 +633,7 @@ export async function insertDemandasSeparacaoDb(
 
       .innerJoin(mapaGrupos, eq(demandasSeparacao.mapaGrupoId, mapaGrupos.id))
 
-      .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.id))
+      .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.numeroTransporte))
 
       .innerJoin(
 

@@ -1,6 +1,9 @@
+import type { CreateCncItemInput } from '../../domain/repositories/cnc/cnc.repository.js';
+
 export const CNC_QUEUE = 'cnc' as const;
 
 export const JOB_CRIAR_CNC = 'criar-cnc' as const;
+export const JOB_REGISTRAR_EVENTO_CNC = 'registrar-evento-cnc' as const;
 
 export type CriarCncJobData = {
   recebimentoId: string;
@@ -9,14 +12,16 @@ export type CriarCncJobData = {
   transportadoraId: string;
   responsavelOperacaoId: number;
   userId: number | null;
-  divergencias: Array<{
-    id: string;
-    tipo: string;
-    produtoId: string | null;
-  }>;
-  avarias: Array<{
-    id: string;
-    natureza: string;
-    produtoId: string | null;
-  }>;
+  descricao: string;
+  itens: CreateCncItemInput[];
+};
+
+export type RegistrarEventoCncJobData = {
+  cncId: string;
+  tipoEvento: string;
+  situacaoAnterior?: string | null;
+  situacaoNova?: string | null;
+  descricao?: string | null;
+  metadata?: Record<string, unknown>;
+  criadoPorUserId?: number | null;
 };

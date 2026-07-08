@@ -21,7 +21,10 @@ import {
 
 const RegistrarAvariaBodySchema = z
   .object({
-    produtoId: z.uuid().optional(),
+    produtoId: z.string().min(1).max(50).optional(),
+    lote: z.string().min(1).max(100).optional(),
+    validade: z.iso.datetime().optional(),
+    numeroSerie: z.string().min(1).max(100).optional(),
     tipo: z.string().min(1),
     natureza: z.string().min(1),
     causa: z.string().min(1),
@@ -69,6 +72,7 @@ export class RegistrarAvariaController {
     return this.registrarAvariaUseCase.execute({
       recebimentoId: id,
       ...body,
+      validade: body.validade ? new Date(body.validade) : undefined,
       operatorId: user?.id ?? 0,
     });
   }

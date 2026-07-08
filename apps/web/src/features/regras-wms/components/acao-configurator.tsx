@@ -1,52 +1,34 @@
 'use client';
 
 import { cn } from '@lilog/ui';
-import {
-  AlertTriangle,
-  Ban,
-  PackagePlus,
-  ShieldAlert,
-  Tag,
-  Truck,
-  Zap,
-} from 'lucide-react';
+import { Truck, Zap } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 
+import { useUnidadeContext } from '@/contexts/unidade-context';
 import {
-  fieldInputClassName,
   fieldLabelClassName,
   fieldSelectClassName,
   sectionCardClassName,
 } from '@/features/regras-wms/components/regra-wms-form-field-classes';
 import { RegraWmsSectionHeader } from '@/features/regras-wms/components/regra-wms-section-header';
+import { listDepositos, mapDepositoToListaItem } from '@/features/depositos/lib/deposito-api';
+import type { DepositoListaItem } from '@/features/depositos/types/depositos-gestao.schema';
 import {
-  PRIORIDADE_ALERTA_LABELS,
   TIPO_ACAO_LABELS,
-  ZONAS_DESTINO,
+  TIPOS_ACAO_HABILITADOS,
   type TipoAcao,
 } from '@/features/regras-wms/types/regra-wms.schema';
 import type { RegraWmsV2Form } from '@/features/regras-wms/types/regra-wms-tree.schema';
 
-const ACOES_COM_ZONA: TipoAcao[] = ['mover_deposito', 'quarentena'];
-const ACOES_COM_MENSAGEM: TipoAcao[] = [
-  'gerar_alerta',
-  'acionar_reposicao',
-  'etiqueta_especial',
-];
-const ACOES_COM_MOTIVO: TipoAcao[] = [
-  'bloquear_movimentacao',
-  'mover_deposito',
-  'quarentena',
-];
-
 const ACAO_ICONS: Record<TipoAcao, LucideIcon> = {
   mover_deposito: Truck,
-  quarentena: ShieldAlert,
-  bloquear_movimentacao: Ban,
-  gerar_alerta: AlertTriangle,
-  acionar_reposicao: PackagePlus,
-  etiqueta_especial: Tag,
+  quarentena: Truck,
+  bloquear_movimentacao: Truck,
+  gerar_alerta: Truck,
+  acionar_reposicao: Truck,
+  etiqueta_especial: Truck,
 };
 
 const ACAO_SHORT_LABELS: Record<TipoAcao, string> = {
@@ -59,14 +41,62 @@ const ACAO_SHORT_LABELS: Record<TipoAcao, string> = {
 };
 
 export function AcaoConfigurator() {
-  const { control, register, watch } = useFormContext<RegraWmsV2Form>();
+  const { control, register, setValue, watch } = useFormContext<RegraWmsV2Form>();
+  const { unidadeSelecionada } = useUnidadeContext();
+  const unidadeId = unidadeSelecionada?.id;
   const tipoAcao = watch('acao.tipo');
+  const depositoId = watch('acao.parametros.depositoId');
 
-  const hasParams =
-    ACOES_COM_ZONA.includes(tipoAcao) ||
-    tipoAcao === 'gerar_alerta' ||
-    ACOES_COM_MENSAGEM.includes(tipoAcao) ||
-    ACOES_COM_MOTIVO.includes(tipoAcao);
+  const [depositos, setDepositos] = useState<DepositoListaItem[]>([]);
+  const [isLoadingDepositos, setIsLoadingDepositos] = useState(false);
+
+  useEffect(() => {
+    if (!unidadeId) {
+      setDepositos([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadDepositos() {
+      setIsLoadingDepositos(true);
+      try {
+        const response = await listDepositos(unidadeId!);
+        if (!cancelled) {
+          setDepositos(response.items.map(mapDepositoToListaItem));
+        }
+      } catch {
+        if (!cancelled) {
+          setDepositos([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingDepositos(false);
+        }
+      }
+    }
+
+    void loadDepositos();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [unidadeId]);
+
+  useEffect(() => {
+    if (!depositoId || depositos.length === 0) {
+      return;
+    }
+
+    const deposito = depositos.find((item) => item.id === depositoId);
+    if (deposito) {
+      setValue('acao.parametros.depositoCodigo', deposito.codigo, {
+        shouldDirty: true,
+      });
+    }
+  }, [depositoId, depositos, setValue]);
+
+  const mostrarDepositoDestino = tipoAcao === 'mover_deposito';
 
   return (
     <section className={sectionCardClassName}>
@@ -77,7 +107,7 @@ export function AcaoConfigurator() {
         control={control}
         render={({ field }) => (
           <div className="flex flex-wrap gap-1">
-            {(Object.keys(TIPO_ACAO_LABELS) as TipoAcao[]).map((tipo) => {
+            {TIPOS_ACAO_HABILITADOS.map((tipo) => {
               const Icon = ACAO_ICONS[tipo];
               const selected = field.value === tipo;
               return (
@@ -102,67 +132,29 @@ export function AcaoConfigurator() {
         )}
       />
 
-      {hasParams && (
-        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {ACOES_COM_ZONA.includes(tipoAcao) && (
-            <div>
-              <label className={cn(fieldLabelClassName, 'mb-0.5')}>
-                Zona destino
-              </label>
-              <select
-                {...register('acao.parametros.zonaDestino')}
-                className={fieldSelectClassName}
-              >
-                <option value="">Selecione...</option>
-                {ZONAS_DESTINO.map((zona) => (
-                  <option key={zona} value={zona}>
-                    {zona}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {tipoAcao === 'gerar_alerta' && (
-            <div>
-              <label className={cn(fieldLabelClassName, 'mb-0.5')}>
-                Prioridade
-              </label>
-              <select
-                {...register('acao.parametros.prioridade')}
-                className={fieldSelectClassName}
-              >
-                {Object.entries(PRIORIDADE_ALERTA_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {ACOES_COM_MENSAGEM.includes(tipoAcao) && (
-            <div className="sm:col-span-2">
-              <label className={cn(fieldLabelClassName, 'mb-0.5')}>
-                Mensagem
-              </label>
-              <input
-                {...register('acao.parametros.mensagem')}
-                placeholder="Mensagem para o operador..."
-                className={fieldInputClassName}
-              />
-            </div>
-          )}
-
-          {ACOES_COM_MOTIVO.includes(tipoAcao) && (
-            <div className="sm:col-span-2">
-              <label className={cn(fieldLabelClassName, 'mb-0.5')}>Motivo</label>
-              <input
-                {...register('acao.parametros.motivo')}
-                placeholder="Motivo no histórico..."
-                className={fieldInputClassName}
-              />
-            </div>
+      {mostrarDepositoDestino && (
+        <div className="mt-2">
+          <label className={cn(fieldLabelClassName, 'mb-0.5')}>
+            Depósito destino
+          </label>
+          <select
+            {...register('acao.parametros.depositoId')}
+            className={fieldSelectClassName}
+            disabled={!unidadeId || isLoadingDepositos}
+          >
+            <option value="">
+              {isLoadingDepositos ? 'Carregando depósitos...' : 'Selecione...'}
+            </option>
+            {depositos.map((deposito) => (
+              <option key={deposito.id} value={deposito.id}>
+                {deposito.codigo} — {deposito.nome}
+              </option>
+            ))}
+          </select>
+          {!unidadeId && (
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Selecione uma unidade no contexto para listar os depósitos.
+            </p>
           )}
         </div>
       )}

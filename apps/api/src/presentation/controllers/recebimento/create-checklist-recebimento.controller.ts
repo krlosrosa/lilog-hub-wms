@@ -18,12 +18,7 @@ const CreateChecklistBodySchema = z.object({
   lacre: z.string().max(100).optional(),
   tempBau: z.number().optional(),
   tempProduto: z.number().optional(),
-  conditions: z.object({
-    limpeza: z.boolean(),
-    odor: z.boolean(),
-    estrutura: z.boolean(),
-    vedacao: z.boolean(),
-  }),
+  conditions: z.record(z.string(), z.boolean()),
   observacoes: z.string().optional(),
   photoCount: z.coerce.number().int().min(0).optional(),
 });

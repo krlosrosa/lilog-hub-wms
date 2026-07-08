@@ -372,7 +372,7 @@ export function ListaDemandaView() {
             filteredDemands.map((demand) => (
               <InventoryDemandCard
                 key={demand.id}
-                id={demand.id}
+                codigo={demand.codigo}
                 type={demand.type}
                 zone={demand.zone}
                 aisle={demand.aisle}

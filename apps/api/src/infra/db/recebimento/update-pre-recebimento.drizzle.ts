@@ -5,11 +5,13 @@ import type { PreRecebimentoWithItens } from '../../../domain/repositories/receb
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import {
   itensPreRecebimento,
+  notasFiscaisPreRecebimento,
   preRecebimentos,
 } from '../providers/drizzle/config/migrations/schema.js';
 import { findPreRecebimentoByIdDb } from './find-pre-recebimento.drizzle.js';
 import {
   toItemPreRecebimentoInsertValues,
+  toNotaFiscalPreRecebimentoInsertValues,
   toPreRecebimentoUpdateValues,
 } from './map-recebimento.drizzle.js';
 
@@ -25,6 +27,20 @@ export async function updatePreRecebimentoDb(
       .update(preRecebimentos)
       .set(updateValues)
       .where(eq(preRecebimentos.id, id));
+  }
+
+  if (data.notasFiscais) {
+    await db
+      .delete(notasFiscaisPreRecebimento)
+      .where(eq(notasFiscaisPreRecebimento.preRecebimentoId, id));
+
+    if (data.notasFiscais.length > 0) {
+      await db.insert(notasFiscaisPreRecebimento).values(
+        data.notasFiscais.map((nota) =>
+          toNotaFiscalPreRecebimentoInsertValues(id, nota),
+        ),
+      );
+    }
   }
 
   if (data.itens) {

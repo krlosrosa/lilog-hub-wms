@@ -6,6 +6,9 @@ import {
   CncOrigemSchema,
   CncResponsavelSchema,
   CncSituacaoSchema,
+  CncSubtipoOcorrenciaSchema,
+  CncTratativaStatusSchema,
+  CncTratativaTipoSchema,
 } from '../../../domain/model/cnc/cnc.model.js';
 
 export const ListCncsQuerySchema = z.object({
@@ -23,7 +26,55 @@ export const CncItemResponseSchema = z.object({
   cncId: z.uuid(),
   tipo: CncItemTipoSchema,
   referenciaId: z.uuid(),
+  produtoId: z.string().nullable(),
+  sku: z.string().nullable(),
+  descricaoProduto: z.string().nullable(),
+  subtipoOcorrencia: CncSubtipoOcorrenciaSchema.nullable(),
+  quantidadeEsperada: z.number().nullable(),
+  quantidadeRecebida: z.number().nullable(),
+  quantidadeDivergente: z.number().nullable(),
+  quantidadeCaixas: z.number().int().nullable(),
+  quantidadeUnidades: z.number().int().nullable(),
+  unidadeMedida: z.string().nullable(),
+  loteEsperado: z.string().nullable(),
+  loteRecebido: z.string().nullable(),
+  validadeEsperada: z.iso.datetime().nullable(),
+  validadeRecebida: z.iso.datetime().nullable(),
+  pesoEsperado: z.number().nullable(),
+  pesoRecebido: z.number().nullable(),
+  naturezaAvaria: z.string().nullable(),
+  causaAvaria: z.string().nullable(),
+  tipoAvaria: z.string().nullable(),
+  descricaoDetalhe: z.string().nullable(),
+  responsavelSugerido: CncResponsavelSchema.nullable(),
   createdAt: z.iso.datetime(),
+});
+
+export const CncEventoResponseSchema = z.object({
+  id: z.uuid(),
+  cncId: z.uuid(),
+  tipoEvento: z.string(),
+  situacaoAnterior: z.string().nullable(),
+  situacaoNova: z.string().nullable(),
+  descricao: z.string().nullable(),
+  metadata: z.record(z.string(), z.unknown()),
+  criadoPorUserId: z.number().int().nullable(),
+  createdAt: z.iso.datetime(),
+});
+
+export const CncTratativaResponseSchema = z.object({
+  id: z.uuid(),
+  cncId: z.uuid(),
+  tipo: CncTratativaTipoSchema,
+  descricao: z.string(),
+  responsavelTipo: CncResponsavelSchema,
+  prazo: z.iso.datetime().nullable(),
+  concluidaEm: z.iso.datetime().nullable(),
+  concluidaPorUserId: z.number().int().nullable(),
+  status: CncTratativaStatusSchema,
+  criadoPorUserId: z.number().int().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });
 
 export const CncResponseSchema = z.object({
@@ -39,12 +90,14 @@ export const CncResponseSchema = z.object({
   acaoCorretiva: z.string().nullable(),
   situacao: CncSituacaoSchema,
   solicitanteId: z.number().int(),
-  aprovadorId: z.number().int().nullable(),
-  dataAprovacao: z.iso.datetime().nullable(),
-  observacaoAprovador: z.string().nullable(),
+  analistaId: z.number().int().nullable(),
+  iniciadoEm: z.iso.datetime().nullable(),
+  encerradoEm: z.iso.datetime().nullable(),
+  encerradoPorUserId: z.number().int().nullable(),
   valorDebito: z.number().nullable(),
-  debitoConfirmado: z.boolean(),
   itens: z.array(CncItemResponseSchema).optional(),
+  tratativas: z.array(CncTratativaResponseSchema).optional(),
+  eventos: z.array(CncEventoResponseSchema).optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -59,3 +112,42 @@ export const ListCncsResponseSchema = z.object({
 });
 
 export class ListCncsResponseDto extends createZodDto(ListCncsResponseSchema) {}
+
+export const AdicionarTratativaCncBodySchema = z.object({
+  tipo: CncTratativaTipoSchema,
+  descricao: z.string().min(1),
+  responsavelTipo: CncResponsavelSchema,
+  prazo: z.iso.datetime().nullable().optional(),
+});
+
+export class AdicionarTratativaCncBodyDto extends createZodDto(
+  AdicionarTratativaCncBodySchema,
+) {}
+
+export const EncerrarCncBodySchema = z.object({
+  responsavel: CncResponsavelSchema.optional(),
+  responsavelId: z.string().min(1).max(50).nullable().optional(),
+  valorDebito: z.number().nonnegative().nullable().optional(),
+  acaoImediata: z.string().nullable().optional(),
+  acaoCorretiva: z.string().nullable().optional(),
+});
+
+export class EncerrarCncBodyDto extends createZodDto(EncerrarCncBodySchema) {}
+
+export const CancelarCncBodySchema = z.object({
+  observacao: z.string().min(1),
+});
+
+export class CancelarCncBodyDto extends createZodDto(CancelarCncBodySchema) {}
+
+export class CncTratativaResponseDto extends createZodDto(
+  CncTratativaResponseSchema,
+) {}
+
+export const ListCncTratativasResponseSchema = z.object({
+  items: z.array(CncTratativaResponseSchema),
+});
+
+export class ListCncTratativasResponseDto extends createZodDto(
+  ListCncTratativasResponseSchema,
+) {}

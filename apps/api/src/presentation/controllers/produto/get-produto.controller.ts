@@ -14,13 +14,13 @@ import {
 export class GetProdutoController {
   constructor(private readonly getProdutoUseCase: GetProdutoUseCase) {}
 
-  @Get(':id')
+  @Get(':produtoId')
   @ApiOperation({
     summary: 'Get produto by id',
     operationId: 'getProduto',
   })
   @ApiSuccessResponse(ProdutoResponseDto)
-  handle(@Param('id') id: string) {
-    return this.getProdutoUseCase.execute(id);
+  handle(@Param('produtoId') produtoId: string) {
+    return this.getProdutoUseCase.execute(produtoId);
   }
 }

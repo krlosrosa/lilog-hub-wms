@@ -5,6 +5,7 @@ import type {
   RemessaInput,
   RemessaItemInput,
 } from '../../../domain/repositories/expedicao/upload-lote.repository.js';
+import { parseCodigoCelula, parseLote } from './parse-codigo-celula.js';
 
 type ColumnKey =
   | 'numeroTransporte'
@@ -44,7 +45,16 @@ const COLUMN_ALIASES: Record<ColumnKey, string[]> = {
   peso: ['peso bruto', 'peso', 'peso liquido', 'peso líquido', 'peso_kg'],
   volume: ['volume', 'vol', 'volume m3', 'volume_m3'],
   sku: ['cod. item', 'cód. item', 'sku', 'cod sku', 'cod_sku', 'codigo sku'],
-  lote: ['lote', 'numero lote', 'no lote'],
+  lote: [
+    'lote',
+    'numero lote',
+    'no lote',
+    'n lote',
+    'nº lote',
+    'cod lote',
+    'cod. lote',
+    'codigo lote',
+  ],
   dataFabricacao: ['dt.fabricacao', 'dt fabricacao', 'data fabricacao', 'data_fabricacao', 'fabricacao'],
   quantidade: [
     'total(unid.vda.)',
@@ -114,7 +124,37 @@ function resolveColumnMap(headers: unknown[]): Partial<Record<ColumnKey, number>
     }
   }
 
+  if (map.lote === undefined) {
+    const index = headers.findIndex((header) => {
+      const normalized = normalizeHeader(header);
+      return normalized.includes('lote') && !normalized.includes('fabric');
+    });
+
+    if (index >= 0) {
+      map.lote = index;
+    }
+  }
+
   return map;
+}
+
+function getCellRawValue(
+  sheet: XLSX.WorkSheet,
+  rowIndex: number,
+  colIndex: number | undefined,
+): unknown {
+  if (colIndex === undefined) {
+    return undefined;
+  }
+
+  const address = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+  const cell = sheet[address];
+
+  if (!cell) {
+    return undefined;
+  }
+
+  return cell.v;
 }
 
 function parseNumber(value: unknown): number | null {
@@ -135,11 +175,6 @@ function parseNumber(value: unknown): number | null {
 
 function parseText(value: unknown): string {
   return String(value ?? '').trim();
-}
-
-function parseOptionalText(value: unknown): string | null {
-  const text = parseText(value);
-  return text.length > 0 ? text : null;
 }
 
 function parseDate(value: unknown): string | null {
@@ -175,6 +210,8 @@ function buildAggregationKey(
 }
 
 function buildItemFromRow(
+  sheet: XLSX.WorkSheet,
+  rowIndex: number,
   row: unknown[],
   columnMap: Partial<Record<ColumnKey, number>>,
   pesoLinha: number,
@@ -189,12 +226,17 @@ function buildItemFromRow(
     return null;
   }
 
-  const sku = parseText(row[columnMap.sku]);
+  const sku = parseCodigoCelula(
+    getCellRawValue(sheet, rowIndex, columnMap.sku) ?? row[columnMap.sku],
+  );
   const quantidade = parseNumber(row[columnMap.quantidade]);
   const unidadeMedida = parseText(row[columnMap.unidadeMedida]).toUpperCase();
   const lote =
     columnMap.lote !== undefined
-      ? parseOptionalText(row[columnMap.lote])
+      ? parseLote(
+          getCellRawValue(sheet, rowIndex, columnMap.lote) ??
+            row[columnMap.lote],
+        )
       : null;
 
   const dataFabricacao =
@@ -325,7 +367,15 @@ export function parseRemessasXlsx(buffer: Buffer): RemessaInput[] {
       continue;
     }
 
-    const item = buildItemFromRow(row, columnMap, peso, lineNumber, errors);
+    const item = buildItemFromRow(
+      sheet,
+      index,
+      row,
+      columnMap,
+      peso,
+      lineNumber,
+      errors,
+    );
 
     if (!item) {
       continue;

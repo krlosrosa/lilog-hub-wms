@@ -6,11 +6,11 @@
  * Current schemas:
  *   audit       → cross-cutting audit trail
  *   auth        → users & funcionarios
- *   master_data → unidades, centros, produtos, endereços & produto_enderecos
+ *   master_data → unidades, centros & produtos
  *   armazenagem → unitizadores, demandas & políticas de armazenagem
  *   doca        → docas & operações de doca
  *   recebimento → pré-recebimento, recebimento & conferência
- *   estoque     → movimentações, inventários & contagens
+ *   estoque     → endereços, produto_enderecos, movimentações, inventários & contagens
  *   documento   → documentos fiscais
  *   cnc         → cadastro de não conformidade
  *   expedicao   → upload de remessas, transportes e expedição
@@ -19,6 +19,8 @@
  *   operacional     → configurações operacionais genéricas
  *   op_wms          → demandas de separação e gestão de recursos
  *   corte_operacional → solicitações e realização de cortes operacionais
+ *   devolucao       → demandas de devolução, notas fiscais e itens
+ *   cobranca_transportadora → processos de débito e documentos de cobrança
  *
  * To add a new domain schema:
  *   1. Create config/schemas/[name].schema.ts
@@ -42,3 +44,5 @@ export * from './sessao-operacao.schema.js';
 export * from './operacional.schema.js';
 export * from './op-wms.schema.js';
 export * from './corte-operacional.schema.js';
+export * from './devolucao.schema.js';
+export * from './cobranca-transportadora.schema.js';

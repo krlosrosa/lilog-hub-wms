@@ -35,9 +35,9 @@ export const cortes = corteOperacionalPgSchema.table(
     mapaGrupoId: uuid('mapa_grupo_id')
       .notNull()
       .references(() => mapaGrupos.id, { onDelete: 'restrict' }),
-    transporteId: uuid('transporte_id')
+    transporteId: varchar('transporte_id', { length: 100 })
       .notNull()
-      .references(() => transportes.id, { onDelete: 'restrict' }),
+      .references(() => transportes.numeroTransporte, { onDelete: 'cascade' }),
     mapaGrupoMicroUuid: varchar('mapa_grupo_micro_uuid', { length: 120 }).notNull(),
     rota: varchar('rota', { length: 100 }).notNull(),
     doca: varchar('doca', { length: 50 }),

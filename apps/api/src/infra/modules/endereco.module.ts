@@ -14,7 +14,9 @@ import {
 import { StartEnderecoInventoryUseCase } from '../../application/usecases/endereco/start-endereco-inventory.usecase.js';
 import { UnblockEnderecoUseCase } from '../../application/usecases/endereco/unblock-endereco.usecase.js';
 import { UpdateEnderecoUseCase } from '../../application/usecases/endereco/update-endereco.usecase.js';
+import { ImportEnderecosUseCase } from '../../application/usecases/endereco/import-enderecos.usecase.js';
 import { ENDERECO_REPOSITORY } from '../../domain/repositories/endereco/endereco.repository.js';
+import { ImportEnderecosController } from '../../presentation/controllers/endereco/import-enderecos.controller.js';
 import { BlockEnderecoController } from '../../presentation/controllers/endereco/block-endereco.controller.js';
 import { CreateEnderecoController } from '../../presentation/controllers/endereco/create-endereco.controller.js';
 import { DeleteEnderecoController } from '../../presentation/controllers/endereco/delete-endereco.controller.js';
@@ -22,6 +24,7 @@ import { FinishEnderecoInventoryController } from '../../presentation/controller
 import { GetEnderecoController } from '../../presentation/controllers/endereco/get-endereco.controller.js';
 import { InactivateEnderecoController } from '../../presentation/controllers/endereco/inactivate-endereco.controller.js';
 import { ListEnderecoZonasController } from '../../presentation/controllers/endereco/list-endereco-zonas.controller.js';
+import { ListEnderecoRuasController } from '../../presentation/controllers/endereco/list-endereco-ruas.controller.js';
 import { ListEnderecosController } from '../../presentation/controllers/endereco/list-enderecos.controller.js';
 import { StartEnderecoInventoryController } from '../../presentation/controllers/endereco/start-endereco-inventory.controller.js';
 import { UnblockEnderecoController } from '../../presentation/controllers/endereco/unblock-endereco.controller.js';
@@ -30,11 +33,13 @@ import { PermissionsGuard } from '../../shared/guards/permissions.guard.js';
 import { EnderecoService } from '../db/endereco/endereco.service.js';
 import { AuditLogModule } from './audit-log.module.js';
 import { AuthModule } from './auth.module.js';
+import { UnidadeModule } from './unidade.module.js';
 
 @Module({
-  imports: [AuthModule, AuditLogModule],
+  imports: [AuthModule, AuditLogModule, UnidadeModule],
   controllers: [
     ListEnderecoZonasController,
+    ListEnderecoRuasController,
     ListEnderecosController,
     GetEnderecoController,
     CreateEnderecoController,
@@ -45,6 +50,7 @@ import { AuthModule } from './auth.module.js';
     InactivateEnderecoController,
     StartEnderecoInventoryController,
     FinishEnderecoInventoryController,
+    ImportEnderecosController,
   ],
   providers: [
     ListEnderecosUseCase,
@@ -58,6 +64,7 @@ import { AuthModule } from './auth.module.js';
     InactivateEnderecoUseCase,
     StartEnderecoInventoryUseCase,
     FinishEnderecoInventoryUseCase,
+    ImportEnderecosUseCase,
     EnderecoEventPublisher,
     PermissionsGuard,
     {

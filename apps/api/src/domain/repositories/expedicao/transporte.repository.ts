@@ -42,6 +42,7 @@ export type SalvarAlocacaoTransporteInput = {
   cidade?: string;
   bairro?: string | null;
   isPrioridade?: boolean;
+  custoPrevisto?: number | null;
 };
 
 export type SalvarAlocacoesTransportesInput = {
@@ -152,6 +153,10 @@ export interface ITransporteRepository {
     transporteId: string,
     unidadeId: string,
   ): Promise<TransporteViagemRavexRecord | null>;
+  findTransporteIdByViagemId(
+    viagemId: number,
+    unidadeId: string,
+  ): Promise<string | null>;
   atualizarViagemRavex(input: AtualizarViagemRavexInput): Promise<void>;
   atualizarDadosCarregamento(
     input: AtualizarDadosCarregamentoTransporteInput,

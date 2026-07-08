@@ -1,5 +1,5 @@
 import { Button, cn } from '@lilog/ui';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -28,9 +28,17 @@ import { ArmazenagemItemList } from '../components/armazenagem-item-list';
 import { useArmazenagemConclusao } from '../hooks/use-armazenagem-conclusao';
 import { useArmazenagemDetalhe } from '../hooks/use-armazenagem-detalhe';
 import { useConfirmarItem } from '../hooks/use-confirmar-item';
+import { useConfirmarTarefa } from '../hooks/use-confirmar-tarefa';
 import { useArmazenagem } from '../hooks/use-armazenagem';
-import { resolveEnderecoPorLabel } from '../lib/armazenagem-api';
-import { mapItemArmazenagemToView } from '../lib/map-item-armazenagem';
+import {
+  findTarefaByUnitizadorCodigo,
+  iniciarTarefaArmazenagem,
+  resolveEnderecoPorLabel,
+} from '../lib/armazenagem-api';
+import {
+  mapDemandaToArmazenagemItens,
+  type ArmazenagemScanMode,
+} from '../lib/map-tarefa-armazenagem';
 import {
   computeArmazenagemStatus,
   formatQuantidadeComparacao,
@@ -41,7 +49,47 @@ import type { ArmazenagemForm, ArmazenagemItem, ArmazenagemItemStatus } from '..
 
 interface ArmazenagemViewProps {
   demandaId: string;
+  scanMode?: ArmazenagemScanMode;
+  listaPath?: string;
+  detalhePath?: string;
+  scanEntryFlow?: boolean;
+  initialTarefaId?: string;
+  prefilledEtiqueta?: string;
 }
+
+const SCAN_MODE_COPY = {
+  produto: {
+    stepLabel: 'Produto',
+    fieldLabel: 'Código do produto / barcode',
+    fieldPlaceholder: 'Escaneie ou digite o código...',
+    expectedLabel: 'Produto designado',
+    scannerTitle: 'Escanear código do produto',
+    divergenteMsg:
+      'Produto não confere com o solicitado. Verifique e escaneie novamente.',
+    confirmButton: 'Confirmar produto',
+  },
+  etiqueta: {
+    stepLabel: 'Etiqueta',
+    fieldLabel: 'Etiqueta palete / QR',
+    fieldPlaceholder: 'Bipe a etiqueta do palete...',
+    expectedLabel: 'Palete designado',
+    scannerTitle: 'Escanear etiqueta do palete',
+    divergenteMsg:
+      'Etiqueta não confere com o palete solicitado. Verifique e escaneie novamente.',
+    confirmButton: 'Confirmar palete',
+  },
+} as const satisfies Record<
+  ArmazenagemScanMode,
+  {
+    stepLabel: string;
+    fieldLabel: string;
+    fieldPlaceholder: string;
+    expectedLabel: string;
+    scannerTitle: string;
+    divergenteMsg: string;
+    confirmButton: string;
+  }
+>;
 
 type ScanTarget = 'codigoProduto' | 'enderecoPicking';
 
@@ -58,12 +106,15 @@ function produtosConferem(informado: string, esperado: string): boolean {
   return a.length > 0 && b.length > 0 && a === b;
 }
 
-const PRODUTO_DIVERGENTE_MSG =
-  'Produto não confere com o solicitado. Verifique e escaneie novamente.';
-
-function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 }) {
+function StepIndicator({
+  currentStep,
+  firstStepLabel,
+}: {
+  currentStep: 1 | 2 | 3;
+  firstStepLabel: string;
+}) {
   const steps = [
-    { n: 1, label: 'Produto' },
+    { n: 1, label: firstStepLabel },
     { n: 2, label: 'Endereço' },
     { n: 3, label: 'Qtd' },
   ] as const;
@@ -273,9 +324,11 @@ function ArmazenagemToastPortal({
 function ArmazenagemStep1Dock({
   canConfirm,
   onConfirmarProduto,
+  confirmLabel,
 }: {
   canConfirm: boolean;
   onConfirmarProduto: () => void;
+  confirmLabel: string;
 }) {
   const [mounted, setMounted] = useState(false);
 
@@ -303,7 +356,7 @@ function ArmazenagemStep1Dock({
           )}
         >
           <Package className="h-5 w-5" aria-hidden />
-          Confirmar produto
+          {confirmLabel}
         </Button>
       </div>
     </div>,
@@ -477,10 +530,25 @@ function ProgressCard({
   );
 }
 
-export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
+export function ArmazenagemView({
+  demandaId,
+  scanMode = 'produto',
+  listaPath = '/movimentacao/armazenagem',
+  detalhePath = '/movimentacao/armazenagem/$id',
+  scanEntryFlow = false,
+  initialTarefaId,
+  prefilledEtiqueta,
+}: ArmazenagemViewProps) {
+  const copy = SCAN_MODE_COPY[scanMode];
+  const navigate = useNavigate();
   const { demanda, isLoading, iniciar, concluir, refresh } =
     useArmazenagemDetalhe(demandaId);
-  const { confirmar, isPending: isConfirmando } = useConfirmarItem(demandaId);
+  const { confirmar, isPending: isConfirmandoItem } = useConfirmarItem(demandaId);
+  const { confirmar: confirmarTarefa, isPending: isConfirmandoTarefa } =
+    useConfirmarTarefa(demandaId);
+
+  const isConfirmando = isConfirmandoItem || isConfirmandoTarefa;
+  const usesTarefas = (demanda?.tarefas?.length ?? 0) > 0;
 
   const [itens, setItens] = useState<ArmazenagemItem[]>([]);
   const [flowStep, setFlowStep] = useState<1 | 2 | 3>(1);
@@ -500,31 +568,69 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
     autoRedirectSeconds,
     irParaDestino,
     irParaLista,
-  } = useArmazenagemConclusao(demandaId, conclusaoAtiva);
+  } = useArmazenagemConclusao(demandaId, conclusaoAtiva, {
+    listaPath,
+    detalhePath,
+    scanEntryFlow,
+  });
 
   const politica = demanda?.politica;
 
   const iniciarDemandaRef = useRef(false);
+  const etiquetaValidadaRef = useRef(false);
 
   useEffect(() => {
     setConclusaoAtiva(false);
     iniciarDemandaRef.current = false;
+    etiquetaValidadaRef.current = false;
   }, [demandaId]);
 
   useEffect(() => {
     if (!demanda) return;
-    const mapped = demanda.itens.map((item, index) =>
-      mapItemArmazenagemToView(item, index + 1),
+    const mapped = mapDemandaToArmazenagemItens(
+      demanda.tarefas,
+      demanda.itens,
+      scanMode,
     );
     setItens(mapped);
-    setItemIndex(findInitialItemIndex(mapped));
-    if (demanda.status === 'aguardando_inicio' && !iniciarDemandaRef.current) {
-      iniciarDemandaRef.current = true;
-      void iniciar().catch(() => {
-        iniciarDemandaRef.current = false;
-      });
+
+    let nextIndex = findInitialItemIndex(mapped);
+    if (initialTarefaId) {
+      const matchedIndex = mapped.findIndex((item) => item.id === initialTarefaId);
+      if (matchedIndex >= 0) nextIndex = matchedIndex;
     }
-  }, [demanda, iniciar]);
+    setItemIndex(nextIndex);
+
+    if (scanEntryFlow && initialTarefaId) {
+      setFlowStep(2);
+    } else {
+      setFlowStep(1);
+    }
+
+    if (!iniciarDemandaRef.current) {
+      const shouldStart =
+        Boolean(initialTarefaId) || demanda.status === 'aguardando_inicio';
+
+      if (shouldStart) {
+        iniciarDemandaRef.current = true;
+        const startPromise = initialTarefaId
+          ? iniciarTarefaArmazenagem(demandaId, initialTarefaId).then(() => refresh())
+          : iniciar();
+
+        void startPromise.catch(() => {
+          iniciarDemandaRef.current = false;
+        });
+      }
+    }
+  }, [
+    demanda,
+    demandaId,
+    initialTarefaId,
+    iniciar,
+    refresh,
+    scanEntryFlow,
+    scanMode,
+  ]);
 
   const activeItem = itens[itemIndex];
   const activeCodigo = activeItem?.codigoProduto ?? '';
@@ -546,14 +652,21 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
         motivoDivergencia: motivoDivergencia || undefined,
       };
 
-      if (
-        demanda.modoUnitizacao === 'gerar_etiqueta_na_armazenagem' &&
-        !apiItem?.unitizadorId
-      ) {
-        payload.unitizadorCodigo = `PAL-${activeItem.id.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
-      }
+      if (usesTarefas) {
+        const tarefa = demanda.tarefas?.find((entry) => entry.id === activeItem.id);
+        payload.unitizadorCodigo =
+          tarefa?.unitizadorCodigo ?? activeItem.codigoProduto;
+        await confirmarTarefa(activeItem.id, payload);
+      } else {
+        if (
+          demanda.modoUnitizacao === 'gerar_etiqueta_na_armazenagem' &&
+          !apiItem?.unitizadorId
+        ) {
+          payload.unitizadorCodigo = `PAL-${activeItem.id.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
+        }
 
-      await confirmar(activeItem.id, payload);
+        await confirmar(activeItem.id, payload);
+      }
       setMotivoDivergencia('');
 
       const caixas = Number(data.quantidadeCaixas) || 0;
@@ -583,6 +696,12 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
       );
 
       if (nextIndex >= 0) {
+        if (scanEntryFlow) {
+          await refresh();
+          void navigate({ to: listaPath });
+          return;
+        }
+
         const withNext = updated.map((item, i) =>
           i === nextIndex && item.status === 'pendente'
             ? { ...item, status: 'em_andamento' as ArmazenagemItemStatus }
@@ -603,12 +722,17 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
     [
       activeItem,
       confirmar,
+      confirmarTarefa,
       demanda,
       itemIndex,
       itens,
       motivoDivergencia,
       concluir,
       refresh,
+      scanEntryFlow,
+      usesTarefas,
+      navigate,
+      listaPath,
     ],
   );
 
@@ -643,10 +767,21 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
   }
 
   useEffect(() => {
+    if (!prefilledEtiqueta || etiquetaValidadaRef.current || !activeItem) return;
+    if (initialTarefaId && activeItem.id !== initialTarefaId) return;
+
+    setValue('codigoProduto', prefilledEtiqueta, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    etiquetaValidadaRef.current = true;
+  }, [activeItem, initialTarefaId, prefilledEtiqueta, setValue]);
+
+  useEffect(() => {
     if (showItemList) return;
 
     const fieldName =
-      flowStep === 1
+      flowStep === 1 && !scanEntryFlow
         ? 'codigoProduto'
         : flowStep === 2
           ? 'enderecoPicking'
@@ -659,7 +794,7 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
     }, 80);
 
     return () => window.clearTimeout(timer);
-  }, [flowStep, showItemList, setFocus]);
+  }, [flowStep, scanEntryFlow, showItemList, setFocus]);
 
   const codigo = watch('codigoProduto');
   const endereco = watch('enderecoPicking');
@@ -721,7 +856,7 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
 
   const canConfirmStep1 = codigoConfere;
   const codigoStepError = codigoDivergente
-    ? PRODUTO_DIVERGENTE_MSG
+    ? copy.divergenteMsg
     : formState.errors.codigoProduto?.message;
   const permiteEnderecoDivergente =
     politica?.enderecoDivergente !== 'bloquear' && Boolean(enderecoInformado);
@@ -737,6 +872,22 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
 
   function handleScan(value: string) {
     if (!scanTarget) return;
+
+    if (scanTarget === 'codigoProduto' && scanMode === 'etiqueta' && demanda) {
+      const tarefa = findTarefaByUnitizadorCodigo(demanda, value);
+      if (tarefa) {
+        const index = itens.findIndex((item) => item.id === tarefa.id);
+        if (index >= 0) {
+          setItemIndex(index);
+          setFlowStep(1);
+          resetFormForNewItem(itens[index]);
+          setValue('codigoProduto', value, { shouldValidate: true, shouldDirty: true });
+          setScanTarget(null);
+          return;
+        }
+      }
+    }
+
     setValue(scanTarget, value, { shouldValidate: true, shouldDirty: true });
     setScanTarget(null);
   }
@@ -777,7 +928,12 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
     let resolvedId = activeItem.enderecoSugeridoId;
 
     if (!resolvedId) {
-      resolvedId = await resolveEnderecoPorLabel(demandaId, activeItem.id, label);
+      resolvedId = await resolveEnderecoPorLabel(
+        demandaId,
+        activeItem.id,
+        label,
+        usesTarefas ? 'tarefa' : 'item',
+      );
     }
 
     if (!resolvedId) {
@@ -787,6 +943,20 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
 
     setEnderecoConfirmadoId(resolvedId);
     setMotivoDivergencia('');
+
+    if (usesTarefas) {
+      await advanceAfterItem(
+        {
+          codigoProduto: activeItem.codigoProduto,
+          enderecoPicking: enderecoInformado || activeEnderecoPicking,
+          quantidadeCaixas: activeItem.quantidadeSolicitadaCaixas,
+          quantidadeUnidades: activeItem.quantidadeSolicitadaUnidades,
+        },
+        resolvedId,
+      );
+      return;
+    }
+
     setValue('quantidadeCaixas', activeItem.quantidadeSolicitadaCaixas);
     setValue('quantidadeUnidades', activeItem.quantidadeSolicitadaUnidades);
     setFlowStep(3);
@@ -802,6 +972,7 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
       demandaId,
       activeItem.id,
       pendingEnderecoLabel,
+      usesTarefas ? 'tarefa' : 'item',
     );
 
     if (!resolvedId) {
@@ -856,7 +1027,7 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
           Demanda não encontrada
         </p>
         <Link
-          to="/estoque/armazenagem"
+          to={listaPath}
           className="text-body-sm text-secondary"
         >
           Voltar à lista
@@ -870,7 +1041,7 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
       <div className="sticky top-0 z-30 border-b border-outline-variant/60 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
         <div className="flex h-14 items-center gap-3 px-margin-mobile">
           <Link
-            to="/estoque/armazenagem"
+            to={listaPath}
             aria-label="Voltar"
             onPointerDown={() => hapticLight()}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant touch-manipulation"
@@ -906,7 +1077,9 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
             )}
           </button>
         </div>
-        {!showItemList && <StepIndicator currentStep={flowStep} />}
+        {!showItemList && (
+          <StepIndicator currentStep={flowStep} firstStepLabel={copy.stepLabel} />
+        )}
       </div>
 
       <div
@@ -943,13 +1116,13 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
             activeCodigoProduto={codigoAtivo}
             onSelectItem={handleSelectItem}
           />
-        ) : flowStep === 1 ? (
+        ) : flowStep === 1 && !scanEntryFlow ? (
           <>
             <article className="rounded-lg border border-secondary/40 bg-surface p-4 shadow-sm ring-1 ring-secondary/15">
               <ScanField
                 id="codigoProduto"
-                label="Código do produto / barcode"
-                placeholder="Escaneie ou digite o código..."
+                label={copy.fieldLabel}
+                placeholder={copy.fieldPlaceholder}
                 registerProps={register('codigoProduto')}
                 isValid={isCodigoValid}
                 hasMismatch={codigoDivergente}
@@ -967,7 +1140,7 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
               </div>
               <div className="min-w-0 flex-1 space-y-0.5">
                 <p className="text-label-sm font-medium uppercase tracking-wider text-on-surface-variant">
-                  Produto designado
+                  {copy.expectedLabel}
                 </p>
                 <p className="truncate font-mono text-headline-md font-bold text-primary">
                   {activeCodigo}
@@ -1000,7 +1173,7 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-label-sm uppercase tracking-wider text-on-surface-variant">
-                  Produto confirmado
+                  {scanEntryFlow ? copy.expectedLabel : 'Produto confirmado'}
                 </p>
                 <p className="font-mono text-headline-md font-bold text-primary">
                   {codigoAtivo}
@@ -1119,10 +1292,11 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
         )}
       </div>
 
-      {!showItemList && flowStep === 1 && (
+      {!showItemList && flowStep === 1 && !scanEntryFlow && (
         <ArmazenagemStep1Dock
           canConfirm={canConfirmStep1}
           onConfirmarProduto={handleConfirmarProdutoStep}
+          confirmLabel={copy.confirmButton}
         />
       )}
 
@@ -1190,7 +1364,7 @@ export function ArmazenagemView({ demandaId }: ArmazenagemViewProps) {
         }}
         title={
           scanTarget === 'codigoProduto'
-            ? 'Escanear código do produto'
+            ? copy.scannerTitle
             : 'Escanear endereço de picking'
         }
         onScan={handleScan}

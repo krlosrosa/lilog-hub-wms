@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ChevronDown } from 'lucide-react';
 
@@ -18,7 +18,15 @@ export type SidebarNavSubgroupProps = {
 export function SidebarNavSubgroup({ subgroup }: SidebarNavSubgroupProps) {
   const pathname = usePathname();
   const routeActive = isNavSubgroupActive(pathname, subgroup);
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(
+    () => routeActive || subgroup.defaultOpen === true,
+  );
+
+  useEffect(() => {
+    if (routeActive) {
+      setIsOpen(true);
+    }
+  }, [routeActive]);
 
   const SubgroupIcon = subgroup.icon;
 

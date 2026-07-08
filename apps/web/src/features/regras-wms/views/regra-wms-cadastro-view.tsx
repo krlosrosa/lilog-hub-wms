@@ -32,6 +32,7 @@ import { RegraWmsSectionHeader } from '@/features/regras-wms/components/regra-wm
 import { useRegraWmsForm } from '@/features/regras-wms/hooks/use-regra-wms-form';
 import {
   GATILHO_LABELS,
+  GATILHOS_HABILITADOS,
   type GatilhoRegra,
 } from '@/features/regras-wms/types/regra-wms.schema';
 import type { RegraWmsV2Form } from '@/features/regras-wms/types/regra-wms-tree.schema';
@@ -40,12 +41,18 @@ const GATILHO_OPTIONS: {
   value: GatilhoRegra;
   label: string;
   icon: LucideIcon;
-}[] = [
-  { value: 'recebimento', label: GATILHO_LABELS.recebimento, icon: Truck },
-  { value: 'movimentacao', label: GATILHO_LABELS.movimentacao, icon: ArrowLeftRight },
-  { value: 'saida', label: GATILHO_LABELS.saida, icon: Package },
-  { value: 'inventario', label: GATILHO_LABELS.inventario, icon: ClipboardList },
-];
+}[] = GATILHOS_HABILITADOS.map((value) => ({
+  value,
+  label: GATILHO_LABELS[value],
+  icon:
+    value === 'recebimento'
+      ? Truck
+      : value === 'movimentacao'
+        ? ArrowLeftRight
+        : value === 'saida'
+          ? Package
+          : ClipboardList,
+}));
 
 function SecaoIdentificacao() {
   const {
@@ -206,15 +213,25 @@ function SecaoIdentificacao() {
 export function RegraWmsCadastroView({ regraId }: { regraId?: string }) {
   const {
     form,
+    isLoading,
     isSubmitting,
     isEditing,
     notFound,
-    existingRegra,
     onSubmit,
     cancelar,
   } = useRegraWmsForm({ regraId });
 
   const nomeAtual = form.watch('nome');
+
+  if (isLoading) {
+    return (
+      <SidebarMain>
+        <main className="flex flex-1 items-center justify-center px-margin-mobile py-8 md:px-margin-desktop">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        </main>
+      </SidebarMain>
+    );
+  }
 
   if (notFound) {
     return (
@@ -326,7 +343,7 @@ export function RegraWmsCadastroView({ regraId }: { regraId?: string }) {
                 </p>
               </div>
 
-              <RegraWmsPreviewPanel existingRegra={existingRegra} />
+              <RegraWmsPreviewPanel />
             </form>
           </FormProvider>
         </div>

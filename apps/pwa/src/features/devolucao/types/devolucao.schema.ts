@@ -30,12 +30,25 @@ export const demandSchema = z.object({
 
 export type Demand = z.infer<typeof demandSchema>;
 
-export const checklistConditionsSchema = z.object({
-  limpeza: z.boolean(),
-  odor: z.boolean(),
-  estrutura: z.boolean(),
-  vedacao: z.boolean(),
-});
+export const checklistConditionsSchema = z.record(z.string(), z.boolean());
+
+export type CondicaoChecklistItem = {
+  id: string;
+  label: string;
+};
+
+export const DEFAULT_CONDICOES_CHECKLIST: CondicaoChecklistItem[] = [
+  { id: 'limpeza', label: 'Limpeza Interna' },
+  { id: 'odor', label: 'Ausência de Odor' },
+  { id: 'estrutura', label: 'Integridade Estrutural' },
+  { id: 'vedacao', label: 'Vedação das Portas' },
+];
+
+export function buildDefaultChecklistConditions(
+  condicoesChecklist: CondicaoChecklistItem[],
+): Record<string, boolean> {
+  return Object.fromEntries(condicoesChecklist.map((item) => [item.id, false]));
+}
 
 const paletesRecebidosField = z
   .string()
@@ -62,28 +75,120 @@ const numericField = (message: string) =>
     .min(1, message)
     .refine((v) => !Number.isNaN(Number(v)) && Number(v) >= 0, 'Valor inválido');
 
+const optionalNumericField = z
+  .string()
+  .optional()
+  .refine(
+    (v) => v === undefined || v === '' || (!Number.isNaN(Number(v)) && Number(v) >= 0),
+    'Valor inválido',
+  );
+
 const pesoField = z
   .string()
   .min(1, 'Informe o peso')
   .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, 'Peso inválido');
 
-export const detalheItemSchema = z.object({
-  recebidaCaixa: numericField('Informe a recebida caixa'),
-  recebidaUnidade: numericField('Informe a recebida unidade'),
-  peso: pesoField,
-  lote: z.string().min(1, 'Informe o lote'),
-  idPalete: z.string().optional(),
-});
+const optionalPesoField = z
+  .string()
+  .optional()
+  .refine(
+    (v) =>
+      v === undefined ||
+      v === '' ||
+      (!Number.isNaN(Number(v)) && Number(v) > 0),
+    'Peso inválido',
+  );
 
-export type DetalheItemForm = z.infer<typeof detalheItemSchema>;
+export const quantidadeModoSchema = z.enum(['caixa', 'unidade', 'ambos']);
+export type QuantidadeModo = z.infer<typeof quantidadeModoSchema>;
+
+export const loteModoSchema = z.enum(['lote', 'fabricacao', 'ambos']);
+export type LoteModo = z.infer<typeof loteModoSchema>;
+
+export const DEFAULT_PARAMETROS_DEVOLUCAO_CONFERENCIA = {
+  quantidadeModo: 'ambos',
+  loteModo: 'lote',
+  controlaPalete: false,
+  condicoesChecklist: DEFAULT_CONDICOES_CHECKLIST,
+} as const satisfies {
+  quantidadeModo: QuantidadeModo;
+  loteModo: LoteModo;
+  controlaPalete: boolean;
+  condicoesChecklist: CondicaoChecklistItem[];
+};
+
+export type ParametrosDevolucaoConferencia = {
+  quantidadeModo: QuantidadeModo;
+  loteModo: LoteModo;
+  controlaPalete: boolean;
+  condicoesChecklist: CondicaoChecklistItem[];
+};
+
+type BuildDetalheItemSchemaOptions = {
+  pesoVariavel: boolean;
+  quantidadeModo: QuantidadeModo;
+  loteModo: LoteModo;
+  controlaPalete: boolean;
+};
+
+export function buildDetalheItemSchema({
+  pesoVariavel,
+  quantidadeModo,
+  loteModo,
+  controlaPalete,
+}: BuildDetalheItemSchemaOptions) {
+  const caixaField =
+    quantidadeModo === 'unidade'
+      ? optionalNumericField
+      : numericField('Informe a recebida caixa');
+
+  const unidadeField =
+    quantidadeModo === 'caixa'
+      ? optionalNumericField
+      : numericField('Informe a recebida unidade');
+
+  const loteField =
+    loteModo === 'fabricacao'
+      ? z.string().optional()
+      : z.string().min(1, 'Informe o lote');
+
+  const dataFabricacaoField =
+    loteModo === 'lote'
+      ? z.string().optional()
+      : z.string().min(1, 'Informe a data de fabricação');
+
+  const idPaleteField = controlaPalete
+    ? z.string().min(1, 'Informe o ID do palete / WMS')
+    : z.string().optional();
+
+  return z.object({
+    recebidaCaixa: caixaField,
+    recebidaUnidade: unidadeField,
+    peso: pesoVariavel ? pesoField : optionalPesoField,
+    lote: loteField,
+    dataFabricacao: dataFabricacaoField,
+    idPalete: idPaleteField,
+  });
+}
+
+export type DetalheItemForm = z.infer<ReturnType<typeof buildDetalheItemSchema>>;
+
+/** @deprecated Use buildDetalheItemSchema() */
+export const detalheItemSchema = buildDetalheItemSchema({
+  pesoVariavel: true,
+  quantidadeModo: 'ambos',
+  loteModo: 'lote',
+  controlaPalete: false,
+});
 
 export const loteConferidoSchema = z.object({
   id: z.string(),
   lote: z.string(),
+  dataFabricacao: z.string().optional(),
   idPalete: z.string(),
   recebidaCaixa: z.number(),
   recebidaUnidade: z.number(),
-  peso: z.number(),
+  peso: z.number().optional(),
 });
 
 export type LoteConferido = z.infer<typeof loteConferidoSchema>;
@@ -121,24 +226,45 @@ const avariaQuantidadeInt = z.coerce
   .int('Use um número inteiro')
   .min(0, 'Valor inválido');
 
-export const avariaSchema = z
-  .object({
+export function buildAvariaSchema(quantidadeModo: QuantidadeModo) {
+  const base = z.object({
     quantidadeCaixa: avariaQuantidadeInt,
     quantidadeUnidade: avariaQuantidadeInt,
     tipo: z.string().min(1, 'Selecione o tipo'),
     natureza: z.string().min(1, 'Selecione a natureza'),
     causa: z.string().min(1, 'Selecione a causa'),
     replicarParaTodosConferidos: z.boolean().optional(),
-  })
-  .refine((data) => data.quantidadeCaixa > 0 || data.quantidadeUnidade > 0, {
+  });
+
+  if (quantidadeModo === 'caixa') {
+    return base.refine((data) => data.quantidadeCaixa > 0, {
+      message: 'Informe a quantidade avariada em caixas',
+      path: ['quantidadeCaixa'],
+    });
+  }
+
+  if (quantidadeModo === 'unidade') {
+    return base.refine((data) => data.quantidadeUnidade > 0, {
+      message: 'Informe a quantidade avariada em unidades',
+      path: ['quantidadeUnidade'],
+    });
+  }
+
+  return base.refine((data) => data.quantidadeCaixa > 0 || data.quantidadeUnidade > 0, {
     message: 'Informe caixa e/ou unidade avariada',
     path: ['quantidadeCaixa'],
   });
+}
 
-export type AvariaForm = z.infer<typeof avariaSchema>;
+/** @deprecated Use buildAvariaSchema() */
+export const avariaSchema = buildAvariaSchema('ambos');
+
+export type AvariaForm = z.infer<ReturnType<typeof buildAvariaSchema>>;
 
 export const avariaRegistroSchema = z.object({
   id: z.string(),
+  sku: z.string().optional(),
+  skusAfetados: z.array(z.string()).optional(),
   quantidadeCaixa: z.number(),
   quantidadeUnidade: z.number(),
   tipo: z.string(),
@@ -164,14 +290,117 @@ export const skuItemFilterSchema = z.enum([
 
 export type SkuItemFilter = z.infer<typeof skuItemFilterSchema>;
 
+export const devolucaoItemCondicaoApiSchema = z.enum([
+  'integro',
+  'avariado',
+  'vencido',
+  'violado',
+  'nao_identificado',
+]);
+
+export type DevolucaoItemCondicaoApi = z.infer<
+  typeof devolucaoItemCondicaoApiSchema
+>;
+
 export const skuItemSchema = z.object({
   sku: z.string(),
   name: z.string(),
   status: skuItemStatusSchema,
+  itemId: z.string().optional(),
+  nfNumero: z.string().optional(),
+  qtdEsperada: z.number().nonnegative().optional(),
+  qtdConferida: z.number().nullable().optional(),
+  condicao: devolucaoItemCondicaoApiSchema.optional(),
   hasAvaria: z.boolean().optional(),
   hasDivergencia: z.boolean().optional(),
   isReentrega: z.boolean().optional(),
   quantidadeEsperada: z.number().int().nonnegative().optional(),
+  pesoVariavel: z.boolean().optional(),
 });
 
 export type SkuItem = z.infer<typeof skuItemSchema>;
+
+export type DemandaDevolucaoStatusApi =
+  | 'rascunho'
+  | 'aberta'
+  | 'em_analise'
+  | 'em_execucao'
+  | 'conferida'
+  | 'concluida'
+  | 'cancelada';
+
+export type DevolucaoNotaFiscalTipoApi =
+  | 'reentrega'
+  | 'devolucao_parcial'
+  | 'devolucao_total';
+
+export type DevolucaoItemApi = {
+  id: string;
+  produtoId: string | null;
+  sku: string;
+  descricaoProduto: string | null;
+  lote: string | null;
+  dataFabricacao: string | null;
+  quantidade: number;
+  qtdConferida: number | null;
+  unidadeMedida: string;
+  quantidadeNormalizadaUnidades: number;
+  pesoDevolvido: number | null;
+  motivoItem: string | null;
+  condicao: DevolucaoItemCondicaoApi;
+  observacao: string | null;
+  createdAt: string;
+  pesoVariavel: boolean;
+};
+
+export type DevolucaoNfApi = {
+  id: string;
+  numeroNf: string;
+  chaveAcesso: string | null;
+  tipo: DevolucaoNotaFiscalTipoApi;
+  motivo: string;
+  cliente: string | null;
+  codCliente: string | null;
+  transporteId: string | null;
+  observacao: string | null;
+  createdAt: string;
+  itens: DevolucaoItemApi[];
+};
+
+export type DemandaDetalheCache = {
+  id: string;
+  codigoDemanda: string;
+  status: DemandaDevolucaoStatusApi;
+  unidadeId: string;
+  observacao: string | null;
+  placa: string | null;
+  cliente: string | null;
+  transporteId: string | null;
+  tiposNf: DevolucaoNotaFiscalTipoApi[];
+  totalNfs: number;
+  totalItens: number;
+  pesoDevolvido: number;
+  notasFiscais: DevolucaoNfApi[];
+  faltasPeso?: DevolucaoFaltaPesoCache[];
+  updatedAt: string;
+  cachedAt: number;
+};
+
+export type DevolucaoFaltaPesoCache = {
+  id: string;
+  itemId: string;
+  sku: string;
+  quantidadeContabilConsiderada: number;
+  zerarQuantidadeContabil: boolean;
+  status: 'pendente' | 'validada' | 'rejeitada';
+};
+
+export type DevolucaoConferenciaRascunhoEntry = {
+  demandId: string;
+  itemId: string;
+  sku: string;
+  lotes: LoteConferido[];
+  qtdConferidaTotal: number;
+  condicao?: DevolucaoItemCondicaoApi;
+  updatedAt: number;
+};

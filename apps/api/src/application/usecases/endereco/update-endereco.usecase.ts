@@ -68,9 +68,9 @@ export class UpdateEnderecoUseCase {
     }
 
     if (parsed.enderecoMascarado) {
-      const centroId = parsed.centroId ?? existing.centroId;
-      const duplicate = await this.enderecoRepository.findByCentroAndCodigo(
-        centroId,
+      const unidadeId = parsed.unidadeId ?? existing.unidadeId;
+      const duplicate = await this.enderecoRepository.findByUnidadeAndCodigo(
+        unidadeId,
         parsed.enderecoMascarado,
       );
 
@@ -96,7 +96,7 @@ export class UpdateEnderecoUseCase {
     await this.enderecoEventPublisher.publish({
       type: ENDERECO_EVENT.ATUALIZADO,
       enderecoId: updated.id,
-      centroId: updated.centroId,
+      unidadeId: updated.unidadeId,
       enderecoMascarado: updated.enderecoMascarado,
       userId,
       motivo: motivoAlteracao,

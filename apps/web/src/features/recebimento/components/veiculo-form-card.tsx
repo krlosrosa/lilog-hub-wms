@@ -7,7 +7,11 @@ import {
   fieldErrorClassName,
   fieldInputClassName,
   fieldLabelClassName,
+  fieldTextareaClassName,
   sectionCardClassName,
+  sectionHeaderClassName,
+  sectionIconClassName,
+  sectionTitleClassName,
 } from '@/features/recebimento/components/form-field-classes';
 import type { RecebimentoCadastroFormValues } from '@/features/recebimento/types/recebimento-cadastro.schema';
 
@@ -19,26 +23,23 @@ export function VeiculoFormCard() {
 
   return (
     <section className={sectionCardClassName} aria-labelledby="titulo-veiculo-doc">
-      <div className="mb-6 flex flex-wrap items-center gap-2">
-        <Truck className="size-6 shrink-0 text-primary" aria-hidden />
-        <h2
-          id="titulo-veiculo-doc"
-          className="text-headline-md font-bold uppercase tracking-wide text-foreground"
-        >
-          Informações do veículo
+      <div className={sectionHeaderClassName}>
+        <h2 id="titulo-veiculo-doc" className={sectionTitleClassName}>
+          <Truck className={sectionIconClassName} aria-hidden />
+          Veículo
         </h2>
       </div>
 
-      <div className="flex flex-col gap-5">
-        <div className="space-y-1">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-0.5 sm:col-span-2">
           <label htmlFor="recv-placa" className={fieldLabelClassName}>
-            Placa do veículo *
+            Placa
           </label>
           <input
             id="recv-placa"
             type="text"
             autoCapitalize="characters"
-            placeholder="ABC-1234"
+            placeholder="ABC-1234 (opcional)"
             aria-invalid={Boolean(errors.placa)}
             className={fieldInputClassName}
             {...register('placa')}
@@ -50,27 +51,53 @@ export function VeiculoFormCard() {
           ) : null}
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-0.5 sm:col-span-2">
           <label htmlFor="recv-transportadora" className={fieldLabelClassName}>
-            Transportadora *
+            Transportadora
           </label>
           <input
             id="recv-transportadora"
             type="text"
             autoComplete="organization"
-            placeholder="Ex.: TRANSLOG-001"
-            aria-invalid={Boolean(errors.transportadoraId)}
+            placeholder="Ex.: TRANSLOG SP"
+            aria-invalid={Boolean(errors.transportadoraNome)}
             className={fieldInputClassName}
-            {...register('transportadoraId')}
+            {...register('transportadoraNome')}
           />
-          {errors.transportadoraId?.message ? (
+          {errors.transportadoraNome?.message ? (
             <p className={fieldErrorClassName} role="alert">
-              {errors.transportadoraId.message}
+              {errors.transportadoraNome.message}
             </p>
           ) : null}
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-0.5">
+          <label htmlFor="recv-numero-ocr" className={fieldLabelClassName}>
+            Nº OCR
+          </label>
+          <input
+            id="recv-numero-ocr"
+            type="text"
+            placeholder="Referência OCR"
+            className={fieldInputClassName}
+            {...register('numeroOcr')}
+          />
+        </div>
+
+        <div className="space-y-0.5">
+          <label htmlFor="recv-numero-transporte" className={fieldLabelClassName}>
+            Nº transporte
+          </label>
+          <input
+            id="recv-numero-transporte"
+            type="text"
+            placeholder="Referência transporte"
+            className={fieldInputClassName}
+            {...register('numeroTransporte')}
+          />
+        </div>
+
+        <div className="space-y-0.5 sm:col-span-2">
           <label htmlFor="recv-horario" className={fieldLabelClassName}>
             Previsão de chegada *
           </label>
@@ -88,16 +115,16 @@ export function VeiculoFormCard() {
           ) : null}
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-0.5 sm:col-span-2">
           <label htmlFor="recv-observacao" className={fieldLabelClassName}>
             Observação
           </label>
           <textarea
             id="recv-observacao"
-            rows={3}
-            placeholder="Informações adicionais sobre a carga (opcional)"
+            rows={2}
+            placeholder="Informações adicionais (opcional)"
             aria-invalid={Boolean(errors.observacao)}
-            className={`${fieldInputClassName} resize-y min-h-[5rem]`}
+            className={fieldTextareaClassName}
             {...register('observacao')}
           />
           {errors.observacao?.message ? (

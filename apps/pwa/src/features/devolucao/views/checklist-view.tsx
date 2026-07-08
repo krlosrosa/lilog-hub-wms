@@ -6,16 +6,13 @@ import {
   Camera,
   CheckCircle,
   CheckCircle2,
+  CheckSquare,
   ClipboardCheck,
-  LayoutGrid,
   Loader2,
-  Lock,
   Plus,
-  Sparkles,
   Thermometer,
   Trash2,
   Truck,
-  Wind,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -29,13 +26,6 @@ import {
   type ChecklistPhotoSlotState,
   type ChecklistRequiredPhotoSlotId,
 } from '../hooks/use-checklist';
-
-const CONDITIONS = [
-  { id: 'limpeza' as const, label: 'Limpeza Interna', icon: Sparkles },
-  { id: 'odor' as const, label: 'Ausência de Odor', icon: Wind },
-  { id: 'estrutura' as const, label: 'Integridade Estrutural', icon: LayoutGrid },
-  { id: 'vedacao' as const, label: 'Vedação das Portas', icon: Lock },
-];
 
 interface ChecklistViewProps {
   demandId: string;
@@ -275,6 +265,7 @@ export function ChecklistView({ demandId }: ChecklistViewProps) {
     selectedDock,
     dockOptions,
     paletesEsperados,
+    condicoesChecklist,
   } = state;
 
   const handleSlotCapture = async (
@@ -509,11 +500,11 @@ export function ChecklistView({ demandId }: ChecklistViewProps) {
           <div className="mb-4 flex items-center gap-2 border-b border-outline-variant pb-3">
             <ClipboardCheck className="h-5 w-5 text-secondary" aria-hidden />
             <h2 className="text-label-md font-semibold uppercase tracking-wider text-on-surface-variant">
-              Condições do baú
+              Condições de verificação
             </h2>
           </div>
           <div className="flex flex-col gap-2">
-            {CONDITIONS.map(({ id, label, icon: Icon }) => (
+            {condicoesChecklist.map(({ id, label }) => (
               <label
                 key={id}
                 className={cn(
@@ -524,12 +515,12 @@ export function ChecklistView({ demandId }: ChecklistViewProps) {
                 )}
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <Icon className="h-5 w-5 shrink-0 text-on-surface-variant" aria-hidden />
+                  <CheckSquare className="h-5 w-5 shrink-0 text-on-surface-variant" aria-hidden />
                   <span className="text-body-md text-on-surface">{label}</span>
                 </div>
                 <input
                   type="checkbox"
-                  checked={checked[id]}
+                  checked={Boolean(checked[id])}
                   onChange={() => {
                     hapticLight();
                     actions.toggleCondition(id);

@@ -12,6 +12,7 @@ export const TransportadoraSchema = z.object({
   cnpj: z.string().min(14).max(14),
   status: TransportadoraStatusSchema,
   quantidadeVeiculos: z.number().int().nonnegative(),
+  emails: z.array(z.email()).optional().default([]),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -25,6 +26,7 @@ export const CreateTransportadoraInputSchema = z.object({
   cnpj: z.string().min(1).max(18),
   status: TransportadoraStatusSchema.default('ativa'),
   quantidadeVeiculos: z.number().int().nonnegative().default(0),
+  emails: z.array(z.email()).optional().default([]),
 });
 
 export type CreateTransportadoraInput = z.infer<
@@ -36,6 +38,7 @@ export const UpdateTransportadoraInputSchema = z.object({
   cnpj: z.string().min(1).max(18).optional(),
   status: TransportadoraStatusSchema.optional(),
   quantidadeVeiculos: z.number().int().nonnegative().optional(),
+  emails: z.array(z.email()).optional(),
 });
 
 export type UpdateTransportadoraInput = z.infer<

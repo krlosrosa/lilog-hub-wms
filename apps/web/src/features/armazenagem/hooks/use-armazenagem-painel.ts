@@ -7,11 +7,13 @@ import { useUnidadeContext } from '@/contexts/unidade-context';
 import { ApiClientError } from '@/lib/api';
 
 import { enrichItemArmazenagem } from '../lib/enrich-item-armazenagem';
+import { flattenDemandaItens } from '../lib/flatten-demanda-itens';
 import {
   definirEnderecoSugeridoItemArmazenagem,
   getDemandaArmazenagem,
   listDemandasArmazenagem,
   listEnderecosDisponiveisArmazenagem,
+  validarDemandaArmazenagem,
 } from '../lib/armazenagem-api';
 import type {
   DemandaArmazenagemStatusApi,
@@ -23,20 +25,36 @@ export type ItemArmazenagemPainelRow = ItemArmazenagemView & {
   recebimentoId: string;
 };
 
-export type ArmazenagemPainelVisao = 'pendentes' | 'armazenados';
+export type ArmazenagemPainelVisao =
+  | 'pendentes'
+  | 'aguardando_validacao'
+  | 'armazenados';
+
+export type DemandaValidacaoGrupo = {
+  demandaId: string;
+  recebimentoId: string;
+  itens: ItemArmazenagemPainelRow[];
+  podeValidar: boolean;
+};
 
 const DEMANDAS_ATIVAS_LIMIT = 100;
 const DEMANDAS_CONCLUIDAS_LIMIT = 100;
 const PAGE_SIZE = 25;
 
 function isDemandaAtiva(status: DemandaArmazenagemStatusApi) {
-  return status !== 'concluida' && status !== 'cancelada';
+  return (
+    status !== 'concluida' &&
+    status !== 'cancelada' &&
+    status !== 'aguardando_validacao'
+  );
 }
 
 function isItemPendente(item: ItemArmazenagemPainelRow) {
-  return (
-    isDemandaAtiva(item.demandaStatus) && item.status !== 'armazenado'
-  );
+  return isDemandaAtiva(item.demandaStatus) && item.status !== 'armazenado';
+}
+
+function isItemAguardandoValidacao(item: ItemArmazenagemPainelRow) {
+  return item.demandaStatus === 'aguardando_validacao';
 }
 
 function isItemArmazenado(item: ItemArmazenagemPainelRow) {
@@ -49,6 +67,7 @@ export function useArmazenagemPainel() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isValidating, setIsValidating] = useState<string | null>(null);
   const [isAutoAllocating, setIsAutoAllocating] = useState(false);
   const [itens, setItens] = useState<ItemArmazenagemPainelRow[]>([]);
   const [visao, setVisaoState] = useState<ArmazenagemPainelVisao>('pendentes');
@@ -67,11 +86,17 @@ export function useArmazenagemPainel() {
     setIsLoading(true);
 
     try {
-      const [ativasRes, concluidasRes] = await Promise.all([
+      const [ativasRes, validacaoRes, concluidasRes] = await Promise.all([
         listDemandasArmazenagem({
           unidadeId,
           page: 1,
           limit: DEMANDAS_ATIVAS_LIMIT,
+        }),
+        listDemandasArmazenagem({
+          unidadeId,
+          page: 1,
+          limit: DEMANDAS_ATIVAS_LIMIT,
+          status: 'aguardando_validacao',
         }),
         listDemandasArmazenagem({
           unidadeId,
@@ -84,15 +109,17 @@ export function useArmazenagemPainel() {
       const demandasAtivas = ativasRes.items.filter((demanda) =>
         isDemandaAtiva(demanda.status),
       );
+      const demandasValidacao = validacaoRes.items.filter(
+        (demanda) => demanda.status === 'aguardando_validacao',
+      );
       const demandasConcluidas = concluidasRes.items.filter(
         (demanda) => demanda.status === 'concluida',
       );
 
       const demandasPorId = new Map(
-        [...demandasAtivas, ...demandasConcluidas].map((demanda) => [
-          demanda.id,
-          demanda,
-        ]),
+        [...demandasAtivas, ...demandasValidacao, ...demandasConcluidas].map(
+          (demanda) => [demanda.id, demanda],
+        ),
       );
 
       const detalhes = await Promise.all(
@@ -102,7 +129,7 @@ export function useArmazenagemPainel() {
       );
 
       const itensBrutos = detalhes.flatMap((demanda) =>
-        demanda.itens.map((item) => ({
+        flattenDemandaItens(demanda).map((item) => ({
           ...item,
           demandaStatus: demanda.status,
           recebimentoId: demanda.recebimentoId,
@@ -141,10 +168,35 @@ export function useArmazenagemPainel() {
   const itensPorVisao = useMemo(
     () => ({
       pendentes: itens.filter(isItemPendente),
+      aguardando_validacao: itens.filter(isItemAguardandoValidacao),
       armazenados: itens.filter(isItemArmazenado),
     }),
     [itens],
   );
+
+  const gruposValidacao = useMemo((): DemandaValidacaoGrupo[] => {
+    const map = new Map<string, DemandaValidacaoGrupo>();
+
+    for (const item of itensPorVisao.aguardando_validacao) {
+      const existing = map.get(item.demandaId);
+
+      if (!existing) {
+        map.set(item.demandaId, {
+          demandaId: item.demandaId,
+          recebimentoId: item.recebimentoId,
+          itens: [item],
+          podeValidar: Boolean(item.enderecoSugeridoId),
+        });
+        continue;
+      }
+
+      existing.itens.push(item);
+      existing.podeValidar =
+        existing.podeValidar && Boolean(item.enderecoSugeridoId);
+    }
+
+    return [...map.values()];
+  }, [itensPorVisao.aguardando_validacao]);
 
   const itensFiltrados = useMemo(() => {
     const base = itensPorVisao[visao];
@@ -157,6 +209,7 @@ export function useArmazenagemPainel() {
         item.recebimentoId.toLowerCase().includes(term) ||
         item.produtoSku?.toLowerCase().includes(term) ||
         item.produtoNome?.toLowerCase().includes(term) ||
+        item.unitizadorCodigo?.toLowerCase().includes(term) ||
         item.enderecoSugeridoLabel?.toLowerCase().includes(term) ||
         item.status.toLowerCase().includes(term),
     );
@@ -183,19 +236,27 @@ export function useArmazenagemPainel() {
 
   const resumo = useMemo(() => {
     const pendentes = itensPorVisao.pendentes;
+    const aguardandoValidacao = itensPorVisao.aguardando_validacao;
     const armazenados = itensPorVisao.armazenados;
 
     const pendentesEndereco = pendentes.filter(
       (item) => !item.enderecoSugeridoId,
     ).length;
 
+    const validacaoSemEndereco = aguardandoValidacao.filter(
+      (item) => !item.enderecoSugeridoId,
+    ).length;
+
     return {
       pendentes: pendentes.length,
+      aguardandoValidacao: aguardandoValidacao.length,
       armazenados: armazenados.length,
       comEndereco: pendentes.filter((item) => item.enderecoSugeridoId).length,
       pendentesEndereco,
+      validacaoSemEndereco,
+      gruposValidacao: gruposValidacao.length,
     };
-  }, [itensPorVisao]);
+  }, [gruposValidacao.length, itensPorVisao]);
 
   const atualizarItem = useCallback((enriched: ItemArmazenagemPainelRow) => {
     setItens((prev) =>
@@ -278,6 +339,27 @@ export function useArmazenagemPainel() {
     [itemSelecionado],
   );
 
+  const validarDemanda = useCallback(
+    async (demandaId: string) => {
+      setIsValidating(demandaId);
+
+      try {
+        await validarDemandaArmazenagem(demandaId);
+        toast.success('Demanda validada — paletes liberados para movimentação');
+        await carregar();
+      } catch (error) {
+        const message =
+          error instanceof ApiClientError
+            ? error.message
+            : 'Não foi possível validar a demanda';
+        toast.error(message);
+      } finally {
+        setIsValidating(null);
+      }
+    },
+    [carregar],
+  );
+
   const alocarAutomaticamente = useCallback(async () => {
     const candidatos = itensPorVisao.pendentes.filter(
       (item) => !item.enderecoSugeridoId,
@@ -351,16 +433,18 @@ export function useArmazenagemPainel() {
     } finally {
       setIsAutoAllocating(false);
     }
-  }, [atualizarItem, itensPorVisao.pendentes]);
+  }, [atualizarItem, itens, itensPorVisao.pendentes]);
 
   return {
     unidadeId,
     isLoading,
     isSaving,
+    isValidating,
     isAutoAllocating,
     visao,
     setVisao,
     itensPagina,
+    gruposValidacao,
     busca,
     setBusca,
     pagina: paginaSegura,
@@ -375,6 +459,7 @@ export function useArmazenagemPainel() {
     fecharSelecaoEndereco,
     salvarEnderecoSugerido,
     buscarEnderecosDisponiveis,
+    validarDemanda,
     alocarAutomaticamente,
     recarregar: carregar,
   };

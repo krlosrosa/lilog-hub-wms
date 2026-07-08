@@ -35,11 +35,13 @@ import { useContagemEnderecosComAvaria } from '../hooks/use-contagem-avarias-end
 import { useContagemEnderecos } from '../hooks/use-contagem-enderecos';
 import { SEED_INVENTORY_DEMANDS } from '../data/contagem-seed';
 import {
+  quantidadeContadaDivergeDoEsperado,
+} from '../lib/calcular-quantidade-contagem';
+import {
   ENDERECO_DIVERGENTE_MSG,
   enderecosConferem,
 } from '../lib/contagem-endereco-match';
 import {
-  PRODUTO_VALIDACAO_MOCK,
   useContagemValidacao,
 } from '../hooks/use-contagem-validacao';
 import type { ContagemValidacaoToast } from '../hooks/use-contagem-validacao';
@@ -49,10 +51,14 @@ interface ContagemValidacaoViewProps {
   demandaId: string;
 }
 
-const MOCK_VALIDATION_PROGRESS: Record<string, { validated: number; total: number }> = {
-  'INV-2024-002': { validated: 7, total: 18 },
-  'INV-2024-012': { validated: 2, total: 12 },
-};
+function calcularProgressoValidacao(enderecos: { status: string }[]) {
+  const total = enderecos.length;
+  const validated = enderecos.filter((item) => item.status === 'conferido').length;
+  const percent = total > 0 ? Math.round((validated / total) * 100) : 0;
+  const pending = Math.max(0, total - validated);
+
+  return { total, validated, percent, pending };
+}
 
 function StepIndicator({ currentStep }: { currentStep: 1 | 2 }) {
   const steps = [
@@ -613,9 +619,9 @@ export function ContagemValidacaoView({ demandaId }: ContagemValidacaoViewProps)
   const [scanOpen, setScanOpen] = useState(false);
 
   const activeEndereco =
-    enderecos[enderecoIndex]?.endereco ??
-    PRODUTO_VALIDACAO_MOCK.localizacao;
+    enderecos[enderecoIndex]?.endereco ?? '';
   const activeEnderecoItemId = enderecos[enderecoIndex]?.id ?? '';
+  const activeSaldoEsperado = enderecos[enderecoIndex]?.saldoEsperado ?? [];
 
   useEffect(() => {
     if (enderecos.length === 0) return;
@@ -642,8 +648,11 @@ export function ContagemValidacaoView({ demandaId }: ContagemValidacaoViewProps)
     onComplete: advanceToNextEndereco,
     demandaId,
     demandaEnderecoId: activeEnderecoItemId,
+    endereco: activeEndereco,
+    saldoEsperado: activeSaldoEsperado,
   });
-  const { produto, form, isSubmitting, matchConfirmed, toast } = state;
+  const { produto, form, isSubmitting, matchConfirmed, toast, temSaldoEsperado } =
+    state;
   const { register, watch, setValue, formState, setFocus } = form;
 
   useEffect(() => {
@@ -668,12 +677,13 @@ export function ContagemValidacaoView({ demandaId }: ContagemValidacaoViewProps)
     [demandaId]
   );
 
-  const progress = MOCK_VALIDATION_PROGRESS[demandaId] ?? { validated: 0, total: 15 };
-  const percent =
-    progress.total > 0 ? Math.round((progress.validated / progress.total) * 100) : 0;
-  const pending = Math.max(0, progress.total - progress.validated);
+  const progress = calcularProgressoValidacao(enderecos);
+  const percent = progress.percent;
+  const pending = progress.pending;
 
   const isSsccValid = Boolean(sscc?.trim());
+
+  const unidadesPorCaixa = activeSaldoEsperado[0]?.unidadesPorCaixa ?? null;
 
   const hasDivergenceDraft =
     isSsccValid ||
@@ -682,12 +692,20 @@ export function ContagemValidacaoView({ demandaId }: ContagemValidacaoViewProps)
     Boolean(watch('lote')?.trim()) ||
     Number(watch('peso')) > 0;
 
+  const qtyDivergeDoEsperado = quantidadeContadaDivergeDoEsperado(
+    Number(quantidadeCaixas) || 0,
+    Number(quantidadeUnidades) || 0,
+    produto.quantidadeEsperada,
+    unidadesPorCaixa,
+  );
+
   const hasDivergenceInput =
-    isSsccValid &&
-    ((Number(quantidadeCaixas) || 0) > 0 ||
-      (Number(quantidadeUnidades) || 0) > 0 ||
-      Boolean(watch('lote')?.trim()) ||
-      Number(watch('peso')) > 0);
+    qtyDivergeDoEsperado ||
+    (isSsccValid &&
+      ((Number(quantidadeCaixas) || 0) > 0 ||
+        (Number(quantidadeUnidades) || 0) > 0 ||
+        Boolean(watch('lote')?.trim()) ||
+        Number(watch('peso')) > 0));
 
   const enderecoInformado = enderecoConfirmado?.trim() ?? '';
   const enderecoConfere = enderecosConferem(enderecoInformado, activeEndereco);
@@ -702,7 +720,11 @@ export function ContagemValidacaoView({ demandaId }: ContagemValidacaoViewProps)
       ? enderecoInformado
       : activeEndereco;
 
-  const canValidate = !enderecoVazio && !anomaliaEncontrada;
+  const canValidate =
+    !enderecoVazio &&
+    !anomaliaEncontrada &&
+    temSaldoEsperado &&
+    !qtyDivergeDoEsperado;
   const canConfirmEmpty = enderecoVazio;
   const canConfirmAnomalia = anomaliaEncontrada;
   const showDock = !showAddressList;
@@ -1096,7 +1118,9 @@ export function ContagemValidacaoView({ demandaId }: ContagemValidacaoViewProps)
                       <p className="font-mono text-headline-md font-extrabold tabular-nums leading-none">
                         {produto.quantidadeEsperada}
                       </p>
-                      <p className="text-[10px] font-medium">un</p>
+                      <p className="text-[10px] font-medium">
+                        {produto.unidadeMedida}
+                      </p>
                     </div>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-3 border-t border-outline-variant pt-3">

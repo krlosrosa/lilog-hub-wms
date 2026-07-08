@@ -2,7 +2,7 @@ import { applyDecorators } from '@nestjs/common';
 import type { Type } from '@nestjs/common';
 import { ApiResponse } from '@nestjs/swagger';
 
-type ApiSuccessAction = 'ok' | 'created';
+type ApiSuccessAction = 'ok' | 'created' | 'updated' | 'deleted';
 
 export function ApiErrorResponses() {
   return applyDecorators(

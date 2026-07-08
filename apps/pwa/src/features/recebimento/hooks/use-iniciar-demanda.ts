@@ -34,15 +34,18 @@ export function useIniciarDemanda() {
       setError(null);
 
       try {
-        if (demand.preRecebimentoSituacao === 'aguardando_aprovacao') {
+        if (
+          demand.preRecebimentoSituacao === 'agendado' ||
+          demand.preRecebimentoSituacao === 'aguardando'
+        ) {
           throw new Error(
-            'Este recebimento ainda aguarda aprovação no painel web antes de iniciar a conferência.',
+            'Esta carga ainda não foi liberada para conferência no painel web.',
           );
         }
 
         await db.demands.put(demand);
 
-        const checklistDone = demand.preRecebimentoSituacao === 'em_recebimento';
+        const checklistDone = demand.preRecebimentoSituacao === 'em_conferencia';
 
         if (isApiConfigured() && navigator.onLine) {
           const [apiContext, docas, produtos] = await Promise.all([
@@ -81,7 +84,7 @@ export function useIniciarDemanda() {
         });
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : 'Falha ao iniciar demanda',
+          err instanceof Error ? err.message : 'Não foi possível iniciar a demanda',
         );
       } finally {
         setLoadingId(null);

@@ -4,12 +4,15 @@ import type { UpdateProdutoInput } from '../../../domain/model/produto/produto.m
 import type { ProdutoRecord } from '../../../domain/repositories/produto/produto.repository.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import { produtos } from '../providers/drizzle/config/migrations/schema.js';
-import { mapProdutoRow, normalizeOptionalString } from './map-produto.drizzle.js';
+import {
+  mapProdutoRow,
+  normalizeOptionalString,
+} from './map-produto.drizzle.js';
 
 export async function updateProdutoDb(
   db: DrizzleClient,
-  id: string,
-  data: UpdateProdutoInput,
+  produtoId: string,
+  data: UpdateProdutoInput
 ): Promise<ProdutoRecord | null> {
   const patch: Record<string, unknown> = {
     updatedAt: new Date(),
@@ -33,6 +36,10 @@ export async function updateProdutoDb(
 
   if (data.categoria !== undefined) {
     patch.categoria = data.categoria;
+  }
+
+  if (data.grupo !== undefined) {
+    patch.grupo = normalizeOptionalString(data.grupo);
   }
 
   if (data.tipo !== undefined) {
@@ -74,7 +81,7 @@ export async function updateProdutoDb(
   const [record] = await db
     .update(produtos)
     .set(patch)
-    .where(eq(produtos.id, id))
+    .where(eq(produtos.produtoId, produtoId))
     .returning();
 
   return record ? mapProdutoRow(record) : null;

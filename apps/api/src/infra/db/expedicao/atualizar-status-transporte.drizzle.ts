@@ -11,13 +11,13 @@ export async function findStatusTransporteDb(
 ): Promise<{ id: string; status: StatusTransporteOperacional } | null> {
   const rows = await db
     .select({
-      id: transportes.id,
+      id: transportes.numeroTransporte,
       status: transportes.status,
     })
     .from(transportes)
     .where(
       and(
-        eq(transportes.id, transporteId),
+        eq(transportes.numeroTransporte, transporteId),
         eq(transportes.unidadeId, unidadeId),
       ),
     )
@@ -50,12 +50,12 @@ export async function atualizarStatusTransporteDb(
     })
     .where(
       and(
-        eq(transportes.id, input.transporteId),
+        eq(transportes.numeroTransporte, input.transporteId),
         eq(transportes.unidadeId, input.unidadeId),
       ),
     )
     .returning({
-      id: transportes.id,
+      id: transportes.numeroTransporte,
       status: transportes.status,
     });
 

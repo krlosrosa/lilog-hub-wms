@@ -27,12 +27,18 @@ function resolveQuantidade(item: ItemArmazenagemApi) {
 export function mapItemArmazenagemToView(
   item: ItemArmazenagemApi,
   sequence: number,
+  scanMode: 'produto' | 'etiqueta' = 'produto',
 ): ArmazenagemItem {
   const quantidade = resolveQuantidade(item);
 
+  const codigoProduto =
+    scanMode === 'etiqueta' && item.unitizadorCodigo
+      ? item.unitizadorCodigo
+      : item.produtoSku ?? item.produtoId;
+
   return {
     id: item.id,
-    codigoProduto: item.produtoSku ?? item.produtoId,
+    codigoProduto,
     nomeProduto: item.produtoNome ?? 'Produto',
     enderecoPickingDesignado:
       item.enderecoSugeridoLabel ?? item.enderecoSugeridoId ?? '',

@@ -4,46 +4,62 @@ import { cn } from '@lilog/ui';
 
 import type { ConferenceItemStatus } from '@/features/devolucao/types/devolucao-detalhes.schema';
 import { CONFERENCE_STATUS_LABELS } from '@/features/devolucao/types/devolucao-detalhes.schema';
-import type { DemandaStatus } from '@/features/devolucao/types/devolucao-gestao.schema';
-import { DEMANDA_STATUS_LABELS } from '@/features/devolucao/types/devolucao-gestao.schema';
+import type { DemandaDevolucaoStatus } from '@/features/devolucao/types/devolucao-gestao.schema';
+import { DEMANDA_DEVOLUCAO_STATUS_LABELS } from '@/features/devolucao/types/devolucao-gestao.schema';
 import type { NfItemStatus } from '@/features/devolucao/types/devolucao-checkin.schema';
 import { NF_ITEM_STATUS_LABELS } from '@/features/devolucao/types/devolucao-checkin.schema';
 
 type DevolucaoStatusBadgeProps = {
-  status: DemandaStatus;
+  status: DemandaDevolucaoStatus;
   compact?: boolean;
   className?: string;
 };
 
 const STATUS_STYLES: Record<
-  DemandaStatus,
+  DemandaDevolucaoStatus,
   { dot: string; text: string; pulse?: boolean }
 > = {
-  'em-progresso': {
-    dot: 'bg-tertiary',
-    text: 'text-tertiary',
-    pulse: true,
-  },
-  atrasado: {
-    dot: 'bg-destructive',
-    text: 'text-destructive',
-  },
-  finalizado: {
+  rascunho: {
     dot: 'bg-muted-foreground',
     text: 'text-muted-foreground',
   },
-  'aguardando-chegada': {
+  aberta: {
     dot: 'bg-primary',
     text: 'text-primary',
     pulse: true,
   },
+  em_analise: {
+    dot: 'bg-secondary',
+    text: 'text-secondary',
+    pulse: true,
+  },
+  em_execucao: {
+    dot: 'bg-tertiary',
+    text: 'text-tertiary',
+    pulse: true,
+  },
+  conferida: {
+    dot: 'bg-tertiary',
+    text: 'text-tertiary',
+  },
+  concluida: {
+    dot: 'bg-muted-foreground',
+    text: 'text-muted-foreground',
+  },
+  cancelada: {
+    dot: 'bg-destructive',
+    text: 'text-destructive',
+  },
 };
 
-const COMPACT_STATUS_LABELS: Record<DemandaStatus, string> = {
-  'em-progresso': 'Progresso',
-  atrasado: 'Atrasado',
-  finalizado: 'Finalizado',
-  'aguardando-chegada': 'Aguard.',
+const COMPACT_STATUS_LABELS: Record<DemandaDevolucaoStatus, string> = {
+  rascunho: 'Rascunho',
+  aberta: 'Aberta',
+  em_analise: 'Aguard. Conf.',
+  em_execucao: 'Em Conf.',
+  conferida: 'Conferido',
+  concluida: 'Concluída',
+  cancelada: 'Cancelada',
 };
 
 export function DevolucaoStatusBadge({
@@ -54,7 +70,7 @@ export function DevolucaoStatusBadge({
   const styles = STATUS_STYLES[status];
   const label = compact
     ? COMPACT_STATUS_LABELS[status]
-    : DEMANDA_STATUS_LABELS[status];
+    : DEMANDA_DEVOLUCAO_STATUS_LABELS[status];
 
   return (
     <div
@@ -65,7 +81,7 @@ export function DevolucaoStatusBadge({
         className,
       )}
     >
-      {status !== 'finalizado' && (
+      {status !== 'concluida' && status !== 'cancelada' && status !== 'rascunho' && (
         <span
           className={cn(
             'rounded-full',
@@ -90,6 +106,7 @@ export function DevolucaoStatusBadge({
 
 type ConferenceStatusBadgeProps = {
   status: ConferenceItemStatus;
+  compact?: boolean;
   className?: string;
 };
 
@@ -98,12 +115,36 @@ const CONFERENCE_STYLES: Record<ConferenceItemStatus, string> = {
   pendente: 'text-primary',
   divergente: 'text-destructive',
   iniciando: 'text-primary',
+  'ajuste-peso': 'text-secondary',
+};
+
+const CONFERENCE_PILL_STYLES: Record<ConferenceItemStatus, string> = {
+  concluido: 'bg-tertiary/10 text-tertiary',
+  pendente: 'bg-primary/10 text-primary',
+  divergente: 'bg-destructive/10 text-destructive',
+  iniciando: 'bg-primary/10 text-primary',
+  'ajuste-peso': 'bg-secondary/10 text-secondary',
 };
 
 export function ConferenceStatusBadge({
   status,
+  compact = false,
   className,
 }: ConferenceStatusBadgeProps) {
+  if (compact) {
+    return (
+      <span
+        className={cn(
+          'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+          CONFERENCE_PILL_STYLES[status],
+          className,
+        )}
+      >
+        {CONFERENCE_STATUS_LABELS[status]}
+      </span>
+    );
+  }
+
   return (
     <span
       className={cn(
@@ -145,17 +186,29 @@ export function NfItemStatusBadge({
   );
 }
 
-type TipoDemandaBadgeProps = {
-  tipo: 'carga' | 'descarga';
+type TipoNfBadgeProps = {
+  tipo: 'reentrega' | 'devolucao_parcial' | 'devolucao_total';
   compact?: boolean;
   className?: string;
 };
 
-export function TipoDemandaBadge({
+export function TipoNfBadge({
   tipo,
   compact = false,
   className,
-}: TipoDemandaBadgeProps) {
+}: TipoNfBadgeProps) {
+  const labels = {
+    reentrega: 'Reentrega',
+    devolucao_parcial: 'Dev. Parcial',
+    devolucao_total: 'Dev. Total',
+  };
+
+  const styles = {
+    reentrega: 'border-primary/20 bg-primary-container/10 text-primary',
+    devolucao_parcial: 'border-secondary/20 bg-secondary/10 text-secondary',
+    devolucao_total: 'border-tertiary/20 bg-tertiary/10 text-tertiary',
+  };
+
   return (
     <span
       className={cn(
@@ -163,13 +216,11 @@ export function TipoDemandaBadge({
         compact
           ? 'px-1.5 py-0 text-[9px] uppercase'
           : 'px-2 py-0.5 text-caption',
-        tipo === 'carga'
-          ? 'border-primary/20 bg-primary-container/10 text-primary'
-          : 'border-tertiary/20 bg-tertiary/10 text-tertiary',
+        styles[tipo],
         className,
       )}
     >
-      {tipo === 'carga' ? 'Carga' : 'Descarga'}
+      {labels[tipo]}
     </span>
   );
 }

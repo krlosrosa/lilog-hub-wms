@@ -26,8 +26,7 @@ import {
 } from '@/features/enderecos/components/form-field-classes';
 import { LabelPreviewCard } from '@/features/enderecos/components/label-preview';
 import { useEnderecosConfiguracao } from '@/features/enderecos/hooks/use-enderecos-configuracao';
-import { TIPO_ESTRUTURA_OPCOES } from '@/features/enderecos/mocks/enderecos-detail-mock-data';
-import { ENDERECO_TIPO_LABELS } from '@/features/enderecos/types/enderecos-gestao.schema';
+import { ENDERECO_TIPO_LABELS, getTipoEstruturaOpcoes } from '@/features/enderecos/types/enderecos-gestao.schema';
 import type { CurvaAbc } from '@/features/enderecos/types/enderecos-gestao.schema';
 
 type EnderecosConfiguracaoViewProps = {
@@ -45,7 +44,7 @@ export function EnderecosConfiguracaoView({
     ocupacaoAtualPercent,
     labelPreview,
     changeLog,
-    centroOpcoes,
+    unidadeLabel,
     salvar,
     descartar,
     imprimirEtiqueta,
@@ -60,6 +59,7 @@ export function EnderecosConfiguracaoView({
   } = form;
 
   const curvaAbc = watch('curvaAbc');
+  const tipo = watch('tipo');
   const vinculoSkuFixo = watch('vinculoSkuFixo');
   const regraLoteUnico = watch('regraLoteUnico');
 
@@ -122,28 +122,12 @@ export function EnderecosConfiguracaoView({
                       className="mt-2"
                     />
                   </div>
-                  <div>
-                    <label className={fieldLabelClassName} htmlFor="centroId">
-                      Centro
-                    </label>
-                    <select
-                      id="centroId"
-                      className={cn(fieldInputClassName, 'mt-2')}
-                      disabled={isLoading || centroOpcoes.length === 0}
-                      {...register('centroId')}
-                    >
-                      {centroOpcoes.map((c) => (
-                        <option key={c.value} value={c.value}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.centroId && (
-                      <p className={fieldErrorClassName}>
-                        {errors.centroId.message}
-                      </p>
-                    )}
-                  </div>
+                    <div>
+                      <label className={fieldLabelClassName}>Unidade</label>
+                      <div className="mt-2 rounded-lg border border-outline-variant bg-surface-low px-4 py-3 text-body-md">
+                        {unidadeLabel}
+                      </div>
+                    </div>
                   <div>
                     <label className={fieldLabelClassName} htmlFor="zona">
                       Zona
@@ -192,7 +176,7 @@ export function EnderecosConfiguracaoView({
                       className={cn(fieldInputClassName, 'mt-2')}
                       {...register('tipoEstrutura')}
                     >
-                      {TIPO_ESTRUTURA_OPCOES.map((t) => (
+                      {getTipoEstruturaOpcoes(tipo).map((t) => (
                         <option key={t.value} value={t.value}>
                           {t.label}
                         </option>

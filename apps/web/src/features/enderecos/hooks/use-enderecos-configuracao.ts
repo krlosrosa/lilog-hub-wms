@@ -1,25 +1,27 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { toast } from 'sonner';
 
 import {
-  formatCentroLabel,
   getEndereco,
-  listCentros,
   updateEndereco,
 } from '@/features/enderecos/lib/endereco-api';
-import type { CentroOptionApi } from '@/features/enderecos/types/endereco.api';
 import {
   enderecoConfiguracaoFormSchema,
   resolveEnderecoCodigo,
   type EnderecoConfiguracaoFormValues,
 } from '@/features/enderecos/types/enderecos-configuracao.schema';
+import {
+  ENDERECO_DIMENSOES_RACK_DEFAULT,
+  getDefaultDimensoesEndereco,
+  getDefaultTipoEstrutura,
+  isEnderecoTipoEstruturado,
+} from '@/features/enderecos/types/enderecos-gestao.schema';
 import { MOCK_CHANGE_LOG } from '@/features/enderecos/mocks/enderecos-detail-mock-data';
-import { useUnidadeContext } from '@/contexts/unidade-context';
 import { ApiClientError } from '@/lib/api';
 
 type UseEnderecosConfiguracaoOptions = {
@@ -31,7 +33,6 @@ function mapEnderecoToFormValues(
 ): EnderecoConfiguracaoFormValues {
   return {
     enderecoMascarado: endereco.enderecoMascarado,
-    centroId: endereco.centroId,
     zona: endereco.zona,
     rua: endereco.rua,
     posicao: endereco.posicao,
@@ -61,12 +62,9 @@ function mapEnderecoToFormValues(
 export function useEnderecosConfiguracao({
   enderecoId,
 }: UseEnderecosConfiguracaoOptions) {
-  const { unidadeSelecionada } = useUnidadeContext();
-  const unidadeId = unidadeSelecionada?.id;
-
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [centros, setCentros] = useState<CentroOptionApi[]>([]);
+  const [unidadeLabel, setUnidadeLabel] = useState('—');
   const [enderecoTag, setEnderecoTag] = useState('');
   const [ocupacaoAtualPercent, setOcupacaoAtualPercent] = useState(0);
   const [initialValues, setInitialValues] =
@@ -76,17 +74,13 @@ export function useEnderecosConfiguracao({
     resolver: zodResolver(enderecoConfiguracaoFormSchema),
     defaultValues: {
       enderecoMascarado: '',
-      centroId: '',
       zona: 'A',
-      rua: '0001',
-      posicao: '001',
+      rua: '001',
+      posicao: '0001',
       nivel: '01',
       tipo: 'picking',
       tipoEstrutura: 'porta-palete',
-      larguraMm: 1200,
-      alturaMm: 1500,
-      profundidadeMm: 1000,
-      cargaMaxKg: 1500,
+      ...ENDERECO_DIMENSOES_RACK_DEFAULT,
       vinculoSkuFixo: false,
       regraLoteUnico: false,
       permiteMisturaValidade: false,
@@ -97,6 +91,34 @@ export function useEnderecosConfiguracao({
   });
 
   const values = form.watch();
+  const tipoAnteriorRef = useRef(values.tipo);
+
+  useEffect(() => {
+    const tipoAnterior = tipoAnteriorRef.current;
+    tipoAnteriorRef.current = values.tipo;
+
+    if (tipoAnterior === values.tipo) {
+      return;
+    }
+
+    form.setValue('tipoEstrutura', getDefaultTipoEstrutura(values.tipo), {
+      shouldDirty: true,
+    });
+
+    const dimensoes = getDefaultDimensoesEndereco(values.tipo);
+    form.setValue('larguraMm', dimensoes.larguraMm, { shouldDirty: true });
+    form.setValue('alturaMm', dimensoes.alturaMm, { shouldDirty: true });
+    form.setValue('profundidadeMm', dimensoes.profundidadeMm, {
+      shouldDirty: true,
+    });
+    form.setValue('cargaMaxKg', dimensoes.cargaMaxKg, { shouldDirty: true });
+
+    if (!isEnderecoTipoEstruturado(values.tipo)) {
+      form.setValue('rua', '', { shouldDirty: true });
+      form.setValue('posicao', '', { shouldDirty: true });
+      form.setValue('nivel', '', { shouldDirty: true });
+    }
+  }, [form, values.tipo]);
 
   const volumeTeoricoM3 = useMemo(() => {
     const { larguraMm, alturaMm, profundidadeMm } = values;
@@ -125,27 +147,14 @@ export function useEnderecosConfiguracao({
     ],
   );
 
-  const centroOpcoes = useMemo(
-    () =>
-      centros.map((centro) => ({
-        value: centro.id,
-        label: formatCentroLabel(centro),
-      })),
-    [centros],
-  );
-
   const carregar = useCallback(async () => {
     setIsLoading(true);
 
     try {
-      const [endereco, centrosResponse] = await Promise.all([
-        getEndereco(enderecoId),
-        listCentros(unidadeId),
-      ]);
-
+      const endereco = await getEndereco(enderecoId);
       const formValues = mapEnderecoToFormValues(endereco);
 
-      setCentros(centrosResponse);
+      setUnidadeLabel(endereco.unidade.nome);
       setEnderecoTag(endereco.enderecoMascarado);
       setOcupacaoAtualPercent(Number(endereco.ocupacaoPercent));
       setInitialValues(formValues);
@@ -160,7 +169,7 @@ export function useEnderecosConfiguracao({
     } finally {
       setIsLoading(false);
     }
-  }, [enderecoId, form, unidadeId]);
+  }, [enderecoId, form]);
 
   useEffect(() => {
     void carregar();
@@ -171,11 +180,10 @@ export function useEnderecosConfiguracao({
 
     try {
       const updated = await updateEndereco(enderecoId, {
-        centroId: data.centroId,
         zona: data.zona.trim(),
-        rua: data.rua.trim(),
-        posicao: data.posicao.trim(),
-        nivel: data.nivel.trim(),
+        rua: data.rua?.trim() ?? '',
+        posicao: data.posicao?.trim() ?? '',
+        nivel: data.nivel?.trim() ?? '',
         tipo: data.tipo,
         tipoEstrutura: data.tipoEstrutura,
         larguraMm: data.larguraMm,
@@ -199,6 +207,7 @@ export function useEnderecosConfiguracao({
       const formValues = mapEnderecoToFormValues(updated);
       setInitialValues(formValues);
       setEnderecoTag(updated.enderecoMascarado);
+      setUnidadeLabel(updated.unidade.nome);
       setOcupacaoAtualPercent(Number(updated.ocupacaoPercent));
       form.reset(formValues);
 
@@ -239,7 +248,7 @@ export function useEnderecosConfiguracao({
     form,
     isLoading,
     isSaving,
-    centroOpcoes,
+    unidadeLabel,
     enderecoTag,
     enderecoCodigo,
     ocupacaoAtualPercent,

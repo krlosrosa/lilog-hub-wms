@@ -15,13 +15,13 @@ export class DeleteProdutoController {
   constructor(private readonly deleteProdutoUseCase: DeleteProdutoUseCase) {}
 
   @Auditable({ action: 'delete', resource: 'produto', capturePayload: false })
-  @Delete(':id')
+  @Delete(':produtoId')
   @HttpCode(204)
   @ApiOperation({
     summary: 'Delete produto',
     operationId: 'deleteProduto',
   })
-  async handle(@Param('id') id: string) {
-    await this.deleteProdutoUseCase.execute(id);
+  async handle(@Param('produtoId') produtoId: string) {
+    await this.deleteProdutoUseCase.execute(produtoId);
   }
 }

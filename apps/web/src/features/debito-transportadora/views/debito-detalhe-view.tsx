@@ -5,39 +5,125 @@ import { useCallback, useState } from 'react';
 import Link from 'next/link';
 
 import { Button, cn } from '@lilog/ui';
-import { ChevronRight, Clock, PenLine } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ChevronRight,
+  Clock,
+  DollarSign,
+  Loader2,
+  Package,
+  PenLine,
+  Scale,
+} from 'lucide-react';
 
 import { SidebarMain } from '@/components/layout/sidebar';
 
 import { DetalheAnalise } from '@/features/debito-transportadora/components/detalhe-analise';
+import { DetalheChecklistDevolucao } from '@/features/debito-transportadora/components/detalhe-checklist-devolucao';
 import { DetalheConferenciaTable } from '@/features/debito-transportadora/components/detalhe-conferencia-table';
 import { DetalheEvidencias } from '@/features/debito-transportadora/components/detalhe-evidencias';
 import { DetalheInfoGeral } from '@/features/debito-transportadora/components/detalhe-info-geral';
 import { DetalheRegistrosCorte } from '@/features/debito-transportadora/components/detalhe-registros-corte';
+import { DebitoConversa } from '@/features/debito-transportadora/components/debito-conversa';
 import { DetalheTimeline } from '@/features/debito-transportadora/components/detalhe-timeline';
 import { DetalheTransporte } from '@/features/debito-transportadora/components/detalhe-transporte';
+import { DetalheValorizacaoExcel } from '@/features/debito-transportadora/components/detalhe-valorizacao-excel';
 import {
   ModalConfirmarAcaoDebito,
   type AcaoDebitoConfirmacao,
 } from '@/features/debito-transportadora/components/modal-confirmar-acao-debito';
 import { useDebitoDetalhe } from '@/features/debito-transportadora/hooks/use-debito-detalhe';
-import { DEBITO_STATUS_LABELS } from '@/features/debito-transportadora/types/debito.schema';
+import { useDebitoItemActions } from '@/features/debito-transportadora/hooks/use-debito-item-actions';
+import { useUnidadeContext } from '@/contexts/unidade-context';
+import { DebitoStatusBadge } from '@/features/debito-transportadora/components/debito-status-badge';
+import { isStatusEmInvestigacao } from '@/features/debito-transportadora/lib/map-processo-debito';
 
 type DebitoDetalheViewProps = {
   debitoId: string;
 };
 
+function formatCurrency(value: number) {
+  return value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+}
+
+const kpiCardClass = cn(
+  'relative overflow-hidden rounded-lg border border-outline-variant/50',
+  'bg-glass-bg px-3 py-2 shadow-inner-glow backdrop-blur-glass',
+);
+
+type KpiCardProps = {
+  label: string;
+  value: string;
+  icon: typeof DollarSign;
+  accent?: 'default' | 'tertiary' | 'destructive' | 'primary';
+};
+
+function KpiCard({ label, value, icon: Icon, accent = 'default' }: KpiCardProps) {
+  const valueColor = {
+    default: 'text-foreground',
+    tertiary: 'text-tertiary',
+    destructive: 'text-destructive',
+    primary: 'text-primary',
+  }[accent];
+
+  const iconColor = {
+    default: 'text-primary',
+    tertiary: 'text-tertiary',
+    destructive: 'text-destructive',
+    primary: 'text-primary',
+  }[accent];
+
+  return (
+    <div className={kpiCardClass}>
+      <Icon
+        className={cn(
+          'pointer-events-none absolute -right-1 -top-1 size-7 opacity-[0.08]',
+          iconColor,
+        )}
+        aria-hidden
+      />
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className={cn('mt-0.5 font-mono text-sm font-bold leading-tight tabular-nums', valueColor)}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function MetaChip({
+  icon: Icon,
+  children,
+}: {
+  icon: typeof Clock;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md bg-surface-low/80 px-2 py-0.5 text-[11px] text-muted-foreground ring-1 ring-outline-variant">
+      <Icon className="size-3 shrink-0" aria-hidden />
+      {children}
+    </span>
+  );
+}
+
 export function DebitoDetalheView({ debitoId }: DebitoDetalheViewProps) {
+  const { unidadeSelecionada } = useUnidadeContext();
   const {
     debito,
-    reasonCode,
-    setReasonCode,
+    isLoading,
+    notFound,
     notasAnalista,
     setNotasAnalista,
     salvandoNota,
     processandoAcao,
     baixandoMapa,
     actions,
+    recarregar,
     conferenciaItensPagina,
     conferenciaPagina,
     conferenciaTotalPaginas,
@@ -45,7 +131,15 @@ export function DebitoDetalheView({ debitoId }: DebitoDetalheViewProps) {
     conferenciaTotalItens,
     conferenciaPageSize,
     setPaginaConferencia,
+    buscaConferencia,
+    setBuscaConferencia,
   } = useDebitoDetalhe(debitoId);
+
+  const itemActions = useDebitoItemActions({
+    processoId: debitoId,
+    unidadeId: unidadeSelecionada?.id ?? null,
+    onRefetch: recarregar,
+  });
 
   const [acaoConfirmacao, setAcaoConfirmacao] =
     useState<AcaoDebitoConfirmacao | null>(null);
@@ -74,7 +168,20 @@ export function DebitoDetalheView({ debitoId }: DebitoDetalheViewProps) {
     setAcaoConfirmacao(null);
   }, [acaoConfirmacao, actions]);
 
-  if (!debito) {
+  if (isLoading) {
+    return (
+      <SidebarMain className="flex min-h-dvh flex-col">
+        <main className="flex flex-1 flex-col items-center justify-center gap-4 px-margin-mobile py-16 md:px-margin-desktop">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" aria-hidden />
+          <p className="text-body-md text-muted-foreground">
+            Carregando processo de débito…
+          </p>
+        </main>
+      </SidebarMain>
+    );
+  }
+
+  if (!debito || notFound) {
     return (
       <SidebarMain className="flex min-h-dvh flex-col">
         <main className="flex flex-1 flex-col items-center justify-center gap-6 px-margin-mobile py-16 md:px-margin-desktop">
@@ -83,8 +190,8 @@ export function DebitoDetalheView({ debitoId }: DebitoDetalheViewProps) {
               Ocorrência não encontrada
             </h1>
             <p className="mt-2 text-body-md text-muted-foreground">
-              Não há registro correspondente ao identificador informado nos dados
-              mock.
+              Não há processo de débito correspondente ao identificador
+              informado.
             </p>
             <Button className="mt-6" asChild>
               <Link href="/debito-transportadora">
@@ -97,9 +204,7 @@ export function DebitoDetalheView({ debitoId }: DebitoDetalheViewProps) {
     );
   }
 
-  const statusEmInvestigacao =
-    debito.status === 'em_disputa' ||
-    debito.status === 'aguardando_evidencia';
+  const statusEmInvestigacao = isStatusEmInvestigacao(debito.status);
 
   return (
     <SidebarMain>
@@ -116,64 +221,30 @@ export function DebitoDetalheView({ debitoId }: DebitoDetalheViewProps) {
         onConfirm={() => void confirmarAcao()}
       />
 
-      <main className="px-margin-mobile py-6 md:px-margin-desktop md:py-8">
-        <div className="mx-auto max-w-container space-y-gutter">
-          <nav
-            aria-label="Breadcrumb"
-            className="flex items-center gap-2 text-label-md text-muted-foreground"
-          >
-            <Link
-              href="/debito-transportadora"
-              className="transition-colors hover:text-foreground"
+      <main className="px-margin-mobile py-4 md:px-margin-desktop md:py-5">
+        <div className="mx-auto max-w-container space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <nav
+              aria-label="Breadcrumb"
+              className="flex items-center gap-1 text-[11px] text-muted-foreground"
             >
-              Débitos Transportadora
-            </Link>
-            <ChevronRight className="size-4 shrink-0" aria-hidden />
-            <span className="text-foreground">
-              Detalhes da Ocorrência {debito.protocolo}
-            </span>
-          </nav>
+              <Link
+                href="/debito-transportadora"
+                className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+              >
+                <ArrowLeft className="size-3" aria-hidden />
+                Débitos
+              </Link>
+              <ChevronRight className="size-3 shrink-0" aria-hidden />
+              <span className="font-medium text-foreground">{debito.protocolo}</span>
+            </nav>
 
-          <header className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-            <div>
-              <h1 className="text-headline-lg-mobile font-semibold tracking-tight text-foreground md:text-headline-lg">
-                Ocorrência {debito.protocolo}
-              </h1>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <span
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold',
-                    statusEmInvestigacao
-                      ? 'bg-tertiary-container/20 text-tertiary'
-                      : 'bg-muted text-muted-foreground',
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'size-2 rounded-full',
-                      statusEmInvestigacao
-                        ? 'bg-tertiary shadow-[0_0_8px_hsl(var(--tertiary)/0.6)]'
-                        : 'bg-muted-foreground',
-                    )}
-                    aria-hidden
-                  />
-                  {statusEmInvestigacao
-                    ? 'Em Investigação'
-                    : DEBITO_STATUS_LABELS[debito.status]}
-                </span>
-                <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Clock className="size-4" aria-hidden />
-                  Criada há {debito.criadaHaDias}{' '}
-                  {debito.criadaHaDias === 1 ? 'dia' : 'dias'}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="border-destructive/30 text-destructive hover:bg-destructive/20"
+                size="sm"
+                className="h-8 border-destructive/30 text-destructive hover:bg-destructive/10"
                 disabled={processandoAcao}
                 onClick={() => abrirConfirmacao('cancelar')}
               >
@@ -181,17 +252,72 @@ export function DebitoDetalheView({ debitoId }: DebitoDetalheViewProps) {
               </Button>
               <Button
                 type="button"
+                size="sm"
+                className="h-8 gap-1.5"
                 disabled={processandoAcao}
-                className="gap-2"
                 onClick={() => abrirConfirmacao('assinatura')}
               >
-                <PenLine className="size-4" aria-hidden />
-                Enviar para assinatura
+                <PenLine className="size-3.5" aria-hidden />
+                Aprovar cobrança
               </Button>
+            </div>
+          </div>
+
+          <header className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground md:text-2xl">
+                {debito.protocolo}
+              </h1>
+              {statusEmInvestigacao ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-tertiary/30 bg-tertiary-container/15 px-2 py-0.5 text-[10px] font-semibold text-tertiary">
+                  <span
+                    className="size-1.5 rounded-full bg-tertiary shadow-[0_0_6px_hsl(var(--tertiary)/0.5)]"
+                    aria-hidden
+                  />
+                  Em Investigação
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full border border-outline-variant bg-surface-low px-2 py-0.5">
+                  <DebitoStatusBadge status={debito.status} compact />
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <MetaChip icon={Clock}>
+                {debito.criadaHaDias}{' '}
+                {debito.criadaHaDias === 1 ? 'dia' : 'dias'} aberta
+              </MetaChip>
+              <MetaChip icon={Package}>{debito.transportadora}</MetaChip>
             </div>
           </header>
 
-          <div className="grid grid-cols-12 gap-gutter">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <KpiCard
+              label="Valor Reclamado"
+              value={formatCurrency(debito.valorReclamado)}
+              icon={DollarSign}
+              accent="tertiary"
+            />
+            <KpiCard
+              label="Peso Afetado"
+              value={`${debito.pesoAfetadoKg.toLocaleString('pt-BR')} kg`}
+              icon={Scale}
+            />
+            <KpiCard
+              label="Itens Conferidos"
+              value={String(debito.itensConferidos.length)}
+              icon={Package}
+              accent="primary"
+            />
+            <KpiCard
+              label="Anomalias"
+              value={String(debito.totalAnomalias)}
+              icon={AlertTriangle}
+              accent={debito.totalAnomalias > 0 ? 'destructive' : 'default'}
+            />
+          </div>
+
+          <div className="grid grid-cols-12 gap-4">
             <div className="col-span-12 lg:col-span-8">
               <DetalheInfoGeral
                 debito={debito}
@@ -202,6 +328,36 @@ export function DebitoDetalheView({ debitoId }: DebitoDetalheViewProps) {
               <DetalheTransporte debito={debito} />
             </div>
             <div className="col-span-12">
+              <DetalheConferenciaTable
+                itensPagina={conferenciaItensPagina}
+                totalAnomalias={debito.totalAnomalias}
+                busca={buscaConferencia}
+                onChangeBusca={setBuscaConferencia}
+                pagina={conferenciaPagina}
+                totalPaginas={conferenciaTotalPaginas}
+                onChangePagina={setPaginaConferencia}
+                totalFiltrados={conferenciaTotalItens}
+                itemsInicio={conferenciaItemsInicio}
+                pageSize={conferenciaPageSize}
+                selectedIds={itemActions.selectedIds}
+                disabled={itemActions.isUpdating || itemActions.isRemoving}
+                onToggleSelect={itemActions.toggleSelect}
+                onToggleSelectAll={itemActions.toggleSelectAll}
+                onUpdateItem={itemActions.atualizarItem}
+                onRemoveItem={itemActions.removerItem}
+                onBulkStatus={itemActions.aplicarStatusEmMassa}
+              />
+            </div>
+            <div className="col-span-12">
+              <DetalheValorizacaoExcel
+                processoId={debitoId}
+                unidadeId={unidadeSelecionada?.id ?? null}
+                itens={debito.itensConferidos}
+                onRefetch={recarregar}
+                disabled={itemActions.isUpdating || itemActions.isRemoving}
+              />
+            </div>
+            <div className="col-span-12">
               <DetalheRegistrosCorte
                 registros={debito.registrosCorte}
                 mapaSeparacao={debito.mapaSeparacao}
@@ -210,16 +366,12 @@ export function DebitoDetalheView({ debitoId }: DebitoDetalheViewProps) {
               />
             </div>
             <div className="col-span-12">
-              <DetalheConferenciaTable
-                itensPagina={conferenciaItensPagina}
-                notasFiscais={debito.notasFiscais}
-                totalAnomalias={debito.totalAnomalias}
-                pagina={conferenciaPagina}
-                totalPaginas={conferenciaTotalPaginas}
-                onChangePagina={setPaginaConferencia}
-                totalFiltrados={conferenciaTotalItens}
-                itemsInicio={conferenciaItemsInicio}
-                pageSize={conferenciaPageSize}
+              <DebitoConversa
+                processoId={debitoId}
+                unidadeId={unidadeSelecionada?.id ?? ''}
+                status={debito.status}
+                interacoes={debito.interacoes}
+                onSuccess={() => void recarregar()}
               />
             </div>
             <div className="col-span-12 lg:col-span-8">
@@ -229,17 +381,18 @@ export function DebitoDetalheView({ debitoId }: DebitoDetalheViewProps) {
               />
             </div>
             <div className="col-span-12 lg:col-span-4">
-              <DetalheTimeline eventos={debito.timeline} />
+              <DetalheChecklistDevolucao demandaId={debito.demandaId} />
             </div>
-            <div className="col-span-12">
+            <div className="col-span-12 lg:col-span-8">
               <DetalheAnalise
-                reasonCode={reasonCode}
                 notasAnalista={notasAnalista}
                 salvandoNota={salvandoNota}
-                onReasonCodeChange={setReasonCode}
                 onNotasChange={setNotasAnalista}
                 onSalvarNota={() => void actions.salvarNota()}
               />
+            </div>
+            <div className="col-span-12 lg:col-span-4">
+              <DetalheTimeline eventos={debito.timeline} />
             </div>
           </div>
         </div>

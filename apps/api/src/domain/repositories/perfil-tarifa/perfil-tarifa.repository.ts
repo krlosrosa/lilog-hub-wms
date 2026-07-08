@@ -7,12 +7,19 @@ import type {
 
 export const PERFIL_TARIFA_REPOSITORY = 'IPerfilTarifaRepository';
 
+export type ItinerarioRecord = {
+  id: string;
+  codigo: string;
+};
+
 export type FaixaKmRecord = {
   id: string;
   kmInicial: string;
   kmFinal: string | null;
   valor: string;
+  /** @deprecated legado — preferir itinerarios */
   itinerario: string | null;
+  itinerarios: ItinerarioRecord[];
   createdAt: Date;
   updatedAt: Date;
 };

@@ -71,19 +71,23 @@ export function RecebimentoRow({
   onExcluir,
 }: RecebimentoRowProps) {
   const { horario, isAtrasado, status } = recebimento;
-  const ehConcluido = status === 'concluido';
-  const linhaDestaque =
-    status === 'descarregando' ? 'bg-primary-container/30' : '';
-  const baixaOpacidade = ehConcluido ? 'opacity-70' : '';
+  const ehFinalizado = status === 'finalizado' || status === 'cancelado';
+  const linhaDestaque = status === 'em_conferencia' ? 'bg-primary-container/30' : '';
+  const baixaOpacidade = ehFinalizado ? 'opacity-70' : '';
 
   const textoHorarioClasses = cn(
     'inline-flex flex-wrap items-center gap-1',
-    status === 'em-transito' && isAtrasado && 'text-destructive',
-    status === 'descarregando' && 'text-primary',
-    !(status === 'em-transito' && isAtrasado) &&
-      !(status === 'descarregando') &&
+    (status === 'agendado' || status === 'liberado_para_conferencia') &&
+      isAtrasado &&
+      'text-destructive',
+    status === 'em_conferencia' && 'text-primary',
+    !(
+      (status === 'agendado' || status === 'liberado_para_conferencia') &&
+      isAtrasado
+    ) &&
+      status !== 'em_conferencia' &&
       'text-muted-foreground',
-    ehConcluido && !isAtrasado && 'text-muted-foreground',
+    ehFinalizado && !isAtrasado && 'text-muted-foreground',
   );
 
   return (
@@ -132,7 +136,8 @@ export function RecebimentoRow({
 
       <td className={compactTableCellClassName}>
         <div className={textoHorarioClasses}>
-          {status === 'em-transito' && isAtrasado ? (
+          {(status === 'agendado' || status === 'liberado_para_conferencia') &&
+          isAtrasado ? (
             <>
               <Clock className="size-3 shrink-0" aria-hidden />
               <span className="text-[11px] font-bold">{horario}</span>
@@ -140,12 +145,12 @@ export function RecebimentoRow({
                 Atrasado
               </span>
             </>
-          ) : status === 'descarregando' ? (
+          ) : status === 'em_conferencia' ? (
             <>
               <Dock className="size-3 shrink-0" aria-hidden />
               <span className="text-[11px] font-bold">{horario}</span>
             </>
-          ) : !ehConcluido ? (
+          ) : !ehFinalizado ? (
             <>
               <Clock className="size-3 shrink-0" aria-hidden />
               <span className="text-[11px] font-bold text-foreground">{horario}</span>
@@ -166,7 +171,7 @@ export function RecebimentoRow({
 
       <td className={cn(compactTableCellClassName, 'text-right')}>
         <div className="flex justify-end gap-0.5">
-          {!ehConcluido ? (
+          {!ehFinalizado ? (
             <>
               {detailHref ? (
                 <Button

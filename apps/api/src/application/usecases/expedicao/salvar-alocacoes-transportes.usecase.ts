@@ -47,29 +47,26 @@ export class SalvarAlocacoesTransportesUseCase {
       cidade: item.cidade?.trim(),
       bairro: item.bairro?.trim() || null,
       isPrioridade: item.isPrioridade ?? false,
+      custoPrevisto: item.custoPrevisto ?? null,
     }));
 
-    for (const alocacao of alocacoes) {
-      if (!alocacao.placa) {
-        throw new BadRequestException('Placa é obrigatória em todas as alocações');
-      }
+    const alocacoesValidas = alocacoes.filter(
+      (alocacao) =>
+        Boolean(alocacao.placa) &&
+        Boolean(alocacao.transportadora) &&
+        (alocacao.semCusto || Boolean(alocacao.perfilPagamentoId)),
+    );
+    const pulados = alocacoes.length - alocacoesValidas.length;
 
-      if (!alocacao.transportadora) {
-        throw new BadRequestException(
-          'Transportadora é obrigatória em todas as alocações',
-        );
-      }
-
-      if (!alocacao.semCusto && !alocacao.perfilPagamentoId) {
-        throw new BadRequestException(
-          'Informe o perfil de pagamento ou marque como transporte sem custo.',
-        );
-      }
+    if (alocacoesValidas.length === 0) {
+      throw new BadRequestException(
+        'Nenhuma alocação válida para salvar. Informe placa, transportadora e perfil de pagamento (ou marque como sem custo).',
+      );
     }
 
     const resultado = await this.transporteRepository.salvarAlocacoes({
       unidadeId: input.unidadeId,
-      alocacoes,
+      alocacoes: alocacoesValidas,
     });
 
     if (resultado.atualizados === 0) {
@@ -78,6 +75,9 @@ export class SalvarAlocacoesTransportesUseCase {
       );
     }
 
-    return resultado;
+    return {
+      atualizados: resultado.atualizados,
+      pulados,
+    };
   }
 }

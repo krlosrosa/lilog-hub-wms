@@ -16,7 +16,6 @@ import {
   type IRecebimentoRepository,
 } from '../../../domain/repositories/recebimento/recebimento.repository.js';
 import { RecebimentoEventPublisher } from '../../services/recebimento-event.publisher.js';
-import { EstornarSaldoRecebimentoUseCase } from '../estoque/estornar-saldo-recebimento.usecase.js';
 
 export type CancelPreRecebimentoUseCaseInput = {
   id: string;
@@ -31,7 +30,6 @@ export class CancelPreRecebimentoUseCase {
     @Inject(RECEBIMENTO_REPOSITORY)
     private readonly recebimentoRepository: IRecebimentoRepository,
     private readonly recebimentoEventPublisher: RecebimentoEventPublisher,
-    private readonly estornarSaldoRecebimentoUseCase: EstornarSaldoRecebimentoUseCase,
   ) {}
 
   async execute({ id, userId }: CancelPreRecebimentoUseCaseInput) {
@@ -52,12 +50,6 @@ export class CancelPreRecebimentoUseCase {
     if (!cancelled) {
       throw new NotFoundException(`Pré-recebimento "${id}" não encontrado`);
     }
-
-    await this.estornarSaldoRecebimentoUseCase.execute({
-      unidadeId: cancelled.unidadeId,
-      preRecebimentoId: cancelled.id,
-      operatorId: userId,
-    });
 
     const recebimento =
       await this.recebimentoRepository.findByPreRecebimentoId(id);

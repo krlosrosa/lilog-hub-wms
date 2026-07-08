@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import {
   CurvaAbcEnderecoSchema,
-  EnderecoCentroSchema,
+  EnderecoUnidadeSchema,
   EnderecoStatusSchema,
   EnderecoTipoEstruturaSchema,
   EnderecoTipoSchema,
@@ -14,7 +14,6 @@ export const ListEnderecosQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   status: EnderecoStatusSchema.optional(),
   tipo: EnderecoTipoSchema.optional(),
-  centroId: z.uuid().optional(),
   unidadeId: z.string().min(1).max(50).optional(),
   search: z.string().optional(),
 });
@@ -26,8 +25,8 @@ export class ListEnderecosQueryDto extends createZodDto(
 export const EnderecoResponseSchema = z.object({
   id: z.uuid(),
   enderecoMascarado: z.string(),
-  centroId: z.uuid(),
-  centro: EnderecoCentroSchema,
+  unidadeId: z.string().min(1).max(50),
+  unidade: EnderecoUnidadeSchema,
   zona: z.string(),
   rua: z.string(),
   posicao: z.string(),
@@ -96,3 +95,20 @@ export const BlockEnderecoBodySchema = z.object({
 });
 
 export class BlockEnderecoBodyDto extends createZodDto(BlockEnderecoBodySchema) {}
+
+export const ImportEnderecosResponseSchema = z.object({
+  total: z.number().int(),
+  inserted: z.number().int(),
+  errors: z.array(
+    z.object({
+      linha: z.number().int(),
+      codigo: z.string(),
+      campo: z.string(),
+      mensagem: z.string(),
+    }),
+  ),
+});
+
+export class ImportEnderecosResponseDto extends createZodDto(
+  ImportEnderecosResponseSchema,
+) {}

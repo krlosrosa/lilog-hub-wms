@@ -1,5 +1,5 @@
 import type { ConferenciaEntryStep } from './conferencia-sku-session';
-import type { DetalheItemForm, SkuItem } from '../types/recebimento.schema';
+import type { DetalheItemForm, LoteConferido, SkuItem } from '../types/recebimento.schema';
 
 const CONFERIDOS_PREFIX = 'recebimento:conferidos';
 const NAV_PREFIX = 'recebimento:conferencia-nav';
@@ -7,6 +7,7 @@ const NAV_PREFIX = 'recebimento:conferencia-nav';
 export type ConferenciaNavigation = {
   step: ConferenciaEntryStep;
   form: DetalheItemForm;
+  lotes?: LoteConferido[];
 };
 
 export type ConferidoItemRecord = {
@@ -58,6 +59,14 @@ export function getConferenciaSnapshot(
     (item) => item.sku.toLowerCase() === sku.trim().toLowerCase()
   );
   return record?.form ?? null;
+}
+
+export function removeConferidoItem(demandId: string, sku: string): void {
+  const normalizedSku = sku.trim().toLowerCase();
+  const next = readConferidos(demandId).filter(
+    (item) => item.sku.toLowerCase() !== normalizedSku,
+  );
+  writeConferidos(demandId, next);
 }
 
 export function saveConferidoItem(

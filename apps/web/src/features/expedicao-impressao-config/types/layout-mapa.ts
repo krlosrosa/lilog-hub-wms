@@ -11,11 +11,16 @@ import {
 import type { OrdemImpressaoItem, PosicaoQrCode } from '@/features/expedicao-impressao-config/types/impressao-config.schema';
 import { ORDEM_IMPRESSAO_LABELS } from '@/features/expedicao-impressao-config/types/impressao-config.schema';
 
-export type TipoLayoutMapa = 'separacao' | 'conferencia' | 'carregamento';
+export type TipoLayoutMapa =
+  | 'separacao'
+  | 'conferencia'
+  | 'conferencia_reentrega'
+  | 'carregamento';
 
 export const TIPO_LAYOUT_MAPA_LABELS: Record<TipoLayoutMapa, string> = {
   separacao: 'Separação',
   conferencia: 'Conferência',
+  conferencia_reentrega: 'Conferência Reentrega',
   carregamento: 'Carregamento',
 };
 
@@ -128,6 +133,22 @@ export const TEMPLATE_CONFERENCIA_PADRAO = `<!-- Cabeçalho do Mapa de Conferên
   <div>
     <p style="font-size:10px; font-weight:bold; text-transform:uppercase; color:#888;">
       Mapa de Conferência
+    </p>
+    <strong style="font-size:14px;">{{rota}}</strong>
+    <p style="margin:2px 0; font-size:11px;">{{todos_clientes}}</p>
+  </div>
+  <div style="text-align:right; font-size:11px; color:#555;">
+    <p>Seq. {{sequencia}}</p>
+    <p>Placa: {{placa}}</p>
+    <p>{{empresa}}</p>
+  </div>
+</div>`;
+
+export const TEMPLATE_CONFERENCIA_REENTREGA_PADRAO = `<!-- Cabeçalho do Mapa de Conferência Reentrega -->
+<div style="display:flex; justify-content:space-between; align-items:flex-start;">
+  <div>
+    <p style="font-size:10px; font-weight:bold; text-transform:uppercase; color:#B45309;">
+      Conferência Reentrega
     </p>
     <strong style="font-size:14px;">{{rota}}</strong>
     <p style="margin:2px 0; font-size:11px;">{{todos_clientes}}</p>

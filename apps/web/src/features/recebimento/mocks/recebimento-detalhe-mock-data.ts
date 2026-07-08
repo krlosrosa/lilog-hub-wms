@@ -1,10 +1,8 @@
 import { MOCK_RECEBIMENTOS } from '@/features/recebimento/mocks/recebimentos-mock-data';
 import type {
-  ProcessoInternoRecebimento,
   RecebimentoDetalhe,
 } from '@/features/recebimento/types/recebimento-detalhe.schema';
 import type { RecebimentoListaItem } from '@/features/recebimento/types/recebimento-lista.schema';
-import type { RecebimentoStatus } from '@/features/recebimento/types/recebimento-lista.schema';
 
 /** Entrada principal alinhada ao protótipo (id da lista mock). */
 const DETALHE_RCV001: RecebimentoDetalhe = {
@@ -15,8 +13,7 @@ const DETALHE_RCV001: RecebimentoDetalhe = {
   placa: 'BRA2E19',
   transportador: 'TransLog SA',
   documentacaoOk: true,
-  status: 'em-transito',
-  processoAtual: 'conferindo',
+  status: 'em_conferencia',
   inspecao: {
     tempBau: -18.4,
     tempProduto: -16.8,
@@ -49,6 +46,7 @@ const DETALHE_RCV001: RecebimentoDetalhe = {
       qtdFisica: 1200,
       status: 'concluido',
       avarias: [],
+      lotesDetalhe: [],
     },
     {
       id: 'c2',
@@ -61,6 +59,7 @@ const DETALHE_RCV001: RecebimentoDetalhe = {
       qtdFisica: 2392,
       status: 'faltante',
       avarias: [],
+      lotesDetalhe: [],
     },
     {
       id: 'c3',
@@ -73,6 +72,7 @@ const DETALHE_RCV001: RecebimentoDetalhe = {
       qtdFisica: 600,
       status: 'concluido',
       avarias: [],
+      lotesDetalhe: [],
     },
     {
       id: 'c4',
@@ -85,6 +85,7 @@ const DETALHE_RCV001: RecebimentoDetalhe = {
       qtdFisica: 482,
       status: 'sobra',
       avarias: [],
+      lotesDetalhe: [],
     },
     ...Array.from({ length: 8 }, (_, i) => ({
       id: `c${5 + i}`,
@@ -97,6 +98,7 @@ const DETALHE_RCV001: RecebimentoDetalhe = {
       qtdFisica: 120 + i * 15,
       status: 'concluido' as const,
       avarias: [],
+      lotesDetalhe: [],
     })),
   ],
   numDivergencias: 3,
@@ -110,20 +112,6 @@ export const MOCK_RECEBIMENTO_DETALHES: Record<string, RecebimentoDetalhe> =
 function numeroFromListaId(listaId: string): string {
   const suf = listaId.replace(/^rcv-/i, '');
   return `RCV-${suf.toUpperCase()}`;
-}
-
-function processoPorStatusLista(
-  status: RecebimentoStatus,
-): ProcessoInternoRecebimento {
-  if (status === 'concluido') {
-    return 'finalizado';
-  }
-
-  if (status === 'agendado') {
-    return 'nao-iniciado';
-  }
-
-  return 'conferindo';
 }
 
 function fmtDataMock(item: RecebimentoListaItem): string {
@@ -142,7 +130,6 @@ export function criarDetalheFallbackFromLista(
     transportador: item.transportador,
     documentacaoOk: true,
     status: item.status,
-    processoAtual: processoPorStatusLista(item.status),
     inspecao: {
       tempBau: -15,
       tempProduto: -14.2,
@@ -164,6 +151,7 @@ export function criarDetalheFallbackFromLista(
         qtdFisica: item.volumeUn,
         status: 'concluido',
         avarias: [],
+      lotesDetalhe: [],
       },
       {
         id: `${item.id}-c2`,
@@ -176,6 +164,7 @@ export function criarDetalheFallbackFromLista(
         qtdFisica: 0,
         status: 'concluido',
         avarias: [],
+      lotesDetalhe: [],
       },
     ],
     numDivergencias: 0,

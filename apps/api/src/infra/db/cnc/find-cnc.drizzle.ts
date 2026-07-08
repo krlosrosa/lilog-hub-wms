@@ -1,12 +1,19 @@
-import { and, eq, gte, lt } from 'drizzle-orm';
+import { and, desc, eq, gte, lt } from 'drizzle-orm';
 
 import type { CncOrigem } from '../../../domain/model/cnc/cnc.model.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import {
+  cncEventos,
   cncItens,
+  cncTratativas,
   naoConformidades,
 } from '../providers/drizzle/config/migrations/schema.js';
-import { mapCncItemRow, mapCncRow } from './map-cnc.drizzle.js';
+import {
+  mapCncEventoRow,
+  mapCncItemRow,
+  mapCncRow,
+  mapCncTratativaRow,
+} from './map-cnc.drizzle.js';
 
 async function loadCncItens(db: DrizzleClient, cncId: string) {
   const rows = await db
@@ -15,6 +22,26 @@ async function loadCncItens(db: DrizzleClient, cncId: string) {
     .where(eq(cncItens.cncId, cncId));
 
   return rows.map(mapCncItemRow);
+}
+
+async function loadCncTratativas(db: DrizzleClient, cncId: string) {
+  const rows = await db
+    .select()
+    .from(cncTratativas)
+    .where(eq(cncTratativas.cncId, cncId))
+    .orderBy(desc(cncTratativas.createdAt));
+
+  return rows.map(mapCncTratativaRow);
+}
+
+async function loadCncEventos(db: DrizzleClient, cncId: string) {
+  const rows = await db
+    .select()
+    .from(cncEventos)
+    .where(eq(cncEventos.cncId, cncId))
+    .orderBy(desc(cncEventos.createdAt));
+
+  return rows.map(mapCncEventoRow);
 }
 
 export async function findCncByIdDb(db: DrizzleClient, id: string) {
@@ -28,11 +55,17 @@ export async function findCncByIdDb(db: DrizzleClient, id: string) {
     return null;
   }
 
-  const itens = await loadCncItens(db, row.id);
+  const [itens, tratativas, eventos] = await Promise.all([
+    loadCncItens(db, row.id),
+    loadCncTratativas(db, row.id),
+    loadCncEventos(db, row.id),
+  ]);
 
   return {
     ...mapCncRow(row),
     itens,
+    tratativas,
+    eventos,
   };
 }
 

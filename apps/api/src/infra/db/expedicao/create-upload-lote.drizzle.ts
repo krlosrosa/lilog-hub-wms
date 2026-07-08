@@ -13,6 +13,8 @@ import {
   uploadLotes,
 } from '../providers/drizzle/config/migrations/schema.js';
 
+const INSERT_BATCH_SIZE = 500;
+
 function mapUploadLoteRecord(
   row: typeof uploadLotes.$inferSelect,
   totalTransportes: number,
@@ -35,7 +37,6 @@ type GrupoTransporte = {
   remessaIds: string[];
   pesoTotal: number;
   volumeTotal: number;
-  cidade: string;
 };
 
 export async function createUploadLoteDb(
@@ -63,22 +64,29 @@ export async function createUploadLoteDb(
       return mapUploadLoteRecord(lote, 0);
     }
 
-    const remessasInseridas = await tx
-      .insert(remessas)
-      .values(
-        input.remessas.map((item) => ({
-          uploadLoteId: lote.id,
-          remessa: item.remessa,
-          empresa: item.empresa,
-          codCliente: item.codCliente,
-          cliente: item.cliente,
-          cidade: item.cidade,
-          peso: item.peso.toFixed(3),
-          volume: item.volume.toFixed(3),
-          origem: 'upload' as const,
-        })),
-      )
-      .returning();
+    const remessasInseridas: (typeof remessas.$inferSelect)[] = [];
+
+    for (let i = 0; i < input.remessas.length; i += INSERT_BATCH_SIZE) {
+      const batch = input.remessas.slice(i, i + INSERT_BATCH_SIZE);
+      const inserted = await tx
+        .insert(remessas)
+        .values(
+          batch.map((item) => ({
+            uploadLoteId: lote.id,
+            remessa: item.remessa,
+            empresa: item.empresa,
+            codCliente: item.codCliente,
+            cliente: item.cliente,
+            cidade: item.cidade,
+            peso: item.peso.toFixed(3),
+            volume: item.volume.toFixed(3),
+            origem: 'upload' as const,
+          })),
+        )
+        .returning();
+
+      remessasInseridas.push(...inserted);
+    }
 
     const itensParaInserir = input.remessas.flatMap((item, index) => {
       const remessaInserida = remessasInseridas[index];
@@ -102,8 +110,9 @@ export async function createUploadLoteDb(
       }));
     });
 
-    if (itensParaInserir.length > 0) {
-      await tx.insert(remessaItens).values(itensParaInserir);
+    for (let i = 0; i < itensParaInserir.length; i += INSERT_BATCH_SIZE) {
+      const batch = itensParaInserir.slice(i, i + INSERT_BATCH_SIZE);
+      await tx.insert(remessaItens).values(batch);
     }
 
     const gruposTransporte = new Map<string, GrupoTransporte>();
@@ -119,7 +128,6 @@ export async function createUploadLoteDb(
         remessaIds: [],
         pesoTotal: 0,
         volumeTotal: 0,
-        cidade: item.cidade,
       };
 
       atual.remessaIds.push(remessaInserida.id);
@@ -135,9 +143,7 @@ export async function createUploadLoteDb(
         .values({
           unidadeId: input.unidadeId,
           uploadLoteId: lote.id,
-          rota: numeroTransporte,
-          regiao: `DT-${numeroTransporte}`,
-          cidade: grupo.cidade,
+          numeroTransporte,
           dataTransporte: input.dataReferencia,
           horarioExpectativaSaida: input.horarioExpectativaSaida,
           pesoTotal: grupo.pesoTotal.toFixed(3),
@@ -150,10 +156,20 @@ export async function createUploadLoteDb(
         throw new Error(`Failed to create transporte ${numeroTransporte}`);
       }
 
-      if (grupo.remessaIds.length > 0) {
+      for (
+        let i = 0;
+        i < grupo.remessaIds.length;
+        i += INSERT_BATCH_SIZE
+      ) {
+        const batch = grupo.remessaIds.slice(i, i + INSERT_BATCH_SIZE);
+
+        if (batch.length === 0) {
+          continue;
+        }
+
         await tx.insert(transporteRemessas).values(
-          grupo.remessaIds.map((remessaId) => ({
-            transporteId: transporte.id,
+          batch.map((remessaId) => ({
+            transporteId: transporte.numeroTransporte,
             remessaId,
           })),
         );

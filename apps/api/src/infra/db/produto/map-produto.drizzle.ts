@@ -5,12 +5,12 @@ type ProdutoRow = typeof produtos.$inferSelect;
 
 export function mapProdutoRow(row: ProdutoRow): ProdutoRecord {
   return {
-    id: row.id,
     produtoId: row.produtoId,
     sku: row.sku,
     descricao: row.descricao,
     empresa: row.empresa as ProdutoRecord['empresa'],
     categoria: row.categoria as ProdutoRecord['categoria'],
+    grupo: row.grupo,
     tipo: row.tipo as ProdutoRecord['tipo'],
     ean: row.ean,
     dum: row.dum,
@@ -43,6 +43,7 @@ export function toProdutoInsertValues(data: {
   descricao: string;
   empresa: string;
   categoria: string;
+  grupo?: string | null;
   tipo: string;
   ean?: string | null;
   dum?: string | null;
@@ -62,6 +63,7 @@ export function toProdutoInsertValues(data: {
     descricao: data.descricao.trim(),
     empresa: data.empresa,
     categoria: data.categoria,
+    grupo: normalizeOptionalString(data.grupo),
     tipo: data.tipo,
     ean: normalizeOptionalString(data.ean),
     dum: normalizeOptionalString(data.dum),

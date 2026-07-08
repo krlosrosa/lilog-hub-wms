@@ -5,6 +5,7 @@ import { calcularBreakdownQuantidade } from '../../services/expedicao/calcular-b
 import type { RemessaViewRow } from '../../../infra/db/providers/drizzle/config/schemas/expedicao.schema.js';
 import type { StatusTransporteOperacional } from '../../../domain/repositories/expedicao/transporte.repository.js';
 import { listRemessaItensByRemessaIdsDb } from '../../../infra/db/expedicao/list-remessa-itens-by-remessa-ids.drizzle.js';
+import { listTransporteIdsComMapaConferenciaReentregaDb } from '../../../infra/db/expedicao/mapa-conferencia-reentrega.drizzle.js';
 import { listTransportesDb } from '../../../infra/db/expedicao/list-transportes.drizzle.js';
 import {
   DRIZZLE_PROVIDER,
@@ -48,6 +49,8 @@ function mapRemessa(
     volume: parseNumeric(remessa.volume) ?? 0,
     origem: remessa.origem,
     motivoReentrega: remessa.motivoReentrega,
+    itinerario: remessa.itinerario,
+    itinerarioId: remessa.itinerarioId ?? null,
     itens: itensPorRemessaId.get(remessa.id) ?? [],
   };
 }
@@ -133,11 +136,19 @@ export class ListarTransportesUseCase {
       itensPorRemessaId.set(row.remessaId, atual);
     });
 
+    const transporteIds = rows.map((row) => row.numeroTransporte);
+    const transportesComMapaConfReentrega =
+      await listTransporteIdsComMapaConferenciaReentregaDb(
+        this.db,
+        input.unidadeId,
+        transporteIds,
+      );
+
     return {
       transportes: rows.map((row) => ({
-        id: row.id,
+        id: row.numeroTransporte,
         uploadLoteId: row.uploadLoteId,
-        rota: row.rota,
+        rota: row.numeroTransporte,
         regiao: row.regiao,
         cidade: row.cidade,
         bairro: row.bairro,
@@ -148,6 +159,7 @@ export class ListarTransportesUseCase {
         volumeTotal: parseNumeric(row.volumeTotal) ?? 0,
         distanciaKm: parseNumeric(row.distanciaKm),
         itinerario: row.itinerario ?? null,
+        itinerarioId: row.itinerarioId ?? null,
         perfilEsperado: row.perfilEsperado,
         status: mapStatus(row.status),
         placa: row.placa,
@@ -162,6 +174,9 @@ export class ListarTransportesUseCase {
         nivelPrioridade: row.nivelPrioridade,
         mapaGeradoEm: row.mapaGeradoEm?.toISOString() ?? null,
         ultimoMapaLoteId: row.ultimoMapaLoteId ?? null,
+        temMapaConferenciaReentrega: transportesComMapaConfReentrega.has(
+          row.numeroTransporte,
+        ),
         quantidadeRemessas: row.remessas.length,
         remessas: row.remessas.map((remessa) =>
           mapRemessa(remessa, itensPorRemessaId),

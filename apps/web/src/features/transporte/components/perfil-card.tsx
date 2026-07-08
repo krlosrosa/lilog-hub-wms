@@ -11,7 +11,7 @@ import {
 
 import { TarifaFaixasPanel } from '@/features/transporte/components/tarifa-faixas-panel';
 import { TipoCargaBadge } from '@/features/transporte/components/tipo-carga-badge';
-import type { FaixaKmItem } from '@/features/transporte/types/perfil-tarifa.schema';
+import type { FaixaKmItem, ItinerarioFaixaItem } from '@/features/transporte/types/perfil-tarifa.schema';
 import type { PerfilTarifaItem } from '@/features/transporte/types/perfil-tarifa.schema';
 
 const nf = new Intl.NumberFormat('pt-BR');
@@ -31,7 +31,7 @@ type PerfilCardProps = {
   onAtualizarFaixa: (
     index: number,
     campo: keyof FaixaKmItem,
-    valor: number | string | null,
+    valor: number | string | null | string[] | ItinerarioFaixaItem[],
   ) => void;
   isSubmitting: boolean;
 };

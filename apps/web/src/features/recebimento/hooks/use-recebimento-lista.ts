@@ -11,6 +11,14 @@ import {
   mapPreRecebimentoToListaItem,
 } from '@/features/recebimento/lib/recebimento-api';
 import { MOCK_DOCAS } from '@/features/recebimento/mocks/recebimentos-mock-data';
+import {
+  countRecebimentoFiltrosAvancadosAtivos,
+  getDefaultRecebimentoFiltrosAvancados,
+  mapRecebimentoFiltrosAvancadosToApiParams,
+  matchesRecebimentoFiltrosAvancados,
+  normalizeRecebimentoFiltrosAvancados,
+  type RecebimentoFiltrosAvancados,
+} from '@/features/recebimento/types/recebimento-filtros';
 import type {
   DocaItem,
   FiltroTurno,
@@ -72,6 +80,8 @@ export function useRecebimentoLista() {
   const [docas, setDocas] = useState<DocaItem[]>(() => [...MOCK_DOCAS]);
   const [recebimentos, setRecebimentos] = useState<RecebimentoListaItem[]>([]);
   const [filtroTurno, setFiltroTurnoState] = useState<FiltroTurno>('todos');
+  const [filtrosAvancados, setFiltrosAvancadosState] =
+    useState<RecebimentoFiltrosAvancados>(getDefaultRecebimentoFiltrosAvancados);
   const [busca, setBuscaState] = useState('');
   const [pagina, setPagina] = useState(1);
 
@@ -89,6 +99,7 @@ export function useRecebimentoLista() {
           page: 1,
           limit: FETCH_LIMIT,
           unidadeId,
+          ...mapRecebimentoFiltrosAvancadosToApiParams(filtrosAvancados),
         }),
         listDocas({ page: 1, limit: 50, unidadeId }),
       ]);
@@ -116,7 +127,7 @@ export function useRecebimentoLista() {
     } finally {
       setIsLoading(false);
     }
-  }, [unidadeId]);
+  }, [unidadeId, filtrosAvancados]);
 
   useEffect(() => {
     void carregar();
@@ -145,8 +156,15 @@ export function useRecebimentoLista() {
     [carregar],
   );
 
+  const filtrosAvancadosAtivos = useMemo(
+    () => countRecebimentoFiltrosAvancadosAtivos(filtrosAvancados),
+    [filtrosAvancados],
+  );
+
   const filtrados = useMemo(() => {
-    let items = recebimentos;
+    let items = recebimentos.filter((item) =>
+      matchesRecebimentoFiltrosAvancados(item, filtrosAvancados),
+    );
 
     if (filtroTurno === 'manha') {
       items = items.filter((r) => paraMinutos(r.horario) < MANHA_ANTES_MINUTOS);
@@ -170,7 +188,7 @@ export function useRecebimentoLista() {
     }
 
     return items;
-  }, [filtroTurno, busca, recebimentos]);
+  }, [filtroTurno, busca, recebimentos, filtrosAvancados]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE));
   const paginaSegura = Math.min(pagina, totalPaginas);
@@ -208,12 +226,20 @@ export function useRecebimentoLista() {
     setPagina(1);
   }, []);
 
+  const setFiltrosAvancados = useCallback((filtros: RecebimentoFiltrosAvancados) => {
+    setFiltrosAvancadosState(normalizeRecebimentoFiltrosAvancados(filtros));
+    setPagina(1);
+  }, []);
+
   return {
     isLoading,
     isSubmitting,
     docas,
     filtroTurno,
     setFiltroTurno,
+    filtrosAvancados,
+    filtrosAvancadosAtivos,
+    setFiltrosAvancados,
     busca,
     setBusca,
     pagina: paginaSegura,

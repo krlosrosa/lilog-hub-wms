@@ -30,19 +30,24 @@ export function EnderecoKpiCard({
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-xl border border-outline-variant bg-glass-bg p-6 shadow-inner-glow backdrop-blur-glass transition-transform hover:-translate-y-1',
-        variant === 'critical' && 'border-destructive/30',
+        'relative flex flex-col justify-between gap-2 overflow-hidden rounded-xl border border-outline-variant bg-glass-bg p-4 shadow-inner-glow backdrop-blur-glass',
+        variant === 'critical' && 'border-destructive/30 bg-destructive/5',
+        variant === 'tertiary' && 'border-tertiary/30',
         className,
       )}
     >
-      <div className="mb-4 flex items-start justify-between">
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
         {icon}
+      </div>
+      <div className="flex items-end justify-between gap-2">
+        <p className="text-xl font-bold tabular-nums tracking-tight text-foreground">
+          {value}
+        </p>
         {badge}
       </div>
-      <p className="mb-1 text-label-md text-muted-foreground">{label}</p>
-      <p className="text-headline-md font-bold text-foreground">{value}</p>
       {progressPercent !== undefined && (
-        <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-muted">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
           <div
             className={cn('h-full rounded-full', progressClassName)}
             style={{ width: `${Math.min(100, progressPercent)}%` }}

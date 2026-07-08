@@ -5,7 +5,6 @@ export const RECEBIMENTO_PERMISSION = {
   CANCELAR: 'recebimento.cancelar',
   INICIAR: 'recebimento.iniciar',
   CONFERIR: 'recebimento.conferir',
-  APROVAR: 'recebimento.aprovar',
   FINALIZAR: 'recebimento.finalizar',
   HISTORICO_VISUALIZAR: 'recebimento.historico.visualizar',
 } as const;

@@ -16,6 +16,7 @@ export function mapPerfilTarifaToResponse(record: PerfilTarifaRecord) {
       kmFinal: faixa.kmFinal,
       valor: faixa.valor,
       itinerario: faixa.itinerario,
+      itinerarios: faixa.itinerarios,
       createdAt: faixa.createdAt.toISOString(),
       updatedAt: faixa.updatedAt.toISOString(),
     })),

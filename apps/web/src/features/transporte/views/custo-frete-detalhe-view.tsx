@@ -11,6 +11,7 @@ import {
   Loader2,
   MapPin,
   Save,
+  Scale,
   TrendingUp,
   Truck,
 } from 'lucide-react';
@@ -21,6 +22,7 @@ import { CustoAdicionalForm } from '@/features/transporte/components/custo-adici
 import { StatusCustoBadge } from '@/features/transporte/components/status-custo-badge';
 import { useCustoFreteDetalhe } from '@/features/transporte/hooks/use-custo-frete-detalhe';
 import { formatarMoeda } from '@/features/transporte/lib/calcular-custo';
+import { calcularCustoPorTon } from '@/features/transporte/lib/calcular-custo-frete';
 
 const NIVEL_VARIACAO_BORDER = {
   dentro: 'border-tertiary/20',
@@ -43,7 +45,7 @@ type KpiCardProps = {
   value: string;
   subValue?: string;
   icon: typeof DollarSign;
-  accent?: 'default' | 'tertiary' | 'destructive' | 'secondary';
+  accent?: 'default' | 'tertiary' | 'destructive' | 'secondary' | 'primary';
   borderAccent?: keyof typeof NIVEL_VARIACAO_BORDER;
 };
 
@@ -60,6 +62,7 @@ function KpiCard({
     tertiary: 'text-tertiary',
     destructive: 'text-destructive',
     secondary: 'text-secondary',
+    primary: 'text-primary',
   }[accent];
 
   const iconColor = {
@@ -67,6 +70,7 @@ function KpiCard({
     tertiary: 'text-tertiary',
     destructive: 'text-destructive',
     secondary: 'text-secondary',
+    primary: 'text-primary',
   }[accent];
 
   return (
@@ -166,6 +170,11 @@ export function CustoFreteDetalheView({ custoFreteId }: CustoFreteDetalheViewPro
       : variacao.nivel === 'atencao'
         ? 'secondary'
         : 'tertiary';
+  const custoPorTon =
+    totalPago > 0
+      ? calcularCustoPorTon(totalPago, transporte.pesoTotal)
+      : 0;
+  const pesoTon = transporte.pesoTotal / 1000;
 
   return (
     <SidebarMain>
@@ -216,7 +225,7 @@ export function CustoFreteDetalheView({ custoFreteId }: CustoFreteDetalheViewPro
             </div>
           </header>
 
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
             <KpiCard
               label="Previsto"
               value={formatarMoeda(custoPrevisto)}
@@ -245,6 +254,17 @@ export function CustoFreteDetalheView({ custoFreteId }: CustoFreteDetalheViewPro
               icon={TrendingUp}
               accent={variacaoAccent}
               borderAccent={variacao.nivel}
+            />
+            <KpiCard
+              label="R$/Ton"
+              value={custoPorTon > 0 ? formatarMoeda(custoPorTon) : '—'}
+              subValue={
+                transporte.pesoTotal > 0
+                  ? `${pesoTon.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} t · ${transporte.pesoTotal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`
+                  : 'Sem peso'
+              }
+              icon={Scale}
+              accent="primary"
             />
             <div className={cn(kpiCardClass, 'col-span-2 lg:col-span-1')}>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">

@@ -16,7 +16,7 @@ export type EnderecoEventType =
 export type EnderecoDomainEvent = {
   type: EnderecoEventType;
   enderecoId: string;
-  centroId: string;
+  unidadeId: string;
   enderecoMascarado: string;
   userId: number | null;
   motivo?: string;

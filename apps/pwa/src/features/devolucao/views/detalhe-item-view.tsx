@@ -42,6 +42,7 @@ import { QrScannerModal } from '@/components/qr-scanner';
 
 import { useDetalheItem } from '../hooks/use-detalhe-item';
 import { useAvariasRegistradas } from '../hooks/use-avarias-registradas';
+import { AvariaQuickCaptureButton } from '../components/avaria-quick-capture-button';
 import {
   CollapsibleRecordCard,
   RecordListItem,
@@ -123,6 +124,38 @@ function NumericField({
 
   );
 
+}
+
+
+
+function DateField({
+  id,
+  label,
+  value,
+  onChange,
+  error,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: ChangeEventHandler<HTMLInputElement>;
+  error?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-label-md text-on-surface-variant" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        type="date"
+        value={value}
+        onChange={onChange}
+        className="h-11 w-full rounded-lg border border-outline-variant bg-surface-bright px-3 font-mono text-label-md focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary/30"
+      />
+      {error ? <p className="text-label-sm text-destructive">{error}</p> : null}
+    </div>
+  );
 }
 
 
@@ -226,10 +259,12 @@ function ScanField({
 function SalvarConferenciaBottomDock({
   canSave,
   isSaving,
+  isEditing,
   onSave,
 }: {
   canSave: boolean;
   isSaving: boolean;
+  isEditing?: boolean;
   onSave: () => void;
 }) {
   const [mounted, setMounted] = useState(false);
@@ -264,7 +299,7 @@ function SalvarConferenciaBottomDock({
         ) : (
           <>
             <PackageCheck className="h-5 w-5" />
-            Salvar conferência
+            {isEditing ? 'Atualizar conferência' : 'Salvar conferência'}
           </>
         )}
       </Button>
@@ -293,15 +328,33 @@ export function DetalheItemView({ demandId }: DetalheItemViewProps) {
     isSavingConferencia,
     scanOpen,
     scanTitle,
+    parametrosConferencia,
+    isEditingConferido,
   } = state;
 
   const recebidaCaixa = form.watch('recebidaCaixa') ?? '';
-
   const recebidaUnidade = form.watch('recebidaUnidade') ?? '';
-
   const peso = form.watch('peso') ?? '';
+  const dataFabricacao = form.watch('dataFabricacao') ?? '';
+
+  const { quantidadeModo, loteModo, controlaPalete } = parametrosConferencia;
+  const showCaixa = quantidadeModo === 'caixa' || quantidadeModo === 'ambos';
+  const showUnidade = quantidadeModo === 'unidade' || quantidadeModo === 'ambos';
+  const showLote = loteModo === 'lote' || loteModo === 'ambos';
+  const showFabricacao = loteModo === 'fabricacao' || loteModo === 'ambos';
+  const showPalete = controlaPalete;
+  const showPeso = item?.pesoVariavel === true;
 
 
+
+  if (!item) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-margin-mobile">
+        <Loader2 className="h-8 w-8 animate-spin text-secondary" />
+        <p className="text-body-md text-on-surface-variant">Carregando item…</p>
+      </div>
+    );
+  }
 
   return (
 
@@ -421,29 +474,42 @@ export function DetalheItemView({ demandId }: DetalheItemViewProps) {
             <p className="mb-2 text-label-sm uppercase tracking-wider text-on-surface-variant">
               Quantidades informadas
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg bg-surface px-3 py-2.5 text-center">
-                <span className="block text-label-sm text-on-surface-variant">Caixa</span>
-                <span
-                  className={cn(
-                    'font-mono text-headline-md font-semibold',
-                    conferidoTotais.caixa > 0 ? 'text-on-surface' : 'text-on-tertiary-fixed-variant'
-                  )}
-                >
-                  {conferidoTotais.caixa > 0 ? conferidoTotais.caixa : '—'}
-                </span>
-              </div>
-              <div className="rounded-lg bg-surface px-3 py-2.5 text-center">
-                <span className="block text-label-sm text-on-surface-variant">Unidade</span>
-                <span
-                  className={cn(
-                    'font-mono text-headline-md font-semibold',
-                    conferidoTotais.unidade > 0 ? 'text-on-surface' : 'text-on-tertiary-fixed-variant'
-                  )}
-                >
-                  {conferidoTotais.unidade > 0 ? conferidoTotais.unidade : '—'}
-                </span>
-              </div>
+            <div
+              className={cn(
+                'grid gap-2',
+                showCaixa && showUnidade ? 'grid-cols-2' : 'grid-cols-1',
+              )}
+            >
+              {showCaixa && (
+                <div className="rounded-lg bg-surface px-3 py-2.5 text-center">
+                  <span className="block text-label-sm text-on-surface-variant">Caixa</span>
+                  <span
+                    className={cn(
+                      'font-mono text-headline-md font-semibold',
+                      conferidoTotais.caixa > 0
+                        ? 'text-on-surface'
+                        : 'text-on-tertiary-fixed-variant',
+                    )}
+                  >
+                    {conferidoTotais.caixa > 0 ? conferidoTotais.caixa : '—'}
+                  </span>
+                </div>
+              )}
+              {showUnidade && (
+                <div className="rounded-lg bg-surface px-3 py-2.5 text-center">
+                  <span className="block text-label-sm text-on-surface-variant">Unidade</span>
+                  <span
+                    className={cn(
+                      'font-mono text-headline-md font-semibold',
+                      conferidoTotais.unidade > 0
+                        ? 'text-on-surface'
+                        : 'text-on-tertiary-fixed-variant',
+                    )}
+                  >
+                    {conferidoTotais.unidade > 0 ? conferidoTotais.unidade : '—'}
+                  </span>
+                </div>
+              )}
             </div>
             {hasLotesConferidos && (
               <p className="mt-2 flex items-center justify-center gap-1.5 text-label-sm font-medium text-secondary">
@@ -467,100 +533,82 @@ export function DetalheItemView({ demandId }: DetalheItemViewProps) {
         >
 
           <div className="space-y-3">
+            {showLote && (
+              <ScanField
+                id="lote"
+                label="Lote (batch)"
+                icon={Barcode}
+                placeholder="Escaneie ou digite o lote"
+                registerProps={actions.register('lote')}
+                onScanClick={() => actions.openScan('lote')}
+                error={errors.lote?.message}
+              />
+            )}
 
-            <ScanField
+            {showFabricacao && (
+              <DateField
+                id="data-fabricacao"
+                label="Data de fabricação"
+                value={dataFabricacao}
+                onChange={(e) => form.setValue('dataFabricacao', e.target.value)}
+                error={errors.dataFabricacao?.message}
+              />
+            )}
 
-              id="lote"
-
-              label="Lote (batch)"
-
-              icon={Barcode}
-
-              placeholder="Escaneie ou digite o lote"
-
-              registerProps={actions.register('lote')}
-
-              onScanClick={() => actions.openScan('lote')}
-
-              error={errors.lote?.message}
-
-            />
-
-            <ScanField
-
-              id="id-palete"
-
-              label="ID do palete / WMS"
-
-              icon={QrCode}
-
-              placeholder="P-0000-0000"
-
-              registerProps={actions.register('idPalete')}
-
-              onScanClick={() => actions.openScan('idPalete')}
-
-            />
-
+            {showPalete && (
+              <ScanField
+                id="id-palete"
+                label="ID do palete / WMS"
+                icon={QrCode}
+                placeholder="P-0000-0000"
+                registerProps={actions.register('idPalete')}
+                onScanClick={() => actions.openScan('idPalete')}
+                error={errors.idPalete?.message}
+              />
+            )}
           </div>
 
 
 
           <h3 className="text-label-md font-semibold uppercase tracking-wider text-on-surface-variant">
-
             Quantidades
-
           </h3>
-
-          <div className="grid grid-cols-2 gap-3">
-
-            <NumericField
-
-              id="recebida-caixa"
-
-              label="Recebida caixa"
-
-              value={recebidaCaixa}
-
-              onChange={(e) => form.setValue('recebidaCaixa', e.target.value)}
-
-              error={errors.recebidaCaixa?.message}
-
-            />
-
-            <NumericField
-
-              id="recebida-unidade"
-
-              label="Recebida unidade"
-
-              value={recebidaUnidade}
-
-              onChange={(e) => form.setValue('recebidaUnidade', e.target.value)}
-
-              error={errors.recebidaUnidade?.message}
-
-            />
-
+          <div
+            className={cn(
+              'grid gap-3',
+              showCaixa && showUnidade ? 'grid-cols-2' : 'grid-cols-1',
+            )}
+          >
+            {showCaixa && (
+              <NumericField
+                id="recebida-caixa"
+                label="Recebida caixa"
+                value={recebidaCaixa}
+                onChange={(e) => form.setValue('recebidaCaixa', e.target.value)}
+                error={errors.recebidaCaixa?.message}
+              />
+            )}
+            {showUnidade && (
+              <NumericField
+                id="recebida-unidade"
+                label="Recebida unidade"
+                value={recebidaUnidade}
+                onChange={(e) => form.setValue('recebidaUnidade', e.target.value)}
+                error={errors.recebidaUnidade?.message}
+              />
+            )}
           </div>
 
-
-
-          <NumericField
-
-            id="peso"
-
-            label="Peso (kg)"
-
-            inputMode="decimal"
-
-            value={peso}
-
-            onChange={(e) => form.setValue('peso', e.target.value)}
-
-            error={errors.peso?.message}
-
-          />
+          {showPeso && (
+            <NumericField
+              id="peso"
+              label="Peso (kg)"
+              inputMode="decimal"
+              value={peso}
+              onChange={(e) => form.setValue('peso', e.target.value)}
+              error={errors.peso?.message}
+            />
+          )}
 
 
 
@@ -581,20 +629,23 @@ export function DetalheItemView({ demandId }: DetalheItemViewProps) {
               )}
               {isSubmitting ? 'Salvando lote...' : 'Adicionar lote conferido'}
             </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border-error text-error touch-manipulation active:scale-[0.98] hover:bg-error-container/20"
-            >
-              <Link
-                to="/devolucao/$id/avaria"
-                params={{ id: demandId }}
-                onClick={() => hapticLight()}
+            <div className="flex gap-2">
+              <AvariaQuickCaptureButton demandId={demandId} sku={item.sku} />
+              <Button
+                asChild
+                variant="outline"
+                className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border-error text-error touch-manipulation active:scale-[0.98] hover:bg-error-container/20"
               >
-                <AlertTriangle className="h-5 w-5" />
-                Registrar avaria
-              </Link>
-            </Button>
+                <Link
+                  to="/devolucao/$id/avaria"
+                  params={{ id: demandId }}
+                  onClick={() => hapticLight()}
+                >
+                  <AlertTriangle className="h-5 w-5" />
+                  Registrar avaria
+                </Link>
+              </Button>
+            </div>
           </div>
         </form>
 
@@ -613,12 +664,23 @@ export function DetalheItemView({ demandId }: DetalheItemViewProps) {
               removeLabel={`Excluir lote ${lote.lote}`}
             >
               <p className="truncate font-mono text-label-md font-semibold text-on-surface">
-                {lote.lote}
+                {lote.lote || lote.dataFabricacao || '—'}
               </p>
               <p className="text-label-sm text-on-surface-variant">
-                {lote.recebidaCaixa} cx · {lote.recebidaUnidade} un · {lote.peso} kg
+                {[
+                  showCaixa && lote.recebidaCaixa > 0 ? `${lote.recebidaCaixa} cx` : null,
+                  showUnidade && lote.recebidaUnidade > 0
+                    ? `${lote.recebidaUnidade} un`
+                    : null,
+                  showPeso && lote.peso ? `${lote.peso} kg` : null,
+                  showFabricacao && lote.dataFabricacao
+                    ? `Fab. ${lote.dataFabricacao}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || '—'}
               </p>
-              {lote.idPalete ? (
+              {showPalete && lote.idPalete ? (
                 <p className="truncate font-mono text-label-sm text-on-tertiary-fixed-variant">
                   Palete {lote.idPalete}
                 </p>
@@ -669,6 +731,7 @@ export function DetalheItemView({ demandId }: DetalheItemViewProps) {
       <SalvarConferenciaBottomDock
         canSave={canSaveConferencia}
         isSaving={isSavingConferencia}
+        isEditing={isEditingConferido}
         onSave={actions.handleSaveConferencia}
       />
 

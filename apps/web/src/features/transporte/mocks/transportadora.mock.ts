@@ -8,6 +8,7 @@ export const MOCK_TRANSPORTADORAS: TransportadoraListaItem[] = [
     cnpj: '12.345.678/0001-90',
     status: 'ativa',
     quantidadeVeiculos: 24,
+    emails: ['contato@logitech.com.br'],
   },
   {
     id: 'tr-002',
@@ -16,6 +17,7 @@ export const MOCK_TRANSPORTADORAS: TransportadoraListaItem[] = [
     cnpj: '98.765.432/0001-10',
     status: 'ativa',
     quantidadeVeiculos: 18,
+    emails: [],
   },
   {
     id: 'tr-003',
@@ -24,6 +26,7 @@ export const MOCK_TRANSPORTADORAS: TransportadoraListaItem[] = [
     cnpj: '11.222.333/0001-44',
     status: 'ativa',
     quantidadeVeiculos: 42,
+    emails: [],
   },
   {
     id: 'tr-004',
@@ -32,6 +35,7 @@ export const MOCK_TRANSPORTADORAS: TransportadoraListaItem[] = [
     cnpj: '55.666.777/0001-88',
     status: 'ativa',
     quantidadeVeiculos: 12,
+    emails: [],
   },
   {
     id: 'tr-005',
@@ -40,6 +44,7 @@ export const MOCK_TRANSPORTADORAS: TransportadoraListaItem[] = [
     cnpj: '33.444.555/0001-66',
     status: 'inativa',
     quantidadeVeiculos: 0,
+    emails: [],
   },
   {
     id: 'tr-006',
@@ -48,6 +53,7 @@ export const MOCK_TRANSPORTADORAS: TransportadoraListaItem[] = [
     cnpj: '77.888.999/0001-22',
     status: 'ativa',
     quantidadeVeiculos: 8,
+    emails: [],
   },
   {
     id: 'tr-007',
@@ -56,6 +62,7 @@ export const MOCK_TRANSPORTADORAS: TransportadoraListaItem[] = [
     cnpj: '22.333.444/0001-55',
     status: 'ativa',
     quantidadeVeiculos: 31,
+    emails: [],
   },
   {
     id: 'tr-008',
@@ -64,6 +71,7 @@ export const MOCK_TRANSPORTADORAS: TransportadoraListaItem[] = [
     cnpj: '66.777.888/0001-33',
     status: 'inativa',
     quantidadeVeiculos: 3,
+    emails: [],
   },
   {
     id: 'tr-009',
@@ -72,6 +80,7 @@ export const MOCK_TRANSPORTADORAS: TransportadoraListaItem[] = [
     cnpj: '44.555.666/0001-77',
     status: 'ativa',
     quantidadeVeiculos: 15,
+    emails: [],
   },
   {
     id: 'tr-010',
@@ -80,5 +89,6 @@ export const MOCK_TRANSPORTADORAS: TransportadoraListaItem[] = [
     cnpj: '88.999.000/0001-11',
     status: 'ativa',
     quantidadeVeiculos: 27,
+    emails: [],
   },
 ];

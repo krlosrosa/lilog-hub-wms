@@ -156,8 +156,8 @@ export function ProdutoSelectorCombobox({
                 <CommandGroup>
                   {opcoes.map((produto) => (
                     <CommandItem
-                      key={produto.id}
-                      value={produto.id}
+                      key={produto.produtoId}
+                      value={produto.produtoId}
                       onSelect={() => handleSelect(produto)}
                       className="text-xs"
                     >

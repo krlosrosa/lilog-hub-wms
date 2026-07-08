@@ -178,8 +178,17 @@ function ArmazenagemResumoCard({
   );
 }
 
-export function ListaArmazenagemView() {
-  const { state, actions } = useListaArmazenagem();
+export function ListaArmazenagemView({
+  backTo = '/movimentacao',
+  detalhePath = '/movimentacao/armazenagem/$id',
+  filterMode = 'all',
+}: {
+  backTo?: string;
+  listaPath?: string;
+  detalhePath?: string;
+  filterMode?: 'all' | 'armazenagem' | 'ressuprimento';
+} = {}) {
+  const { state, actions } = useListaArmazenagem({ detalhePath, filterMode });
   const {
     search,
     filter,
@@ -203,8 +212,8 @@ export function ListaArmazenagemView() {
         <div className="sticky top-0 z-30 border-b border-outline-variant/60 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
           <div className="flex h-14 items-center gap-3 px-margin-mobile">
             <Link
-              to="/estoque"
-              aria-label="Voltar ao estoque"
+              to={backTo}
+              aria-label="Voltar à movimentação"
               onPointerDown={() => hapticLight()}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-transform active:scale-90 touch-manipulation"
             >

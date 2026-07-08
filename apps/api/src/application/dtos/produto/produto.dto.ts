@@ -18,15 +18,17 @@ export const ListProdutosQuerySchema = z.object({
   dum: z.enum(['com', 'sem']).optional(),
 });
 
-export class ListProdutosQueryDto extends createZodDto(ListProdutosQuerySchema) {}
+export class ListProdutosQueryDto extends createZodDto(
+  ListProdutosQuerySchema
+) {}
 
 export const ProdutoResponseSchema = z.object({
-  id: z.uuid(),
   produtoId: z.string(),
   sku: z.string(),
   descricao: z.string(),
   empresa: EmpresaProdutoSchema,
   categoria: CategoriaProdutoSchema,
+  grupo: z.string().nullable().optional(),
   tipo: TipoProdutoSchema,
   ean: z.string().nullable().optional(),
   dum: z.string().nullable().optional(),
@@ -53,5 +55,5 @@ export const ListProdutosResponseSchema = z.object({
 });
 
 export class ListProdutosResponseDto extends createZodDto(
-  ListProdutosResponseSchema,
+  ListProdutosResponseSchema
 ) {}

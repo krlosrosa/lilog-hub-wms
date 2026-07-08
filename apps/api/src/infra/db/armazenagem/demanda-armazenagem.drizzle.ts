@@ -12,11 +12,14 @@ import {
   enderecos,
   itensArmazenagem,
   produtos,
+  unitizadores,
 } from '../providers/drizzle/config/migrations/schema.js';
+import { criarDemandaComTarefasTransacionalDb } from './criar-demanda-com-tarefas.drizzle.js';
 import {
   mapDemandaArmazenagemRow,
   mapItemArmazenagemRow,
 } from './map-armazenagem.drizzle.js';
+import { loadTarefasWithItensByDemandaIdDb } from './tarefa-armazenagem.drizzle.js';
 
 async function loadItensWithEnrichment(
   db: DrizzleClient,
@@ -27,10 +30,12 @@ async function loadItensWithEnrichment(
       item: itensArmazenagem,
       produtoSku: produtos.sku,
       produtoNome: produtos.descricao,
+      unitizadorCodigo: unitizadores.codigo,
       enderecoSugeridoLabel: enderecos.enderecoMascarado,
     })
     .from(itensArmazenagem)
-    .leftJoin(produtos, eq(itensArmazenagem.produtoId, produtos.id))
+    .leftJoin(produtos, eq(itensArmazenagem.produtoId, produtos.produtoId))
+    .leftJoin(unitizadores, eq(itensArmazenagem.unitizadorId, unitizadores.id))
     .leftJoin(
       enderecos,
       eq(itensArmazenagem.enderecoSugeridoId, enderecos.id),
@@ -41,51 +46,39 @@ async function loadItensWithEnrichment(
     mapItemArmazenagemRow(row.item, {
       produtoSku: row.produtoSku,
       produtoNome: row.produtoNome,
+      unitizadorCodigo: row.unitizadorCodigo,
       enderecoSugeridoLabel: row.enderecoSugeridoLabel,
     }),
   );
+}
+
+async function loadDemandaCompleta(
+  db: DrizzleClient,
+  demanda: typeof demandasArmazenagem.$inferSelect,
+): Promise<DemandaArmazenagemWithItens> {
+  const [itens, tarefas] = await Promise.all([
+    loadItensWithEnrichment(db, demanda.id),
+    loadTarefasWithItensByDemandaIdDb(db, demanda.id),
+  ]);
+
+  return {
+    ...mapDemandaArmazenagemRow(demanda),
+    itens,
+    tarefas,
+  };
 }
 
 export async function criarDemandaArmazenagemDb(
   db: DrizzleClient,
   input: CreateDemandaArmazenagemInput,
 ): Promise<DemandaArmazenagemWithItens> {
-  const [demanda] = await db
-    .insert(demandasArmazenagem)
-    .values({
-      unidadeId: input.unidadeId,
-      recebimentoId: input.recebimentoId,
-      modoUnitizacao: input.modoUnitizacao,
-      status: 'aguardando_inicio',
-    })
-    .returning();
+  const created = await criarDemandaComTarefasTransacionalDb(db, {
+    demanda: input,
+  });
 
-  if (!demanda) {
-    throw new Error('Failed to insert demanda armazenagem');
-  }
+  const reloaded = await findDemandaByIdDb(db, created.id);
 
-  const itemRows = await db
-    .insert(itensArmazenagem)
-    .values(
-      input.itens.map((item) => ({
-        demandaId: demanda.id,
-        unitizadorId: item.unitizadorId,
-        produtoId: item.produtoId,
-        quantidade: String(item.quantidade),
-        unidadeMedida: item.unidadeMedida,
-        lote: item.lote,
-        validade: item.validade,
-        numeroSerie: item.numeroSerie,
-        enderecoSugeridoId: item.enderecoSugeridoId ?? null,
-        status: 'pendente' as const,
-      })),
-    )
-    .returning();
-
-  return {
-    ...mapDemandaArmazenagemRow(demanda),
-    itens: itemRows.map((row) => mapItemArmazenagemRow(row)),
-  };
+  return reloaded ?? created;
 }
 
 export async function findDemandaByRecebimentoIdDb(
@@ -102,12 +95,7 @@ export async function findDemandaByRecebimentoIdDb(
     return null;
   }
 
-  const itens = await loadItensWithEnrichment(db, demanda.id);
-
-  return {
-    ...mapDemandaArmazenagemRow(demanda),
-    itens,
-  };
+  return loadDemandaCompleta(db, demanda);
 }
 
 export async function findDemandaByIdDb(
@@ -124,12 +112,7 @@ export async function findDemandaByIdDb(
     return null;
   }
 
-  const itens = await loadItensWithEnrichment(db, demanda.id);
-
-  return {
-    ...mapDemandaArmazenagemRow(demanda),
-    itens,
-  };
+  return loadDemandaCompleta(db, demanda);
 }
 
 export async function findItemArmazenagemByIdDb(
@@ -197,6 +180,8 @@ export async function updateStatusDemandaDb(
     responsavelId?: number;
     startedAt?: Date;
     finishedAt?: Date;
+    validadoPor?: number;
+    validadoEm?: Date;
   },
 ) {
   const [record] = await db
@@ -206,6 +191,8 @@ export async function updateStatusDemandaDb(
       responsavelId: extra?.responsavelId,
       startedAt: extra?.startedAt,
       finishedAt: extra?.finishedAt,
+      validadoPor: extra?.validadoPor,
+      validadoEm: extra?.validadoEm,
       updatedAt: new Date(),
     })
     .where(eq(demandasArmazenagem.id, id))

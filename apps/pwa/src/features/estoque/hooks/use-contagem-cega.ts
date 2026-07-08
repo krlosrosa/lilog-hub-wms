@@ -3,8 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { hapticMedium } from '@/lib/haptics';
-import { submitContagemCega, submitContagemValidacao } from '@/lib/offline/api-client';
+import { submitContagemCega } from '@/lib/offline/api-client';
 
+import { SKU_INVALIDO_MSG, validarSkuContagem } from '../lib/validar-sku-contagem';
 import {
   contagemCegaFormSchema,
   type ContagemCegaForm,
@@ -95,13 +96,19 @@ export function useContagemCega(options: UseContagemCegaOptions = {}) {
         return;
       }
 
+      const produtoValidado = await validarSkuContagem(data.codigoProduto);
+      if (!produtoValidado) {
+        showToast(SKU_INVALIDO_MSG, 'error');
+        return;
+      }
+
       hapticMedium();
 
       try {
         if (demandaId && demandaEnderecoId) {
           await submitContagemCega(demandaId, demandaEnderecoId, {
             enderecoArmazenagem: data.enderecoArmazenagem,
-            codigoProduto: data.codigoProduto,
+            codigoProduto: produtoValidado.sku,
             quantidadeCaixas: Number(data.quantidadeCaixas) || 0,
             quantidadeUnidades: Number(data.quantidadeUnidades) || 0,
             lote: data.lote,
@@ -111,7 +118,7 @@ export function useContagemCega(options: UseContagemCegaOptions = {}) {
           await new Promise((r) => setTimeout(r, 400));
         }
 
-        showToast(`Contagem finalizada para ${data.codigoProduto}`, 'success');
+        showToast(`Contagem finalizada para ${produtoValidado.sku}`, 'success');
         reset(DEFAULT_VALUES);
         onComplete?.();
       } catch (error) {
@@ -135,10 +142,9 @@ export function useContagemCega(options: UseContagemCegaOptions = {}) {
 
       try {
         if (demandaId && demandaEnderecoId) {
-          await submitContagemValidacao(demandaId, demandaEnderecoId, {
-            enderecoConfirmado: endereco,
+          await submitContagemCega(demandaId, demandaEnderecoId, {
+            enderecoArmazenagem: endereco,
             enderecoVazio: true,
-            anomaliaEncontrada: false,
             quantidadeCaixas: 0,
             quantidadeUnidades: 0,
           });

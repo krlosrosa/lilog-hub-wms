@@ -6,6 +6,7 @@ import type {
   RecebimentoSituacao,
 } from '../../../domain/model/recebimento/recebimento.model.js';
 import type {
+  AddItemRecebimentoOptions,
   CreateDivergenciaInput,
   IRecebimentoRepository,
   ListRecebimentosFilter,
@@ -15,6 +16,11 @@ import {
   type DrizzleClient,
 } from '../providers/drizzle/drizzle.provider.js';
 import { addItemRecebimentoDb } from './add-item-recebimento.drizzle.js';
+import { findPesagemByEtiquetaDb } from './find-pesagem-by-etiqueta.drizzle.js';
+import { removeItemConferenciaByIdDb } from './remove-item-conferencia-by-id.drizzle.js';
+import { removeItensConferenciaByUnitizadorDb } from './remove-itens-conferencia-by-unitizador.drizzle.js';
+import { removeItensConferenciaProdutoDb } from './remove-itens-conferencia-produto.drizzle.js';
+import { removePesagemRecebimentoDb } from './remove-pesagem-recebimento.drizzle.js';
 import { clearDivergenciasDb } from './clear-divergencias.drizzle.js';
 import { createDivergenciaDb } from './create-divergencia.drizzle.js';
 import { createRecebimentoDb } from './create-recebimento.drizzle.js';
@@ -55,10 +61,40 @@ export class RecebimentoService implements IRecebimentoRepository {
 
   addItem(
     recebimentoId: string,
+    unidadeId: string,
     data: ConferirItemInput,
-    unitizadorId?: string | null,
+    options?: AddItemRecebimentoOptions,
   ) {
-    return addItemRecebimentoDb(this.db, recebimentoId, data, unitizadorId);
+    return addItemRecebimentoDb(this.db, recebimentoId, unidadeId, data, options);
+  }
+
+  findPesagemByEtiqueta(unidadeId: string, etiquetaCodigo: string) {
+    return findPesagemByEtiquetaDb(this.db, unidadeId, etiquetaCodigo);
+  }
+
+  removePesagem(recebimentoId: string, pesagemId: string) {
+    return removePesagemRecebimentoDb(this.db, recebimentoId, pesagemId);
+  }
+
+  removeItemsByProduto(recebimentoId: string, produtoId: string) {
+    return removeItensConferenciaProdutoDb(this.db, recebimentoId, produtoId);
+  }
+
+  removeItemConferenciaById(recebimentoId: string, itemId: string) {
+    return removeItemConferenciaByIdDb(this.db, recebimentoId, itemId);
+  }
+
+  removeItensConferenciaByUnitizador(
+    recebimentoId: string,
+    unitizadorId: string,
+    produtoId?: string,
+  ) {
+    return removeItensConferenciaByUnitizadorDb(
+      this.db,
+      recebimentoId,
+      unitizadorId,
+      produtoId,
+    );
   }
 
   findItemsByRecebimento(recebimentoId: string) {

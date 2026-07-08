@@ -2,11 +2,7 @@ import { z } from 'zod';
 
 import { EmpresaSchema } from '../unidade/unidade.model.js';
 
-export const CategoriaProdutoSchema = z.enum([
-  'seco',
-  'refrigerado',
-  'queijo',
-]);
+export const CategoriaProdutoSchema = z.enum(['seco', 'refrigerado', 'queijo']);
 
 export type CategoriaProduto = z.infer<typeof CategoriaProdutoSchema>;
 
@@ -17,12 +13,12 @@ export const EmpresaProdutoSchema = EmpresaSchema;
 export type EmpresaProduto = z.infer<typeof EmpresaProdutoSchema>;
 
 export const ProdutoSchema = z.object({
-  id: z.uuid(),
   produtoId: z.string().min(1).max(50),
   sku: z.string().min(1).max(50),
   descricao: z.string().min(1),
   empresa: EmpresaProdutoSchema,
   categoria: CategoriaProdutoSchema,
+  grupo: z.string().nullable().optional(),
   tipo: TipoProdutoSchema,
   ean: z.string().nullable().optional(),
   dum: z.string().nullable().optional(),
@@ -42,7 +38,6 @@ export const ProdutoSchema = z.object({
 export type Produto = z.infer<typeof ProdutoSchema>;
 
 export const CreateProdutoInputSchema = ProdutoSchema.omit({
-  id: true,
   createdAt: true,
   updatedAt: true,
 });

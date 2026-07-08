@@ -8,5 +8,5 @@ export async function listTransportesDb(db: DrizzleClient, unidadeId: string) {
     .select()
     .from(vwTransportes)
     .where(eq(vwTransportes.unidadeId, unidadeId))
-    .orderBy(desc(vwTransportes.dataTransporte), desc(vwTransportes.rota));
+    .orderBy(desc(vwTransportes.dataTransporte), desc(vwTransportes.numeroTransporte));
 }

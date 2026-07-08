@@ -2,7 +2,10 @@
 
 import { cn } from '@lilog/ui';
 
-import type { DockSlot } from '@/features/devolucao/types/devolucao-gestao.schema';
+type DockSlot = {
+  numero: number;
+  status: 'ativa' | 'livre' | 'critica' | 'finalizada';
+};
 
 type DevolucaoDockGridProps = {
   slots: readonly DockSlot[];

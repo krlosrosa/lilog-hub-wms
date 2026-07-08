@@ -45,7 +45,14 @@ function TerminoBottomDock({
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 w-full pb-safe">
       <div className="pointer-events-auto w-full border-t border-outline-variant bg-surface-container-highest/95 shadow-[0_-4px_16px_rgba(11,28,48,0.08)] backdrop-blur-md supports-[backdrop-filter]:bg-surface-container-highest/90">
         <p className="px-4 pb-3 pt-3 text-center text-label-sm text-on-surface-variant">
-          Doca <span className="font-semibold text-on-surface">{dock}</span> · confirme para liberar
+          {dock !== '—' ? (
+            <>
+              Doca <span className="font-semibold text-on-surface">{dock}</span> · confirme para
+              encerrar a conferência
+            </>
+          ) : (
+            'Confirme para encerrar a conferência'
+          )}
         </p>
         <Button
           type="button"
@@ -56,12 +63,12 @@ function TerminoBottomDock({
           {isFinalizing ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-              Liberando doca...
+              Concluindo conferência...
             </>
           ) : (
             <>
               <ListChecks className="h-5 w-5" aria-hidden />
-              Finalizar e liberar doca
+              Concluir conferência
             </>
           )}
         </Button>
@@ -119,8 +126,9 @@ function ConfirmarLiberacaoModal({
           Confirmar conclusão?
         </h2>
         <p className="mb-5 text-body-sm text-on-surface-variant">
-          A doca <span className="font-semibold text-on-surface">{dock}</span> será liberada e o
-          A devolução será encerrada. Esta ação não pode ser desfeita.
+          A conferência será encerrada com status{' '}
+          <span className="font-semibold text-on-surface">Conferido</span>. O gestor poderá
+          finalizar o processo no painel web.
         </p>
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
           <Button
@@ -132,10 +140,10 @@ function ConfirmarLiberacaoModal({
             {isFinalizing ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-                Liberando...
+                Concluindo...
               </>
             ) : (
-              'Confirmar e liberar doca'
+              'Confirmar conferência'
             )}
           </Button>
           <Button
@@ -198,7 +206,13 @@ function AvariaRow({ item }: { item: TerminoAvariaItem }) {
   );
 }
 
-function DivergenciaRow({ item }: { item: TerminoDivergenciaItem }) {
+function DivergenciaRow({
+  item,
+  showEsperado = true,
+}: {
+  item: TerminoDivergenciaItem;
+  showEsperado?: boolean;
+}) {
   return (
     <article className="rounded-lg border border-outline-variant bg-surface p-4">
       <div className="border-l-4 border-secondary pl-3">
@@ -210,13 +224,17 @@ function DivergenciaRow({ item }: { item: TerminoDivergenciaItem }) {
         </div>
         <p className="mt-0.5 line-clamp-2 text-body-sm text-on-surface-variant">{item.name}</p>
         <div className="mt-2 flex items-center gap-4">
-          <div className="flex flex-col">
-            <span className="text-label-sm font-bold uppercase tracking-wide text-on-surface-variant">
-              Esperado
-            </span>
-            <span className="font-mono text-body-sm font-bold text-on-surface">{item.esperado}</span>
-          </div>
-          <div className="h-6 w-px bg-outline-variant" aria-hidden />
+          {showEsperado && (
+            <>
+              <div className="flex flex-col">
+                <span className="text-label-sm font-bold uppercase tracking-wide text-on-surface-variant">
+                  Esperado
+                </span>
+                <span className="font-mono text-body-sm font-bold text-on-surface">{item.esperado}</span>
+              </div>
+              <div className="h-6 w-px bg-outline-variant" aria-hidden />
+            </>
+          )}
           <div className="flex flex-col">
             <span className="text-label-sm font-bold uppercase tracking-wide text-on-surface-variant">
               Contado
@@ -360,8 +378,8 @@ export function TerminoProcessoView({ demandId }: TerminoProcessoViewProps) {
             Conferência encerrada
           </h2>
           <p className="max-w-sm text-body-sm text-on-surface-variant">
-            Revise avarias e divergências abaixo. Confirme a liberação da doca para concluir o
-            processo de devolução.
+            Revise avarias e divergências abaixo. Confirme para encerrar a conferência com status
+            Conferido.
           </p>
         </div>
 
@@ -397,7 +415,7 @@ export function TerminoProcessoView({ demandId }: TerminoProcessoViewProps) {
             emptyMessage="Todos os itens foram conferidos nesta devolução."
           >
             {naoConferidos.map((item) => (
-              <DivergenciaRow key={item.sku} item={item} />
+              <DivergenciaRow key={item.sku} item={item} showEsperado={false} />
             ))}
           </AccordionSection>
 

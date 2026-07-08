@@ -20,6 +20,7 @@ import {
   mapInventarioDetalhe,
   mapInventarioRow,
 } from './map-inventario.drizzle.js';
+import { listInventarioDivergenciasDb } from './inventario-divergencias.drizzle.js';
 
 export async function createInventarioDb(
   db: DrizzleClient,
@@ -275,10 +276,13 @@ export async function getInventarioDetalheDb(
     };
   });
 
+  const divergencias = await listInventarioDivergenciasDb(db, id);
+
   return mapInventarioDetalhe(
     inventario,
     totals?.conferidos ?? 0,
     totals?.total ?? 0,
     setoresProgresso,
+    divergencias,
   );
 }

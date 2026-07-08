@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { DocaEventPublisher } from '../../application/services/doca-event.publisher.js';
 import { BlockDocaUseCase } from '../../application/usecases/doca/block-doca.usecase.js';
+import { BulkCreateDocasUseCase } from '../../application/usecases/doca/bulk-create-docas.usecase.js';
 import { CreateDocaUseCase } from '../../application/usecases/doca/create-doca.usecase.js';
 import { DeleteDocaUseCase } from '../../application/usecases/doca/delete-doca.usecase.js';
 import { GetDocaUseCase } from '../../application/usecases/doca/get-doca.usecase.js';
@@ -19,6 +20,7 @@ import { DOCA_REPOSITORY } from '../../domain/repositories/doca/doca.repository.
 import { OPERACAO_DOCA_REPOSITORY } from '../../domain/repositories/operacao-doca/operacao-doca.repository.js';
 import { BlockDocaController } from '../../presentation/controllers/doca/block-doca.controller.js';
 import { CancelarOperacaoDocaController } from '../../presentation/controllers/doca/cancelar-operacao-doca.controller.js';
+import { BulkCreateDocasController } from '../../presentation/controllers/doca/bulk-create-docas.controller.js';
 import { CreateDocaController } from '../../presentation/controllers/doca/create-doca.controller.js';
 import { CreateOperacaoDocaController } from '../../presentation/controllers/doca/create-operacao-doca.controller.js';
 import { DeleteDocaController } from '../../presentation/controllers/doca/delete-doca.controller.js';
@@ -48,6 +50,7 @@ import { UnidadeModule } from './unidade.module.js';
     CancelarOperacaoDocaController,
     ListDocasController,
     CreateDocaController,
+    BulkCreateDocasController,
     CreateOperacaoDocaController,
     GetDocaController,
     UpdateDocaController,
@@ -60,6 +63,7 @@ import { UnidadeModule } from './unidade.module.js';
     ListDocasUseCase,
     GetDocaUseCase,
     CreateDocaUseCase,
+    BulkCreateDocasUseCase,
     UpdateDocaUseCase,
     BlockDocaUseCase,
     UnblockDocaUseCase,

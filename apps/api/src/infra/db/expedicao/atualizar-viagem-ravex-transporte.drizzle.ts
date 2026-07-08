@@ -37,7 +37,7 @@ export async function atualizarViagemRavexTransporteDb(
     .set(patch)
     .where(
       and(
-        eq(transportes.id, input.transporteId),
+        eq(transportes.numeroTransporte, input.transporteId),
         eq(transportes.unidadeId, input.unidadeId),
       ),
     );

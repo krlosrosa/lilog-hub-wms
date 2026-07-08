@@ -1,9 +1,8 @@
-import { cn } from '@lilog/ui';
-import { Info, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 
 import { DebitoOperacaoNfBadge } from '@/features/debito-transportadora/components/debito-operacao-nf-badge';
+import { DetalheSection } from '@/features/debito-transportadora/components/detalhe-section';
 import type { DebitoDetalhe } from '@/features/debito-transportadora/types/debito.schema';
-import { DEBITO_SEVERIDADE_LABELS } from '@/features/debito-transportadora/types/debito.schema';
 
 type DetalheInfoGeralProps = {
   debito: DebitoDetalhe;
@@ -17,121 +16,91 @@ function formatCurrency(value: number) {
   });
 }
 
+function InfoField({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <div className="mt-0.5 text-sm text-foreground">{children}</div>
+    </div>
+  );
+}
+
 export function DetalheInfoGeral({ debito, onEditar }: DetalheInfoGeralProps) {
   return (
-    <article className="rounded-xl border border-outline-variant/50 bg-glass-bg p-6 shadow-inner-glow backdrop-blur-glass">
-      <div className="mb-6 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-headline-md font-medium text-foreground">
-          <Info className="size-5 text-primary" aria-hidden />
-          Informações Gerais
-        </h3>
+    <DetalheSection
+      id="titulo-info-geral"
+      title="Informações Gerais"
+      action={
         <button
           type="button"
-          className="text-sm font-semibold text-primary hover:underline"
+          className="text-[11px] font-semibold text-primary hover:underline"
           onClick={onEditar}
         >
-          Editar Dados
+          Editar
         </button>
+      }
+    >
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-3 lg:grid-cols-4">
+        <InfoField label="Data do Incidente">{debito.dataIncidente}</InfoField>
+        <InfoField label="Transportadora">{debito.transportadora}</InfoField>
+        <InfoField label="Pedido">
+          <span className="font-medium text-primary">{debito.pedido}</span>
+        </InfoField>
+        <InfoField label="Peso Afetado">
+          {debito.pesoAfetadoKg.toLocaleString('pt-BR')} kg
+        </InfoField>
+        <InfoField label="Valor Reclamado">
+          <span className="font-semibold tabular-nums text-tertiary">
+            {formatCurrency(debito.valorReclamado)}
+          </span>
+        </InfoField>
+        <InfoField label="Origem">
+          <span className="inline-flex items-center gap-1">
+            <MapPin className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="truncate">{debito.origem}</span>
+          </span>
+        </InfoField>
+        <InfoField label="Destino">
+          <span className="inline-flex items-center gap-1">
+            <MapPin className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="truncate">{debito.destino}</span>
+          </span>
+        </InfoField>
       </div>
 
-      <div className="grid grid-cols-1 gap-y-6 gap-x-12 md:grid-cols-3">
-        <div className="space-y-1">
-          <p className="text-caption uppercase tracking-wider text-muted-foreground">
-            Data do Incidente
-          </p>
-          <p className="text-body-md text-foreground">{debito.dataIncidente}</p>
-        </div>
-        <div className="space-y-1">
-          <p className="text-caption uppercase tracking-wider text-muted-foreground">
-            Transportadora
-          </p>
-          <p className="text-body-md text-foreground">{debito.transportadora}</p>
-        </div>
-        <div className="space-y-1">
-          <p className="text-caption uppercase tracking-wider text-muted-foreground">
-            Pedido
-          </p>
-          <p className="text-body-md text-primary">{debito.pedido}</p>
-        </div>
-        <div className="space-y-1">
-          <p className="text-caption uppercase tracking-wider text-muted-foreground">
-            Peso Afetado
-          </p>
-          <p className="text-body-md text-foreground">
-            {debito.pesoAfetadoKg.toLocaleString('pt-BR')} kg
-          </p>
-        </div>
-        <div className="space-y-1">
-          <p className="text-caption uppercase tracking-wider text-muted-foreground">
-            Valor Reclamado
-          </p>
-          <p className="text-lg font-bold text-tertiary">
-            {formatCurrency(debito.valorReclamado)}
-          </p>
-        </div>
-        <div className="space-y-1">
-          <p className="text-caption uppercase tracking-wider text-muted-foreground">
-            Severidade
-          </p>
-          <span
-            className={cn(
-              'inline-block rounded px-2 py-0.5 text-xs font-bold',
-              debito.severidade === 'alta'
-                ? 'bg-destructive/30 text-destructive'
-                : debito.severidade === 'media'
-                  ? 'bg-secondary-container/30 text-secondary'
-                  : 'bg-muted text-muted-foreground',
-            )}
-          >
-            {DEBITO_SEVERIDADE_LABELS[debito.severidade]}
-          </span>
-        </div>
-
-        <div className="col-span-full space-y-3 border-t border-outline-variant pt-4">
-          <p className="text-caption uppercase tracking-wider text-muted-foreground">
+      {debito.notasFiscais.length > 0 ? (
+        <div className="mt-3 border-t border-outline-variant/60 pt-3">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Notas Fiscais ({debito.notasFiscais.length})
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {debito.notasFiscais.map((nf) => (
               <div
                 key={nf.id}
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-outline-variant bg-surface-low px-3 py-2"
+                className="inline-flex items-center gap-1.5 rounded-md border border-outline-variant/60 bg-surface-low px-2 py-1"
               >
-                <span className="font-mono text-sm font-semibold text-foreground">
+                <span className="font-mono text-[11px] font-semibold text-foreground">
                   {nf.numero}
                 </span>
-                <DebitoOperacaoNfBadge operacao={nf.operacao} />
+                <DebitoOperacaoNfBadge operacao={nf.operacao} short />
                 {nf.pedido ? (
-                  <span className="text-[10px] text-muted-foreground">
-                    {nf.pedido}
-                  </span>
+                  <span className="text-[10px] text-muted-foreground">{nf.pedido}</span>
                 ) : null}
               </div>
             ))}
           </div>
         </div>
-
-        <div className="col-span-full grid grid-cols-1 gap-8 border-t border-outline-variant pt-4 md:grid-cols-2">
-          <div className="space-y-1">
-            <p className="text-caption uppercase tracking-wider text-muted-foreground">
-              Origem
-            </p>
-            <div className="flex items-center gap-2">
-              <MapPin className="size-4 text-muted-foreground" aria-hidden />
-              <p className="text-body-md text-foreground">{debito.origem}</p>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <p className="text-caption uppercase tracking-wider text-muted-foreground">
-              Destino
-            </p>
-            <div className="flex items-center gap-2">
-              <MapPin className="size-4 text-muted-foreground" aria-hidden />
-              <p className="text-body-md text-foreground">{debito.destino}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </article>
+      ) : null}
+    </DetalheSection>
   );
 }

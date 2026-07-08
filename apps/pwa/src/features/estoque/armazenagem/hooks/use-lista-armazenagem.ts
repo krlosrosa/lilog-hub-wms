@@ -5,6 +5,7 @@ import { useUnidade } from '@/features/unidade/lib/unidade-context';
 import { hapticMedium } from '@/lib/haptics';
 
 import {
+  fetchDemandaArmazenagem,
   fetchDemandasArmazenagem,
   type DemandaArmazenagemListItemApi,
 } from '../lib/armazenagem-api';
@@ -24,6 +25,7 @@ export type ArmazenagemDemandaListItem = {
 
 function mapDemandaToListItem(
   demanda: DemandaArmazenagemListItemApi,
+  stats?: { itemCount: number; storedCount: number },
 ): ArmazenagemDemandaListItem {
   const isUrgente = demanda.status === 'aguardando_inicio';
   return {
@@ -33,13 +35,35 @@ function mapDemandaToListItem(
     zona: demanda.modoUnitizacao,
     priority: isUrgente ? 'urgente' : 'normal',
     isPriority: isUrgente,
-    itemCount: 0,
-    storedCount: 0,
+    itemCount: stats?.itemCount ?? 0,
+    storedCount: stats?.storedCount ?? 0,
     status: demanda.status,
   };
 }
 
-export function useListaArmazenagem() {
+async function resolveDemandaStats(demandaId: string) {
+  const detail = await fetchDemandaArmazenagem(demandaId);
+
+  if (detail.tarefas && detail.tarefas.length > 0) {
+    return {
+      itemCount: detail.tarefas.length,
+      storedCount: detail.tarefas.filter((tarefa) => tarefa.status === 'armazenada')
+        .length,
+    };
+  }
+
+  return {
+    itemCount: detail.itens.length,
+    storedCount: detail.itens.filter((item) => item.status === 'armazenado').length,
+  };
+}
+
+export function useListaArmazenagem(options?: {
+  detalhePath?: string;
+  filterMode?: 'all' | 'armazenagem' | 'ressuprimento';
+}) {
+  const detalhePath = options?.detalhePath ?? '/movimentacao/armazenagem/$id';
+  const filterMode = options?.filterMode ?? 'all';
   const navigate = useNavigate();
   const { unidadeSelecionada } = useUnidade();
   const unidadeId = unidadeSelecionada?.id ?? null;
@@ -61,17 +85,44 @@ export function useListaArmazenagem() {
     setError(null);
     try {
       const result = await fetchDemandasArmazenagem(unidadeId);
-      const active = result.items.filter(
-        (d) => d.status !== 'concluida' && d.status !== 'cancelada',
+      let active = result.items.filter(
+        (d) =>
+          d.status !== 'concluida' &&
+          d.status !== 'cancelada' &&
+          d.status !== 'aguardando_validacao',
       );
-      setDemandas(active.map(mapDemandaToListItem));
+
+      if (filterMode === 'armazenagem') {
+        const filtered = active.filter(
+          (demanda) => demanda.modoUnitizacao === 'gerar_etiqueta_na_armazenagem',
+        );
+        if (filtered.length > 0) active = filtered;
+      } else if (filterMode === 'ressuprimento') {
+        const filtered = active.filter(
+          (demanda) => demanda.modoUnitizacao !== 'gerar_etiqueta_na_armazenagem',
+        );
+        if (filtered.length > 0) active = filtered;
+      }
+
+      const enriched = await Promise.all(
+        active.map(async (demanda) => {
+          try {
+            const stats = await resolveDemandaStats(demanda.id);
+            return mapDemandaToListItem(demanda, stats);
+          } catch {
+            return mapDemandaToListItem(demanda);
+          }
+        }),
+      );
+
+      setDemandas(enriched);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar demandas');
       setDemandas([]);
     } finally {
       setIsLoading(false);
     }
-  }, [unidadeId]);
+  }, [unidadeId, filterMode]);
 
   useEffect(() => {
     void load();
@@ -130,11 +181,11 @@ export function useListaArmazenagem() {
     (routeId: string) => {
       hapticMedium();
       void navigate({
-        to: '/estoque/armazenagem/$id',
+        to: detalhePath,
         params: { id: routeId },
       });
     },
-    [navigate],
+    [navigate, detalhePath],
   );
 
   return {

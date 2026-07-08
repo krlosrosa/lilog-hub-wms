@@ -8,6 +8,7 @@ export type TransportadoraApi = {
   cnpj: string;
   status: TransportadoraStatus;
   quantidadeVeiculos: number;
+  emails: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -34,6 +35,7 @@ export type UpdateTransportadoraPayload = Partial<{
   cnpj: string;
   status: TransportadoraStatus;
   quantidadeVeiculos: number;
+  emails?: string[];
 }>;
 
 export type ImportarTransportadoraRavexPayload = {

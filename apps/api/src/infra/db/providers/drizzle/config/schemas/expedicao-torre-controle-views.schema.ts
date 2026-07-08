@@ -13,7 +13,7 @@ import { expedicaoPgSchema, mapaGrupoProcessoTypeEnum } from './expedicao.schema
 
 export const vwTransporteOperacional = expedicaoPgSchema
   .view('vw_transporte_operacional', {
-    transporteId: uuid('transporte_id').notNull(),
+    transporteId: varchar('transporte_id', { length: 100 }).notNull(),
     unidadeId: varchar('unidade_id', { length: 50 }).notNull(),
     uploadLoteId: uuid('upload_lote_id').notNull(),
     codigo: varchar('codigo', { length: 100 }).notNull(),
@@ -56,7 +56,7 @@ export const vwMapasPendentes = expedicaoPgSchema
     mapaLoteId: uuid('mapa_lote_id').notNull(),
     unidadeId: varchar('unidade_id', { length: 50 }).notNull(),
     uploadLoteId: uuid('upload_lote_id').notNull(),
-    transporteId: uuid('transporte_id').notNull(),
+    transporteId: varchar('transporte_id', { length: 100 }).notNull(),
     transporteCodigo: varchar('transporte_codigo', { length: 100 }).notNull(),
     microUuid: varchar('micro_uuid', { length: 120 }).notNull(),
     processo: mapaGrupoProcessoTypeEnum('processo').notNull(),

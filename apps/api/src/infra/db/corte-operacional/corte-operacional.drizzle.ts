@@ -162,7 +162,7 @@ export async function findMapaGrupoPorCodigoDb(
       titulo: mapaGrupos.titulo,
       subtitulo: mapaGrupos.subtitulo,
       transporteId: mapaGrupos.transporteId,
-      transporteRota: transportes.rota,
+      transporteRota: transportes.numeroTransporte,
       totalItens: mapaGrupos.totalItens,
       pesoTotal: mapaGrupos.pesoTotal,
       unidadeId: mapaLotes.unidadeId,
@@ -170,7 +170,7 @@ export async function findMapaGrupoPorCodigoDb(
     })
     .from(mapaGrupos)
     .innerJoin(mapaLotes, eq(mapaGrupos.mapaLoteId, mapaLotes.id))
-    .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.id))
+    .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.numeroTransporte))
     .where(
       and(
         eq(mapaLotes.unidadeId, unidadeId),

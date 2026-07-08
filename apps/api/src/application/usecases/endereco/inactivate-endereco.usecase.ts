@@ -56,7 +56,7 @@ export class InactivateEnderecoUseCase {
     await this.enderecoEventPublisher.publish({
       type: ENDERECO_EVENT.INATIVADO,
       enderecoId: updated.id,
-      centroId: updated.centroId,
+      unidadeId: updated.unidadeId,
       enderecoMascarado: updated.enderecoMascarado,
       userId,
       motivo,

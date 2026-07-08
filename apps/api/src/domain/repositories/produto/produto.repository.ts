@@ -6,12 +6,12 @@ import type {
 export const PRODUTO_REPOSITORY = 'IProdutoRepository';
 
 export type ProdutoRecord = {
-  id: string;
   produtoId: string;
   sku: string;
   descricao: string;
   empresa: CreateProdutoInput['empresa'];
   categoria: CreateProdutoInput['categoria'];
+  grupo: string | null;
   tipo: CreateProdutoInput['tipo'];
   ean: string | null;
   dum: string | null;
@@ -48,12 +48,19 @@ export type ListProdutosResult = {
 
 export interface IProdutoRepository {
   list(filter: ListProdutosFilter): Promise<ListProdutosResult>;
-  findById(id: string): Promise<ProdutoRecord | null>;
-  findBySku(sku: string): Promise<ProdutoRecord | null>;
   findByProdutoId(produtoId: string): Promise<ProdutoRecord | null>;
-  findByCodigosRemessa(codigos: string[]): Promise<Map<string, ProdutoRecord | null>>;
+  findBySku(sku: string): Promise<ProdutoRecord | null>;
+  resolvePorCodigo(codigo: string): Promise<ProdutoRecord | null>;
+  findByCodigosRemessa(
+    codigos: string[]
+  ): Promise<Map<string, ProdutoRecord | null>>;
   create(data: CreateProdutoInput): Promise<ProdutoRecord>;
-  bulkCreate(items: CreateProdutoInput[]): Promise<{ importados: number; duplicados: number }>;
-  update(id: string, data: UpdateProdutoInput): Promise<ProdutoRecord | null>;
-  delete(id: string): Promise<void>;
+  bulkCreate(
+    items: CreateProdutoInput[]
+  ): Promise<{ importados: number; duplicados: number }>;
+  update(
+    produtoId: string,
+    data: UpdateProdutoInput
+  ): Promise<ProdutoRecord | null>;
+  delete(produtoId: string): Promise<void>;
 }

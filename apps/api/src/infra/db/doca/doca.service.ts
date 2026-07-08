@@ -13,6 +13,7 @@ import {
   type DrizzleClient,
 } from '../providers/drizzle/drizzle.provider.js';
 import { createDocaDb } from './create-doca.drizzle.js';
+import { bulkCreateDocasDb } from './bulk-create-docas.drizzle.js';
 import { deleteDocaDb } from './delete-doca.drizzle.js';
 import {
   findDocaByIdDb,
@@ -46,6 +47,10 @@ export class DocaService implements IDocaRepository {
 
   create(data: CreateDocaInput) {
     return createDocaDb(this.db, data);
+  }
+
+  createBulk(items: CreateDocaInput[]) {
+    return bulkCreateDocasDb(this.db, items);
   }
 
   update(id: string, data: UpdateDocaInput) {

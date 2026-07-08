@@ -85,7 +85,22 @@ export function ImprimirMapasModal({
     [transportesSelecionados],
   );
 
+  const transportesSemRemessaReentrega = useMemo(
+    () =>
+      transportesSelecionados.filter(
+        (transporte) =>
+          !transporte.remessas.some((remessa) => remessa.origem === 'reentrega'),
+      ),
+    [transportesSelecionados],
+  );
+
+  const isConferenciaReentrega = tipoMapa === 'conferencia_reentrega';
+
   const textoAjudaTipoMapa = useMemo(() => {
+    if (tipoMapa === 'conferencia_reentrega') {
+      return 'Mapa especial apenas das remessas de reentrega vinculadas. Não exige mapa de separação salvo.';
+    }
+
     if (tipoMapa === 'conferencia') {
       return 'Usa o HTML de conferência e a ordem de colunas definida na configuração.';
     }
@@ -104,7 +119,9 @@ export function ImprimirMapasModal({
   const podeGerar =
     configuracaoId.length > 0 &&
     transportesSelecionados.length > 0 &&
-    transportesSemMapa.length === 0 &&
+    (isConferenciaReentrega
+      ? transportesSemRemessaReentrega.length === 0
+      : transportesSemMapa.length === 0) &&
     !carregandoConfigs &&
     !gerando;
 
@@ -142,6 +159,7 @@ export function ImprimirMapasModal({
             >
               <option value="separacao">{TIPO_LAYOUT_MAPA_LABELS.separacao}</option>
               <option value="conferencia">{TIPO_LAYOUT_MAPA_LABELS.conferencia}</option>
+              <option value="conferencia_reentrega">Conferência Reentrega</option>
               <option value="carregamento">Minuta de carregamento</option>
               <option value="todos">Todos</option>
             </select>
@@ -177,7 +195,7 @@ export function ImprimirMapasModal({
             </p>
           </div>
 
-          {transportesSemMapa.length > 0 && (
+          {!isConferenciaReentrega && transportesSemMapa.length > 0 && (
             <div className="flex gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-100">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
               <div>
@@ -186,6 +204,22 @@ export function ImprimirMapasModal({
                 </p>
                 <ul className="mt-1 list-inside list-disc">
                   {transportesSemMapa.map((transporte) => (
+                    <li key={transporte.id}>{transporte.rota}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {isConferenciaReentrega && transportesSemRemessaReentrega.length > 0 && (
+            <div className="flex gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-100">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <div>
+                <p className="font-medium">
+                  Nenhuma remessa de reentrega vinculada.
+                </p>
+                <ul className="mt-1 list-inside list-disc">
+                  {transportesSemRemessaReentrega.map((transporte) => (
                     <li key={transporte.id}>{transporte.rota}</li>
                   ))}
                 </ul>

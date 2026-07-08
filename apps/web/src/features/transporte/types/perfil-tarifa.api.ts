@@ -1,11 +1,17 @@
 import type { TipoCarga } from '@/features/transporte/types/perfil-tarifa.schema';
 
+export type ItinerarioApi = {
+  id: string;
+  codigo: string;
+};
+
 export type FaixaKmApi = {
   id: string;
   kmInicial: string;
   kmFinal: string | null;
   valor: string;
   itinerario: string | null;
+  itinerarios: ItinerarioApi[];
   createdAt: string;
   updatedAt: string;
 };
@@ -51,6 +57,6 @@ export type UpsertFaixasKmPayload = {
     kmInicial: number;
     kmFinal?: number | null;
     valor: number;
-    itinerario?: string | null;
+    itinerarios?: string[];
   }>;
 };

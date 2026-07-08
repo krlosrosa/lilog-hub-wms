@@ -11,12 +11,14 @@ import { TIPO_PAUSA_REGRA_LABELS } from '@/features/regras-pausas/types/tipo-pau
 type OperadorProximaPausaResumoProps = {
   operator: Operator | null | undefined;
   variant?: 'default' | 'emphasis';
+  layout?: 'default' | 'inline';
   className?: string;
 };
 
 export function OperadorProximaPausaResumo({
   operator,
   variant = 'default',
+  layout = 'default',
   className,
 }: OperadorProximaPausaResumoProps) {
   if (!operator) {
@@ -24,6 +26,25 @@ export function OperadorProximaPausaResumo({
   }
 
   if (operator.emPausa) {
+    if (layout === 'inline') {
+      return (
+        <div
+          className={cn(
+            'flex items-center gap-2 rounded-md border border-outline-variant/80 bg-muted/25 px-2.5 py-1.5',
+            className,
+          )}
+        >
+          <Coffee className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-foreground">Em pausa</p>
+            <p className="text-[10px] text-muted-foreground">
+              Trabalho contínuo retoma ao encerrar.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div
         className={cn(
@@ -57,6 +78,58 @@ export function OperadorProximaPausaResumo({
   const destaque = atrasada || devidaAgora || variant === 'emphasis';
 
   if (atrasada) {
+    if (layout === 'inline') {
+      return (
+        <div
+          role="alert"
+          className={cn(
+            'flex items-start gap-2 rounded-md border border-amber-500/20 bg-amber-500/[0.06] px-2.5 py-2',
+            className,
+          )}
+        >
+          <AlertTriangle
+            className="mt-0.5 size-3.5 shrink-0 text-amber-600/70 dark:text-amber-400/80"
+            aria-hidden
+          />
+          <div className="min-w-0 space-y-1">
+            <p className="text-[11px] font-medium text-foreground">
+              Pausa atrasada
+              <span className="font-normal text-muted-foreground">
+                {' '}
+                · {tipoLabel}
+              </span>
+            </p>
+            <p className="text-[10px] leading-snug text-muted-foreground">
+              Devida há {formatIntervaloTrabalho(atrasoMinutos)}
+              {operator.tempoTrabalhoContinuoMinutos != null ? (
+                <>
+                  {' '}
+                  · trabalho contínuo:{' '}
+                  {formatIntervaloTrabalho(operator.tempoTrabalhoContinuoMinutos)}
+                </>
+              ) : null}
+            </p>
+            {operator.pausaDevidaProgress != null ? (
+              <div className="space-y-0.5">
+                <div className="h-1 overflow-hidden rounded-full bg-amber-500/15">
+                  <div
+                    className="h-full rounded-full bg-amber-500/60 transition-all"
+                    style={{
+                      width: `${Math.min(100, operator.pausaDevidaProgress)}%`,
+                    }}
+                  />
+                </div>
+                <p className="text-[9px] text-muted-foreground">
+                  Intervalo de{' '}
+                  {formatIntervaloTrabalho(operator.intervaloPausaReferenciaMinutos!)}{' '}
+                  ultrapassado
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div
@@ -111,6 +184,48 @@ export function OperadorProximaPausaResumo({
   }
 
   if (devidaAgora) {
+    if (layout === 'inline') {
+      return (
+        <div
+          role="alert"
+          className={cn(
+            'flex items-start gap-2 rounded-md border border-amber-500/20 bg-amber-500/[0.06] px-2.5 py-2',
+            className,
+          )}
+        >
+          <Coffee
+            className="mt-0.5 size-3.5 shrink-0 text-amber-600/70 dark:text-amber-400/80"
+            aria-hidden
+          />
+          <div className="min-w-0 space-y-1">
+            <p className="text-[11px] font-medium text-foreground">
+              Pausa devida agora
+              <span className="font-normal text-muted-foreground">
+                {' '}
+                · {tipoLabel}
+              </span>
+            </p>
+            <p className="text-[10px] leading-snug text-muted-foreground">
+              Intervalo de{' '}
+              {formatIntervaloTrabalho(operator.intervaloPausaReferenciaMinutos!)}
+              {operator.tempoTrabalhoContinuoMinutos != null ? (
+                <>
+                  {' '}
+                  · trabalho contínuo:{' '}
+                  {formatIntervaloTrabalho(operator.tempoTrabalhoContinuoMinutos)}
+                </>
+              ) : null}
+            </p>
+            {operator.pausaDevidaProgress != null ? (
+              <div className="h-1 overflow-hidden rounded-full bg-amber-500/15">
+                <div className="h-full w-full rounded-full bg-amber-500/60" />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div
         role="alert"
@@ -153,6 +268,44 @@ export function OperadorProximaPausaResumo({
   }
 
   const restante = operator.pausaTempoRestanteMinutos ?? 0;
+
+  if (layout === 'inline') {
+    return (
+      <div
+        className={cn(
+          'flex items-start gap-2 rounded-md border border-outline-variant/80 bg-muted/25 px-2.5 py-2',
+          className,
+        )}
+      >
+        <Clock className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <div className="min-w-0 space-y-1">
+          <p className="text-[11px] font-medium text-foreground">
+            Próxima pausa
+            <span className="font-normal text-muted-foreground"> · {tipoLabel}</span>
+          </p>
+          <p className="text-[10px] leading-snug text-muted-foreground">
+            Em aproximadamente {formatIntervaloTrabalho(restante)}
+            {operator.tempoTrabalhoContinuoMinutos != null ? (
+              <>
+                {' '}
+                · {formatIntervaloTrabalho(operator.tempoTrabalhoContinuoMinutos)} de{' '}
+                {formatIntervaloTrabalho(operator.intervaloPausaReferenciaMinutos!)}{' '}
+                trabalhados
+              </>
+            ) : null}
+          </p>
+          {operator.pausaDevidaProgress != null ? (
+            <div className="h-1 overflow-hidden rounded-full bg-surface-high">
+              <div
+                className="h-full rounded-full bg-amber-500/50 transition-all"
+                style={{ width: `${operator.pausaDevidaProgress}%` }}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

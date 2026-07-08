@@ -27,6 +27,7 @@ export const campoCondicaoSchema = z.enum([
   'tipo_endereco',
   'zona_temperatura',
   'situacao_produto',
+  'tipo_divergencia',
 ]);
 
 export type CampoCondicao = z.infer<typeof campoCondicaoSchema>;
@@ -72,6 +73,19 @@ export const filtroAtivoSchema = z.enum(['todos', 'ativo', 'inativo']);
 
 export type FiltroAtivo = z.infer<typeof filtroAtivoSchema>;
 
+/** Gatilhos exibidos na UI de cadastro (demais permanecem no schema para compatibilidade). */
+export const GATILHOS_HABILITADOS = ['recebimento'] as const satisfies readonly GatilhoRegra[];
+
+/** Campos de condição exibidos na UI de cadastro. */
+export const CAMPOS_CONDICAO_HABILITADOS = [
+  'situacao_produto',
+] as const satisfies readonly CampoCondicao[];
+
+/** Tipos de ação exibidos na UI de cadastro. */
+export const TIPOS_ACAO_HABILITADOS = [
+  'mover_deposito',
+] as const satisfies readonly TipoAcao[];
+
 export const condicaoSchema = z.object({
   id: z.string(),
   campo: campoCondicaoSchema,
@@ -84,6 +98,8 @@ export type Condicao = z.infer<typeof condicaoSchema>;
 
 export const acaoParametrosSchema = z.object({
   zonaDestino: z.string().optional(),
+  depositoId: z.string().optional(),
+  depositoCodigo: z.string().optional(),
   mensagem: z.string().optional(),
   prioridade: prioridadeAlertaSchema.optional(),
   motivo: z.string().optional(),
@@ -165,6 +181,7 @@ export const CAMPO_CONDICAO_LABELS: Record<CampoCondicao, string> = {
   tipo_endereco: 'Tipo de endereço',
   zona_temperatura: 'Zona de temperatura',
   situacao_produto: 'Situação do produto',
+  tipo_divergencia: 'Tipo de divergência',
 };
 
 export const CAMPO_CONDICAO_GRUPOS: Record<
@@ -185,7 +202,7 @@ export const CAMPO_CONDICAO_GRUPOS: Record<
     'tipo_endereco',
     'zona_temperatura',
   ],
-  'Estado físico': ['situacao_produto'],
+  'Estado físico': ['situacao_produto', 'tipo_divergencia'],
 };
 
 export const OPERADOR_CONDICAO_LABELS: Record<OperadorCondicao, string> = {
@@ -233,10 +250,30 @@ export const CAMPOS_SELECT: Partial<
     { value: 'congelado', label: 'Congelado' },
   ],
   situacao_produto: [
-    { value: 'integro', label: 'Íntegro' },
-    { value: 'avariado', label: 'Avariado' },
-    { value: 'devolvido', label: 'Devolvido' },
-    { value: 'quarentena', label: 'Quarentena' },
+    { value: 'integro', label: 'OK' },
+    { value: 'avariado', label: 'Avaria' },
+    { value: 'falta', label: 'Falta' },
+  ],
+  tipo_divergencia: [
+    {
+      value: 'quantidade_menor',
+      label: 'Qtd recebida menor que o pedido',
+    },
+    {
+      value: 'quantidade_maior',
+      label: 'Qtd recebida maior que o pedido',
+    },
+    {
+      value: 'produto_ausente',
+      label: 'Produto ausente (nada recebido)',
+    },
+    {
+      value: 'produto_nao_esperado',
+      label: 'Produto não esperado (extra)',
+    },
+    { value: 'divergencia_lote', label: 'Divergência de lote' },
+    { value: 'divergencia_peso', label: 'Divergência de peso' },
+    { value: 'divergencia_validade', label: 'Divergência de validade' },
   ],
   tipo_endereco: [
     { value: 'picking', label: 'Picking' },
@@ -291,7 +328,7 @@ export function getCampoInputType(
 export function createEmptyCondicao(): Condicao {
   return {
     id: crypto.randomUUID(),
-    campo: 'categoria_produto',
+    campo: 'situacao_produto',
     operador: 'igual',
     valor: '',
   };
@@ -306,10 +343,9 @@ export const DEFAULT_REGRA_WMS_FORM: RegraWmsForm = {
   operadorLogico: 'AND',
   condicoes: [createEmptyCondicao()],
   acao: {
-    tipo: 'quarentena',
+    tipo: 'mover_deposito',
     parametros: {
-      zonaDestino: 'Quarentena',
-      motivo: '',
+      depositoId: '',
     },
   },
 };

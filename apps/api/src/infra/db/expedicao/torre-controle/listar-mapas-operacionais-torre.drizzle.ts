@@ -22,7 +22,7 @@ export async function listarMapasOperacionaisTorreDb(
     .select({
       mapaGrupoId: mapaGrupos.id,
       transporteId: mapaGrupos.transporteId,
-      transporteCodigo: transportes.rota,
+      transporteCodigo: transportes.numeroTransporte,
       processo: mapaGrupos.processo,
       titulo: mapaGrupos.titulo,
       sequencia: mapaGrupos.sequencia,
@@ -41,7 +41,7 @@ export async function listarMapasOperacionaisTorreDb(
       ),
     })
     .from(mapaGrupos)
-    .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.id))
+    .innerJoin(transportes, eq(mapaGrupos.transporteId, transportes.numeroTransporte))
     .leftJoin(
       sessaoFuncionarios,
       eq(mapaGrupos.sessaoFuncionarioId, sessaoFuncionarios.id),

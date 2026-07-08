@@ -43,11 +43,9 @@ describe('listRemessaItensByRemessaIdsDb', () => {
     ]);
 
     const where = vi.fn().mockReturnValue({ orderBy });
-    const leftJoinUuid = vi.fn().mockReturnValue({ where });
-    const leftJoinCodigo = vi.fn().mockReturnValue({ leftJoin: leftJoinUuid });
-    const leftJoinSku = vi.fn().mockReturnValue({ leftJoin: leftJoinCodigo });
-    const leftJoinId = vi.fn().mockReturnValue({ leftJoin: leftJoinSku });
-    const from = vi.fn().mockReturnValue({ leftJoin: leftJoinId });
+    const leftJoinSku = vi.fn().mockReturnValue({ where });
+    const leftJoinProdutoId = vi.fn().mockReturnValue({ leftJoin: leftJoinSku });
+    const from = vi.fn().mockReturnValue({ leftJoin: leftJoinProdutoId });
     const select = vi.fn().mockReturnValue({ from });
 
     const db = { select } as never;
@@ -59,9 +57,7 @@ describe('listRemessaItensByRemessaIdsDb', () => {
     expect(result[0]?.produtoId).toBeNull();
     expect(result[0]?.produtoIdResolvido).toBe('prod-resolvido-1');
     expect(result[0]?.produtoCodigo).toBe('PROD-001');
-    expect(leftJoinId).toHaveBeenCalledTimes(1);
+    expect(leftJoinProdutoId).toHaveBeenCalledTimes(1);
     expect(leftJoinSku).toHaveBeenCalledTimes(1);
-    expect(leftJoinCodigo).toHaveBeenCalledTimes(1);
-    expect(leftJoinUuid).toHaveBeenCalledTimes(1);
   });
 });

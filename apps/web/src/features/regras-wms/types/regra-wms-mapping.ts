@@ -45,6 +45,11 @@ export const FACT_CATALOG: Record<CampoCondicao, FactDefinition> = {
   tipo_endereco: { fact: 'endereco', path: '$.tipo', valueType: 'enum' },
   zona_temperatura: { fact: 'endereco', path: '$.zonaTemperatura', valueType: 'enum' },
   situacao_produto: { fact: 'produto', path: '$.situacao', valueType: 'enum' },
+  tipo_divergencia: {
+    fact: 'produto',
+    path: '$.tipoDivergencia',
+    valueType: 'enum',
+  },
 };
 
 // ---------------------------------------------------------------------------

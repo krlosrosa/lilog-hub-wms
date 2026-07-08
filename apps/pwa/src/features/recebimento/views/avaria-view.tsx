@@ -12,8 +12,11 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import type { ChangeEventHandler } from 'react';
+import { useEffect, useState } from 'react';
 
 import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { logPhotoPreviewLoadFailed } from '@/lib/images/photo-debug-log';
+import { PhotoDebugPanel } from '@/lib/images/photo-debug-panel';
 
 import { AvariaSelectField } from '../components/avaria-select-field';
 import { useAvaria } from '../hooks/use-avaria';
@@ -64,6 +67,74 @@ function QuantityField({
   );
 }
 
+function AvariaPhotoThumb({
+  photo,
+  index,
+  onRemove,
+}: {
+  photo: { id: number; previewUrl: string; mimeType: string };
+  index: number;
+  onRemove: (photoId: number) => void;
+}) {
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [previewDebugMessage, setPreviewDebugMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPreviewFailed(false);
+    setPreviewDebugMessage(null);
+  }, [photo.id, photo.previewUrl]);
+
+  return (
+    <div className="relative shrink-0">
+      <div
+        className={cn(
+          'relative h-[104px] w-[104px] overflow-hidden rounded-lg border bg-surface-container-low',
+          previewFailed ? 'border-destructive' : 'border-outline-variant',
+        )}
+      >
+        {!previewFailed ? (
+          <img
+            src={photo.previewUrl}
+            alt={`Evidência ${index + 1}`}
+            className="h-full w-full object-cover"
+            decoding="async"
+            onError={() => {
+              setPreviewFailed(true);
+              void logPhotoPreviewLoadFailed({
+                context: `avaria-evidencia:${index + 1}`,
+                photoId: photo.id,
+                previewUrl: photo.previewUrl,
+                mimeType: photo.mimeType,
+              }).then(setPreviewDebugMessage);
+            }}
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-2 text-center text-destructive">
+            <Camera className="h-5 w-5" aria-hidden />
+            <span className="text-[10px] leading-tight">Preview falhou</span>
+          </div>
+        )}
+        <button
+          type="button"
+          aria-label={`Remover evidência ${index + 1}`}
+          onClick={() => {
+            hapticLight();
+            void onRemove(photo.id);
+          }}
+          className="absolute right-1.5 top-1.5 z-10 flex h-8 w-8 items-center justify-center rounded-lg bg-foreground/70 text-background touch-manipulation active:scale-95"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+      {previewFailed && previewDebugMessage ? (
+        <p className="mt-1 max-w-[104px] break-words text-[10px] leading-snug text-destructive">
+          {previewDebugMessage}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function AvariaView({ demandId }: AvariaViewProps) {
   const navigate = useNavigate();
   const { state, actions } = useAvaria(demandId);
@@ -81,7 +152,33 @@ export function AvariaView({ demandId }: AvariaViewProps) {
     itensConferidosCount,
     podeReplicar,
     form,
+    parametrosConferencia,
+    conferidoTotais,
+    lotesDisponiveis,
+    exigeSelecaoLote,
+    captureError,
+    isProcessingPhoto,
   } = state;
+
+  const { quantidadeModo } = parametrosConferencia;
+  const showCaixa = quantidadeModo === 'caixa' || quantidadeModo === 'ambos';
+  const showUnidade = quantidadeModo === 'unidade' || quantidadeModo === 'ambos';
+
+  const recebidoLabel = (() => {
+    if (!conferidoTotais.hasConferencia) {
+      return '—';
+    }
+
+    const parts: string[] = [];
+    if (showCaixa && conferidoTotais.caixa > 0) {
+      parts.push(`${conferidoTotais.caixa} cx`);
+    }
+    if (showUnidade && conferidoTotais.unidade > 0) {
+      parts.push(`${conferidoTotais.unidade} un`);
+    }
+
+    return parts.length > 0 ? parts.join(' · ') : '—';
+  })();
 
   const quantidadeCaixa = form.watch('quantidadeCaixa') ?? 0;
   const quantidadeUnidade = form.watch('quantidadeUnidade') ?? 0;
@@ -143,7 +240,7 @@ export function AvariaView({ demandId }: AvariaViewProps) {
             <div className="rounded-lg border border-outline-variant/80 bg-surface-container-low px-3 py-2 text-center">
               <span className="block text-label-sm text-on-surface-variant">Recebido</span>
               <span className="font-mono text-label-md font-semibold text-on-surface">
-                {item.received} un
+                {recebidoLabel}
               </span>
             </div>
             <div className="rounded-lg border border-outline-variant/80 bg-surface-container-low px-3 py-2 text-center">
@@ -165,36 +262,63 @@ export function AvariaView({ demandId }: AvariaViewProps) {
 
           <div className="space-y-3">
             <p className="text-label-md text-on-surface-variant">Quantidade avariada</p>
-            <div className="grid grid-cols-2 gap-3">
-              <QuantityField
-                id="qtd-caixa"
-                label="Caixas"
-                suffix="cx"
-                value={quantidadeCaixa}
-                onChange={(e) =>
-                  form.setValue('quantidadeCaixa', Number(e.target.value) || 0, {
-                    shouldValidate: true,
-                  })
-                }
-                error={errors.quantidadeCaixa?.message}
-              />
-              <QuantityField
-                id="qtd-unidade"
-                label="Unidades"
-                suffix="un"
-                value={quantidadeUnidade}
-                onChange={(e) =>
-                  form.setValue('quantidadeUnidade', Number(e.target.value) || 0, {
-                    shouldValidate: true,
-                  })
-                }
-                error={errors.quantidadeUnidade?.message}
-              />
+            <div
+              className={cn(
+                'grid gap-3',
+                showCaixa && showUnidade ? 'grid-cols-2' : 'grid-cols-1',
+              )}
+            >
+              {showCaixa ? (
+                <QuantityField
+                  id="qtd-caixa"
+                  label="Caixas"
+                  suffix="cx"
+                  value={quantidadeCaixa}
+                  onChange={(e) =>
+                    form.setValue('quantidadeCaixa', Number(e.target.value) || 0, {
+                      shouldValidate: true,
+                    })
+                  }
+                  error={errors.quantidadeCaixa?.message}
+                />
+              ) : null}
+              {showUnidade ? (
+                <QuantityField
+                  id="qtd-unidade"
+                  label="Unidades"
+                  suffix="un"
+                  value={quantidadeUnidade}
+                  onChange={(e) =>
+                    form.setValue('quantidadeUnidade', Number(e.target.value) || 0, {
+                      shouldValidate: true,
+                    })
+                  }
+                  error={errors.quantidadeUnidade?.message}
+                />
+              ) : null}
             </div>
           </div>
 
           <div className="space-y-3 border-t border-outline-variant/50 pt-4">
             <p className="text-label-md text-on-surface-variant">Classificação</p>
+            {lotesDisponiveis.length > 0 ? (
+              <AvariaSelectField
+                id="lote"
+                label={exigeSelecaoLote ? 'Lote avariado' : 'Lote'}
+                options={lotesDisponiveis.map((lote) => ({
+                  value: lote,
+                  label: lote,
+                }))}
+                placeholder={
+                  exigeSelecaoLote
+                    ? 'Selecione o lote conferido'
+                    : 'Selecione o lote (opcional)'
+                }
+                error={errors.lote?.message}
+                className="h-12 rounded-lg"
+                {...actions.register('lote')}
+              />
+            ) : null}
             <AvariaSelectField
               id="tipo"
               label="Tipo"
@@ -267,6 +391,19 @@ export function AvariaView({ demandId }: AvariaViewProps) {
             </span>
           </div>
 
+          {captureError ? (
+            <p className="mb-3 text-label-sm text-destructive" role="alert">
+              {captureError}
+            </p>
+          ) : null}
+
+          {isProcessingPhoto ? (
+            <div className="mb-3 flex items-center gap-2 text-label-sm text-on-surface-variant">
+              <Loader2 className="h-4 w-4 animate-spin text-secondary" aria-hidden />
+              Otimizando imagem…
+            </div>
+          ) : null}
+
           <div className="hide-scrollbar -mx-1 flex gap-3 overflow-x-auto pb-1">
             <button
               type="button"
@@ -280,29 +417,16 @@ export function AvariaView({ demandId }: AvariaViewProps) {
               <span className="text-label-sm">Anexar</span>
             </button>
             {photos.map((photo, index) => (
-              <div
+              <AvariaPhotoThumb
                 key={photo.id}
-                className="relative h-[104px] w-[104px] shrink-0 overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low"
-              >
-                <img
-                  src={photo.previewUrl}
-                  alt={`Evidência ${index + 1}`}
-                  className="h-full w-full object-cover"
-                />
-                <button
-                  type="button"
-                  aria-label={`Remover evidência ${index + 1}`}
-                  onClick={() => {
-                    hapticLight();
-                    void actions.removePhoto(photo.id);
-                  }}
-                  className="absolute right-1.5 top-1.5 z-10 flex h-8 w-8 items-center justify-center rounded-lg bg-foreground/70 text-background touch-manipulation active:scale-95"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+                photo={photo}
+                index={index}
+                onRemove={actions.removePhoto}
+              />
             ))}
           </div>
+
+          <PhotoDebugPanel className="mt-3" />
         </section>
 
         {submitError ? (

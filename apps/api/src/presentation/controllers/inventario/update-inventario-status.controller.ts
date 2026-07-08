@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Param, Patch, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
@@ -14,6 +14,10 @@ import {
 } from '../../../shared/decorators/api-responses.decorator.js';
 import { Auditable } from '../../../shared/decorators/auditable.decorator.js';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard.js';
+import {
+  getRequestUser,
+  type RequestUser,
+} from '../../../shared/utils/request-user.js';
 
 const UpdateInventarioStatusBodySchema = z.object({
   status: z.enum(['pausado', 'em_progresso', 'concluido']),
@@ -43,10 +47,12 @@ export class UpdateInventarioStatusController {
   async handle(
     @Param('id') id: string,
     @Body() body: UpdateInventarioStatusBodyDto,
+    @Req() request: { user?: RequestUser },
   ) {
     const updated = await this.updateInventarioStatusUseCase.execute(
       id,
       body.status,
+      getRequestUser(request)?.id ?? null,
     );
     return toInventarioResponse(updated);
   }

@@ -93,3 +93,12 @@ export async function definirEnderecoSugeridoItemArmazenagem(
     },
   );
 }
+
+export async function validarDemandaArmazenagem(
+  demandaId: string,
+): Promise<DemandaArmazenagemDetailApi> {
+  return apiRequest<DemandaArmazenagemDetailApi>(
+    `/armazenagem/demandas/${encodeURIComponent(demandaId)}/validar`,
+    { method: 'POST' },
+  );
+}

@@ -9,7 +9,7 @@ import {
 } from '../providers/drizzle/config/migrations/schema.js';
 
 export type ProdutoEnderecoSlottingRow = {
-  produtoUuid: string;
+  produtoId: string;
   produtoCodigo: string;
   produtoSku: string;
   enderecoId: string;
@@ -28,15 +28,15 @@ export async function listProdutoEnderecosByProdutoIdsDb(
   db: DrizzleClient,
   input: {
     unidadeId: string;
-    produtoUuids?: string[];
+    produtoIds?: string[];
     produtoCodigos?: string[];
     ativo?: boolean;
   },
 ): Promise<ProdutoEnderecoSlottingRow[]> {
-  const produtoUuids = [
+  const produtoIds = [
     ...new Set(
-      (input.produtoUuids ?? [])
-        .map((id) => id.trim().toLowerCase())
+      (input.produtoIds ?? [])
+        .map((id) => id.trim())
         .filter(Boolean),
     ),
   ];
@@ -44,14 +44,14 @@ export async function listProdutoEnderecosByProdutoIdsDb(
     ...new Set((input.produtoCodigos ?? []).map((codigo) => codigo.trim()).filter(Boolean)),
   ];
 
-  if (produtoUuids.length === 0 && produtoCodigos.length === 0) {
+  if (produtoIds.length === 0 && produtoCodigos.length === 0) {
     return [];
   }
 
   const produtoFilters: SQL[] = [];
 
-  if (produtoUuids.length > 0) {
-    produtoFilters.push(inArray(produtos.id, produtoUuids));
+  if (produtoIds.length > 0) {
+    produtoFilters.push(inArray(produtos.produtoId, produtoIds));
   }
 
   if (produtoCodigos.length > 0) {
@@ -72,7 +72,7 @@ export async function listProdutoEnderecosByProdutoIdsDb(
 
   return db
     .select({
-      produtoUuid: produtoEnderecos.produtoId,
+      produtoId: produtoEnderecos.produtoId,
       produtoCodigo: produtos.produtoId,
       produtoSku: produtos.sku,
       enderecoId: produtoEnderecos.enderecoId,
@@ -87,7 +87,7 @@ export async function listProdutoEnderecosByProdutoIdsDb(
       prioridadePicking: enderecos.prioridadePicking,
     })
     .from(produtoEnderecos)
-    .innerJoin(produtos, eq(produtoEnderecos.produtoId, produtos.id))
+    .innerJoin(produtos, eq(produtoEnderecos.produtoId, produtos.produtoId))
     .innerJoin(enderecos, eq(produtoEnderecos.enderecoId, enderecos.id))
     .innerJoin(centros, eq(produtoEnderecos.centroId, centros.id))
     .where(and(...conditions));

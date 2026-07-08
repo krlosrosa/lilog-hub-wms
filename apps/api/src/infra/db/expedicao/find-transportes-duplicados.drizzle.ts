@@ -24,8 +24,8 @@ export async function findTransportesDuplicadosDb(
 
   const rows = await db
     .select({
-      id: transportes.id,
-      rota: transportes.rota,
+      id: transportes.numeroTransporte,
+      rota: transportes.numeroTransporte,
       status: transportes.status,
       ultimoMapaLoteId: transportes.ultimoMapaLoteId,
     })
@@ -34,7 +34,7 @@ export async function findTransportesDuplicadosDb(
       and(
         eq(transportes.unidadeId, input.unidadeId),
         eq(transportes.dataTransporte, input.dataTransporte),
-        inArray(transportes.rota, input.rotas),
+        inArray(transportes.numeroTransporte, input.rotas),
       ),
     );
 
@@ -59,8 +59,8 @@ export async function findTransportesComMapaExistenteDb(
 
   const rows = await db
     .select({
-      id: transportes.id,
-      rota: transportes.rota,
+      id: transportes.numeroTransporte,
+      rota: transportes.numeroTransporte,
       status: transportes.status,
       ultimoMapaLoteId: transportes.ultimoMapaLoteId,
     })
@@ -68,7 +68,7 @@ export async function findTransportesComMapaExistenteDb(
     .where(
       and(
         eq(transportes.unidadeId, input.unidadeId),
-        inArray(transportes.id, input.transporteIds),
+        inArray(transportes.numeroTransporte, input.transporteIds),
       ),
     );
 

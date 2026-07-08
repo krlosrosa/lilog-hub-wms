@@ -3,8 +3,11 @@ import { z } from 'zod';
 
 import {
   DemandaContagemPrioridadeSchema,
+  DemandaContagemStatusSchema,
   DemandaContagemTipoSchema,
   DemandaFiltrosSchema,
+  DivergenciaInventarioStatusSchema,
+  DivergenciaInventarioTipoSchema,
   InventarioStatusSchema,
   InventarioTipoSchema,
 } from '../../../domain/model/inventario/inventario.model.js';
@@ -84,6 +87,7 @@ export const InventarioDetalheResponseSchema = InventarioResponseSchema.extend({
   itensTotal: z.number().int(),
   acuraciaPercent: z.number().nullable(),
   divergenciasCount: z.number().int(),
+  ajustesPendentesCount: z.number().int(),
   setoresProgresso: z.array(
     z.object({
       id: z.uuid(),
@@ -93,10 +97,102 @@ export const InventarioDetalheResponseSchema = InventarioResponseSchema.extend({
       skuTotal: z.number().int(),
     }),
   ),
+  divergencias: z.array(
+    z.object({
+      id: z.uuid(),
+      contagemId: z.uuid(),
+      enderecoMascarado: z.string(),
+      zona: z.string(),
+      produtoId: z.string().nullable(),
+      sku: z.string(),
+      produtoNome: z.string(),
+      quantidadeEsperada: z.number(),
+      quantidadeContada: z.number(),
+      diferenca: z.number(),
+      tipo: z.enum(['falta', 'sobra']),
+      enderecoVazio: z.boolean(),
+      anomaliaEncontrada: z.boolean(),
+      pendenteAjuste: z.boolean(),
+    }),
+  ),
 });
 
 export class InventarioDetalheResponseDto extends createZodDto(
   InventarioDetalheResponseSchema,
+) {}
+
+export const DivergenciaRecontagemAtualResponseSchema = z.object({
+  id: z.uuid(),
+  demandaId: z.uuid(),
+  demandaStatus: DemandaContagemStatusSchema,
+  responsavelId: z.number().int(),
+  responsavelNome: z.string(),
+  solicitadaPor: z.number().int().nullable(),
+  solicitadaEm: z.iso.datetime(),
+  motivo: z.string(),
+});
+
+export class DivergenciaRecontagemAtualResponseDto extends createZodDto(
+  DivergenciaRecontagemAtualResponseSchema,
+) {}
+
+export const DivergenciaInventarioResponseSchema = z.object({
+  id: z.uuid(),
+  inventarioId: z.uuid(),
+  contagemId: z.uuid().nullable(),
+  enderecoId: z.uuid(),
+  enderecoMascarado: z.string(),
+  zona: z.string(),
+  saldoEnderecoId: z.uuid().nullable(),
+  depositoId: z.uuid().nullable(),
+  produtoId: z.string().nullable(),
+  sku: z.string(),
+  produtoNome: z.string(),
+  quantidadeEsperada: z.number(),
+  quantidadeContada: z.number(),
+  delta: z.number(),
+  unidadeMedida: z.string().nullable(),
+  lote: z.string().nullable(),
+  tipo: DivergenciaInventarioTipoSchema,
+  status: DivergenciaInventarioStatusSchema,
+  aprovadaPor: z.number().int().nullable(),
+  aprovadaEm: z.iso.datetime().nullable(),
+  motivoAprovacao: z.string().nullable(),
+  reprovadaPor: z.number().int().nullable(),
+  reprovadaEm: z.iso.datetime().nullable(),
+  motivoReprovacao: z.string().nullable(),
+  documentoRef: z.string(),
+  recontagemAtual: DivergenciaRecontagemAtualResponseSchema.nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export class DivergenciaInventarioResponseDto extends createZodDto(
+  DivergenciaInventarioResponseSchema,
+) {}
+
+export const ListDivergenciasInventarioResponseSchema = z.object({
+  items: z.array(DivergenciaInventarioResponseSchema),
+});
+
+export class ListDivergenciasInventarioResponseDto extends createZodDto(
+  ListDivergenciasInventarioResponseSchema,
+) {}
+
+export const AprovarDivergenciaBodySchema = z.object({
+  motivoAprovacao: z.string().optional(),
+});
+
+export class AprovarDivergenciaBodyDto extends createZodDto(
+  AprovarDivergenciaBodySchema,
+) {}
+
+export const ReprovarDivergenciaBodySchema = z.object({
+  motivoReprovacao: z.string().min(1),
+});
+
+export class ReprovarDivergenciaBodyDto extends createZodDto(
+  ReprovarDivergenciaBodySchema,
 ) {}
 
 export const DemandaContagemResponseSchema = z.object({
@@ -127,6 +223,18 @@ export class DemandaContagemResponseDto extends createZodDto(
   DemandaContagemResponseSchema,
 ) {}
 
+export const SaldoEsperadoEnderecoResponseSchema = z.object({
+  saldoEnderecoId: z.uuid(),
+  produtoId: z.string(),
+  sku: z.string(),
+  nome: z.string(),
+  lote: z.string(),
+  quantidade: z.number(),
+  unidadeMedida: z.string(),
+  numeroSerie: z.string(),
+  unidadesPorCaixa: z.number().int().nullable(),
+});
+
 export const DemandaEnderecoResponseSchema = z.object({
   id: z.uuid(),
   demandaId: z.uuid(),
@@ -135,6 +243,7 @@ export const DemandaEnderecoResponseSchema = z.object({
   zona: z.string(),
   sequence: z.number().int(),
   status: z.enum(['pendente', 'em_andamento', 'conferido']),
+  saldoEsperado: z.array(SaldoEsperadoEnderecoResponseSchema).optional(),
 });
 
 export class DemandaEnderecoResponseDto extends createZodDto(
@@ -223,6 +332,123 @@ export function toDemandaContagemResponse(record: {
   };
 }
 
+export function toDemandaEnderecoResponse(record: {
+  id: string;
+  demandaId: string;
+  enderecoId: string;
+  enderecoMascarado: string;
+  zona: string;
+  sequence: number;
+  status: 'pendente' | 'em_andamento' | 'conferido';
+  saldoEsperado?: Array<{
+    saldoEnderecoId: string;
+    produtoId: string;
+    sku: string;
+    nome: string;
+    lote: string;
+    quantidade: number;
+    unidadeMedida: string;
+    numeroSerie: string;
+    unidadesPorCaixa: number | null;
+  }>;
+}) {
+  return {
+    id: record.id,
+    endereco: record.enderecoMascarado,
+    status: record.status,
+    sequence: record.sequence,
+    saldoEsperado: record.saldoEsperado,
+  };
+}
+
+export function toInventarioDivergenciaResponse(record: {
+  id: string;
+  contagemId: string;
+  enderecoMascarado: string;
+  zona: string;
+  produtoId: string | null;
+  sku: string;
+  produtoNome: string;
+  quantidadeEsperada: number;
+  quantidadeContada: number;
+  diferenca: number;
+  tipo: 'falta' | 'sobra';
+  enderecoVazio: boolean;
+  anomaliaEncontrada: boolean;
+  pendenteAjuste: boolean;
+}) {
+  return {
+    id: record.id,
+    contagemId: record.contagemId,
+    sku: record.sku,
+    produtoNome: record.produtoNome,
+    setor: record.zona,
+    endereco: record.enderecoMascarado,
+    esperadoLabel: String(record.quantidadeEsperada),
+    encontradoLabel: String(record.quantidadeContada),
+    diferencaLabel:
+      record.diferenca > 0 ? `+${record.diferenca}` : String(record.diferenca),
+    tipo: record.tipo,
+    enderecoVazio: record.enderecoVazio,
+    anomaliaEncontrada: record.anomaliaEncontrada,
+    pendenteAjuste: record.pendenteAjuste,
+  };
+}
+
+export function toDivergenciaInventarioPersistidaResponse(record: {
+  id: string;
+  inventarioId: string;
+  contagemId: string | null;
+  enderecoId: string;
+  enderecoMascarado: string;
+  zona: string;
+  saldoEnderecoId: string | null;
+  depositoId: string | null;
+  produtoId: string | null;
+  sku: string;
+  produtoNome: string;
+  quantidadeEsperada: number;
+  quantidadeContada: number;
+  delta: number;
+  unidadeMedida: string | null;
+  lote: string | null;
+  tipo: z.infer<typeof DivergenciaInventarioTipoSchema>;
+  status: z.infer<typeof DivergenciaInventarioStatusSchema>;
+  aprovadaPor: number | null;
+  aprovadaEm: Date | null;
+  motivoAprovacao: string | null;
+  reprovadaPor: number | null;
+  reprovadaEm: Date | null;
+  motivoReprovacao: string | null;
+  documentoRef: string;
+  recontagemAtual: {
+    id: string;
+    demandaId: string;
+    demandaStatus: z.infer<typeof DemandaContagemStatusSchema>;
+    responsavelId: number;
+    responsavelNome: string;
+    solicitadaPor: number | null;
+    solicitadaEm: Date;
+    motivo: string;
+  } | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    ...record,
+    recontagemAtual: record.recontagemAtual
+      ? {
+          ...record.recontagemAtual,
+          solicitadaEm: record.recontagemAtual.solicitadaEm.toISOString(),
+        }
+      : null,
+    aprovadaEm: record.aprovadaEm?.toISOString() ?? null,
+    reprovadaEm: record.reprovadaEm?.toISOString() ?? null,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+  };
+}
+
 export function toDemandaUiItem(record: {
   id: string;
   nome: string;
@@ -263,7 +489,8 @@ export function toPwaInventoryDemand(record: {
       : '—';
 
   return {
-    id: `#${record.nome}`,
+    id: record.id,
+    codigo: `#${record.nome}`,
     type: record.tipo,
     zone: record.filtros.zonas.join(', '),
     aisle: rackLabel,

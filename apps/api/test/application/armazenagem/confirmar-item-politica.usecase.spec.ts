@@ -2,8 +2,6 @@ import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ConfirmarItemArmazenagemUseCase } from '../../../src/application/usecases/armazenagem/confirmar-item-armazenagem.usecase.js';
-import { EnsureDepositosUnidadeUseCase } from '../../../src/application/usecases/estoque/ensure-depositos-unidade.usecase.js';
-import { MovimentarEstoqueUseCase } from '../../../src/application/usecases/estoque/movimentar-estoque.usecase.js';
 import {
   ARMAZENAGEM_REPOSITORY,
   type IArmazenagemRepository,
@@ -12,10 +10,6 @@ import {
   ENDERECO_REPOSITORY,
   type IEnderecoRepository,
 } from '../../../src/domain/repositories/endereco/endereco.repository.js';
-import {
-  ESTOQUE_REPOSITORY,
-  type IEstoqueRepository,
-} from '../../../src/domain/repositories/estoque/estoque.repository.js';
 
 const demandaId = '00000000-0000-4000-8000-000000000001';
 const itemId = '00000000-0000-4000-8000-000000000002';
@@ -90,53 +84,13 @@ function createUseCase(
     ...armazenagemOverrides,
   };
 
-  const estoqueRepository: Partial<IEstoqueRepository> = {
-    findDepositoByCodigo: vi.fn().mockImplementation((_unidadeId, codigo) => {
-      if (codigo === 'AGUARD_ARM') {
-        return Promise.resolve({ id: 'dep-aguard' });
-      }
-      if (codigo === 'GERAL') {
-        return Promise.resolve({ id: 'dep-geral' });
-      }
-      return Promise.resolve(null);
-    }),
-    transferirDeposito: vi.fn().mockResolvedValue({ id: 'mov-1' }),
-    listSaldos: vi.fn().mockResolvedValue([
-      {
-        id: 'saldo-1',
-        unidadeId,
-        produtoId: itemBase.produtoId,
-        depositoId: 'dep-aguard',
-        lote: itemBase.lote ?? '',
-        validade: null,
-        numeroSerie: '',
-        natureza: 'fisico',
-        quantidade: itemBase.quantidade,
-        unidadeMedida: itemBase.unidadeMedida,
-        documentoRef: 'recebimento:00000000-0000-4000-8000-000000000005',
-        updatedAt: new Date(),
-      },
-    ]),
-    ensureDepositosUnidade: vi.fn().mockResolvedValue(undefined),
-  };
-
   const enderecoRepository: Partial<IEnderecoRepository> = {
     findById: vi.fn().mockResolvedValue(enderecoMock),
   };
 
-  const movimentarEstoqueUseCase = new MovimentarEstoqueUseCase(
-    estoqueRepository as IEstoqueRepository,
-  );
-  const ensureDepositosUnidadeUseCase = new EnsureDepositosUnidadeUseCase(
-    estoqueRepository as IEstoqueRepository,
-  );
-
   return new ConfirmarItemArmazenagemUseCase(
     armazenagemRepository as IArmazenagemRepository,
-    estoqueRepository as IEstoqueRepository,
     enderecoRepository as IEnderecoRepository,
-    movimentarEstoqueUseCase,
-    ensureDepositosUnidadeUseCase,
   );
 }
 

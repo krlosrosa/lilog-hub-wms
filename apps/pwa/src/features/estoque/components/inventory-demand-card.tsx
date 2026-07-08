@@ -24,7 +24,7 @@ const TYPE_ICONS: Record<InventoryDemandType, typeof ClipboardList> = {
 };
 
 interface InventoryDemandCardProps extends HTMLAttributes<HTMLButtonElement> {
-  id: string;
+  codigo: string;
   type: InventoryDemandType;
   zone: string;
   aisle: string;
@@ -85,7 +85,7 @@ function MetaChip({
 }
 
 export function InventoryDemandCard({
-  id,
+  codigo,
   type,
   zone,
   aisle,
@@ -130,7 +130,7 @@ export function InventoryDemandCard({
 
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="flex min-w-0 items-center justify-between gap-2">
-          <span className="truncate font-mono text-label-md font-bold text-primary">{id}</span>
+          <span className="truncate font-mono text-label-md font-bold text-primary">{codigo}</span>
           <span
             className={cn(
               'shrink-0 rounded-md px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide',

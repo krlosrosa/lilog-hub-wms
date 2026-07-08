@@ -4,8 +4,10 @@ import type {
   SalvarAlocacoesTransportesInput,
   SalvarAlocacoesTransportesResult,
 } from '../../../domain/repositories/expedicao/transporte.repository.js';
+import { normalizarItinerarioCodigo } from '../../../shared/utils/normalizar-itinerario-codigo.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import { transportes } from '../providers/drizzle/config/migrations/schema.js';
+import { findOrCreateItinerariosDb } from '../transporte/find-or-create-itinerarios.drizzle.js';
 
 export async function salvarAlocacoesTransportesDb(
   db: DrizzleClient,
@@ -18,16 +20,16 @@ export async function salvarAlocacoesTransportesDb(
   const transporteIds = input.alocacoes.map((item) => item.transporteId);
 
   const existentes = await db
-    .select({ id: transportes.id })
+    .select({ numeroTransporte: transportes.numeroTransporte })
     .from(transportes)
     .where(
       and(
         eq(transportes.unidadeId, input.unidadeId),
-        inArray(transportes.id, transporteIds),
+        inArray(transportes.numeroTransporte, transporteIds),
       ),
     );
 
-  const idsValidos = new Set(existentes.map((item) => item.id));
+  const idsValidos = new Set(existentes.map((item) => item.numeroTransporte));
   const alocacoesValidas = input.alocacoes.filter((item) =>
     idsValidos.has(item.transporteId),
   );
@@ -36,12 +38,48 @@ export async function salvarAlocacoesTransportesDb(
     return { atualizados: 0 };
   }
 
-  const now = new Date();
+  const codigosItinerario = [
+    ...new Set(
+      alocacoesValidas
+        .map((alocacao) => alocacao.itinerario?.trim())
+        .filter((codigo): codigo is string => Boolean(codigo)),
+    ),
+  ];
+  const itinerariosRecords = await findOrCreateItinerariosDb(
+    db,
+    input.unidadeId,
+    codigosItinerario,
+  );
+  const itinerarioIdPorCodigo = new Map(
+    itinerariosRecords.map((record) => [record.codigo, record.id]),
+  );
+
+  const alocacoesEnriquecidas = alocacoesValidas.map((alocacao) => {
+    const itinerarioRaw = alocacao.itinerario?.trim();
+
+    if (!itinerarioRaw) {
+      return {
+        ...alocacao,
+        itinerarioCodigo: null as string | null,
+        itinerarioId: null as string | null,
+      };
+    }
+
+    const itinerarioCodigo = normalizarItinerarioCodigo(itinerarioRaw);
+
+    return {
+      ...alocacao,
+      itinerarioCodigo,
+      itinerarioId: itinerarioIdPorCodigo.get(itinerarioCodigo) ?? null,
+    };
+  });
+
+  const nowIso = new Date().toISOString();
 
   await db.transaction(async (tx) => {
-    const valueRows = alocacoesValidas.map(
+    const valueRows = alocacoesEnriquecidas.map(
       (alocacao) => sql`(
-        ${alocacao.transporteId}::uuid,
+        ${alocacao.transporteId},
         ${'alocado'},
         ${alocacao.placa},
         ${alocacao.transportadora},
@@ -49,41 +87,45 @@ export async function salvarAlocacoesTransportesDb(
         ${alocacao.perfilPagamentoId ?? null},
         ${alocacao.perfilPagamentoNome?.trim() || null},
         ${alocacao.semCusto ?? false},
-        ${alocacao.itinerario?.trim() || null},
+        ${alocacao.itinerarioCodigo},
+        ${alocacao.itinerarioId},
         ${alocacao.nivelPrioridade ?? null},
         ${
           alocacao.horarioExpectativaSaida
-            ? new Date(alocacao.horarioExpectativaSaida)
+            ? new Date(alocacao.horarioExpectativaSaida).toISOString()
             : null
         },
         ${alocacao.cidade !== undefined ? alocacao.cidade.trim() : null},
         ${alocacao.bairro !== undefined ? alocacao.bairro?.trim() || null : null},
         ${alocacao.isPrioridade ?? null},
-        ${now}
+        ${alocacao.custoPrevisto ?? null},
+        ${nowIso}
       )`,
     );
 
     await tx.execute(sql`
       UPDATE ${transportes} AS t
       SET
-        status = v.status,
+        status = v.status::status_transporte_type,
         placa = v.placa,
         transportadora = v.transportadora,
         motorista = v.motorista,
-        perfil_pagamento_id = v.perfil_pagamento_id,
+        perfil_pagamento_id = v.perfil_pagamento_id::uuid,
         perfil_pagamento_nome = v.perfil_pagamento_nome,
-        frete_sem_custo = v.frete_sem_custo,
+        frete_sem_custo = v.frete_sem_custo::boolean,
         itinerario = v.itinerario,
-        nivel_prioridade = v.nivel_prioridade,
-        horario_expectativa_saida = v.horario_expectativa_saida,
+        itinerario_id = v.itinerario_id::uuid,
+        nivel_prioridade = v.nivel_prioridade::operacao_doca_prioridade_type,
+        horario_expectativa_saida = v.horario_expectativa_saida::timestamptz,
         cidade = COALESCE(v.cidade, t.cidade),
         bairro = COALESCE(v.bairro, t.bairro),
-        is_prioridade = COALESCE(v.is_prioridade, t.is_prioridade),
-        updated_at = v.updated_at
+        is_prioridade = COALESCE(v.is_prioridade::boolean, t.is_prioridade),
+        custo_previsto = COALESCE(v.custo_previsto::numeric, t.custo_previsto),
+        updated_at = v.updated_at::timestamptz
       FROM (
         VALUES ${sql.join(valueRows, sql`, `)}
       ) AS v(
-        id,
+        numero_transporte,
         status,
         placa,
         transportadora,
@@ -92,17 +134,19 @@ export async function salvarAlocacoesTransportesDb(
         perfil_pagamento_nome,
         frete_sem_custo,
         itinerario,
+        itinerario_id,
         nivel_prioridade,
         horario_expectativa_saida,
         cidade,
         bairro,
         is_prioridade,
+        custo_previsto,
         updated_at
       )
-      WHERE t.id = v.id
+      WHERE t.numero_transporte = v.numero_transporte
         AND t.unidade_id = ${input.unidadeId}
     `);
   });
 
-  return { atualizados: alocacoesValidas.length };
+  return { atualizados: alocacoesEnriquecidas.length };
 }

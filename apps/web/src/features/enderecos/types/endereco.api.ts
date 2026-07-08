@@ -5,19 +5,18 @@ import type {
 } from '@/features/enderecos/types/enderecos-gestao.schema';
 import type { EmpresaCodigo } from '@/features/filiais/types/centro-cadastro.schema';
 
-export type EnderecoCentroApi = {
+export type EnderecoUnidadeApi = {
   id: string;
-  unidadeId: string;
-  centro: string;
-  empresa: EmpresaCodigo;
   nome: string;
+  cluster: string;
+  nomeFilial: string;
 };
 
 export type EnderecoApi = {
   id: string;
   enderecoMascarado: string;
-  centroId: string;
-  centro: EnderecoCentroApi;
+  unidadeId: string;
+  unidade: EnderecoUnidadeApi;
   zona: string;
   rua: string;
   posicao: string;
@@ -75,7 +74,7 @@ export type CentroOptionApi = {
 };
 
 export type CreateEnderecoPayload = {
-  centroId: string;
+  unidadeId: string;
   zona: string;
   rua: string;
   posicao: string;
@@ -118,4 +117,17 @@ export type UpdateEnderecoPayload = Partial<
 
 export type EnderecoActionPayload = {
   motivo?: string;
+};
+
+export type ErroImportacaoEndereco = {
+  linha: number;
+  codigo: string;
+  campo: string;
+  mensagem: string;
+};
+
+export type ImportEnderecosResponse = {
+  total: number;
+  inserted: number;
+  errors: ErroImportacaoEndereco[];
 };

@@ -31,8 +31,8 @@ export class CreateEnderecoUseCase {
   async execute({ data, userId }: CreateEnderecoUseCaseInput) {
     const parsed: CreateEnderecoData = CreateEnderecoInputSchema.parse(data);
 
-    const existing = await this.enderecoRepository.findByCentroAndCodigo(
-      parsed.centroId,
+    const existing = await this.enderecoRepository.findByUnidadeAndCodigo(
+      parsed.unidadeId,
       parsed.enderecoMascarado,
     );
 
@@ -47,7 +47,7 @@ export class CreateEnderecoUseCase {
     await this.enderecoEventPublisher.publish({
       type: ENDERECO_EVENT.CRIADO,
       enderecoId: created.id,
-      centroId: created.centroId,
+      unidadeId: created.unidadeId,
       enderecoMascarado: created.enderecoMascarado,
       userId,
     });

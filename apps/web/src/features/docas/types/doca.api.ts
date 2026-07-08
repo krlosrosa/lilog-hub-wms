@@ -29,6 +29,23 @@ export type CreateDocaPayload = {
   observacao?: string;
 };
 
+export type BulkCreateDocasPayload = {
+  unidadeId: string;
+  numeroInicial: number;
+  numeroFinal: number;
+  codigoPrefixo?: string;
+  nomePrefixo?: string;
+  tipo: DocaTipo;
+  capacidadeVeiculos?: number;
+  observacao?: string;
+};
+
+export type BulkCreateDocasApiResponse = {
+  criadas: number;
+  duplicadas: number;
+  items: DocaApi[];
+};
+
 export type UpdateDocaPayload = Partial<{
   codigo: string;
   nome: string;

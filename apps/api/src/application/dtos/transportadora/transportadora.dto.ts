@@ -23,6 +23,7 @@ export const TransportadoraResponseSchema = z.object({
   cnpj: z.string(),
   status: TransportadoraStatusSchema,
   quantidadeVeiculos: z.number().int(),
+  emails: z.array(z.string()).default([]),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

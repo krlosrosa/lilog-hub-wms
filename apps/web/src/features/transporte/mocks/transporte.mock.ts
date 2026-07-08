@@ -1,4 +1,5 @@
 import { calcularCustoPrevisto } from '@/features/transporte/lib/calcular-custo';
+import { calcularMetricasResumoTransportes } from '@/features/transporte/lib/calcular-custo-frete';
 import { inferirPerfilEsperado } from '@/features/transporte/lib/inferir-perfil-esperado';
 import type {
   NfReentregaPendente,
@@ -1093,10 +1094,29 @@ export function calcularSummary(transportes: TransporteGrupo[]): TransporteSumma
     (transporte) => transporte.status === 'ALOCADO',
   ).length;
 
+  const custoPrevistoTotal = transportes.reduce(
+    (acc, transporte) => acc + (transporte.custoPrevisto ?? 0),
+    0,
+  );
+  const transportesComPlaca = transportes.filter((transporte) =>
+    Boolean(transporte.veiculoAlocado?.placa?.trim()),
+  );
+  const custoPrevistoAlocado = transportesComPlaca.reduce(
+    (acc, transporte) => acc + (transporte.custoPrevisto ?? 0),
+    0,
+  );
+  const metricas = calcularMetricasResumoTransportes(
+    transportes,
+    custoPrevistoAlocado,
+  );
+
   return {
+    totalTransportes: transportes.length,
     totalRemessas,
     transportesPendentes,
     placasAlocadas,
+    custoPrevistoTotal,
+    ...metricas,
   };
 }
 

@@ -20,6 +20,7 @@ import { sectionLabelClassName } from '@/features/expedicao-impressao-config/com
 type OrdemImpressaoPanelProps = {
   ordemSeparacao: OrdemImpressaoItem[];
   ordemConferencia: OrdemImpressaoItem[];
+  ordemConferenciaReentrega: OrdemImpressaoItem[];
   onMoveUp: (context: OrdemImpressaoContext, index: number) => void;
   onMoveDown: (context: OrdemImpressaoContext, index: number) => void;
   onToggle: (context: OrdemImpressaoContext, item: OrdemImpressaoItem) => void;
@@ -28,6 +29,7 @@ type OrdemImpressaoPanelProps = {
 const TABS: { id: OrdemImpressaoContext; label: string }[] = [
   { id: 'separacao', label: 'Separação' },
   { id: 'conferencia', label: 'Conferência' },
+  { id: 'conferencia_reentrega', label: 'Reentrega' },
 ];
 
 function OrdemList({
@@ -142,13 +144,18 @@ function OrdemList({
 export function OrdemImpressaoPanel({
   ordemSeparacao,
   ordemConferencia,
+  ordemConferenciaReentrega,
   onMoveUp,
   onMoveDown,
   onToggle,
 }: OrdemImpressaoPanelProps) {
   const [activeTab, setActiveTab] = useState<OrdemImpressaoContext>('separacao');
   const activeOrdem =
-    activeTab === 'separacao' ? ordemSeparacao : ordemConferencia;
+    activeTab === 'separacao'
+      ? ordemSeparacao
+      : activeTab === 'conferencia'
+        ? ordemConferencia
+        : ordemConferenciaReentrega;
 
   return (
     <div className="space-y-2.5">

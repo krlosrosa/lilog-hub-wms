@@ -51,7 +51,7 @@ export class FinishEnderecoInventoryUseCase {
     await this.enderecoEventPublisher.publish({
       type: ENDERECO_EVENT.SAIU_INVENTARIO,
       enderecoId: updated.id,
-      centroId: updated.centroId,
+      unidadeId: updated.unidadeId,
       enderecoMascarado: updated.enderecoMascarado,
       userId,
       motivo,

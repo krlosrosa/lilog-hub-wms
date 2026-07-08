@@ -11,6 +11,7 @@ import {
   PackageMinus,
   Plus,
   Route,
+  Thermometer,
   Truck,
   X,
 } from 'lucide-react';
@@ -19,12 +20,11 @@ import { toast } from 'sonner';
 import { Button, cn } from '@lilog/ui';
 
 import { SidebarMain } from '@/components/layout/sidebar';
+import { useUnidadeContext } from '@/contexts/unidade-context';
 import { DevolucaoAdicionarViagemDialog } from '@/features/devolucao/components/devolucao-adicionar-viagem-dialog';
 import { DevolucaoDemandaFaltaDialog } from '@/features/devolucao/components/devolucao-demanda-falta-dialog';
 import { DevolucaoNfRow } from '@/features/devolucao/components/devolucao-nf-row';
 import { useDevolucaoCheckin } from '@/features/devolucao/hooks/use-devolucao-checkin';
-import { getDemandaById } from '@/features/devolucao/mocks/devolucao-mock-data';
-import { canRegistrarChegada } from '@/features/devolucao/types/devolucao-gestao.schema';
 
 type DevolucaoRegistroChegadaViewProps = {
   demandId: string;
@@ -34,10 +34,15 @@ export function DevolucaoRegistroChegadaView({
   demandId,
 }: DevolucaoRegistroChegadaViewProps) {
   const router = useRouter();
-  const demanda = getDemandaById(demandId);
+  const { unidadeSelecionada } = useUnidadeContext();
+  const unidadeId = unidadeSelecionada?.id ?? null;
 
   const {
+    isInitialLoading,
     isLoading,
+    loadError,
+    codigoDemanda,
+    canAccessChegada,
     tripInfo,
     dockOptions,
     docaId,
@@ -45,6 +50,10 @@ export function DevolucaoRegistroChegadaView({
     cargaSegregada,
     setCargaSegregada,
     paletesRetornados,
+    tempBau,
+    setTempBau,
+    tempProduto,
+    setTempProduto,
     chapasPbr,
     incrementPaletes,
     decrementPaletes,
@@ -67,15 +76,26 @@ export function DevolucaoRegistroChegadaView({
     updateNfItemQtdDevolucao,
     updateNfMotivo,
     validarNf,
-  } = useDevolucaoCheckin(demandId);
+  } = useDevolucaoCheckin(demandId, unidadeId);
 
-  if (!demanda || !canRegistrarChegada(demanda.status)) {
+  if (isInitialLoading) {
+    return (
+      <SidebarMain>
+        <main className="flex min-h-dvh items-center justify-center bg-background">
+          <Loader2 className="size-8 animate-spin text-primary" aria-hidden />
+        </main>
+      </SidebarMain>
+    );
+  }
+
+  if (loadError || !canAccessChegada) {
     return (
       <SidebarMain>
         <main className="min-h-dvh bg-background px-margin-mobile py-6 md:px-margin-desktop md:py-8">
           <div className="mx-auto max-w-container space-y-4 text-center">
             <p className="text-body-md text-muted-foreground">
-              Este transporte não está disponível para validação de chegada.
+              {loadError ??
+                'Este transporte não está disponível para validação de chegada.'}
             </p>
             <Button type="button" variant="outline" asChild>
               <Link href="/devolucao">Voltar à gestão</Link>
@@ -98,6 +118,8 @@ export function DevolucaoRegistroChegadaView({
     const result = await liberarConferenciaCega();
     if (result.success) {
       toast.success('Liberado para conferência cega.');
+    } else if ('error' in result) {
+      toast.error(result.error);
     }
   };
 
@@ -107,12 +129,18 @@ export function DevolucaoRegistroChegadaView({
       toast.success(
         `${result.quantidade} NF(s) vinculada(s) da viagem ${result.viagemLabel}.`,
       );
+    } else {
+      toast.error('Vinculação de NFs de outra viagem ainda não disponível.');
     }
   };
 
   const handleRemoverNfExterna = async (nfId: string) => {
     const result = await removerNfExterna(nfId);
-    if (result.success) toast.info('NF de outra viagem removida.');
+    if (result.success) {
+      toast.info('NF de outra viagem removida.');
+    } else {
+      toast.error('Remoção de NF externa ainda não disponível.');
+    }
   };
 
   const handleValidarNf = async (nfId: string) => {
@@ -147,7 +175,7 @@ export function DevolucaoRegistroChegadaView({
             </Link>
             <span>/</span>
             <span className="text-foreground">
-              Validar Chegada — {demanda.placa}
+              Validar Chegada — {tripInfo.placa}
             </span>
           </nav>
 
@@ -173,8 +201,7 @@ export function DevolucaoRegistroChegadaView({
                 </Button>
               </div>
               <p className="mt-1 text-muted-foreground">
-                {demanda.veiculo} • {demanda.motorista} • Previsão{' '}
-                {demanda.previsao}
+                {codigoDemanda} • {tripInfo.placa} • {tripInfo.viagemRavexId}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -348,6 +375,53 @@ export function DevolucaoRegistroChegadaView({
                 </div>
               </section>
             </div>
+
+            <section className="col-span-12 rounded-xl border border-outline-variant bg-glass-bg p-6 shadow-inner-glow backdrop-blur-glass">
+              <div className="mb-4 flex items-center gap-2">
+                <Thermometer className="size-5 text-secondary" aria-hidden />
+                <h2 className="text-label-md uppercase tracking-widest text-muted-foreground">
+                  Temperatura
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="temp-bau"
+                    className="mb-2 block text-caption text-muted-foreground"
+                  >
+                    Baú (°C)
+                  </label>
+                  <input
+                    id="temp-bau"
+                    type="number"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={tempBau}
+                    onChange={(e) => setTempBau(e.target.value)}
+                    placeholder="0.0"
+                    className="w-full rounded-lg border border-outline-variant bg-muted px-3 py-2 font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="temp-produto"
+                    className="mb-2 block text-caption text-muted-foreground"
+                  >
+                    Produto (°C)
+                  </label>
+                  <input
+                    id="temp-produto"
+                    type="number"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={tempProduto}
+                    onChange={(e) => setTempProduto(e.target.value)}
+                    placeholder="0.0"
+                    className="w-full rounded-lg border border-outline-variant bg-muted px-3 py-2 font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+            </section>
 
             <section className="col-span-12 overflow-hidden rounded-xl border border-outline-variant bg-glass-bg shadow-inner-glow backdrop-blur-glass">
               <div className="flex flex-col gap-4 border-b border-outline-variant bg-muted/30 p-4 lg:flex-row lg:items-center lg:justify-between">

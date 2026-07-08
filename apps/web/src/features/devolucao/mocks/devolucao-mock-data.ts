@@ -5,19 +5,56 @@ import type {
   TimelineStep,
 } from '@/features/devolucao/types/devolucao-detalhes.schema';
 import type {
-  DemandaItem,
-  DockSlot,
-  GestaoStats,
-  OperatorLeaderboard,
-} from '@/features/devolucao/types/devolucao-gestao.schema';
-import type {
   DockOption,
   NfRow,
   OutraViagem,
   TripInfo,
 } from '@/features/devolucao/types/devolucao-checkin.schema';
 
-export const MOCK_GESTAO_STATS: GestaoStats = {
+type MockDemandaStatus =
+  | 'em-progresso'
+  | 'atrasado'
+  | 'finalizado'
+  | 'aguardando-chegada';
+
+type MockDemandaItem = {
+  id: string;
+  doca: string;
+  veiculo: string;
+  placa: string;
+  motorista: string;
+  tipo: 'carga' | 'descarga';
+  progresso: number;
+  previsao: string;
+  status: MockDemandaStatus;
+};
+
+type MockDockSlot = {
+  numero: number;
+  status: 'ativa' | 'livre' | 'critica' | 'finalizada';
+};
+
+type MockGestaoStats = {
+  demandasAtivas: number;
+  demandasTotal: number;
+  tempoMedioMinutos: number;
+  tempoMedioSegundos: number;
+  ocupacaoDocasPercent: number;
+  docasOcupadas: number;
+  docasTotal: number;
+  veiculosAtrasados: number;
+  mediaGiroDoca: number;
+};
+
+type MockOperatorLeaderboard = {
+  id: string;
+  nome: string;
+  movimentacoesPorHora: number;
+  eficiencia: number;
+  rank: number;
+};
+
+export const MOCK_GESTAO_STATS: MockGestaoStats = {
   demandasAtivas: 42,
   demandasTotal: 128,
   tempoMedioMinutos: 48,
@@ -29,7 +66,7 @@ export const MOCK_GESTAO_STATS: GestaoStats = {
   mediaGiroDoca: 2.4,
 };
 
-export const MOCK_DEMANDAS: DemandaItem[] = [
+export const MOCK_DEMANDAS: MockDemandaItem[] = [
   {
     id: 'd-01',
     doca: 'D-01',
@@ -98,7 +135,7 @@ export const MOCK_DEMANDAS: DemandaItem[] = [
   },
 ];
 
-export const MOCK_DOCK_SLOTS: DockSlot[] = [
+export const MOCK_DOCK_SLOTS: MockDockSlot[] = [
   { numero: 1, status: 'ativa' },
   { numero: 2, status: 'ativa' },
   { numero: 3, status: 'critica' },
@@ -121,7 +158,7 @@ export const MOCK_DOCK_SLOTS: DockSlot[] = [
   { numero: 20, status: 'ativa' },
 ];
 
-export const MOCK_OPERATORS: OperatorLeaderboard[] = [
+export const MOCK_OPERATORS: MockOperatorLeaderboard[] = [
   {
     id: 'op-1',
     nome: 'Carlos Eduardo',
@@ -147,6 +184,7 @@ export const MOCK_OPERATORS: OperatorLeaderboard[] = [
 
 export const MOCK_DEMANDA_DETALHE: DemandaDetalhe = {
   id: 'd-01',
+  codigoDemanda: 'DEV-00001',
   placa: 'BRA-2E19',
   motorista: 'Marcos Oliveira',
   viagemId: '#TRP-88421',
@@ -171,6 +209,7 @@ export const MOCK_CONFERENCE_ITEMS: ConferenceItem[] = [
     previsto: 500,
     confirmado: 500,
     status: 'concluido',
+    condicao: 'integro',
   },
   {
     id: 'ci-2',
@@ -179,6 +218,7 @@ export const MOCK_CONFERENCE_ITEMS: ConferenceItem[] = [
     previsto: 400,
     confirmado: 342,
     status: 'pendente',
+    condicao: 'integro',
   },
   {
     id: 'ci-3',
@@ -187,6 +227,7 @@ export const MOCK_CONFERENCE_ITEMS: ConferenceItem[] = [
     previsto: 250,
     confirmado: 238,
     status: 'divergente',
+    condicao: 'avariado',
   },
   {
     id: 'ci-4',
@@ -195,6 +236,7 @@ export const MOCK_CONFERENCE_ITEMS: ConferenceItem[] = [
     previsto: 150,
     confirmado: 150,
     status: 'concluido',
+    condicao: 'integro',
   },
   {
     id: 'ci-5',
@@ -203,6 +245,7 @@ export const MOCK_CONFERENCE_ITEMS: ConferenceItem[] = [
     previsto: 100,
     confirmado: 10,
     status: 'iniciando',
+    condicao: 'integro',
   },
 ];
 
@@ -277,7 +320,7 @@ export function getDemandaDetalheById(id: string): DemandaDetalhe {
   return { ...MOCK_DEMANDA_DETALHE, id };
 }
 
-export function getDemandaById(id: string): DemandaItem | undefined {
+export function getDemandaById(id: string): MockDemandaItem | undefined {
   return MOCK_DEMANDAS.find((d) => d.id === id);
 }
 

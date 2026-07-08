@@ -16,6 +16,10 @@ import { PullToRefresh } from '@/components/pull-to-refresh';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 import { DemandCard } from '../components/demand-card';
+import {
+  DEMAND_STATUS_LABELS,
+  getDevolucaoDemandaEntryPath,
+} from '../lib/devolucao-api-mapper';
 import { useListaDemanda } from '../hooks/use-lista-demanda';
 
 type DemandFilter = 'all' | 'priority' | 'segregada';
@@ -325,7 +329,7 @@ export function ListaDemandaView() {
             displayedDemands.map((demand) => (
               <Link
                 key={demand.id}
-                to="/devolucao/$id/checklist"
+                to={getDevolucaoDemandaEntryPath(demand)}
                 params={{ id: demand.routeId }}
                 onPointerDown={() => hapticLight()}
                 className="block touch-manipulation"
@@ -342,6 +346,7 @@ export function ListaDemandaView() {
                   tagLabel={demand.tagLabel}
                   tagVariant={demand.tagVariant}
                   skuCount={demand.skuCount}
+                  status={DEMAND_STATUS_LABELS[demand.status]}
                 />
               </Link>
             ))

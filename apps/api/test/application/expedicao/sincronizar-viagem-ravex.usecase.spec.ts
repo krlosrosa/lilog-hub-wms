@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SincronizarViagemRavexUseCase } from '../../../src/application/usecases/expedicao/sincronizar-viagem-ravex.usecase.js';
+import { GerarDemandaDevolucaoViagemUseCase } from '../../../src/application/usecases/devolucao/gerar-demanda-devolucao-viagem.usecase.js';
 import { TransporteEventPublisher } from '../../../src/application/services/transporte-event.publisher.js';
 import {
   TRANSPORTE_REPOSITORY,
@@ -54,6 +55,10 @@ describe('SincronizarViagemRavexUseCase', () => {
     publishSincronizarViagemRavex: vi.fn(),
   };
 
+  const gerarDemandaDevolucaoViagemUseCase = {
+    execute: vi.fn(),
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -73,6 +78,10 @@ describe('SincronizarViagemRavexUseCase', () => {
         {
           provide: TransporteEventPublisher,
           useValue: transporteEventPublisher,
+        },
+        {
+          provide: GerarDemandaDevolucaoViagemUseCase,
+          useValue: gerarDemandaDevolucaoViagemUseCase,
         },
       ],
     }).compile();
@@ -187,6 +196,65 @@ describe('SincronizarViagemRavexUseCase', () => {
     );
   });
 
+  it('reagenda inicio quando inicioDataHora ainda não foi preenchido', async () => {
+    vi.mocked(transporteRepository.findViagemRavexContext).mockResolvedValue({
+      ...baseContext,
+      viagemId: 19355750,
+    });
+    vi.mocked(ravexViagemClient.getViagemPorId).mockResolvedValue({
+      id: 19355750,
+      inicioDataHora: null,
+      fimDataHora: null,
+    });
+
+    const useCase = await createUseCase();
+    await useCase.execute({
+      transporteId,
+      unidadeId,
+      fase: 'aguardar_inicio',
+    });
+
+    expect(transporteRepository.atualizarViagemRavex).not.toHaveBeenCalled();
+    expect(transporteEventPublisher.publishSincronizarViagemRavex).toHaveBeenCalledWith(
+      {
+        transporteId,
+        unidadeId,
+        fase: 'aguardar_inicio',
+      },
+      { delay: VIAGEM_RAVEX_DELAY_INICIO_MS },
+    );
+  });
+
+  it('reagenda fim quando fimDataHora ainda não foi preenchido', async () => {
+    vi.mocked(transporteRepository.findViagemRavexContext).mockResolvedValue({
+      ...baseContext,
+      viagemId: 19355750,
+      viagemInicioEm: new Date('2026-06-22T06:32:01.583Z'),
+    });
+    vi.mocked(ravexViagemClient.getViagemPorId).mockResolvedValue({
+      id: 19355750,
+      inicioDataHora: '2026-06-22T06:32:01.583',
+      fimDataHora: null,
+    });
+
+    const useCase = await createUseCase();
+    await useCase.execute({
+      transporteId,
+      unidadeId,
+      fase: 'aguardar_fim',
+    });
+
+    expect(transporteRepository.atualizarViagemRavex).not.toHaveBeenCalled();
+    expect(transporteEventPublisher.publishSincronizarViagemRavex).toHaveBeenCalledWith(
+      {
+        transporteId,
+        unidadeId,
+        fase: 'aguardar_fim',
+      },
+      { delay: VIAGEM_RAVEX_DELAY_FIM_MS },
+    );
+  });
+
   it('salva fim e agenda verificação de anomalias', async () => {
     vi.mocked(transporteRepository.findViagemRavexContext).mockResolvedValue({
       ...baseContext,
@@ -222,7 +290,7 @@ describe('SincronizarViagemRavexUseCase', () => {
     );
   });
 
-  it('salva descrição da primeira anomalia quando existir', async () => {
+  it('salva descrições únicas de todas as anomalias quando existirem', async () => {
     vi.mocked(transporteRepository.findViagemRavexContext).mockResolvedValue({
       ...baseContext,
       viagemId: 19353360,
@@ -250,6 +318,51 @@ describe('SincronizarViagemRavexUseCase', () => {
       unidadeId,
       anomalia: 'V11 - DEV/RET - EXCESSO TEMPO RETIDO CLIENTE',
     });
+    expect(transporteEventPublisher.publishSincronizarViagemRavex).toHaveBeenCalledWith(
+      {
+        transporteId,
+        unidadeId,
+        fase: 'gerar_demanda_devolucao',
+      },
+      { delay: 0 },
+    );
+  });
+
+  it('agrega motivos distintos de múltiplas anomalias', async () => {
+    vi.mocked(transporteRepository.findViagemRavexContext).mockResolvedValue({
+      ...baseContext,
+      viagemId: 19353360,
+      viagemInicioEm: new Date('2026-06-22T06:32:01.583Z'),
+      viagemFimEm: new Date('2026-06-23T12:00:00'),
+    });
+    vi.mocked(ravexViagemClient.listAnomalias).mockResolvedValue([
+      {
+        anomaliaId: 1,
+        motivo: { descricao: 'V02 CLIENTE NÃO FEZ O PEDIDO' },
+      },
+      {
+        anomaliaId: 2,
+        motivo: { descricao: 'V02 CLIENTE NÃO FEZ O PEDIDO' },
+      },
+      {
+        anomaliaId: 3,
+        motivo: { descricao: 'V11 - DEV/RET - EXCESSO TEMPO RETIDO CLIENTE' },
+      },
+    ]);
+
+    const useCase = await createUseCase();
+    await useCase.execute({
+      transporteId,
+      unidadeId,
+      fase: 'verificar_anomalias',
+    });
+
+    expect(transporteRepository.atualizarViagemRavex).toHaveBeenCalledWith({
+      transporteId,
+      unidadeId,
+      anomalia:
+        'V02 CLIENTE NÃO FEZ O PEDIDO; V11 - DEV/RET - EXCESSO TEMPO RETIDO CLIENTE',
+    });
   });
 
   it('não salva anomalia quando lista vem vazia', async () => {
@@ -269,5 +382,28 @@ describe('SincronizarViagemRavexUseCase', () => {
     });
 
     expect(transporteRepository.atualizarViagemRavex).not.toHaveBeenCalled();
+    expect(transporteEventPublisher.publishSincronizarViagemRavex).not.toHaveBeenCalled();
+  });
+
+  it('gera demanda de devolução na fase dedicada', async () => {
+    vi.mocked(transporteRepository.findViagemRavexContext).mockResolvedValue({
+      ...baseContext,
+      viagemId: 19353360,
+      viagemInicioEm: new Date('2026-06-22T06:32:01.583Z'),
+      viagemFimEm: new Date('2026-06-23T12:00:00'),
+    });
+
+    const useCase = await createUseCase();
+    await useCase.execute({
+      transporteId,
+      unidadeId,
+      fase: 'gerar_demanda_devolucao',
+    });
+
+    expect(gerarDemandaDevolucaoViagemUseCase.execute).toHaveBeenCalledWith({
+      transporteId,
+      unidadeId,
+      viagemId: 19353360,
+    });
   });
 });

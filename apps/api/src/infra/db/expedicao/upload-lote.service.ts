@@ -4,11 +4,14 @@ import type {
   CriarLoteInput,
   IUploadLoteRepository,
   UploadLoteRecord,
+  AtualizarItinerarioInput,
+  AtualizarItinerarioRecord,
 } from '../../../domain/repositories/expedicao/upload-lote.repository.js';
 import {
   createUploadLoteDb,
   listUploadLotesDb,
 } from './create-upload-lote.drizzle.js';
+import { updateItinerarioRemessasDb } from './update-itinerario-remessas.drizzle.js';
 import {
   DRIZZLE_PROVIDER,
   type DrizzleClient,
@@ -26,5 +29,11 @@ export class UploadLoteService implements IUploadLoteRepository {
 
   listar(unidadeId: string): Promise<UploadLoteRecord[]> {
     return listUploadLotesDb(this.db, unidadeId);
+  }
+
+  atualizarItinerarios(
+    input: AtualizarItinerarioInput,
+  ): Promise<AtualizarItinerarioRecord> {
+    return updateItinerarioRemessasDb(this.db, input);
   }
 }

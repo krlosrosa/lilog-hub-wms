@@ -32,41 +32,43 @@ export function SetorProgressItem({ setor }: SetorProgressItemProps) {
   const Icon = ICONS[setor.iconName];
 
   return (
-    <div className={cn('flex gap-4 md:gap-5', setor.opaco && 'opacity-80')}>
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-highest md:size-11">
-        <Icon className="size-4 text-muted-foreground md:size-[18px]" aria-hidden />
+    <div
+      className={cn(
+        'flex gap-2.5 rounded-md px-1 py-1.5 transition-colors hover:bg-surface-highest/40',
+        setor.opaco && 'opacity-75',
+      )}
+    >
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-highest">
+        <Icon className="size-3.5 text-muted-foreground" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="mb-1.5 flex justify-between gap-2 md:mb-2">
-          <span className="text-sm font-semibold text-foreground">
+        <div className="mb-1 flex justify-between gap-2">
+          <span className="truncate text-[11px] font-semibold text-foreground">
             {setor.nome}
           </span>
           <span
             className={cn(
-              'text-caption font-bold md:text-xs',
+              'shrink-0 text-[10px] font-semibold',
               LABEL_TONE[setor.statusTone],
             )}
           >
             {setor.statusLabel}
           </span>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-highest md:h-2">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-surface-highest">
           <div
-            className={cn(
-              'h-full rounded-full',
-              BAR_TONE[setor.statusTone],
-            )}
+            className={cn('h-full rounded-full', BAR_TONE[setor.statusTone])}
             style={{ width: `${String(setor.progressPercent)}%` }}
           />
         </div>
-        <div className="mt-2 flex justify-between">
-          <span className="font-caption text-muted-foreground">
+        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+          <span>
             {setor.skuContados}/{setor.skuTotal} SKU
           </span>
-          <span className="font-caption text-muted-foreground">
+          <span>
             {setor.acuraciaLabel !== null
-              ? `Acurácia: ${setor.acuraciaLabel}`
-              : '---'}
+              ? `Acur.: ${setor.acuraciaLabel}`
+              : '—'}
           </span>
         </div>
       </div>

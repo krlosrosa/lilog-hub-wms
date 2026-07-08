@@ -2,15 +2,18 @@ import { DEFAULT_OPCOES_TABELAS_CARREGAMENTO } from '@/features/expedicao-impres
 import type {
   ImpressaoConfig,
   QrCodeMapa,
-} from '@/features/expedicao-impressao-config/types/impressao-config.schema';import {
+} from '@/features/expedicao-impressao-config/types/impressao-config.schema';
+import {
   TEMPLATE_CARREGAMENTO_PADRAO,
   TEMPLATE_CONFERENCIA_PADRAO,
+  TEMPLATE_CONFERENCIA_REENTREGA_PADRAO,
   TEMPLATE_SEPARACAO_PADRAO,
 } from '@/features/expedicao-impressao-config/types/layout-mapa';
 
 export const DEFAULT_QR_CODE_MAPA: QrCodeMapa = {
   separacao: { posicao: 'superior_direito', tamanho: 72 },
   conferencia: { posicao: 'superior_direito', tamanho: 72 },
+  conferencia_reentrega: { posicao: 'superior_direito', tamanho: 72 },
   carregamento: { posicao: 'superior_direito', tamanho: 72 },
 };
 
@@ -50,9 +53,18 @@ export const DEFAULT_IMPRESSAO_CONFIG: ImpressaoConfig = {
     'quantidade_unidade',
     'quantidade_caixa',
   ],
+  ordemImpressaoConferenciaReentrega: [
+    'sku',
+    'descricao',
+    'lote',
+    'endereco',
+    'quantidade_unidade',
+    'quantidade_caixa',
+  ],
   layoutCabecalho: {
     separacao: TEMPLATE_SEPARACAO_PADRAO,
     conferencia: TEMPLATE_CONFERENCIA_PADRAO,
+    conferencia_reentrega: TEMPLATE_CONFERENCIA_REENTREGA_PADRAO,
     carregamento: TEMPLATE_CARREGAMENTO_PADRAO,
   },
   qrCodeMapa: DEFAULT_QR_CODE_MAPA,

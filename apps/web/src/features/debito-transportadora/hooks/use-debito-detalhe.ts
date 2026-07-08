@@ -6,8 +6,11 @@ import { useRouter } from 'next/navigation';
 
 import { toast } from 'sonner';
 
-import { MOCK_DEBITO_DETALHES } from '@/features/debito-transportadora/mocks/debitos-mock-data';
+import { useUnidadeContext } from '@/contexts/unidade-context';
+import { buscarProcessoDebito, atualizarStatusProcessoDebito } from '@/features/debito-transportadora/lib/cobranca-transportadora-api';
+import { mapProcessoParaDetalhe } from '@/features/debito-transportadora/lib/map-processo-debito';
 import type { DebitoDetalhe } from '@/features/debito-transportadora/types/debito.schema';
+import { ApiClientError } from '@/lib/api';
 
 function delay(ms: number) {
   return new Promise<void>((resolve) => {
@@ -19,26 +22,79 @@ const CONFERENCIA_PAGE_SIZE = 10;
 
 export function useDebitoDetalhe(debitoId: string) {
   const router = useRouter();
+  const { unidadeSelecionada } = useUnidadeContext();
+  const unidadeId = unidadeSelecionada?.id ?? null;
 
-  const debitoInicial = MOCK_DEBITO_DETALHES[debitoId] ?? null;
-
-  const [debito, setDebito] = useState<DebitoDetalhe | null>(debitoInicial);
-  const [reasonCode, setReasonCodeState] = useState(
-    debitoInicial?.reasonCode ?? '',
-  );
-  const [notasAnalista, setNotasAnalistaState] = useState(
-    debitoInicial?.notasAnalista ?? '',
-  );
+  const [debito, setDebito] = useState<DebitoDetalhe | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [notasAnalista, setNotasAnalistaState] = useState('');
   const [salvandoNota, setSalvandoNota] = useState(false);
   const [processandoAcao, setProcessandoAcao] = useState(false);
   const [baixandoMapa, setBaixandoMapa] = useState(false);
   const [paginaConferencia, setPaginaConferenciaState] = useState(1);
+  const [buscaConferencia, setBuscaConferenciaState] = useState('');
+
+  const carregarDetalhe = useCallback(async () => {
+    if (!unidadeId) {
+      setDebito(null);
+      setNotFound(false);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setNotFound(false);
+
+    try {
+      const processo = await buscarProcessoDebito(debitoId, unidadeId);
+      const detalhe = mapProcessoParaDetalhe(processo);
+
+      setDebito(detalhe);
+      setNotasAnalistaState(detalhe.notasAnalista);
+    } catch (error) {
+      setDebito(null);
+
+      if (error instanceof ApiClientError && error.status === 404) {
+        setNotFound(true);
+        return;
+      }
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o processo de débito.';
+
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [debitoId, unidadeId]);
+
+  useEffect(() => {
+    void carregarDetalhe();
+  }, [carregarDetalhe]);
 
   const conferenciaLista = debito?.itensConferidos ?? [];
 
+  const conferenciaFiltrados = useMemo(() => {
+    const termo = buscaConferencia.trim().toLowerCase();
+
+    if (!termo) {
+      return conferenciaLista;
+    }
+
+    return conferenciaLista.filter(
+      (item) =>
+        item.sku.toLowerCase().includes(termo) ||
+        item.produto.toLowerCase().includes(termo) ||
+        item.nfNumero.toLowerCase().includes(termo),
+    );
+  }, [conferenciaLista, buscaConferencia]);
+
   const conferenciaTotalPaginas = Math.max(
     1,
-    Math.ceil(conferenciaLista.length / CONFERENCIA_PAGE_SIZE),
+    Math.ceil(conferenciaFiltrados.length / CONFERENCIA_PAGE_SIZE),
   );
 
   useEffect(() => {
@@ -59,7 +115,7 @@ export function useDebitoDetalhe(debitoId: string) {
   const conferenciaItemsInicio =
     (paginaConferenciaSegura - 1) * CONFERENCIA_PAGE_SIZE;
 
-  const conferenciaItensPagina = conferenciaLista.slice(
+  const conferenciaItensPagina = conferenciaFiltrados.slice(
     conferenciaItemsInicio,
     conferenciaItemsInicio + CONFERENCIA_PAGE_SIZE,
   );
@@ -72,13 +128,14 @@ export function useDebitoDetalhe(debitoId: string) {
     [conferenciaTotalPaginas],
   );
 
+  const setBuscaConferencia = useCallback((value: string) => {
+    setBuscaConferenciaState(value);
+    setPaginaConferenciaState(1);
+  }, []);
+
   const voltar = useCallback(() => {
     router.push('/debito-transportadora');
   }, [router]);
-
-  const setReasonCode = useCallback((value: string) => {
-    setReasonCodeState(value);
-  }, []);
 
   const setNotasAnalista = useCallback((value: string) => {
     setNotasAnalistaState(value);
@@ -102,36 +159,60 @@ export function useDebitoDetalhe(debitoId: string) {
   }, [debito, notasAnalista]);
 
   const enviarParaAssinatura = useCallback(async () => {
-    if (!debito) {
+    if (!debito || !unidadeId) {
       return;
     }
 
     setProcessandoAcao(true);
     try {
-      await delay(600);
-      toast.success('Enviado para assinatura (mock)', {
+      await atualizarStatusProcessoDebito(debitoId, unidadeId, {
+        status: 'aprovado',
+      });
+      await carregarDetalhe();
+      toast.success('Ocorrência aprovada para cobrança', {
         description: debito.protocolo,
       });
+    } catch (error) {
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Não foi possível aprovar a ocorrência.';
+
+      toast.error(message);
     } finally {
       setProcessandoAcao(false);
     }
-  }, [debito]);
+  }, [carregarDetalhe, debito, debitoId, unidadeId]);
 
   const cancelarCobranca = useCallback(async () => {
-    if (!debito) {
+    if (!debito || !unidadeId) {
       return;
     }
 
     setProcessandoAcao(true);
     try {
-      await delay(500);
-      toast.info('Cobrança cancelada (mock)', {
+      await atualizarStatusProcessoDebito(debitoId, unidadeId, {
+        status: 'cancelado',
+      });
+      await carregarDetalhe();
+      toast.info('Ocorrência cancelada', {
         description: debito.protocolo,
       });
+    } catch (error) {
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Não foi possível cancelar a ocorrência.';
+
+      toast.error(message);
     } finally {
       setProcessandoAcao(false);
     }
-  }, [debito]);
+  }, [carregarDetalhe, debito, debitoId, unidadeId]);
 
   const uploadEvidencia = useCallback(() => {
     toast.info('Upload de evidência em construção (mock)');
@@ -147,13 +228,14 @@ export function useDebitoDetalhe(debitoId: string) {
     }
 
     const mapa = debito.mapaSeparacao;
+    const nomeArquivo = `Mapa_Separacao_${mapa.codigo}.pdf`;
 
     setBaixandoMapa(true);
     try {
       await delay(700);
 
       const linhas = [
-        'Mapa de Separação — Lilog Hub (mock)',
+        'Mapa de Separação — Lilog Hub',
         `Código: ${mapa.codigo}`,
         `Gerado em: ${mapa.geradoEm}`,
         `Protocolo: ${debito.protocolo}`,
@@ -163,7 +245,7 @@ export function useDebitoDetalhe(debitoId: string) {
         '--- Itens ---',
         ...debito.itensConferidos.map(
           (item) =>
-            `${item.sku} | ${item.produto} | Lote ${item.lote} | Qtd ${item.qtdEsperada}`,
+            `${item.sku} | ${item.produto} | Qtd ${item.qtdAnomalia} | ${item.pesoTotalKg ?? 0} kg`,
         ),
       ];
 
@@ -171,12 +253,12 @@ export function useDebitoDetalhe(debitoId: string) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = mapa.nomeArquivo;
+      link.download = nomeArquivo;
       link.click();
       URL.revokeObjectURL(url);
 
-      toast.success('Mapa de separação baixado (mock)', {
-        description: mapa.nomeArquivo,
+      toast.success('Mapa de separação baixado', {
+        description: nomeArquivo,
       });
     } finally {
       setBaixandoMapa(false);
@@ -190,27 +272,29 @@ export function useDebitoDetalhe(debitoId: string) {
 
     return {
       ...debito,
-      reasonCode,
       notasAnalista,
     };
-  }, [debito, reasonCode, notasAnalista]);
+  }, [debito, notasAnalista]);
 
   return {
     debito: debitoComEstado,
-    reasonCode,
-    setReasonCode,
+    isLoading,
+    notFound,
     notasAnalista,
     setNotasAnalista,
     salvandoNota,
     processandoAcao,
     baixandoMapa,
     voltar,
+    recarregar: carregarDetalhe,
     conferenciaItensPagina,
     conferenciaPagina: paginaConferenciaSegura,
     conferenciaTotalPaginas,
     conferenciaItemsInicio,
-    conferenciaTotalItens: conferenciaLista.length,
+    conferenciaTotalItens: conferenciaFiltrados.length,
     conferenciaPageSize: CONFERENCIA_PAGE_SIZE,
+    buscaConferencia,
+    setBuscaConferencia,
     setPaginaConferencia,
     actions: {
       salvarNota,

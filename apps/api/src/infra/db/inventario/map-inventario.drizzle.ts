@@ -71,6 +71,7 @@ export function mapDemandaRow(
 export function mapDemandaEnderecoRow(
   row: DemandaEnderecoRow,
   enderecoMascarado: string,
+  unidadeId: string,
   zona: string,
 ): DemandaEnderecoRecord {
   return {
@@ -78,6 +79,7 @@ export function mapDemandaEnderecoRow(
     demandaId: row.demandaId,
     enderecoId: row.enderecoId,
     enderecoMascarado,
+    unidadeId,
     zona,
     sequence: row.sequence,
     status: row.status,
@@ -91,10 +93,15 @@ export function mapContagemRow(row: ContagemRow): ContagemRecord {
     tipo: row.tipo,
     operatorId: row.operatorId,
     codigoProduto: row.codigoProduto,
+    produtoId: row.produtoId,
+    saldoEnderecoId: row.saldoEnderecoId,
     quantidadeCaixas: row.quantidadeCaixas,
     quantidadeUnidades: row.quantidadeUnidades,
     lote: row.lote,
     peso: row.peso,
+    enderecoVazio: row.enderecoVazio,
+    anomaliaEncontrada: row.anomaliaEncontrada,
+    correspondeAoEsperado: row.correspondeAoEsperado,
     createdAt: row.createdAt,
   };
 }
@@ -116,18 +123,34 @@ export function mapInventarioDetalhe(
   itensContados: number,
   itensTotal: number,
   setoresProgresso: InventarioDetalheRecord['setoresProgresso'],
+  divergencias: InventarioDetalheRecord['divergencias'] = [],
 ): InventarioDetalheRecord {
   const progressoPercent =
     itensTotal > 0 ? Math.round((itensContados / itensTotal) * 100) : 0;
+
+  const ajustesPendentesCount = divergencias.filter(
+    (item) => item.pendenteAjuste,
+  ).length;
+
+  const conferidasSemDivergencia =
+    itensContados - divergencias.filter((item) => !item.anomaliaEncontrada).length;
+  const acuraciaPercent =
+    itensContados > 0
+      ? Math.round(
+          (Math.max(0, conferidasSemDivergencia) / itensContados) * 100,
+        )
+      : null;
 
   return {
     ...inventario,
     progressoPercent,
     itensContados,
     itensTotal,
-    acuraciaPercent: null,
-    divergenciasCount: 0,
+    acuraciaPercent,
+    divergenciasCount: divergencias.length,
+    ajustesPendentesCount,
     setoresProgresso,
+    divergencias,
   };
 }
 

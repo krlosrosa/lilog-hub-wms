@@ -18,7 +18,7 @@ import { PermissionsGuard } from '../../../shared/guards/permissions.guard.js';
 
 const CreateProdutoEnderecoBodySchema = z.object({
   centroId: z.uuid(),
-  produtoId: z.uuid(),
+  produtoId: z.string().min(1).max(50),
   enderecoId: z.uuid(),
   papel: ProdutoEnderecoPapelSchema,
   ordem: z.number().int().min(1).max(32767).default(1),

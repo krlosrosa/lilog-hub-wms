@@ -292,19 +292,14 @@ function SkuItemRow({
   return (
     <button
       type="button"
-      disabled={isConferido}
       onClick={() => {
-        if (!isConferido) {
-          hapticLight();
-          onClick(item);
-        }
+        hapticLight();
+        onClick(item);
       }}
       className={cn(
         'group flex w-full items-center gap-2.5 overflow-hidden rounded-lg border border-outline-variant bg-surface p-3 text-left shadow-sm',
-        'touch-manipulation transition-all duration-150',
-        isConferido
-          ? 'cursor-not-allowed border-l-[3px] border-l-secondary bg-secondary/[0.04] opacity-80'
-          : 'active:scale-[0.98] active:bg-surface-container-low',
+        'touch-manipulation transition-all duration-150 active:scale-[0.98] active:bg-surface-container-low',
+        isConferido && 'border-l-[3px] border-l-secondary bg-secondary/[0.04]',
         !isConferido && isReentrega && 'border-l-[3px] border-l-primary',
         !isConferido && item.hasAvaria && !isReentrega && 'border-l-[3px] border-l-warning',
         !isConferido &&
@@ -391,12 +386,13 @@ function SkuItemRow({
         )}
       </div>
 
-      {!isConferido && (
-        <ChevronRight
-          className="h-4 w-4 shrink-0 text-outline transition-transform group-active:translate-x-0.5"
-          aria-hidden
-        />
-      )}
+      <ChevronRight
+        className={cn(
+          'h-4 w-4 shrink-0 transition-transform group-active:translate-x-0.5',
+          isConferido ? 'text-secondary/70' : 'text-outline'
+        )}
+        aria-hidden
+      />
     </button>
   );
 }
@@ -421,6 +417,7 @@ export function ListaItensView({ demandId }: ListaItensViewProps) {
     sheetOpen,
     skuInput,
     skuPreview,
+    catalogPreviewDescricao,
     sheetError,
     isValidating,
     canFinalize,
@@ -434,9 +431,8 @@ export function ListaItensView({ demandId }: ListaItensViewProps) {
       <div className="sticky top-0 z-30 border-b border-outline-variant/60 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
         <div className="flex h-14 items-center gap-3 px-margin-mobile">
           <Link
-            to="/devolucao/$id/checklist"
-            params={{ id: demandId }}
-            aria-label="Voltar para checklist"
+            to="/devolucao"
+            aria-label="Voltar para lista de demandas"
             onPointerDown={() => hapticLight()}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-transform active:scale-90 touch-manipulation"
           >
@@ -546,6 +542,7 @@ export function ListaItensView({ demandId }: ListaItensViewProps) {
         skuInput={skuInput}
         onSkuInputChange={actions.handleSkuInputChange}
         preview={skuPreview}
+        catalogPreviewDescricao={catalogPreviewDescricao}
         error={sheetError}
         isValidating={isValidating}
         onValidate={() => void actions.handleValidateProduct()}

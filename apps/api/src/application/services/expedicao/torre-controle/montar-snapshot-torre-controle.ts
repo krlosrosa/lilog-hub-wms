@@ -326,6 +326,17 @@ function mapStatusTransporte(
   return status.toUpperCase() as TorreControleSnapshot['transportes'][number]['status'];
 }
 
+const STATUS_VIAGEM_RAVEX = new Set<
+  TorreControleSnapshot['transportes'][number]['status']
+>(['EM_VIAGEM', 'VIAGEM_FINALIZADA']);
+
+const STATUS_PROCESSOS_CONCLUIDOS: TorreControleSnapshot['transportes'][number]['statusProcessos'] =
+  {
+    separacao: 'concluido',
+    conferencia: 'concluido',
+    carregamento: 'concluido',
+  };
+
 function calcularPercentual(realizado: number, total: number): number {
   if (total <= 0) {
     return 0;
@@ -483,6 +494,8 @@ export function montarSnapshotTorreControle(
         t.transporteId,
       );
 
+      const statusTransporte = mapStatusTransporte(t.statusAlocacao);
+
       return enriquecerTransporteOperacional({
         id: t.transporteId,
         codigo: t.codigo,
@@ -492,7 +505,7 @@ export function montarSnapshotTorreControle(
         isPrioridade: t.isPrioridade,
         nivelPrioridade: t.nivelPrioridade,
         reentregaExclusiva: t.reentregaExclusiva,
-        status: mapStatusTransporte(t.statusAlocacao),
+        status: statusTransporte,
         etapaAtual: t.etapaAtual as EtapaOperacional,
         horarioSaida: formatarMetaLargada(t.horarioExpectativaSaida),
         tempoRestanteSaidaMin: t.tempoRestanteSaidaMin,
@@ -503,10 +516,18 @@ export function montarSnapshotTorreControle(
         mapasConcluidos: resumoMapas.mapasConcluidos,
         volumePaletes: readModel.paletesPorTransporte.get(t.transporteId) ?? 0,
         pesoTotalKg: t.pesoTotalKg,
-        statusProcessos: resolverStatusProcessos(
-          t.etapaAtual as EtapaOperacional,
-          mapasPendentesTransporte,
-        ),
+        statusProcessos: STATUS_VIAGEM_RAVEX.has(statusTransporte)
+          ? STATUS_PROCESSOS_CONCLUIDOS
+          : resolverStatusProcessos(
+              t.etapaAtual as EtapaOperacional,
+              mapasPendentesTransporte,
+              readModel.mapasOperacionais
+                .filter((mapa) => mapa.transporteId === t.transporteId)
+                .map((mapa) => ({
+                  processo: mapa.processo,
+                  iniciadoEm: mapa.iniciadoEm,
+                })),
+            ),
         horariosProcessos: horariosPorTransporte.get(t.transporteId) ?? {
           separacao: { inicio: null, fim: null },
           conferencia: { inicio: null, fim: null },

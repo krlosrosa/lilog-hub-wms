@@ -98,7 +98,6 @@ export const demandaNovaFullFormSchema = z
     zonas: z.array(z.string()),
     rackInicio: z.string(),
     rackFim: z.string(),
-    categorias: z.array(z.string()),
     skuBusca: z.string(),
     responsavelId: z.string().min(1, 'Selecione o responsável'),
     observacoes: z.string(),

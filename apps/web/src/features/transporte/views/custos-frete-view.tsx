@@ -31,6 +31,7 @@ const TABLE_HEADERS = [
   'Previsto',
   'Pago',
   'Adicionais',
+  'R$/Ton',
   'Variação',
   'Status',
   '',
@@ -144,12 +145,14 @@ export function CustosFreteView() {
                           header === 'Previsto' ||
                             header === 'Pago' ||
                             header === 'Adicionais' ||
+                            header === 'R$/Ton' ||
                             header === 'Variação'
                             ? 'text-right'
                             : undefined,
                           header === 'Data' && 'hidden sm:table-cell',
                           header === 'Veículo / Transportadora' && 'hidden md:table-cell',
                           header === 'Adicionais' && 'hidden lg:table-cell',
+                          header === 'R$/Ton' && 'hidden xl:table-cell',
                         )}
                       >
                         {header}

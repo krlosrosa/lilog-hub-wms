@@ -1,6 +1,7 @@
 import { classificarStatusMeta } from '@/features/torre-controle-expedicao/lib/formatar-tempo';
 import type {
   FiltroRapidoTorre,
+  StatusTransporteTorre,
   TransporteRisco,
 } from '@/features/torre-controle-expedicao/types/torre-controle.schema';
 
@@ -77,4 +78,39 @@ export function listarTransportesDecisaoPrioritaria(
   transportes: TransporteRisco[],
 ): TransporteRisco[] {
   return transportes.filter(isTransporteDecisaoPrioritaria);
+}
+
+export function filtrarTransportesPorStatus(
+  transportes: TransporteRisco[],
+  status: StatusTransporteTorre | 'todos',
+): TransporteRisco[] {
+  if (status === 'todos') {
+    return transportes;
+  }
+
+  return transportes.filter((transporte) => transporte.status === status);
+}
+
+export function contarTransportesPorStatus(
+  transportes: TransporteRisco[],
+): Record<StatusTransporteTorre, number> {
+  const base: Record<StatusTransporteTorre, number> = {
+    PENDENTE: 0,
+    ALOCADO: 0,
+    PARCIAL: 0,
+    EM_SEPARACAO: 0,
+    SEPARADO: 0,
+    EM_CONFERENCIA: 0,
+    CONFERIDO: 0,
+    EM_CARREGAMENTO: 0,
+    CARREGADO: 0,
+    EM_VIAGEM: 0,
+    VIAGEM_FINALIZADA: 0,
+  };
+
+  for (const t of transportes) {
+    base[t.status] = (base[t.status] ?? 0) + 1;
+  }
+
+  return base;
 }

@@ -1,6 +1,8 @@
 import type {
   CreatePreRecebimentoInput,
+  OrigemDadosPreRecebimento,
   PreRecebimentoSituacao,
+  RecepcionarCarroInput,
   UpdatePreRecebimentoInput,
 } from '../../model/recebimento/recebimento.model.js';
 
@@ -19,22 +21,56 @@ export type ItemPreRecebimentoRecord = {
   createdAt: Date;
 };
 
+export type NotaFiscalPreRecebimentoRecord = {
+  id: string;
+  preRecebimentoId: string;
+  numeroNf: string;
+  serie: string | null;
+  chaveAcesso: string | null;
+  numeroRemessa: string | null;
+  fornecedorNome: string | null;
+  fornecedorDocumento: string | null;
+  pesoTotal: number | null;
+  volumeTotal: number | null;
+  observacao: string | null;
+  createdAt: Date;
+};
+
 export type PreRecebimentoRecord = {
   id: string;
   unidadeId: string;
-  transportadoraId: string;
-  placa: string;
+  transportadoraNome: string | null;
+  placa: string | null;
+  motoristaNome: string | null;
+  motoristaTelefone: string | null;
+  grauPrioridade: string | null;
+  numeroOcr: string | null;
+  numeroTransporte: string | null;
+  origemDados: OrigemDadosPreRecebimento;
   horarioPrevisto: Date;
   observacao: string | null;
   situacao: PreRecebimentoSituacao;
   dataChegada: Date | null;
+  docaId: string | null;
+  rastreioToken: string | null;
   userId: number | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
+export type RastreioStatusRecord = {
+  placa: string | null;
+  transportadoraNome: string | null;
+  situacao: PreRecebimentoSituacao;
+  docaNome: string | null;
+  horarioPrevisto: Date;
+  dataChegada: Date | null;
+  unidadeNome: string;
+};
+
 export type PreRecebimentoWithItens = PreRecebimentoRecord & {
   itens: ItemPreRecebimentoRecord[];
+  notasFiscais: NotaFiscalPreRecebimentoRecord[];
 };
 
 export type ListPreRecebimentosFilter = {
@@ -42,7 +78,7 @@ export type ListPreRecebimentosFilter = {
   limit?: number;
   unidadeId: string;
   situacao?: PreRecebimentoSituacao;
-  transportadoraId?: string;
+  transportadoraNome?: string;
   dataInicio?: Date;
   dataFim?: Date;
 };
@@ -70,5 +106,19 @@ export interface IPreRecebimentoRepository {
     situacao: PreRecebimentoSituacao,
     dataChegada?: Date | null,
   ): Promise<PreRecebimentoRecord | null>;
+  liberarConferencia(
+    id: string,
+    docaId: string,
+    dataChegada: Date,
+  ): Promise<PreRecebimentoRecord | null>;
+  recepcionarCarro(
+    id: string,
+    data: RecepcionarCarroInput,
+  ): Promise<PreRecebimentoRecord | null>;
   cancel(id: string): Promise<PreRecebimentoRecord | null>;
+  gerarLinkRastreio(
+    id: string,
+    options?: { regenerar?: boolean },
+  ): Promise<{ token: string } | null>;
+  findRastreioByToken(token: string): Promise<RastreioStatusRecord | null>;
 }

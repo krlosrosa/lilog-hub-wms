@@ -1,7 +1,7 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
-import { BreakdownQuantidadeSchema } from './gerar-mapas.dto.js';
+import { BreakdownQuantidadeSchema, TransporteCodigoSchema } from './gerar-mapas.dto.js';
 
 const StatusTransporteResponseSchema = z.enum([
   'PENDENTE',
@@ -61,15 +61,17 @@ export const RemessaTransporteItemSchema = z.object({
   volume: z.number(),
   origem: z.enum(['upload', 'reentrega']).optional(),
   motivoReentrega: z.string().nullable().optional(),
+  itinerario: z.string().nullable().optional(),
+  itinerarioId: z.uuid().nullable().optional(),
   itens: z.array(RemessaLinhaItemSchema),
 });
 
 export const TransporteItemSchema = z.object({
-  id: z.string().uuid(),
+  id: TransporteCodigoSchema,
   uploadLoteId: z.string().uuid(),
   rota: z.string(),
-  regiao: z.string(),
-  cidade: z.string(),
+  regiao: z.string().nullable(),
+  cidade: z.string().nullable(),
   bairro: z.string().nullable(),
   dataTransporte: z.string(),
   horarioExpectativaSaida: z.iso.datetime().nullable(),
@@ -77,6 +79,7 @@ export const TransporteItemSchema = z.object({
   volumeTotal: z.number(),
   distanciaKm: z.number().nullable(),
   itinerario: z.string().nullable(),
+  itinerarioId: z.uuid().nullable().optional(),
   perfilEsperado: TipoVeiculoResponseSchema.nullable(),
   status: StatusTransporteResponseSchema,
   placa: z.string().nullable(),
@@ -93,6 +96,7 @@ export const TransporteItemSchema = z.object({
     .nullable(),
   mapaGeradoEm: z.iso.datetime().nullable(),
   ultimoMapaLoteId: z.uuid().nullable(),
+  temMapaConferenciaReentrega: z.boolean(),
   quantidadeRemessas: z.number().int(),
   remessas: z.array(RemessaTransporteItemSchema),
 });

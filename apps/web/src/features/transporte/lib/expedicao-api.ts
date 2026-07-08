@@ -54,6 +54,8 @@ export type RemessaTransporteApiItem = {
   volume: number;
   origem?: 'upload' | 'reentrega';
   motivoReentrega?: string | null;
+  itinerario?: string | null;
+  itinerarioId?: string | null;
   itens: RemessaLinhaApiItem[];
 };
 
@@ -61,8 +63,8 @@ export type TransporteApiItem = {
   id: string;
   uploadLoteId: string;
   rota: string;
-  regiao: string;
-  cidade: string;
+  regiao: string | null;
+  cidade: string | null;
   bairro: string | null;
   dataTransporte: string;
   horarioExpectativaSaida: string | null;
@@ -70,6 +72,7 @@ export type TransporteApiItem = {
   volumeTotal: number;
   distanciaKm: number | null;
   itinerario: string | null;
+  itinerarioId?: string | null;
   perfilEsperado: 'VUC' | 'Toco' | 'Truck_3_4' | 'Carreta' | 'Bitrem' | null;
   status: 'PENDENTE' | 'ALOCADO' | 'PARCIAL';
   placa: string | null;
@@ -84,6 +87,7 @@ export type TransporteApiItem = {
   nivelPrioridade: 'urgente' | 'prioritaria' | 'normal' | 'baixa' | null;
   mapaGeradoEm: string | null;
   ultimoMapaLoteId: string | null;
+  temMapaConferenciaReentrega: boolean;
   quantidadeRemessas: number;
   remessas: RemessaTransporteApiItem[];
 };
@@ -109,6 +113,7 @@ export type SalvarAlocacaoTransportePayload = {
   cidade?: string;
   bairro?: string | null;
   isPrioridade?: boolean;
+  custoPrevisto?: number | null;
 };
 
 export type SalvarAlocacoesTransportesPayload = {
@@ -118,6 +123,7 @@ export type SalvarAlocacoesTransportesPayload = {
 
 export type SalvarAlocacoesTransportesResponse = {
   atualizados: number;
+  pulados?: number;
 };
 
 export type RotaConflitanteUpload = {
@@ -186,6 +192,28 @@ export function uploadLoteRemessas(payload: UploadLotePayload) {
   });
 }
 
+export type AtualizarItinerarioRemessasPayload = {
+  itinerarios: { remessa: string; itinerario: string }[];
+};
+
+export type AtualizarItinerarioRemessasResponse = {
+  atualizados: number;
+  naoEncontrados: number;
+};
+
+export function atualizarItinerarioRemessas(
+  uploadLoteId: string,
+  payload: AtualizarItinerarioRemessasPayload,
+) {
+  return apiRequest<AtualizarItinerarioRemessasResponse>(
+    `/expedicao/upload-lotes/${uploadLoteId}/remessas/itinerario`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
 export function listTransportes(unidadeId: string) {
   const params = new URLSearchParams({ unidadeId });
 
@@ -226,6 +254,104 @@ export function atualizarPrioridadeTransporte(
     {
       method: 'PATCH',
       body: JSON.stringify(payload),
+    },
+  );
+}
+
+export type DevolucaoNfElegivelApiItem = {
+  id: string;
+  numeroNf: string;
+  tipo: 'reentrega' | 'devolucao_parcial' | 'devolucao_total';
+  codCliente: string | null;
+  cliente: string | null;
+  motivo: string;
+  transporteOrigemId: string | null;
+  pesoTotal: number;
+  quantidadeItens: number;
+};
+
+export type ListNfsDevolucaoElegiveisResponse = {
+  notasFiscais: DevolucaoNfElegivelApiItem[];
+  remessasReentregaVinculadas: number;
+};
+
+export function listNfsDevolucaoElegiveis(
+  transporteId: string,
+  unidadeId: string,
+  intervalo: { dataInicio: string; dataFim: string },
+) {
+  const params = new URLSearchParams({
+    unidadeId,
+    dataInicio: intervalo.dataInicio,
+    dataFim: intervalo.dataFim,
+  });
+
+  return apiRequest<ListNfsDevolucaoElegiveisResponse>(
+    `/expedicao/transportes/${encodeURIComponent(transporteId)}/nfs-devolucao-elegiveis?${params.toString()}`,
+  );
+}
+
+export type VincularNfsDevolucaoPayload = {
+  unidadeId: string;
+  nfIds: string[];
+};
+
+export type VincularNfsDevolucaoResponse = {
+  remessasCriadas: number;
+  remessaIds: string[];
+};
+
+export function vincularNfsDevolucaoTransporte(
+  transporteId: string,
+  payload: VincularNfsDevolucaoPayload,
+) {
+  return apiRequest<VincularNfsDevolucaoResponse>(
+    `/expedicao/transportes/${encodeURIComponent(transporteId)}/vincular-nfs-devolucao`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export type DesvincularNfsDevolucaoPayload = {
+  unidadeId: string;
+  remessaIds: string[];
+};
+
+export type DesvincularNfsDevolucaoResponse = {
+  remessasDesvinculadas: number;
+  remessaIds: string[];
+};
+
+export function desvincularNfsDevolucaoTransporte(
+  transporteId: string,
+  payload: DesvincularNfsDevolucaoPayload,
+) {
+  return apiRequest<DesvincularNfsDevolucaoResponse>(
+    `/expedicao/transportes/${encodeURIComponent(transporteId)}/desvincular-nfs-devolucao`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export type ExcluirMapaConferenciaReentregaResponse = {
+  transporteId: string;
+  loteIdsExcluidos: string[];
+};
+
+export function excluirMapaConferenciaReentregaTransporte(
+  transporteId: string,
+  unidadeId: string,
+) {
+  const params = new URLSearchParams({ unidadeId });
+
+  return apiRequest<ExcluirMapaConferenciaReentregaResponse>(
+    `/expedicao/transportes/${encodeURIComponent(transporteId)}/mapa-conferencia-reentrega?${params.toString()}`,
+    {
+      method: 'DELETE',
     },
   );
 }

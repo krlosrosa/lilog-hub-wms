@@ -37,7 +37,7 @@ export function ConclusaoView({ tarefaId }: ConclusaoViewProps) {
       <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md">
         <div className="flex h-14 items-center gap-3 px-margin-mobile">
           <Link
-            to="/movimentacao"
+            to="/movimentacao/ressuprimento"
             aria-label="Voltar"
             onPointerDown={() => hapticLight()}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-transform active:scale-90 touch-manipulation"

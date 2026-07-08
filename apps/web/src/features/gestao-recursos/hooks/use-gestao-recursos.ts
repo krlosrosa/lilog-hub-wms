@@ -154,6 +154,7 @@ function filtrarOperadoresPorProcesso(
 
     const activeTask =
       tasks.find((task) => task.status === 'em_andamento') ?? tasks[0];
+    const lastTask = tasks[tasks.length - 1];
 
     return {
       ...operator,
@@ -161,8 +162,8 @@ function filtrarOperadoresPorProcesso(
       currentMission: activeTask?.label,
       startTime: activeTask?.startTime,
       progress: activeTask?.progress,
-      expectedEnd: activeTask?.expectedEndTime,
-      isLate: activeTask?.isLate,
+      expectedEnd: lastTask?.expectedEndTime,
+      isLate: lastTask?.isLate,
       tasks,
     };
   });
@@ -385,7 +386,7 @@ export function useGestaoRecursos(options?: {
         action: {
           label: 'Registrar',
           onClick: () => {
-            window.location.href = '/pausas/registro';
+            window.open('/pausas/registro', '_blank', 'noopener,noreferrer');
           },
         },
       });
@@ -478,15 +479,12 @@ export function useGestaoRecursos(options?: {
   }, []);
 
   const onDemandasCriadas = useCallback(async () => {
-    setIsSubmitting(true);
     try {
       await loadRecursosFromApi();
-      closeCadastrarDemanda();
-      toast.success('Demandas atribuídas com sucesso');
-    } finally {
-      setIsSubmitting(false);
+    } catch {
+      toast.error('Demandas criadas, mas não foi possível atualizar o painel.');
     }
-  }, [loadRecursosFromApi, closeCadastrarDemanda]);
+  }, [loadRecursosFromApi]);
 
   const finalizarDemanda = useCallback(
     (demandaId: string, mapaTitulo?: string, operatorId?: string) => {

@@ -20,6 +20,8 @@ import {
 
   RotateCcw,
 
+  Trash2,
+
   Wifi,
 
   WifiOff,
@@ -40,7 +42,7 @@ import { useNetworkStatus } from '@/lib/offline/hooks/use-network';
 
 import { useSyncStatus } from '@/lib/offline/hooks/use-sync-status';
 
-import { resetAllErrors, resetError } from '@/lib/offline/outbox';
+import { resetAllErrors, resetError, removeAllOutboxEntries, removeOutboxEntry } from '@/lib/offline/outbox';
 
 import { syncNow } from '@/lib/offline/sync-engine';
 
@@ -192,6 +194,10 @@ function OutboxRow({
 
   onRetry,
 
+  onDelete,
+
+  deleteDisabled = false,
+
 }: {
 
   entry: OutboxEntry;
@@ -199,6 +205,10 @@ function OutboxRow({
   variant: 'pending' | 'error';
 
   onRetry?: (id: number) => void;
+
+  onDelete?: (id: number) => void;
+
+  deleteDisabled?: boolean;
 
 }) {
 
@@ -286,6 +296,8 @@ function OutboxRow({
 
         </div>
 
+        <div className="flex shrink-0 flex-col gap-1.5">
+
         {variant === 'error' && entry.id != null && onRetry && (
 
           <button
@@ -300,7 +312,7 @@ function OutboxRow({
 
             }}
 
-            className="flex h-9 shrink-0 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-surface px-3 text-label-sm font-semibold text-secondary touch-manipulation active:scale-95"
+            className="flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-surface px-3 text-label-sm font-semibold text-secondary touch-manipulation active:scale-95"
 
           >
 
@@ -311,6 +323,36 @@ function OutboxRow({
           </button>
 
         )}
+
+        {entry.id != null && onDelete && (
+
+          <button
+
+            type="button"
+
+            disabled={deleteDisabled || entry.status === 'syncing'}
+
+            onClick={() => {
+
+              hapticLight();
+
+              onDelete(entry.id!);
+
+            }}
+
+            aria-label={`Excluir ${entry.label}`}
+
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-outline-variant bg-surface text-destructive touch-manipulation active:scale-95 disabled:opacity-40"
+
+          >
+
+            <Trash2 className="h-4 w-4" aria-hidden />
+
+          </button>
+
+        )}
+
+        </div>
 
       </article>
 
@@ -570,6 +612,66 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
 
 
+  const handleDeleteEntry = async (id: number) => {
+
+    const entry = pending.find((item) => item.id === id) ?? errors.find((item) => item.id === id);
+
+    const label = entry?.label ?? 'este item';
+
+    const confirmed = window.confirm(
+
+      `Excluir "${label}" da fila?\n\nEsta alteração não será enviada ao servidor.`,
+
+    );
+
+    if (!confirmed) return;
+
+    hapticMedium();
+
+    const removed = await removeOutboxEntry(db, id);
+
+    if (!removed) {
+
+      window.alert('Não foi possível excluir. O item pode estar sincronizando agora.');
+
+    }
+
+  };
+
+
+
+  const handleDeleteAll = async () => {
+
+    const total = pending.length + errors.length;
+
+    if (total === 0) return;
+
+    const confirmed = window.confirm(
+
+      `Excluir todos os ${total} item(ns) da fila?\n\nNenhuma dessas alterações será enviada ao servidor.`,
+
+    );
+
+    if (!confirmed) return;
+
+    hapticMedium();
+
+    const removed = await removeAllOutboxEntries(db);
+
+    if (removed === 0 && busy) {
+
+      window.alert('Aguarde a sincronização terminar para excluir itens em envio.');
+
+    }
+
+  };
+
+
+
+  const queueCount = pending.length + errors.length;
+
+
+
   return (
 
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -692,6 +794,28 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
             )}
 
+            {queueCount > 0 && (
+
+              <button
+
+                type="button"
+
+                disabled={busy}
+
+                onClick={() => void handleDeleteAll()}
+
+                className="flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-destructive/30 bg-error-container/10 px-4 text-label-md font-semibold text-destructive touch-manipulation active:scale-[0.98] disabled:opacity-50"
+
+              >
+
+                <Trash2 className="h-4 w-4" aria-hidden />
+
+                Excluir todos
+
+              </button>
+
+            )}
+
           </div>
 
 
@@ -762,7 +886,19 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
                 {pending.map((entry) => (
 
-                  <OutboxRow key={entry.id} entry={entry} variant="pending" />
+                  <OutboxRow
+
+                    key={entry.id}
+
+                    entry={entry}
+
+                    variant="pending"
+
+                    deleteDisabled={busy}
+
+                    onDelete={(id) => void handleDeleteEntry(id)}
+
+                  />
 
                 ))}
 
@@ -844,7 +980,11 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
                     variant="error"
 
+                    deleteDisabled={busy}
+
                     onRetry={(id) => void handleRetry(id)}
+
+                    onDelete={(id) => void handleDeleteEntry(id)}
 
                   />
 

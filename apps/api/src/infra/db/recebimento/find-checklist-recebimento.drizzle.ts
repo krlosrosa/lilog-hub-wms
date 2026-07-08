@@ -7,6 +7,15 @@ import { checklistRecebimento } from '../providers/drizzle/config/migrations/sch
 function mapChecklistRow(
   row: typeof checklistRecebimento.$inferSelect,
 ): ChecklistRecebimentoRecord {
+  const conditions =
+    row.conditions ??
+    ({
+      limpeza: row.condicaoLimpeza,
+      odor: row.condicaoOdor,
+      estrutura: row.condicaoEstrutura,
+      vedacao: row.condicaoVedacao,
+    } satisfies Record<string, boolean>);
+
   return {
     id: row.id,
     recebimentoId: row.recebimentoId,
@@ -17,6 +26,7 @@ function mapChecklistRow(
     condicaoOdor: row.condicaoOdor,
     condicaoEstrutura: row.condicaoEstrutura,
     condicaoVedacao: row.condicaoVedacao,
+    conditions,
     observacoes: row.observacoes,
     photoCount: row.photoCount,
     createdAt: row.createdAt,

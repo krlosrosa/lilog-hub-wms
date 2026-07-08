@@ -1,10 +1,11 @@
+import Link from 'next/link';
+
 import { Button, cn } from '@lilog/ui';
 import { FileText, Loader2 } from 'lucide-react';
 
 type DebitoPainelLateralProps = {
   conciliando: boolean;
   onForcarConciliacao: () => void;
-  onGerarCartaDebito: () => void;
 };
 
 const HEATMAP_INTENSITIES = [
@@ -27,7 +28,6 @@ const HEATMAP_INTENSITIES = [
 export function DebitoPainelLateral({
   conciliando,
   onForcarConciliacao,
-  onGerarCartaDebito,
 }: DebitoPainelLateralProps) {
   return (
     <div className="space-y-6">
@@ -83,22 +83,18 @@ export function DebitoPainelLateral({
           <FileText className="size-5" aria-hidden />
         </div>
         <h4 className="mb-2 text-label-md font-semibold text-foreground">
-          Ações de Cobrança
+          Documentos de Cobrança
         </h4>
         <p className="mb-4 text-caption text-muted-foreground">
-          Gere documentos formais para notificação de débitos de forma
-          automatizada.
+          Acompanhe e gerencie os lotes de cobrança gerados a partir das
+          ocorrências aprovadas.
         </p>
-        <Button
-          type="button"
-          className="w-full gap-2 font-bold"
-          onClick={onGerarCartaDebito}
-        >
-          Gerar Carta de Débito
+        <Button type="button" variant="outline" className="w-full gap-2" asChild>
+          <Link href="/debito-transportadora/cobrancas">
+            <FileText className="size-4" aria-hidden />
+            Ver documentos de cobrança
+          </Link>
         </Button>
-        <p className="mt-3 text-center text-[10px] uppercase tracking-widest text-muted-foreground/50">
-          Padrão Regulatório SEFAZ v4.0
-        </p>
       </article>
 
       <article className="rounded-xl border border-outline-variant/50 bg-glass-bg p-6 shadow-inner-glow backdrop-blur-glass">

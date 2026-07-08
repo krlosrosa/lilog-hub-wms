@@ -16,6 +16,13 @@ import { setActiveUnidadeId } from '@/lib/api';
 
 const STORAGE_KEY = 'lilog:unidade';
 export const SELECIONAR_UNIDADE_PATH = '/selecionar-unidade';
+const UNIDADE_OPTIONAL_PATHS = ['/peso-variavel'];
+
+function isUnidadeOptionalPath(pathname: string): boolean {
+  return UNIDADE_OPTIONAL_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
 
 export type UnidadeSelecionada = {
   id: string;
@@ -126,7 +133,11 @@ export function UnidadeGuard({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!unidadeSelecionada && pathname !== SELECIONAR_UNIDADE_PATH) {
+    if (
+      !unidadeSelecionada &&
+      pathname !== SELECIONAR_UNIDADE_PATH &&
+      !isUnidadeOptionalPath(pathname)
+    ) {
       router.replace(SELECIONAR_UNIDADE_PATH);
     }
   }, [isResolved, unidadeSelecionada, pathname, router]);
@@ -139,7 +150,11 @@ export function UnidadeGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!unidadeSelecionada && pathname !== SELECIONAR_UNIDADE_PATH) {
+  if (
+    !unidadeSelecionada &&
+    pathname !== SELECIONAR_UNIDADE_PATH &&
+    !isUnidadeOptionalPath(pathname)
+  ) {
     return null;
   }
 

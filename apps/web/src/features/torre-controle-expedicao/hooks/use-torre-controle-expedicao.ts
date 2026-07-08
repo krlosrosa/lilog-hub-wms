@@ -11,7 +11,9 @@ import { ordenarTransportesPorCriticidade } from '@/features/torre-controle-expe
 import { criarSnapshotVazio } from '@/features/torre-controle-expedicao/lib/criar-snapshot-vazio';
 import {
   contarTransportesPorFiltro,
+  contarTransportesPorStatus,
   filtrarTransportesNaoFinalizados,
+  filtrarTransportesPorStatus,
   filtrarTransportesTorre,
   listarTransportesDecisaoPrioritaria,
 } from '@/features/torre-controle-expedicao/lib/filtrar-transportes-torre';
@@ -36,6 +38,7 @@ import type {
   AlertaOperacional,
   EtapaOperacional,
   FiltroRapidoTorre,
+  StatusTransporteTorre,
   TorreControleSnapshot,
   TransporteRisco,
 } from '@/features/torre-controle-expedicao/types/torre-controle.schema';
@@ -86,6 +89,7 @@ export function useTorreControleExpedicao() {
   const [sheetEtapa, setSheetEtapa] = useState<EtapaOperacional | null>(null);
   const [sheetDocaId, setSheetDocaId] = useState<string | null>(null);
   const [filtroRapido, setFiltroRapido] = useState<FiltroRapidoTorre>('todos');
+  const [filtroStatus, setFiltroStatus] = useState<StatusTransporteTorre | 'todos'>('todos');
   const [apenasNaoFinalizados, setApenasNaoFinalizados] = useState(false);
 
   const snapshotRef = useRef(snapshot);
@@ -200,8 +204,6 @@ export function useTorreControleExpedicao() {
               : 'Não foi possível carregar a torre de controle.';
 
         setErro(message);
-        setSnapshot(criarSnapshotVazio());
-        setFonteDados('vazio');
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
@@ -267,13 +269,23 @@ export function useTorreControleExpedicao() {
     [filtroRapido, transportesRisco],
   );
 
+  const transportesAposFiltroStatus = useMemo(
+    () => filtrarTransportesPorStatus(transportesAposFiltroRapido, filtroStatus),
+    [filtroStatus, transportesAposFiltroRapido],
+  );
+
+  const contadoresStatus = useMemo(
+    () => contarTransportesPorStatus(transportesAposFiltroRapido),
+    [transportesAposFiltroRapido],
+  );
+
   const transportesFiltrados = useMemo(() => {
     if (!apenasNaoFinalizados) {
-      return transportesAposFiltroRapido;
+      return transportesAposFiltroStatus;
     }
 
-    return filtrarTransportesNaoFinalizados(transportesAposFiltroRapido);
-  }, [apenasNaoFinalizados, transportesAposFiltroRapido]);
+    return filtrarTransportesNaoFinalizados(transportesAposFiltroStatus);
+  }, [apenasNaoFinalizados, transportesAposFiltroStatus]);
 
   const transportesDecisaoPrioritaria = useMemo(
     () => listarTransportesDecisaoPrioritaria(transportesRisco),
@@ -418,6 +430,9 @@ export function useTorreControleExpedicao() {
     transportesAposFiltroRapido,
     transportesDecisaoPrioritaria,
     filtroRapido,
+    filtroStatus,
+    setFiltroStatus,
+    contadoresStatus,
     apenasNaoFinalizados,
     setApenasNaoFinalizados,
     contadoresFiltro,

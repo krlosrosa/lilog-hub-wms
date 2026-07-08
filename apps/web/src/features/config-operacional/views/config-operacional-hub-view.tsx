@@ -1,6 +1,6 @@
 'use client';
 
-import { Settings2, Timer, Truck, Warehouse, Coffee } from 'lucide-react';
+import { Settings2, Timer, Truck, Warehouse, Coffee, PackageX } from 'lucide-react';
 
 import { SidebarMain } from '@/components/layout/sidebar';
 import { ConfigSectionCard } from '@/features/config-operacional/components/config-section-card';
@@ -21,10 +21,18 @@ const SECTIONS = [
     href: '/config-operacional/regras-pausas',
   },
   {
-    title: 'Regras de Recebimento',
-    description: 'Metas de descarga, conferência e fila de docas.',
+    title: 'Parâmetros de Conferência Devolução',
+    description:
+      'Modo de quantidade (caixa/unidade) e rastreabilidade (lote/fabricação) no PWA de devolução.',
+    icon: PackageX,
+    href: '/config-operacional/parametros-devolucao',
+  },
+  {
+    title: 'Parâmetros de Conferência Recebimento',
+    description:
+      'Modo de quantidade (caixa/unidade), rastreabilidade (lote/fabricação) e checklist no PWA de recebimento.',
     icon: Truck,
-    comingSoon: true,
+    href: '/config-operacional/parametros-recebimento',
   },
   {
     title: 'Parâmetros WMS',

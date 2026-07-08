@@ -18,8 +18,8 @@ export async function listTransportesByIdsDb(
     .where(
       and(
         eq(vwTransportes.unidadeId, unidadeId),
-        inArray(vwTransportes.id, transporteIds),
+        inArray(vwTransportes.numeroTransporte, transporteIds),
       ),
     )
-    .orderBy(desc(vwTransportes.dataTransporte), desc(vwTransportes.rota));
+    .orderBy(desc(vwTransportes.dataTransporte), desc(vwTransportes.numeroTransporte));
 }

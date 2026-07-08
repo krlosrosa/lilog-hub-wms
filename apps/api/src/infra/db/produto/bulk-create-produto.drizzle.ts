@@ -25,7 +25,7 @@ export async function bulkCreateProdutoDb(
       .insert(produtos)
       .values(values)
       .onConflictDoNothing({ target: produtos.sku })
-      .returning({ id: produtos.id });
+      .returning({ produtoId: produtos.produtoId });
 
     importados += result.length;
   }

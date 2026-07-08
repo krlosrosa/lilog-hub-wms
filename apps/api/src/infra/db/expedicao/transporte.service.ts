@@ -22,6 +22,7 @@ import {
 } from './find-transportes-duplicados.drizzle.js';
 import { salvarAlocacoesTransportesDb } from './salvar-alocacoes-transportes.drizzle.js';
 import { updateTransportePrioridadeDb } from './update-transporte-prioridade.drizzle.js';
+import { findTransporteIdByViagemDb } from './find-transporte-id-by-viagem.drizzle.js';
 import { findTransporteViagemRavexDb } from './find-transporte-viagem-ravex.drizzle.js';
 import { atualizarViagemRavexTransporteDb } from './atualizar-viagem-ravex-transporte.drizzle.js';
 import { updateDadosCarregamentoTransporteDb } from './update-dados-carregamento-transporte.drizzle.js';
@@ -75,6 +76,10 @@ export class TransporteService implements ITransporteRepository {
 
   findViagemRavexContext(transporteId: string, unidadeId: string) {
     return findTransporteViagemRavexDb(this.db, transporteId, unidadeId);
+  }
+
+  findTransporteIdByViagemId(viagemId: number, unidadeId: string) {
+    return findTransporteIdByViagemDb(this.db, viagemId, unidadeId);
   }
 
   atualizarViagemRavex(

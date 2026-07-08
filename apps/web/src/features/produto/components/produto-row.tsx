@@ -37,7 +37,7 @@ const ICON_BY_CATEGORIA: Record<ProdutoCategoria, LucideIcon> = {
 
 export function ProdutoRow({ produto, onExcluir }: ProdutoRowProps) {
   const Icon = ICON_BY_CATEGORIA[produto.categoria] ?? Package;
-  const editHref = `/produtos/${produto.id}/edit`;
+  const editHref = `/produtos/${produto.produtoId}/edit`;
 
   return (
     <tr className={compactTableRowClassName}>

@@ -300,7 +300,7 @@ export function ListaDemandaView() {
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-label-md font-semibold text-on-surface">
                 <Truck className="h-4 w-4 text-secondary" aria-hidden />
-                {activeFilter === 'priority' ? 'Prioritárias' : 'Aguardando conferência'}
+                {activeFilter === 'priority' ? 'Prioritárias' : 'Aguardando e em andamento'}
               </h2>
               <span className="rounded-full bg-surface-container px-2.5 py-0.5 font-mono text-label-sm tabular-nums text-on-surface-variant">
                 {displayedDemands.length}
@@ -342,14 +342,12 @@ export function ListaDemandaView() {
           ) : (
             displayedDemands.map((demand) => {
               const isStarting = loadingId === demand.id;
-              const awaitingApproval =
-                demand.preRecebimentoSituacao === 'aguardando_aprovacao';
 
               return (
                 <button
                   key={demand.id}
                   type="button"
-                  disabled={loadingId !== null || awaitingApproval}
+                  disabled={loadingId !== null}
                   onClick={() => void handleIniciarDemanda(demand)}
                   className="relative block w-full touch-manipulation text-left disabled:opacity-70"
                 >

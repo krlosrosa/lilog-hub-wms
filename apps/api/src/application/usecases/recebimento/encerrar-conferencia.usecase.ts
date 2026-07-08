@@ -39,7 +39,7 @@ export class EncerrarConferenciaUseCase {
       throw new NotFoundException(`Recebimento "${recebimentoId}" não encontrado`);
     }
 
-    if (recebimento.situacao !== 'em_recebimento') {
+    if (recebimento.situacao !== 'em_conferencia') {
       throw new BadRequestException(
         'Conferência só pode ser encerrada com recebimento em andamento',
       );
@@ -89,8 +89,7 @@ export class EncerrarConferenciaUseCase {
     }
 
     const dataFim = new Date();
-    const novaSituacao =
-      divergenciasCalculadas.length > 0 ? 'aguardando_aprovacao' : 'aprovado';
+    const novaSituacao = 'conferido' as const;
 
     const updated = await this.recebimentoRepository.updateStatus(
       recebimentoId,
@@ -102,6 +101,17 @@ export class EncerrarConferenciaUseCase {
       preRecebimento.id,
       novaSituacao,
     );
+
+    await this.recebimentoEventPublisher.publish({
+      type: RECEBIMENTO_EVENT.RECEBIMENTO_CONFERIDO,
+      preRecebimentoId: preRecebimento.id,
+      recebimentoId,
+      unidadeId: preRecebimento.unidadeId,
+      userId,
+      metadata: {
+        divergenciasCount: divergenciasCalculadas.length,
+      },
+    });
 
     const details = await this.recebimentoRepository.findById(recebimentoId);
 

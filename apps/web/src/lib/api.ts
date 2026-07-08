@@ -1,5 +1,10 @@
+import {
+  invalidateSession,
+  shouldInvalidateSession,
+} from '@/lib/auth-session';
+
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://172.20.10.2:3001/api';
 
 let activeUnidadeId: string | null = null;
 
@@ -16,6 +21,49 @@ export class ApiClientError extends Error {
     super(message);
     this.name = 'ApiClientError';
   }
+}
+
+function resolveApiErrorMessage(body: unknown, fallback: string): string {
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    'errors' in body &&
+    Array.isArray(body.errors) &&
+    body.errors.length > 0
+  ) {
+    return body.errors
+      .map((item) => {
+        if (typeof item !== 'object' || item === null) {
+          return 'Erro de validação';
+        }
+
+        const path =
+          'path' in item &&
+          Array.isArray(item.path) &&
+          item.path.length > 0
+            ? `${item.path.join('.')}: `
+            : '';
+
+        const message =
+          'message' in item && typeof item.message === 'string'
+            ? item.message
+            : 'Erro de validação';
+
+        return `${path}${message}`;
+      })
+      .join('; ');
+  }
+
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    'message' in body &&
+    typeof body.message === 'string'
+  ) {
+    return body.message;
+  }
+
+  return fallback;
 }
 
 export async function apiRequest<T>(
@@ -60,13 +108,12 @@ export async function apiRequest<T>(
   const body = isJson ? await response.json() : await response.text();
 
   if (!response.ok) {
-    const message =
-      typeof body === 'object' &&
-      body !== null &&
-      'message' in body &&
-      typeof body.message === 'string'
-        ? body.message
-        : `Erro na requisição (${response.status})`;
+    if (shouldInvalidateSession(path, response.status)) {
+      void invalidateSession();
+    }
+
+    const fallback = `Erro na requisição (${response.status})`;
+    const message = resolveApiErrorMessage(body, fallback);
 
     throw new ApiClientError(message, response.status, body);
   }
@@ -84,8 +131,35 @@ function extrairFilename(contentDisposition: string | null): string | null {
     return null;
   }
 
-  const match = /filename="([^"]+)"/i.exec(contentDisposition);
-  return match?.[1] ?? null;
+  const match =
+    /filename\*=UTF-8''([^;]+)|filename="([^"]+)"/i.exec(contentDisposition);
+
+  if (!match) {
+    return null;
+  }
+
+  const raw = match[1] ?? match[2];
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function fallbackFilenameFromContentType(contentType: string | null): string {
+  if (contentType?.includes('spreadsheetml')) {
+    return 'download.xlsx';
+  }
+
+  if (contentType?.includes('pdf')) {
+    return 'download.pdf';
+  }
+
+  return 'download.bin';
 }
 
 export async function apiDownloadBlob(
@@ -122,17 +196,15 @@ export async function apiDownloadBlob(
   }
 
   if (!response.ok) {
+    if (shouldInvalidateSession(path, response.status)) {
+      void invalidateSession();
+    }
+
     const contentType = response.headers.get('content-type');
     const isJson = contentType?.includes('application/json');
     const body = isJson ? await response.json() : await response.text();
 
-    const message =
-      typeof body === 'object' &&
-      body !== null &&
-      'message' in body &&
-      typeof body.message === 'string'
-        ? body.message
-        : `Erro na requisição (${response.status})`;
+    const message = resolveApiErrorMessage(body, `Erro na requisição (${response.status})`);
 
     throw new ApiClientError(message, response.status, body);
   }
@@ -140,7 +212,7 @@ export async function apiDownloadBlob(
   const blob = await response.blob();
   const filename =
     extrairFilename(response.headers.get('content-disposition')) ??
-    'download.pdf';
+    fallbackFilenameFromContentType(response.headers.get('content-type'));
 
   return { blob, filename };
 }
@@ -150,6 +222,10 @@ export function downloadBlobArquivo(blob: Blob, filename: string): void {
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = filename;
+  anchor.rel = 'noopener';
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(anchor);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

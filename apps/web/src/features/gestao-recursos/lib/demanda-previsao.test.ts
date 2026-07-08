@@ -332,6 +332,78 @@ describe('computeDemandaTimeline', () => {
     );
   });
 
+  it('encadeia fila mesmo quando varias demandas estao em_andamento na API', () => {
+    const now = new Date('2026-06-22T16:38:00.000Z');
+
+    const timeline = computeDemandaTimeline(
+      [
+        buildDemanda({
+          id: 'd1',
+          atribuidoEm: '2026-06-22T16:00:00.000Z',
+          iniciadoEm: '2026-06-22T16:00:00.000Z',
+          tempoEsperadoMinutos: 354,
+          status: 'em_andamento',
+        }),
+        buildDemanda({
+          id: 'd2',
+          atribuidoEm: '2026-06-22T16:01:00.000Z',
+          iniciadoEm: '2026-06-22T16:00:00.000Z',
+          tempoEsperadoMinutos: 138,
+          status: 'em_andamento',
+        }),
+        buildDemanda({
+          id: 'd3',
+          atribuidoEm: '2026-06-22T16:02:00.000Z',
+          iniciadoEm: '2026-06-22T16:02:00.000Z',
+          tempoEsperadoMinutos: 360,
+          status: 'em_andamento',
+        }),
+        buildDemanda({
+          id: 'd4',
+          atribuidoEm: '2026-06-22T16:03:00.000Z',
+          iniciadoEm: '2026-06-22T16:02:00.000Z',
+          tempoEsperadoMinutos: 120,
+          status: 'em_andamento',
+        }),
+        buildDemanda({
+          id: 'd5',
+          atribuidoEm: '2026-06-22T16:04:00.000Z',
+          iniciadoEm: '2026-06-22T16:02:00.000Z',
+          tempoEsperadoMinutos: 204,
+          status: 'em_andamento',
+        }),
+      ],
+      now,
+    );
+
+    expect(timeline.tasks).toHaveLength(5);
+    expect(timeline.tasks[0]?.status).toBe('em_andamento');
+    expect(
+      timeline.tasks.slice(1).every((task) => task.status === 'pendente'),
+    ).toBe(true);
+    expect(timeline.tasks[0]?.expectedEndTime).toBe(
+      formatTimeFromIso('2026-06-22T16:05:54.000Z'),
+    );
+    expect(timeline.tasks[1]?.startTime).toBe(
+      formatTimeFromIso('2026-06-22T16:39:00.000Z'),
+    );
+    expect(timeline.tasks[1]?.expectedEndTime).toBe(
+      formatTimeFromIso('2026-06-22T16:41:18.000Z'),
+    );
+    expect(timeline.tasks[2]?.startTime).toBe(
+      timeline.tasks[1]?.expectedEndTime,
+    );
+    expect(timeline.tasks[3]?.startTime).toBe(
+      timeline.tasks[2]?.expectedEndTime,
+    );
+    expect(timeline.tasks[4]?.startTime).toBe(
+      timeline.tasks[3]?.expectedEndTime,
+    );
+    expect(formatTimeFromIso(timeline.expectedEndTotal!.toISOString())).toBe(
+      timeline.tasks[4]?.expectedEndTime,
+    );
+  });
+
   it('combina replanejamento por atraso com deslocamento de pausa ativa', () => {
     const now = new Date('2026-06-22T16:16:00.000Z');
     const pausaDeslocamentoMs = 3 * 60_000;

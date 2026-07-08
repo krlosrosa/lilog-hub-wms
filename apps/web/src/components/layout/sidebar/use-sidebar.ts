@@ -1,12 +1,24 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { NavGroup } from './sidebar.types';
+import { isNavSubgroupActive } from './sidebar.types';
 
 const STORAGE_KEY = 'lilog-sidebar-collapsed';
 
-export function useSidebar(_groups: NavGroup[]) {
+function findActiveGroupId(pathname: string, groups: NavGroup[]): string | null {
+  for (const group of groups) {
+    if (isNavSubgroupActive(pathname, group)) {
+      return group.id;
+    }
+  }
+  return groups.find((g) => g.defaultOpen)?.id ?? null;
+}
+
+export function useSidebar(groups: NavGroup[]) {
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -20,6 +32,13 @@ export function useSidebar(_groups: NavGroup[]) {
       /* ignore */
     }
   }, []);
+
+  useEffect(() => {
+    const activeGroupId = findActiveGroupId(pathname, groups);
+    if (activeGroupId) {
+      setOpenGroupId(activeGroupId);
+    }
+  }, [pathname, groups]);
 
   const persistCollapsed = useCallback((next: boolean) => {
     try {

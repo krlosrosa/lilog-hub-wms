@@ -8,6 +8,7 @@ import {
   type IPerfilTarifaRepository,
 } from '../../../domain/repositories/perfil-tarifa/perfil-tarifa.repository.js';
 import { mapPerfilTarifaToResponse } from '../../dtos/perfil-tarifa/map-perfil-tarifa-response.js';
+import { buildPerfisTarifasCacheKey } from './invalidate-perfis-tarifas-cache.js';
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
@@ -21,7 +22,7 @@ export class ListPerfisTarifasUseCase {
   ) {}
 
   async execute(filter: ListPerfisTarifasFilter) {
-    const cacheKey = `perfis-tarifa:${JSON.stringify(filter)}`;
+    const cacheKey = buildPerfisTarifasCacheKey(filter);
     const cached = await this.cacheManager.get<{
       items: ReturnType<typeof mapPerfilTarifaToResponse>[];
     }>(cacheKey);

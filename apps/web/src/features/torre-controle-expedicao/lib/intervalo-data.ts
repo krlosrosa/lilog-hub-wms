@@ -15,6 +15,16 @@ export function criarIntervaloPadraoHoje(): IntervaloData {
   return { dataInicio: hoje, dataFim: hoje };
 }
 
+export function criarIntervaloPadraoOntemHoje(): IntervaloData {
+  const hoje = new Date();
+  const ontem = new Date(hoje);
+  ontem.setDate(ontem.getDate() - 1);
+  return {
+    dataInicio: formatarDataIso(ontem),
+    dataFim: formatarDataIso(hoje),
+  };
+}
+
 export function normalizarIntervaloData(intervalo: IntervaloData): IntervaloData {
   if (intervalo.dataInicio <= intervalo.dataFim) {
     return intervalo;

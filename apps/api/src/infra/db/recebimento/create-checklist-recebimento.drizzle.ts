@@ -6,6 +6,15 @@ import { checklistRecebimento } from '../providers/drizzle/config/migrations/sch
 function mapChecklistRow(
   row: typeof checklistRecebimento.$inferSelect,
 ): ChecklistRecebimentoRecord {
+  const conditions =
+    row.conditions ??
+    ({
+      limpeza: row.condicaoLimpeza,
+      odor: row.condicaoOdor,
+      estrutura: row.condicaoEstrutura,
+      vedacao: row.condicaoVedacao,
+    } satisfies Record<string, boolean>);
+
   return {
     id: row.id,
     recebimentoId: row.recebimentoId,
@@ -16,6 +25,7 @@ function mapChecklistRow(
     condicaoOdor: row.condicaoOdor,
     condicaoEstrutura: row.condicaoEstrutura,
     condicaoVedacao: row.condicaoVedacao,
+    conditions,
     observacoes: row.observacoes,
     photoCount: row.photoCount,
     createdAt: row.createdAt,
@@ -29,14 +39,13 @@ function toChecklistValues(
   return {
     recebimentoId,
     lacre: data.lacre ?? null,
-    tempBau:
-      data.tempBau != null ? String(data.tempBau) : null,
-    tempProduto:
-      data.tempProduto != null ? String(data.tempProduto) : null,
-    condicaoLimpeza: data.conditions.limpeza,
-    condicaoOdor: data.conditions.odor,
-    condicaoEstrutura: data.conditions.estrutura,
-    condicaoVedacao: data.conditions.vedacao,
+    tempBau: data.tempBau != null ? String(data.tempBau) : null,
+    tempProduto: data.tempProduto != null ? String(data.tempProduto) : null,
+    condicaoLimpeza: data.conditions.limpeza ?? false,
+    condicaoOdor: data.conditions.odor ?? false,
+    condicaoEstrutura: data.conditions.estrutura ?? false,
+    condicaoVedacao: data.conditions.vedacao ?? false,
+    conditions: data.conditions,
     observacoes: data.observacoes ?? null,
     photoCount: data.photoCount ?? 0,
   };
@@ -62,6 +71,7 @@ export async function createChecklistRecebimentoDb(
         condicaoOdor: values.condicaoOdor,
         condicaoEstrutura: values.condicaoEstrutura,
         condicaoVedacao: values.condicaoVedacao,
+        conditions: values.conditions,
         observacoes: values.observacoes,
         photoCount: values.photoCount,
       },

@@ -3,12 +3,18 @@ import { z } from 'zod';
 
 import { TipoCargaSchema } from '../../../domain/model/perfil-tarifa/perfil-tarifa.model.js';
 
+export const ItinerarioResponseSchema = z.object({
+  id: z.uuid(),
+  codigo: z.string(),
+});
+
 export const FaixaKmResponseSchema = z.object({
   id: z.uuid(),
   kmInicial: z.string(),
   kmFinal: z.string().nullable(),
   valor: z.string(),
   itinerario: z.string().nullable(),
+  itinerarios: z.array(ItinerarioResponseSchema),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

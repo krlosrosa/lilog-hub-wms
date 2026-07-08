@@ -29,11 +29,19 @@ export class CreateDemandaContagemUseCase {
       );
     }
 
-    if (inventario.status !== 'agendado') {
+    if (
+      inventario.status !== 'agendado' &&
+      inventario.status !== 'em_progresso'
+    ) {
       throw new BadRequestException(
-        'Demandas só podem ser criadas em inventários agendados',
+        'Demandas só podem ser criadas em inventários agendados ou em progresso',
       );
     }
+
+    const skuBusca =
+      data.tipo === 'validacao'
+        ? data.filtros.skuBusca?.trim() || undefined
+        : undefined;
 
     let enderecoIds: string[];
 
@@ -42,24 +50,43 @@ export class CreateDemandaContagemUseCase {
         await this.inventarioRepository.findEnderecosByIdsForCentro(
           inventario.centroId,
           data.filtros.enderecoIds,
+          skuBusca,
         );
 
-      if (selecionados.length !== data.filtros.enderecoIds.length) {
-        throw new BadRequestException(
-          'Um ou mais endereços não pertencem ao centro deste inventário',
-        );
+      if (skuBusca) {
+        if (selecionados.length === 0) {
+          throw new BadRequestException(
+            'Nenhum endereço selecionado possui saldo do SKU informado',
+          );
+        }
+
+        enderecoIds = selecionados.map((item) => item.id);
+      } else {
+        if (selecionados.length !== data.filtros.enderecoIds.length) {
+          throw new BadRequestException(
+            'Um ou mais endereços não pertencem ao centro deste inventário',
+          );
+        }
+
+        enderecoIds = selecionados.map((item) => item.id);
       }
-
-      enderecoIds = selecionados.map((item) => item.id);
     } else {
-      const enderecos = await this.inventarioRepository.resolveEnderecosForDemanda(
-        inventario.centroId,
-        data.filtros,
-      );
+      const filtros =
+        data.tipo === 'validacao'
+          ? data.filtros
+          : { ...data.filtros, skuBusca: undefined };
+
+      const enderecos =
+        await this.inventarioRepository.resolveEnderecosForDemanda(
+          inventario.centroId,
+          filtros,
+        );
 
       if (enderecos.length === 0) {
         throw new BadRequestException(
-          'Nenhum endereço encontrado para os filtros informados',
+          skuBusca
+            ? 'Nenhum endereço encontrado com saldo do SKU informado para os filtros selecionados'
+            : 'Nenhum endereço encontrado para os filtros informados',
         );
       }
 

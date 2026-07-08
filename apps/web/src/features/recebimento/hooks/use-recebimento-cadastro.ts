@@ -10,6 +10,15 @@ import { toast } from 'sonner';
 import { useUnidadeContext } from '@/contexts/unidade-context';
 import { createPreRecebimento } from '@/features/recebimento/lib/recebimento-api';
 import {
+  buildCreatePreRecebimentoPayloadFromDemanda,
+  buildCreatePreRecebimentoPayloadFromForm,
+} from '@/features/recebimento/lib/map-recebimento-import-payload';
+import {
+  aplicarProdutosValidadosNasDemandas,
+  validarProdutosImportacao,
+} from '@/features/recebimento/lib/validar-produtos-importacao';
+import type { RecebimentoXlsxDemanda } from '@/features/recebimento/lib/parse-recebimento-xlsx';
+import {
   EMPTY_ITEM_PRE_RECEBIMENTO,
   recebimentoCadastroFormSchema,
   type RecebimentoCadastroFormValues,
@@ -18,22 +27,16 @@ import { ApiClientError } from '@/lib/api';
 
 export const RECEBIMENTO_CADASTRO_DEFAULT_VALUES: RecebimentoCadastroFormValues =
   {
-    transportadoraId: '',
+    transportadoraNome: '',
     placa: '',
+    numeroOcr: '',
+    numeroTransporte: '',
+    origemDados: 'manual',
     horarioPrevisto: '',
     observacao: '',
     itens: [{ ...EMPTY_ITEM_PRE_RECEBIMENTO }],
+    notasFiscais: [],
   };
-
-function parseOptionalPositiveNumber(value?: string): number | undefined {
-  const trimmed = value?.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  const parsed = Number(trimmed);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-}
 
 export function useRecebimentoCadastro() {
   const router = useRouter();
@@ -46,6 +49,7 @@ export function useRecebimentoCadastro() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingDemandas, setIsSubmittingDemandas] = useState(false);
 
   const onSubmit = form.handleSubmit(async (data: RecebimentoCadastroFormValues) => {
     if (!unidadeSelecionada) {
@@ -56,26 +60,18 @@ export function useRecebimentoCadastro() {
     setIsSubmitting(true);
 
     try {
-      const created = await createPreRecebimento({
-        unidadeId: unidadeSelecionada.id,
-        transportadoraId: data.transportadoraId.trim(),
-        placa: data.placa.trim().toUpperCase(),
-        horarioPrevisto: new Date(data.horarioPrevisto).toISOString(),
-        observacao: data.observacao?.trim() || undefined,
-        itens: data.itens.map((item) => ({
-          produtoId: item.produtoId,
-          quantidadeEsperada: item.quantidadeEsperada,
-          unidadeMedida: item.unidadeMedida,
-          loteEsperado: item.loteEsperado?.trim() || undefined,
-          pesoEsperado: parseOptionalPositiveNumber(item.pesoEsperado),
-          validadeEsperada: item.validadeEsperada
-            ? new Date(item.validadeEsperada).toISOString()
-            : undefined,
-        })),
-      });
+      const created = await createPreRecebimento(
+        buildCreatePreRecebimentoPayloadFromForm(unidadeSelecionada.id, data),
+      );
+
+      const identificador =
+        created.placa ??
+        created.numeroTransporte ??
+        created.numeroOcr ??
+        'Pré-recebimento';
 
       toast.success('Pré-recebimento cadastrado!', {
-        description: `${created.placa} · ${data.transportadoraId.trim()}`,
+        description: `${identificador} · ${created.transportadoraNome ?? data.transportadoraNome?.trim() ?? 'Sem transportadora'}`,
       });
 
       router.push('/recebimento');
@@ -92,6 +88,107 @@ export function useRecebimentoCadastro() {
     }
   });
 
+  const cadastrarDemandasImportadas = useCallback(
+    async (demandas: RecebimentoXlsxDemanda[]) => {
+      if (!unidadeSelecionada) {
+        toast.error('Selecione uma unidade antes de cadastrar');
+        return;
+      }
+
+      if (demandas.length === 0) {
+        toast.error('Nenhuma demanda para cadastrar');
+        return;
+      }
+
+      const validacao = await validarProdutosImportacao(demandas);
+      if (validacao.naoEncontrados.length > 0) {
+        toast.error('Produtos sem cadastro', {
+          description: validacao.naoEncontrados.slice(0, 5).join(' · '),
+        });
+        return;
+      }
+
+      const demandasValidadas = aplicarProdutosValidadosNasDemandas(
+        demandas,
+        validacao.validos,
+      );
+
+      setIsSubmittingDemandas(true);
+
+      const falhas: string[] = [];
+      let cadastradas = 0;
+
+      try {
+        for (const demanda of demandasValidadas) {
+          const ocrLabel = demanda.cabecalho.numeroOcr ?? 'sem OCR';
+
+          try {
+            await createPreRecebimento(
+              buildCreatePreRecebimentoPayloadFromDemanda(
+                unidadeSelecionada.id,
+                demanda,
+              ),
+            );
+            cadastradas += 1;
+          } catch (error) {
+            const message =
+              error instanceof ApiClientError
+                ? error.message
+                : error instanceof Error
+                  ? error.message
+                  : 'Erro desconhecido';
+
+            falhas.push(`OCR ${ocrLabel}: ${message}`);
+          }
+        }
+
+        if (cadastradas > 0) {
+          toast.success(`${cadastradas} demanda(s) cadastrada(s)`, {
+            description:
+              cadastradas === 1
+                ? '1 veículo registrado como pré-recebimento'
+                : `${cadastradas} veículos registrados como pré-recebimentos`,
+          });
+          router.push('/recebimento');
+          router.refresh();
+        }
+
+        if (falhas.length > 0) {
+          toast.error(`${falhas.length} demanda(s) não cadastrada(s)`, {
+            description: falhas.slice(0, 3).join(' · '),
+          });
+        }
+      } finally {
+        setIsSubmittingDemandas(false);
+      }
+    },
+    [router, unidadeSelecionada],
+  );
+
+  const carregarDemandaNoFormulario = useCallback(
+    (demanda: RecebimentoXlsxDemanda) => {
+      form.reset({
+        transportadoraNome: demanda.cabecalho.transportadoraNome ?? '',
+        placa: demanda.cabecalho.placa ?? '',
+        numeroOcr: demanda.cabecalho.numeroOcr ?? '',
+        numeroTransporte: demanda.cabecalho.numeroTransporte ?? '',
+        origemDados: 'xlsx',
+        horarioPrevisto: demanda.cabecalho.horarioPrevisto ?? '',
+        observacao: '',
+        itens:
+          demanda.itens.length > 0
+            ? demanda.itens
+            : [{ ...EMPTY_ITEM_PRE_RECEBIMENTO }],
+        notasFiscais: demanda.notasFiscais,
+      });
+
+      toast.info('Demanda carregada no formulário', {
+        description: `OCR ${demanda.cabecalho.numeroOcr ?? '—'} · ${demanda.itens.length} item(ns)`,
+      });
+    },
+    [form],
+  );
+
   const cancelar = useCallback(() => {
     form.reset(RECEBIMENTO_CADASTRO_DEFAULT_VALUES);
     router.push('/recebimento');
@@ -100,8 +197,11 @@ export function useRecebimentoCadastro() {
   return {
     form,
     isSubmitting,
+    isSubmittingDemandas,
     unidadeSelecionada,
     onSubmit,
+    cadastrarDemandasImportadas,
+    carregarDemandaNoFormulario,
     cancelar,
   };
 }

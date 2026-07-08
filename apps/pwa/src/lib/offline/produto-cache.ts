@@ -5,13 +5,21 @@ import type { ProdutoConferenciaConfigForm } from '@/features/recebimento/types/
 
 import { db } from './db';
 
-type ProdutoApiResponse = ProdutoApi & {
+export type ProdutoApiResponse = {
   produtoId?: string;
+  id?: string;
+  sku: string;
+  descricao: string;
+  ean?: string | null;
+  unidadesPorCaixa?: number;
+  tipo: string;
+  categoria: string;
+  shelfLife?: number | null;
 };
 
 export function mapProdutoApiResponse(item: ProdutoApiResponse): ProdutoApi {
   return {
-    id: item.produtoId ?? item.id,
+    produtoId: item.produtoId ?? item.id ?? '',
     sku: item.sku,
     descricao: item.descricao,
     ean: item.ean ?? null,
@@ -22,25 +30,40 @@ export function mapProdutoApiResponse(item: ProdutoApiResponse): ProdutoApi {
   };
 }
 
-export function produtoToConfig(produto: ProdutoApi): ProdutoConferenciaConfigForm {
+export function produtoToConfig(
+  produto: ProdutoApi,
+  solicitarPesoPvar = true,
+  exigirEtiquetaPesoVariavel = false,
+): ProdutoConferenciaConfigForm {
+  const isPvar = produto.tipo === 'PVAR' && solicitarPesoPvar;
+
   return {
     controlaLote:
       produto.categoria === 'refrigerado' || produto.categoria === 'queijo',
     controlaValidade: produto.shelfLife !== null,
-    controlaPeso: produto.tipo === 'PVAR',
-    pesoVariavel: produto.tipo === 'PVAR',
+    controlaPeso: isPvar,
+    pesoVariavel: isPvar,
+    exigirEtiquetaPesoVariavel: isPvar && exigirEtiquetaPesoVariavel,
     controlaNumeroSerie: false,
   };
 }
 
-export function produtoToMeta(produto: ProdutoApi): ConferenciaItemMeta {
+export function produtoToMeta(
+  produto: ProdutoApi,
+  solicitarPesoPvar = true,
+  exigirEtiquetaPesoVariavel = false,
+): ConferenciaItemMeta {
   return {
-    produtoId: produto.id,
+    produtoId: produto.produtoId,
     sku: produto.sku,
     descricao: produto.descricao,
     unidadeMedida: 'UN',
     unidadesPorCaixa: produto.unidadesPorCaixa,
-    config: produtoToConfig(produto),
+    config: produtoToConfig(
+      produto,
+      solicitarPesoPvar,
+      exigirEtiquetaPesoVariavel,
+    ),
   };
 }
 
@@ -85,7 +108,7 @@ export function findProdutoInCatalog(
       produto.ean?.toLowerCase().includes(normalized),
   );
 
-  if (matches.length === 1) return matches[0];
+  if (matches.length === 1) return matches[0] ?? null;
   return null;
 }
 

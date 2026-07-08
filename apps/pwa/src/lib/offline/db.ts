@@ -1,7 +1,12 @@
 import Dexie, { type Table } from 'dexie';
 
 import type { Demand as DevolucaoDemand } from '@/features/devolucao/types/devolucao.schema';
+import type {
+  DemandaDetalheCache,
+  DevolucaoConferenciaRascunhoEntry,
+} from '@/features/devolucao/types/devolucao.schema';
 import type { InventoryDemand } from '@/features/estoque/types/estoque.schema';
+import type { RecebimentoConferenciaRascunhoEntry } from '@/features/recebimento/lib/recebimento-conferencia-rascunho';
 import type { SerializedConferenciaContext } from '@/features/recebimento/lib/map-conferencia-itens';
 import type {
   DocaApi,
@@ -84,6 +89,15 @@ export interface DemandProdutosEntry {
 class AppDB extends Dexie {
   demands!: Table<Demand, string>;
   devolucaoDemands!: Table<DevolucaoDemand, string>;
+  devolucaoDemandasDetalhes!: Table<DemandaDetalheCache, string>;
+  devolucaoConferenciaRascunho!: Table<
+    DevolucaoConferenciaRascunhoEntry,
+    [string, string]
+  >;
+  recebimentoConferenciaRascunho!: Table<
+    RecebimentoConferenciaRascunhoEntry,
+    [string, string]
+  >;
   inventoryDemands!: Table<InventoryDemand, string>;
   demandContexts!: Table<DemandContextEntry, string>;
   unitDocas!: Table<UnitDocasEntry, string>;
@@ -167,6 +181,49 @@ class AppDB extends Dexie {
     this.version(9).stores({
       demands: 'id, routeId, status, supplier',
       devolucaoDemands: 'id, status, supplier',
+      inventoryDemands: 'id, type, zone',
+      demandContexts: 'demandId',
+      unitDocas: 'unidadeId',
+      checklistDrafts: 'demandId',
+      demandProdutos: 'demandId',
+      photos: '++id, relatedId, createdAt',
+      outbox: '++id, status, createdAt',
+      syncMeta: 'id',
+    });
+    this.version(10).stores({
+      demands: 'id, routeId, status, supplier',
+      devolucaoDemands: 'id, status, supplier',
+      devolucaoDemandasDetalhes: 'id, updatedAt, cachedAt',
+      devolucaoConferenciaRascunho: '[demandId+itemId], demandId',
+      inventoryDemands: 'id, type, zone',
+      demandContexts: 'demandId',
+      unitDocas: 'unidadeId',
+      checklistDrafts: 'demandId',
+      demandProdutos: 'demandId',
+      photos: '++id, relatedId, createdAt',
+      outbox: '++id, status, createdAt',
+      syncMeta: 'id',
+    });
+    this.version(11).stores({
+      demands: 'id, routeId, status, supplier',
+      devolucaoDemands: 'id, routeId, status, supplier',
+      devolucaoDemandasDetalhes: 'id, updatedAt, cachedAt',
+      devolucaoConferenciaRascunho: '[demandId+itemId], demandId',
+      inventoryDemands: 'id, type, zone',
+      demandContexts: 'demandId',
+      unitDocas: 'unidadeId',
+      checklistDrafts: 'demandId',
+      demandProdutos: 'demandId',
+      photos: '++id, relatedId, createdAt',
+      outbox: '++id, status, createdAt',
+      syncMeta: 'id',
+    });
+    this.version(12).stores({
+      demands: 'id, routeId, status, supplier',
+      devolucaoDemands: 'id, routeId, status, supplier',
+      devolucaoDemandasDetalhes: 'id, updatedAt, cachedAt',
+      devolucaoConferenciaRascunho: '[demandId+itemId], demandId',
+      recebimentoConferenciaRascunho: '[demandId+sku], demandId',
       inventoryDemands: 'id, type, zone',
       demandContexts: 'demandId',
       unitDocas: 'unidadeId',

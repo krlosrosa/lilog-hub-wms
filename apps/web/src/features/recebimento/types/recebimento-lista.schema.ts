@@ -1,13 +1,26 @@
 import { z } from 'zod';
 
 export const recebimentoStatusSchema = z.enum([
-  'em-transito',
-  'descarregando',
   'agendado',
-  'concluido',
+  'aguardando',
+  'liberado_para_conferencia',
+  'em_conferencia',
+  'conferido',
+  'finalizado',
+  'cancelado',
 ]);
 
 export type RecebimentoStatus = z.infer<typeof recebimentoStatusSchema>;
+
+export const RECEBIMENTO_STATUS_LABELS: Record<RecebimentoStatus, string> = {
+  agendado: 'Agendado',
+  aguardando: 'Aguardando',
+  liberado_para_conferencia: 'Liberado p/ conferência',
+  em_conferencia: 'Em conferência',
+  conferido: 'Conferido',
+  finalizado: 'Finalizado',
+  cancelado: 'Cancelado',
+};
 
 export const filtroTurnoSchema = z.enum([
   'todos',

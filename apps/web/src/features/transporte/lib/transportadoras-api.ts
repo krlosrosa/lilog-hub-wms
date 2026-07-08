@@ -33,6 +33,7 @@ export function mapTransportadoraToListaItem(
     cnpj: formatCnpj(transportadora.cnpj),
     status: transportadora.status,
     quantidadeVeiculos: transportadora.quantidadeVeiculos,
+    emails: transportadora.emails ?? [],
   };
 }
 

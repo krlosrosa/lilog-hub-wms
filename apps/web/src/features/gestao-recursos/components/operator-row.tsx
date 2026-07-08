@@ -25,6 +25,7 @@ type OperatorRowProps = {
   ) => void;
   isAssigning?: boolean;
   finalizandoDemandaId?: string | null;
+  taskActionLabel?: string;
 };
 
 export function OperatorRow({
@@ -35,6 +36,7 @@ export function OperatorRow({
   onFinalizarDemanda,
   isAssigning,
   finalizandoDemandaId,
+  taskActionLabel = 'Finalizar mapa',
 }: OperatorRowProps) {
   const hasTasks = Boolean(operator.tasks?.length);
 
@@ -236,7 +238,7 @@ export function OperatorRow({
                                 )
                               }
                             >
-                              Finalizar mapa
+                              {taskActionLabel}
                             </Button>
                           ) : null}
                         </div>

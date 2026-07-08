@@ -23,6 +23,7 @@ const CreateProdutoBodySchema = z.object({
   descricao: z.string().min(1),
   empresa: EmpresaProdutoSchema,
   categoria: CategoriaProdutoSchema,
+  grupo: z.string().optional().nullable(),
   tipo: TipoProdutoSchema,
   ean: z.string().optional(),
   dum: z.string().optional(),

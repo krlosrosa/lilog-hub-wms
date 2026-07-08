@@ -16,31 +16,55 @@ export function resolveCompanyCodesFromUnidadeId(unidadeId: string): CompanyCode
 }
 
 function mapSituacaoToStatus(situacao: string): DemandStatus {
-  if (situacao === 'em_recebimento') {
+  if (
+    situacao === 'liberado_para_conferencia' ||
+    situacao === 'agendado' ||
+    situacao === 'aguardando'
+  ) {
+    if (situacao === 'liberado_para_conferencia') {
+      return 'liberado_para_conferencia';
+    }
+
+    return situacao === 'aguardando' ? 'aguardando' : 'agendado';
+  }
+
+  if (situacao === 'em_conferencia') {
     return 'em_conferencia';
   }
 
-  if (situacao === 'aprovado' || situacao === 'finalizado') {
-    return 'concluido';
+  if (situacao === 'conferido') {
+    return 'conferido';
   }
 
-  return 'aguardando';
+  if (situacao === 'finalizado') {
+    return 'finalizado';
+  }
+
+  return 'agendado';
 }
 
 function mapSituacaoToStatusLabel(situacao: string): string {
-  if (situacao === 'aguardando_aprovacao') {
-    return 'Aguardando aprovação';
+  if (situacao === 'liberado_para_conferencia') {
+    return 'Liberado p/ conferência';
   }
 
-  if (situacao === 'veiculo_chegou') {
-    return 'Veículo no pátio';
+  if (situacao === 'aguardando') {
+    return 'Aguardando';
   }
 
-  if (situacao === 'em_recebimento') {
+  if (situacao === 'em_conferencia') {
     return 'Em conferência';
   }
 
-  return 'Aguardando';
+  if (situacao === 'conferido') {
+    return 'Conferido';
+  }
+
+  if (situacao === 'finalizado') {
+    return 'Finalizado';
+  }
+
+  return 'Aguardando liberação';
 }
 
 function formatHorario(iso: string): string {
@@ -60,16 +84,14 @@ function formatDock(dock: string | null): string {
 
 export function mapOperadorDemandaToDemand(item: OperadorDemandaApi): Demand {
   const isLate =
-    item.situacao === 'agendado' || item.situacao === 'veiculo_chegou'
+    item.situacao === 'liberado_para_conferencia'
       ? new Date(item.horarioPrevisto).getTime() < Date.now()
       : false;
-
-  const awaitingApproval = item.situacao === 'aguardando_aprovacao';
 
   return {
     id: item.preRecebimentoId,
     routeId: item.preRecebimentoId,
-    supplier: item.transportadoraId,
+    supplier: item.transportadoraNome ?? '—',
     dock: formatDock(item.dock),
     arrival: formatHorario(item.horarioPrevisto),
     status: mapSituacaoToStatus(item.situacao),
@@ -78,8 +100,8 @@ export function mapOperadorDemandaToDemand(item: OperadorDemandaApi): Demand {
     skuCount: item.skuCount,
     isPriority: isLate,
     pulse: isLate,
-    tagLabel: awaitingApproval ? 'Pendente aprovação' : isLate ? 'Atrasado' : undefined,
-    tagVariant: awaitingApproval ? 'default' : isLate ? 'error' : undefined,
+    tagLabel: isLate ? 'Atrasado' : undefined,
+    tagVariant: isLate ? 'error' : undefined,
     recebimentoId: item.recebimentoId ?? undefined,
     unidadeId: item.unidadeId,
     preRecebimentoSituacao: item.situacao,

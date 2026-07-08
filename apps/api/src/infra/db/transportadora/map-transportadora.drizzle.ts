@@ -17,6 +17,7 @@ export function mapTransportadoraRow(row: TransportadoraRow): TransportadoraReco
     cnpj: row.cnpj,
     status: row.status,
     quantidadeVeiculos: row.quantidadeVeiculos,
+    emails: row.emails ?? [],
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -30,6 +31,7 @@ export function toTransportadoraInsertValues(data: CreateTransportadoraInput) {
     cnpj: normalizeCnpjDigits(data.cnpj),
     status: (data.status ?? 'ativa') as TransportadoraRow['status'],
     quantidadeVeiculos: data.quantidadeVeiculos ?? 0,
+    emails: data.emails ?? [],
   };
 }
 
@@ -52,6 +54,10 @@ export function toTransportadoraUpdateValues(data: UpdateTransportadoraInput) {
 
   if (data.quantidadeVeiculos !== undefined) {
     values.quantidadeVeiculos = data.quantidadeVeiculos;
+  }
+
+  if (data.emails !== undefined) {
+    values.emails = data.emails;
   }
 
   return values;

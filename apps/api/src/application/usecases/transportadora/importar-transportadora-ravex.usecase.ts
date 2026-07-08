@@ -67,6 +67,7 @@ export class ImportarTransportadoraRavexUseCase {
       cnpj: veiculos.cnpj,
       status: 'ativa',
       quantidadeVeiculos: veiculos.quantidadeVeiculos,
+      emails: [],
     });
   }
 }

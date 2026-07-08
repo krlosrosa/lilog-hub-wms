@@ -6,6 +6,7 @@ import { Button, cn } from '@lilog/ui';
 import { ArrowRight, Truck } from 'lucide-react';
 
 import { formatarMoeda } from '@/features/transporte/lib/calcular-custo';
+import { calcularCustoPorTon } from '@/features/transporte/lib/calcular-custo-frete';
 import { StatusCustoBadge } from '@/features/transporte/components/status-custo-badge';
 import type { CustoFreteItem } from '@/features/transporte/types/transporte.schema';
 
@@ -46,6 +47,10 @@ export function CustoFreteRow({ item }: CustoFreteRowProps) {
   const variacaoPositiva = variacaoValor >= 0;
   const transportadora = transporte.veiculoAlocado?.transportadora ?? '—';
   const placa = transporte.veiculoAlocado?.placa ?? '—';
+  const custoPorTon =
+    custoFrete.totalPago > 0
+      ? calcularCustoPorTon(custoFrete.totalPago, transporte.pesoTotal)
+      : 0;
 
   return (
     <tr
@@ -87,6 +92,9 @@ export function CustoFreteRow({ item }: CustoFreteRowProps) {
         {custoFrete.totalAdicionais > 0
           ? formatarMoeda(custoFrete.totalAdicionais)
           : '—'}
+      </td>
+      <td className={cn(CELL, 'hidden text-right font-mono text-xs xl:table-cell')}>
+        {custoPorTon > 0 ? formatarMoeda(custoPorTon) : '—'}
       </td>
       <td className={cn(CELL, 'text-right')}>
         {custoFrete.totalPago > 0 ? (

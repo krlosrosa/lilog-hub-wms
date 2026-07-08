@@ -1,4 +1,5 @@
 import type { AppDB, OutboxEntry, OutboxStatus } from './db';
+import { deletePhotos } from './photo-store';
 
 export type EnqueueInput = Omit<
   OutboxEntry,
@@ -63,4 +64,42 @@ export async function getPendingEntries(database: AppDB): Promise<OutboxEntry[]>
   const pending = await getByStatus(database, 'pending');
   const syncing = await getByStatus(database, 'syncing');
   return [...pending, ...syncing].sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export async function removeOutboxEntry(database: AppDB, id: number): Promise<boolean> {
+  const entry = await database.outbox.get(id);
+  if (!entry) {
+    return false;
+  }
+
+  if (entry.status === 'syncing') {
+    return false;
+  }
+
+  if (entry.photoIds.length > 0) {
+    await deletePhotos(database, entry.photoIds);
+  }
+
+  await database.outbox.delete(id);
+  return true;
+}
+
+export async function removeAllOutboxEntries(database: AppDB): Promise<number> {
+  const entries = await database.outbox.toArray();
+  const deletable = entries.filter((entry) => entry.status !== 'syncing');
+
+  if (deletable.length === 0) {
+    return 0;
+  }
+
+  const photoIds = deletable.flatMap((entry) => entry.photoIds ?? []);
+  if (photoIds.length > 0) {
+    await deletePhotos(database, photoIds);
+  }
+
+  await database.outbox.bulkDelete(
+    deletable.map((entry) => entry.id!).filter((id) => id != null),
+  );
+
+  return deletable.length;
 }

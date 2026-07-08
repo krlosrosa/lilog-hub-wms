@@ -1,23 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  coletarProdutoUuidsParaSlotting,
-  isProdutoUuid,
+  coletarProdutoIdsParaSlotting,
   montarMapaEnderecoPorProdutoCodigo,
   resolverEnderecoItemMapa,
   resolverEnderecoProdutoSlotting,
 } from '../../../src/application/services/expedicao/resolver-endereco-produto-slotting.js';
 import type { ProdutoEnderecoSlottingRow } from '../../../src/infra/db/produto-endereco/list-produto-enderecos-by-produto-ids.drizzle.js';
 
-const PRODUTO_UUID = 'c290e8e6-9dd5-43cb-84eb-a432c3d62682';
-
 function criarRow(
   overrides: Partial<ProdutoEnderecoSlottingRow> &
     Pick<ProdutoEnderecoSlottingRow, 'produtoCodigo' | 'papel' | 'ordem'>,
 ): ProdutoEnderecoSlottingRow {
   return {
-    produtoUuid: PRODUTO_UUID,
-    produtoSku: overrides.produtoCodigo,
+    produtoId: overrides.produtoCodigo ?? 'PROD-1',
+    produtoSku: overrides.produtoCodigo ?? 'PROD-1',
     enderecoId: 'endereco-1',
     enderecoMascarado: 'A 0001 001 01',
     zona: 'A',
@@ -30,23 +27,16 @@ function criarRow(
   };
 }
 
-describe('isProdutoUuid', () => {
-  it('identifica uuid valido', () => {
-    expect(isProdutoUuid(PRODUTO_UUID)).toBe(true);
-    expect(isProdutoUuid('PROD-1')).toBe(false);
-  });
-});
-
-describe('coletarProdutoUuidsParaSlotting', () => {
-  it('coleta uuid da remessa, produto resolvido, codigo e sku', () => {
+describe('coletarProdutoIdsParaSlotting', () => {
+  it('coleta produtoId resolvido, codigo e sku', () => {
     expect(
-      coletarProdutoUuidsParaSlotting({
+      coletarProdutoIdsParaSlotting({
         produtoId: null,
-        produtoIdResolvido: PRODUTO_UUID,
-        produtoCodigo: PRODUTO_UUID,
-        sku: PRODUTO_UUID,
+        produtoIdResolvido: 'PROD-1',
+        produtoCodigo: 'PROD-1',
+        sku: 'SKU-1',
       }),
-    ).toEqual([PRODUTO_UUID.toLowerCase()]);
+    ).toEqual(['PROD-1', 'SKU-1']);
   });
 });
 
@@ -79,29 +69,29 @@ describe('resolverEnderecoProdutoSlotting', () => {
 });
 
 describe('montarMapaEnderecoPorProdutoCodigo', () => {
-  it('monta mapa por uuid, produtoCodigo e sku', () => {
+  it('monta mapa por produtoId, produtoCodigo e sku', () => {
     const mapa = montarMapaEnderecoPorProdutoCodigo([
       criarRow({
-        produtoUuid: PRODUTO_UUID,
+        produtoId: 'PROD-1',
         produtoCodigo: 'PROD-1',
-        produtoSku: PRODUTO_UUID,
+        produtoSku: 'SKU-1',
         papel: 'picking_primario',
         ordem: 1,
       }),
     ]);
 
-    expect(mapa.get(PRODUTO_UUID)?.endereco).toBe('A 0001 001 01');
     expect(mapa.get('PROD-1')?.endereco).toBe('A 0001 001 01');
+    expect(mapa.get('SKU-1')?.endereco).toBe('A 0001 001 01');
   });
 });
 
 describe('resolverEnderecoItemMapa', () => {
-  it('resolve endereco pelo uuid do produto', () => {
+  it('resolve endereco pelo produtoId', () => {
     const enderecoPorProdutoCodigo = montarMapaEnderecoPorProdutoCodigo([
       criarRow({
-        produtoUuid: PRODUTO_UUID,
+        produtoId: 'PROD-1',
         produtoCodigo: 'PROD-1',
-        produtoSku: PRODUTO_UUID,
+        produtoSku: 'SKU-1',
         papel: 'picking_primario',
         ordem: 1,
       }),
@@ -109,20 +99,20 @@ describe('resolverEnderecoItemMapa', () => {
 
     expect(
       resolverEnderecoItemMapa({
-        produtoUuid: PRODUTO_UUID,
+        produtoId: 'PROD-1',
         produtoCodigo: 'PROD-1',
-        sku: PRODUTO_UUID,
+        sku: 'SKU-1',
         enderecoPorProdutoCodigo,
       })?.endereco,
     ).toBe('A 0001 001 01');
   });
 
-  it('resolve endereco mesmo com uuid em caixa diferente', () => {
+  it('resolve endereco pelo sku quando produtoId difere', () => {
     const enderecoPorProdutoCodigo = montarMapaEnderecoPorProdutoCodigo([
       criarRow({
-        produtoUuid: PRODUTO_UUID,
+        produtoId: 'PROD-1',
         produtoCodigo: 'PROD-1',
-        produtoSku: PRODUTO_UUID,
+        produtoSku: 'SKU-1',
         papel: 'picking_primario',
         ordem: 1,
       }),
@@ -130,9 +120,9 @@ describe('resolverEnderecoItemMapa', () => {
 
     expect(
       resolverEnderecoItemMapa({
-        produtoUuid: PRODUTO_UUID.toUpperCase(),
-        produtoCodigo: 'PROD-1',
-        sku: PRODUTO_UUID.toUpperCase(),
+        produtoId: null,
+        produtoCodigo: 'OUTRO',
+        sku: 'SKU-1',
         enderecoPorProdutoCodigo,
       })?.endereco,
     ).toBe('A 0001 001 01');

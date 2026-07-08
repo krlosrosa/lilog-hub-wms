@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   Button,
@@ -46,6 +46,36 @@ function formatarTamanhoArquivo(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatLocalDateTime(date: Date): string {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${formatLocalDate(date)}T${hours}:${minutes}`;
+}
+
+function criarDefaultsUpload() {
+  const hoje = new Date();
+  const proximoDiaUtil = new Date(hoje);
+  proximoDiaUtil.setDate(proximoDiaUtil.getDate() + 1);
+
+  while (proximoDiaUtil.getDay() === 0 || proximoDiaUtil.getDay() === 6) {
+    proximoDiaUtil.setDate(proximoDiaUtil.getDate() + 1);
+  }
+
+  proximoDiaUtil.setHours(7, 0, 0, 0);
+
+  return {
+    dataReferencia: formatLocalDate(hoje),
+    horarioExpectativaSaida: formatLocalDateTime(proximoDiaUtil),
+  };
+}
+
 export function RemessaUploadModal({
   open,
   onOpenChange,
@@ -54,10 +84,25 @@ export function RemessaUploadModal({
 }: RemessaUploadModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [arquivo, setArquivo] = useState<File | null>(null);
-  const [dataReferencia, setDataReferencia] = useState('2026-06-05');
-  const [horarioExpectativaSaida, setHorarioExpectativaSaida] =
-    useState('2026-06-05T08:00');
+  const [dataReferencia, setDataReferencia] = useState(
+    () => criarDefaultsUpload().dataReferencia,
+  );
+  const [horarioExpectativaSaida, setHorarioExpectativaSaida] = useState(
+    () => criarDefaultsUpload().horarioExpectativaSaida,
+  );
   const [dragAtivo, setDragAtivo] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setArquivo(null);
+      setDragAtivo(false);
+      return;
+    }
+
+    const defaults = criarDefaultsUpload();
+    setDataReferencia(defaults.dataReferencia);
+    setHorarioExpectativaSaida(defaults.horarioExpectativaSaida);
+  }, [open]);
 
   const podeConfirmar =
     arquivo !== null &&

@@ -1,17 +1,27 @@
-import { apiRequest, ApiClientError } from '@/lib/api';
+import { apiRequest, ApiClientError, apiDownloadBlob, downloadBlobArquivo } from '@/lib/api';
 
 import type {
   ChecklistRecebimentoApi,
   CreatePreRecebimentoPayload,
   DocumentoApi,
-  IniciarRecebimentoPayload,
   ListPreRecebimentosApiResponse,
   ListPreRecebimentosParams,
   PreRecebimentoApi,
   PreRecebimentoSituacaoApi,
   RecebimentoAvariaApi,
   RecebimentoApi,
+  RecepcionarCarroPayload,
+  GerarLinkRastreioResponse,
 } from '@/features/recebimento/types/recebimento.api';
+import type {
+  EtiquetaPaleteGerada,
+  FinalizarRecebimentoComEtiquetas,
+  PaleteBipadoValidadoFinalizacao,
+  PaleteValidadoFinalizacao,
+  PreviewPaletesArmazenagem,
+  PreviewPaletesBipados,
+  SugestaoEtiquetasRecebimento,
+} from '@/features/recebimento/types/etiqueta-armazenagem.schema';
 import type {
   RecebimentoListaItem,
   RecebimentoStatus,
@@ -20,18 +30,7 @@ import type {
 function mapSituacaoToStatus(
   situacao: PreRecebimentoSituacaoApi,
 ): RecebimentoStatus {
-  switch (situacao) {
-    case 'veiculo_chegou':
-      return 'em-transito';
-    case 'em_recebimento':
-    case 'aguardando_aprovacao':
-      return 'descarregando';
-    case 'aprovado':
-    case 'finalizado':
-      return 'concluido';
-    default:
-      return 'agendado';
-  }
+  return situacao;
 }
 
 function formatHorario(iso: string): string {
@@ -45,7 +44,11 @@ function isAtrasado(
   horarioPrevisto: string,
   situacao: PreRecebimentoSituacaoApi,
 ): boolean {
-  if (situacao !== 'agendado' && situacao !== 'veiculo_chegou') {
+  if (
+    situacao !== 'agendado' &&
+    situacao !== 'aguardando' &&
+    situacao !== 'liberado_para_conferencia'
+  ) {
     return false;
   }
 
@@ -63,8 +66,8 @@ export function mapPreRecebimentoToListaItem(
 
   return {
     id: item.id,
-    placa: item.placa,
-    transportador: item.transportadoraId,
+    placa: item.placa ?? 'Sem placa',
+    transportador: item.transportadoraNome ?? '—',
     horario: formatHorario(item.horarioPrevisto),
     horarioPrevisto: item.horarioPrevisto,
     empresas: [item.unidadeId],
@@ -90,8 +93,8 @@ export async function listPreRecebimentos(
   if (params.limit) searchParams.set('limit', String(params.limit));
   searchParams.set('unidadeId', params.unidadeId);
   if (params.situacao) searchParams.set('situacao', params.situacao);
-  if (params.transportadoraId) {
-    searchParams.set('transportadoraId', params.transportadoraId);
+  if (params.transportadoraNome) {
+    searchParams.set('transportadoraNome', params.transportadoraNome);
   }
   if (params.dataInicio) searchParams.set('dataInicio', params.dataInicio);
   if (params.dataFim) searchParams.set('dataFim', params.dataFim);
@@ -137,37 +140,114 @@ export function cancelPreRecebimento(id: string) {
   );
 }
 
-export function checkinVeiculo(preRecebimentoId: string) {
+export function liberarConferencia(
+  preRecebimentoId: string,
+  payload: { docaId: string },
+) {
   return apiRequest<PreRecebimentoApi>(
-    `/pre-recebimentos/${encodeURIComponent(preRecebimentoId)}/checkin`,
-    { method: 'PUT' },
+    `/pre-recebimentos/${encodeURIComponent(preRecebimentoId)}/liberar-conferencia`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
   );
 }
 
-export function iniciarRecebimento(payload: IniciarRecebimentoPayload) {
-  return apiRequest<RecebimentoApi>('/recebimentos', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
-
-export function encerrarConferencia(recebimentoId: string) {
-  return apiRequest<RecebimentoApi>(
-    `/recebimentos/${encodeURIComponent(recebimentoId)}/encerrar`,
-    { method: 'PUT' },
+export function recepcionarCarro(
+  preRecebimentoId: string,
+  payload: RecepcionarCarroPayload,
+) {
+  return apiRequest<PreRecebimentoApi>(
+    `/pre-recebimentos/${encodeURIComponent(preRecebimentoId)}/recepcionar-carro`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
   );
 }
 
-export function aprovarRecebimento(recebimentoId: string) {
-  return apiRequest<RecebimentoApi>(
-    `/recebimentos/${encodeURIComponent(recebimentoId)}/aprovar`,
-    { method: 'PUT' },
-  );
-}
-
-export function finalizarRecebimento(recebimentoId: string) {
-  return apiRequest<RecebimentoApi>(
+export function finalizarRecebimento(
+  recebimentoId: string,
+  payload?: {
+    paletes?: Array<{
+      produtoId: string;
+      qtdPaletes?: number;
+      sequencia?: number;
+      quantidade?: number;
+      enderecoSugeridoId?: string;
+      codigoUnitizador?: string;
+    }>;
+    paletesBipadosValidados?: PaleteBipadoValidadoFinalizacao[];
+  },
+) {
+  return apiRequest<FinalizarRecebimentoComEtiquetas>(
     `/recebimentos/${encodeURIComponent(recebimentoId)}/finalizar`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload ?? {}),
+    },
+  );
+}
+
+export function previewPaletesArmazenagemRecebimento(
+  recebimentoId: string,
+  payload: { paletes: Array<{ produtoId: string; qtdPaletes: number }> },
+) {
+  return apiRequest<PreviewPaletesArmazenagem>(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/armazenagem/preview-paletes`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function previewEnderecosPaletesBipadosRecebimento(recebimentoId: string) {
+  return apiRequest<PreviewPaletesBipados>(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/armazenagem/preview-paletes-bipados`,
+  );
+}
+
+export function sugerirEtiquetasRecebimento(recebimentoId: string) {
+  return apiRequest<SugestaoEtiquetasRecebimento>(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/etiquetas/sugestao`,
+  );
+}
+
+export async function imprimirEtiquetasRecebimento(
+  recebimentoId: string,
+  etiquetas: EtiquetaPaleteGerada[],
+) {
+  const { blob, filename } = await apiDownloadBlob(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/etiquetas/imprimir`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ etiquetas }),
+    },
+  );
+
+  downloadBlobArquivo(blob, filename);
+
+  return { filename };
+}
+
+export async function reimprimirEtiquetasRecebimento(recebimentoId: string) {
+  const { blob, filename } = await apiDownloadBlob(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/etiquetas/imprimir`,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+  );
+
+  downloadBlobArquivo(blob, filename);
+
+  return { filename };
+}
+
+export function reabrirConferencia(recebimentoId: string) {
+  return apiRequest<RecebimentoApi>(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/reabrir`,
     { method: 'PUT' },
   );
 }
@@ -236,4 +316,18 @@ export async function listAvariaDocumentos(
     `/documentos?${params.toString()}`,
   );
   return result.items ?? [];
+}
+
+export async function gerarLinkRastreio(
+  preRecebimentoId: string,
+  regenerar = false,
+): Promise<GerarLinkRastreioResponse> {
+  return apiRequest<GerarLinkRastreioResponse>(
+    `/pre-recebimentos/${encodeURIComponent(preRecebimentoId)}/gerar-link-rastreio`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ regenerar }),
+    },
+  );
 }

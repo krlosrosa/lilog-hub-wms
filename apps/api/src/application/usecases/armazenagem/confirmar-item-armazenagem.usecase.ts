@@ -17,13 +17,7 @@ import {
   ENDERECO_REPOSITORY,
   type IEnderecoRepository,
 } from '../../../domain/repositories/endereco/endereco.repository.js';
-import {
-  ESTOQUE_REPOSITORY,
-  type IEstoqueRepository,
-} from '../../../domain/repositories/estoque/estoque.repository.js';
-import { resolveSaldoOrigemArmazenagem } from '../../../domain/services/resolve-saldo-origem-armazenagem.js';
-import { MovimentarEstoqueUseCase } from '../estoque/movimentar-estoque.usecase.js';
-import { EnsureDepositosUnidadeUseCase } from '../estoque/ensure-depositos-unidade.usecase.js';
+import { ArmazenagemSaldoEventPublisher } from '../../services/armazenagem/armazenagem-saldo-event.publisher.js';
 
 export type ConfirmarItemArmazenagemUseCaseInput = {
   demandaId: string;
@@ -37,12 +31,9 @@ export class ConfirmarItemArmazenagemUseCase {
   constructor(
     @Inject(ARMAZENAGEM_REPOSITORY)
     private readonly armazenagemRepository: IArmazenagemRepository,
-    @Inject(ESTOQUE_REPOSITORY)
-    private readonly estoqueRepository: IEstoqueRepository,
     @Inject(ENDERECO_REPOSITORY)
     private readonly enderecoRepository: IEnderecoRepository,
-    private readonly movimentarEstoqueUseCase: MovimentarEstoqueUseCase,
-    private readonly ensureDepositosUnidadeUseCase: EnsureDepositosUnidadeUseCase,
+    private readonly armazenagemSaldoEventPublisher: ArmazenagemSaldoEventPublisher,
   ) {}
 
   async execute({
@@ -60,6 +51,10 @@ export class ConfirmarItemArmazenagemUseCase {
 
     if (demanda.status === 'concluida' || demanda.status === 'cancelada') {
       throw new BadRequestException('Demanda não está disponível para armazenagem');
+    }
+
+    if (demanda.status === 'aguardando_validacao') {
+      throw new BadRequestException('Endereço ainda não validado pelo ADM');
     }
 
     const item = demanda.itens.find((entry) => entry.id === itemId);
@@ -82,7 +77,7 @@ export class ConfirmarItemArmazenagemUseCase {
       );
     }
 
-    if (endereco.centro.unidadeId !== demanda.unidadeId) {
+    if (endereco.unidadeId !== demanda.unidadeId) {
       throw new BadRequestException(
         'Endereço informado não pertence à unidade da demanda',
       );
@@ -114,6 +109,22 @@ export class ConfirmarItemArmazenagemUseCase {
     }
 
     let unitizadorId = item.unitizadorId;
+
+    if (unitizadorId && parsed.unitizadorCodigo) {
+      const unitizador = await this.armazenagemRepository.findUnitizadorById(
+        unitizadorId,
+      );
+
+      if (
+        unitizador &&
+        unitizador.codigo.trim().toUpperCase() !==
+          parsed.unitizadorCodigo.trim().toUpperCase()
+      ) {
+        throw new BadRequestException(
+          'unitizadorCodigo não confere com o palete vinculado ao item',
+        );
+      }
+    }
 
     if (
       demanda.modoUnitizacao === 'gerar_etiqueta_na_armazenagem' &&
@@ -166,90 +177,7 @@ export class ConfirmarItemArmazenagemUseCase {
       }
     }
 
-    const depositoAguard = await this.estoqueRepository.findDepositoByCodigo(
-      demanda.unidadeId,
-      'AGUARD_ARM',
-    );
-    const depositoGeral = await this.estoqueRepository.findDepositoByCodigo(
-      demanda.unidadeId,
-      'GERAL',
-    );
-
-    if (!depositoAguard || !depositoGeral) {
-      await this.ensureDepositosUnidadeUseCase.execute(demanda.unidadeId);
-    }
-
-    const depositoAguardResolved =
-      depositoAguard ??
-      (await this.estoqueRepository.findDepositoByCodigo(
-        demanda.unidadeId,
-        'AGUARD_ARM',
-      ));
-    const depositoGeralResolved =
-      depositoGeral ??
-      (await this.estoqueRepository.findDepositoByCodigo(
-        demanda.unidadeId,
-        'GERAL',
-      ));
-
-    if (!depositoAguardResolved || !depositoGeralResolved) {
-      throw new Error('Depósitos AGUARD_ARM ou GERAL não encontrados');
-    }
-
-    const documentoRef =
-      await this.armazenagemRepository.resolveDocumentoRefByRecebimentoId(
-        demanda.recebimentoId,
-      );
-
-    if (!documentoRef) {
-      throw new NotFoundException(
-        `Recebimento "${demanda.recebimentoId}" não encontrado`,
-      );
-    }
-
-    const saldosAguard = await this.estoqueRepository.listSaldos({
-      unidadeId: demanda.unidadeId,
-      depositoCodigo: 'AGUARD_ARM',
-      produtoId: item.produtoId,
-    });
-
-    const saldoOrigem = resolveSaldoOrigemArmazenagem(saldosAguard, {
-      lote: item.lote,
-      numeroSerie: item.numeroSerie,
-      documentoRefsPrioridade: [documentoRef, ''],
-    });
-
-    if (!saldoOrigem || saldoOrigem.quantidadeDisponivel <= 0) {
-      throw new BadRequestException(
-        'Sem saldo em aguardando armazenagem para este item',
-      );
-    }
-
-    const quantidadeTransfer = Math.min(
-      item.quantidade,
-      saldoOrigem.quantidadeDisponivel,
-    );
-
-    if (quantidadeTransfer <= 0) {
-      throw new BadRequestException(
-        'Sem saldo em aguardando armazenagem para este item',
-      );
-    }
-
-    await this.movimentarEstoqueUseCase.transferirDeposito({
-      unidadeId: demanda.unidadeId,
-      depositoOrigemId: depositoAguardResolved.id,
-      depositoDestinoId: depositoGeralResolved.id,
-      produtoId: item.produtoId,
-      quantidade: quantidadeTransfer,
-      unidadeMedida: item.unidadeMedida,
-      documentoRef: saldoOrigem.documentoRef || undefined,
-      motivo: 'armazenagem_confirmada',
-      operatorId,
-      lote: item.lote ?? undefined,
-      validade: item.validade ?? undefined,
-      numeroSerie: item.numeroSerie ?? undefined,
-    });
+    const quantidadeTransfer = item.quantidade;
 
     const updatedItem = await this.armazenagemRepository.updateStatusItem(
       itemId,
@@ -262,6 +190,13 @@ export class ConfirmarItemArmazenagemUseCase {
     if (!updatedItem) {
       throw new Error('Failed to update item armazenagem');
     }
+
+    await this.armazenagemSaldoEventPublisher.publishProcessarSaldoItem({
+      unidadeId: demanda.unidadeId,
+      itemId,
+      enderecoConfirmadoId: parsed.enderecoConfirmadoId,
+      operatorId,
+    });
 
     if (unitizadorId) {
       await this.armazenagemRepository.updateUnitizadorStatus(

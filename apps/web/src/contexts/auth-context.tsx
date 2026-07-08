@@ -11,6 +11,10 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 
+import {
+  invalidateSession,
+  registerSessionInvalidationHandler,
+} from '@/lib/auth-session';
 import { apiRequest, ApiClientError } from '@/lib/api';
 
 export type AuthUser = {
@@ -35,6 +39,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    registerSessionInvalidationHandler(() => {
+      setUser(null);
+
+      if (window.location.pathname !== '/login') {
+        router.replace('/login');
+      }
+    });
+  }, [router]);
+
+  useEffect(() => {
     async function hydrate() {
       try {
         const data = await apiRequest<{
@@ -45,8 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }>('/auth/me');
 
         setUser(data);
-      } catch {
+      } catch (error) {
         setUser(null);
+
+        if (error instanceof ApiClientError && error.status === 401) {
+          await invalidateSession();
+        }
       } finally {
         setIsLoading(false);
       }

@@ -41,5 +41,6 @@ import { AuthModule } from './auth.module.js';
       useClass: DocumentoService,
     },
   ],
+  exports: [DOCUMENTO_REPOSITORY, r2Provider],
 })
 export class DocumentoModule {}

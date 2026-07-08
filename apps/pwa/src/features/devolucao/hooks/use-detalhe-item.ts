@@ -2,16 +2,36 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from '@tanstack/react-router';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 import { hapticLight } from '@/lib/haptics';
+import { useUnidade } from '@/features/unidade';
 
-import { getConferenciaSkuSession } from '../lib/conferencia-sku-session';
-import { getSkuItemsByDemandId } from './use-lista-itens';
-import { useDemandById } from './use-demand-by-id';
+import { searchProduto } from '../lib/devolucao-api';
 import {
-  detalheItemSchema,
+  getConferenciaItemSession,
+  getConferenciaSkuSession,
+} from '../lib/conferencia-sku-session';
+import {
+  buildLotesFromApiConferencia,
+  findDevolucaoItemInDetalhe,
+  getConferenciaRascunho,
+  saveConferenciaRascunho,
+} from '../lib/devolucao-conferencia-rascunho';
+import {
+  fetchParametrosDevolucaoConferencia,
+  getCachedParametrosDevolucaoConferencia,
+} from '../lib/devolucao-config';
+import { getSkuItemsByDemandId } from '../lib/devolucao-sku-items';
+import { syncDevolucaoConferencia } from '../lib/devolucao-sync';
+import { useDemandaDetalhe, useDemandById } from './use-demand-by-id';
+import {
+  buildDetalheItemSchema,
+  DEFAULT_PARAMETROS_DEVOLUCAO_CONFERENCIA,
   type DetalheItemForm,
   type LoteConferido,
+  type ParametrosDevolucaoConferencia,
+  type QuantidadeModo,
 } from '../types/devolucao.schema';
 
 export type ScanTarget = 'lote' | 'idPalete';
@@ -21,18 +41,12 @@ const SCAN_TITLES: Record<ScanTarget, string> = {
   idPalete: 'Escanear ID do palete / WMS',
 };
 
-const MOCK_ITEM = {
-  sku: '4920-XJ-99',
-  name: 'Motor Síncrono Industrial - Modelo G3',
-  supplier: 'Industrial Dynamics Corp.',
-  expiry: '12/2025',
-};
-
 const EMPTY_VALUES: DetalheItemForm = {
   recebidaCaixa: '',
   recebidaUnidade: '',
   peso: '',
   lote: '',
+  dataFabricacao: '',
   idPalete: '',
 };
 
@@ -40,83 +54,170 @@ function createLoteId() {
   return `lote-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const MOCK_LOTES_CONFERIDOS: LoteConferido[] = [
-  {
-    id: 'lote-mock-001',
-    lote: 'LT-2024-8842',
-    idPalete: 'P-0044-1208',
-    recebidaCaixa: 4,
-    recebidaUnidade: 96,
-    peso: 48.5,
-  },
-  {
-    id: 'lote-mock-002',
-    lote: 'LT-2024-8843',
-    idPalete: 'P-0044-1209',
-    recebidaCaixa: 2,
-    recebidaUnidade: 48,
-    peso: 24,
-  },
-  {
-    id: 'lote-mock-003',
-    lote: 'LT-2024-9101',
-    idPalete: '',
-    recebidaCaixa: 1,
-    recebidaUnidade: 12,
-    peso: 6.75,
-  },
-];
+function resolveQtdConferidaTotal(
+  totais: { caixa: number; unidade: number },
+  quantidadeModo: QuantidadeModo,
+): number {
+  if (quantidadeModo === 'caixa') {
+    return totais.caixa;
+  }
+
+  if (quantidadeModo === 'unidade') {
+    return totais.unidade;
+  }
+
+  return totais.unidade > 0 ? totais.unidade : totais.caixa;
+}
 
 export function useDetalheItem(demandId: string) {
   const demand = useDemandById(demandId);
+  const detalhe = useDemandaDetalhe(demandId);
+  const { unidadeSelecionada } = useUnidade();
   const navigate = useNavigate();
-  const [lotesConferidos, setLotesConferidos] = useState<LoteConferido[]>(MOCK_LOTES_CONFERIDOS);
+  const [lotesConferidos, setLotesConferidos] = useState<LoteConferido[]>([]);
   const [lotesListExpanded, setLotesListExpanded] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingConferencia, setIsSavingConferencia] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [scanTarget, setScanTarget] = useState<ScanTarget | null>(null);
-  const [sessionSku, setSessionSku] = useState<string | null>(() =>
-    getConferenciaSkuSession(demandId)
+  const [session, setSession] = useState(() => getConferenciaItemSession(demandId));
+  const [catalogDescricao, setCatalogDescricao] = useState<string | null>(
+    () => getConferenciaItemSession(demandId)?.descricao ?? null,
   );
-
-  useEffect(() => {
-    setSessionSku(getConferenciaSkuSession(demandId));
-  }, [demandId]);
-
-  const item = useMemo(() => {
-    if (!sessionSku) return MOCK_ITEM;
-
-    const cargoItems = getSkuItemsByDemandId();
-    const fromCargo = cargoItems.find(
-      (cargo) => cargo.sku.toLowerCase() === sessionSku.toLowerCase()
+  const [parametrosConferencia, setParametrosConferencia] =
+    useState<ParametrosDevolucaoConferencia>(() =>
+      unidadeSelecionada?.id
+        ? getCachedParametrosDevolucaoConferencia(unidadeSelecionada.id)
+        : DEFAULT_PARAMETROS_DEVOLUCAO_CONFERENCIA,
     );
 
-    if (fromCargo) {
+  const items =
+    useLiveQuery(
+      () => getSkuItemsByDemandId(demandId),
+      [demandId, detalhe?.cachedAt],
+    ) ?? [];
+
+  useEffect(() => {
+    setSession(getConferenciaItemSession(demandId));
+    setCatalogDescricao(getConferenciaItemSession(demandId)?.descricao ?? null);
+  }, [demandId]);
+
+  useEffect(() => {
+    const sessionSku = session?.sku ?? getConferenciaSkuSession(demandId);
+    if (!sessionSku) {
+      return;
+    }
+
+    const fromItems = items.find(
+      (cargo) => cargo.sku.toLowerCase() === sessionSku.toLowerCase(),
+    );
+    if (fromItems) {
+      return;
+    }
+
+    const sessionDescricao = session?.descricao ?? getConferenciaItemSession(demandId)?.descricao;
+    if (sessionDescricao) {
+      setCatalogDescricao(sessionDescricao);
+      return;
+    }
+
+    void searchProduto(sessionSku).then((produto) => {
+      if (produto) {
+        setCatalogDescricao(produto.descricao);
+      }
+    });
+  }, [demandId, items, session?.descricao, session?.sku]);
+
+  useEffect(() => {
+    const itemId = session?.itemId;
+    if (!itemId) {
+      setLotesConferidos([]);
+      return;
+    }
+
+    void (async () => {
+      const rascunho = await getConferenciaRascunho(demandId, itemId);
+      if (rascunho?.lotes.length) {
+        setLotesConferidos(rascunho.lotes);
+        return;
+      }
+
+      const apiItem = findDevolucaoItemInDetalhe(detalhe, itemId);
+      if (apiItem?.qtdConferida != null) {
+        setLotesConferidos(
+          buildLotesFromApiConferencia(apiItem, parametrosConferencia.quantidadeModo),
+        );
+        return;
+      }
+
+      setLotesConferidos([]);
+    })();
+  }, [demandId, detalhe, parametrosConferencia.quantidadeModo, session?.itemId]);
+
+  useEffect(() => {
+    if (!unidadeSelecionada?.id) {
+      return;
+    }
+
+    void fetchParametrosDevolucaoConferencia(unidadeSelecionada.id).then(
+      setParametrosConferencia,
+    );
+  }, [unidadeSelecionada?.id]);
+
+  const item = useMemo(() => {
+    const sessionSku = session?.sku ?? getConferenciaSkuSession(demandId);
+    if (!sessionSku) {
+      return null;
+    }
+
+    const fromItems = items.find(
+      (cargo) => cargo.sku.toLowerCase() === sessionSku.toLowerCase(),
+    );
+
+    if (fromItems) {
       return {
-        sku: fromCargo.sku,
-        name: fromCargo.name,
-        supplier: demand?.supplier ?? MOCK_ITEM.supplier,
-        expiry: MOCK_ITEM.expiry,
+        sku: fromItems.sku,
+        name: fromItems.name,
+        supplier: demand?.supplier ?? detalhe?.cliente ?? '—',
+        expiry: '—',
         isNovo: false,
-        isReentrega: fromCargo.isReentrega,
-        quantidadeEsperada: fromCargo.quantidadeEsperada,
+        isReentrega: fromItems.isReentrega,
+        quantidadeEsperada: fromItems.qtdEsperada ?? fromItems.quantidadeEsperada,
+        itemId: fromItems.itemId,
+        pesoVariavel: fromItems.pesoVariavel ?? false,
       };
     }
 
     return {
       sku: sessionSku,
-      name: 'Item novo — conferência avulsa',
-      supplier: demand?.supplier ?? MOCK_ITEM.supplier,
+      name: catalogDescricao ?? 'Item — conferência avulsa',
+      supplier: demand?.supplier ?? detalhe?.cliente ?? '—',
       expiry: '—',
       isNovo: true,
+      itemId: session?.itemId,
+      pesoVariavel: false,
     };
-  }, [demand?.supplier, sessionSku]);
+  }, [catalogDescricao, demand?.supplier, detalhe?.cliente, demandId, items, session]);
+
+  const detalheItemSchema = useMemo(
+    () =>
+      buildDetalheItemSchema({
+        pesoVariavel: item?.pesoVariavel ?? false,
+        quantidadeModo: parametrosConferencia.quantidadeModo,
+        loteModo: parametrosConferencia.loteModo,
+        controlaPalete: parametrosConferencia.controlaPalete,
+      }),
+    [item?.pesoVariavel, parametrosConferencia],
+  );
 
   const form = useForm<DetalheItemForm>({
     resolver: zodResolver(detalheItemSchema),
     defaultValues: EMPTY_VALUES,
   });
+
+  useEffect(() => {
+    form.clearErrors();
+  }, [detalheItemSchema, form]);
 
   const conferidoTotais = useMemo(
     () =>
@@ -125,22 +226,22 @@ export function useDetalheItem(demandId: string) {
           caixa: acc.caixa + lote.recebidaCaixa,
           unidade: acc.unidade + lote.recebidaUnidade,
         }),
-        { caixa: 0, unidade: 0 }
+        { caixa: 0, unidade: 0 },
       ),
-    [lotesConferidos]
+    [lotesConferidos],
   );
 
   const handleAddLote = form.handleSubmit(async (values) => {
     setIsSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 400));
 
     const entry: LoteConferido = {
       id: createLoteId(),
-      lote: values.lote,
+      lote: values.lote ?? '',
+      dataFabricacao: values.dataFabricacao ?? '',
       idPalete: values.idPalete ?? '',
-      recebidaCaixa: Number(values.recebidaCaixa),
-      recebidaUnidade: Number(values.recebidaUnidade),
-      peso: Number(values.peso),
+      recebidaCaixa: Number(values.recebidaCaixa || 0),
+      recebidaUnidade: Number(values.recebidaUnidade || 0),
+      peso: values.peso ? Number(values.peso) : undefined,
     };
 
     setLotesConferidos((prev) => [...prev, entry]);
@@ -170,7 +271,7 @@ export function useDetalheItem(demandId: string) {
         shouldValidate: true,
       });
     },
-    [form, scanTarget]
+    [form, scanTarget],
   );
 
   const handleScanOpenChange = useCallback((open: boolean) => {
@@ -181,16 +282,76 @@ export function useDetalheItem(demandId: string) {
   }, []);
 
   const scanTitle = scanTarget ? SCAN_TITLES[scanTarget] : '';
-  const canSaveConferencia = lotesConferidos.length > 0;
+  const isEditingConferido = useMemo(() => {
+    const sessionSku = session?.sku ?? getConferenciaSkuSession(demandId);
+    if (!sessionSku) {
+      return false;
+    }
+
+    return items.some(
+      (cargo) =>
+        cargo.sku.toLowerCase() === sessionSku.toLowerCase() &&
+        cargo.status === 'conferido',
+    );
+  }, [demandId, items, session?.sku]);
+  const canSaveConferencia = lotesConferidos.length > 0 && Boolean(item?.itemId);
 
   const handleSaveConferencia = useCallback(async () => {
-    if (!canSaveConferencia) return;
+    if (!canSaveConferencia || !item?.itemId || !unidadeSelecionada?.id) {
+      return;
+    }
 
     setIsSavingConferencia(true);
-    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    const qtdConferidaTotal = resolveQtdConferidaTotal(
+      conferidoTotais,
+      parametrosConferencia.quantidadeModo,
+    );
+    const condicao =
+      qtdConferidaTotal < (item.quantidadeEsperada ?? qtdConferidaTotal)
+        ? 'nao_identificado'
+        : 'integro';
+
+    const primeiroLote = lotesConferidos[0];
+
+    await saveConferenciaRascunho({
+      demandId,
+      itemId: item.itemId,
+      sku: item.sku,
+      lotes: lotesConferidos,
+      qtdConferidaTotal,
+      condicao,
+    });
+
+    await syncDevolucaoConferencia(
+      demandId,
+      {
+        unidadeId: unidadeSelecionada.id,
+        itens: [
+          {
+            itemId: item.itemId,
+            qtdConferida: qtdConferidaTotal,
+            lote: primeiroLote?.lote || null,
+            dataFabricacao: primeiroLote?.dataFabricacao || null,
+            condicao,
+          },
+        ],
+      },
+      `Conferência ${item.sku}`,
+    );
+
     setIsSavingConferencia(false);
     navigate({ to: '/devolucao/$id/itens', params: { id: demandId } });
-  }, [canSaveConferencia, demandId, navigate]);
+  }, [
+    canSaveConferencia,
+    conferidoTotais,
+    demandId,
+    item,
+    lotesConferidos,
+    navigate,
+    parametrosConferencia.quantidadeModo,
+    unidadeSelecionada?.id,
+  ]);
 
   return {
     state: {
@@ -208,6 +369,8 @@ export function useDetalheItem(demandId: string) {
       scanOpen,
       scanTarget,
       scanTitle,
+      parametrosConferencia,
+      isEditingConferido,
     },
     actions: {
       handleAddLote,

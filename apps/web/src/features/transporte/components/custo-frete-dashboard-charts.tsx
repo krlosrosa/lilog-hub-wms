@@ -456,7 +456,7 @@ export function DropsizeRotaChart({ dados }: DropsizeChartProps) {
     return (
       <ChartPanel
         titulo="Dropsize por Rota"
-        descricao="Peso médio por entrega (kg)"
+        descricao="Peso médio por entrega (cliente)"
       >
         <ChartEmpty mensagem="Sem dados para exibir" />
       </ChartPanel>
@@ -468,7 +468,7 @@ export function DropsizeRotaChart({ dados }: DropsizeChartProps) {
   return (
     <ChartPanel
       titulo="Dropsize por Rota"
-      descricao="Peso médio por entrega (kg)"
+      descricao="Peso médio por entrega (cliente)"
     >
       <div className="flex h-44 items-end justify-between gap-2">
         {dados.map((item) => {
@@ -482,7 +482,7 @@ export function DropsizeRotaChart({ dados }: DropsizeChartProps) {
               <div
                 className="relative w-full max-w-[40px] rounded-t-md bg-secondary/60 transition-colors group-hover:bg-secondary"
                 style={{ height: `${Math.max(altura, 8)}%` }}
-                title={`${item.dropsize.toFixed(1)} kg · ${item.remessas} remessas`}
+                title={`${item.dropsize.toFixed(1)} kg · ${item.entregas} cliente${item.entregas === 1 ? '' : 's'}`}
               >
                 <span className="pointer-events-none absolute -top-5 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-popover px-1.5 py-0.5 text-[9px] text-popover-foreground shadow-sm group-hover:block">
                   {item.dropsize.toFixed(0)} kg

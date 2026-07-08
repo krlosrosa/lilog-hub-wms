@@ -41,8 +41,8 @@ const CONFIG: Record<
   }
 > = {
   assinatura: {
-    title: 'Enviar para assinatura?',
-    confirmLabel: 'Enviar para assinatura',
+    title: 'Aprovar ocorrência para cobrança?',
+    confirmLabel: 'Aprovar para cobrança',
   },
   cancelar: {
     title: 'Cancelar cobrança?',
@@ -76,25 +76,25 @@ export function ModalConfirmarAcaoDebito({
             <div className="space-y-3 text-muted-foreground">
               {acao === 'assinatura' ? (
                 <p>
-                  A cobrança{' '}
+                  A ocorrência{' '}
                   <span className="font-semibold text-foreground">
                     {debito.protocolo}
                   </span>{' '}
-                  será encaminhada para fluxo de assinatura digital. A
-                  transportadora{' '}
+                  será marcada como aprovada e poderá ser incluída em um
+                  documento de cobrança da transportadora{' '}
                   <span className="font-semibold text-foreground">
                     {debito.transportadora}
-                  </span>{' '}
-                  receberá a carta de débito para validação.
+                  </span>
+                  .
                 </p>
               ) : (
                 <p>
-                  A cobrança{' '}
+                  A ocorrência{' '}
                   <span className="font-semibold text-foreground">
                     {debito.protocolo}
                   </span>{' '}
-                  será cancelada e não poderá ser reenviada sem nova análise.
-                  Esta ação é simulada apenas em memória (mock).
+                  será cancelada e não poderá ser incluída em documentos de
+                  cobrança.
                 </p>
               )}
               <p className="rounded-lg border border-outline-variant bg-surface-low px-3 py-2 text-sm">

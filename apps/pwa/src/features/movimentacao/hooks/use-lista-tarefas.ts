@@ -30,9 +30,20 @@ export function useListaTarefas() {
     setError(null);
     try {
       const result = await fetchDemandasArmazenagem(unidadeId);
-      const active = result.items.filter(
-        (d) => d.status !== 'concluida' && d.status !== 'cancelada',
+      let active = result.items.filter(
+        (d) =>
+          d.status !== 'concluida' &&
+          d.status !== 'cancelada' &&
+          d.status !== 'aguardando_validacao',
       );
+
+      const filtered = active.filter(
+        (demanda) => demanda.modoUnitizacao !== 'gerar_etiqueta_na_armazenagem',
+      );
+      if (filtered.length > 0) {
+        active = filtered;
+      }
+
       setTarefas(active.map(mapDemandaListToTarefa));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar tarefas');
@@ -91,7 +102,7 @@ export function useListaTarefas() {
     (id: string) => {
       hapticMedium();
       void navigate({
-        to: '/estoque/armazenagem/$id',
+        to: '/movimentacao/ressuprimento/$id',
         params: { id },
       });
     },

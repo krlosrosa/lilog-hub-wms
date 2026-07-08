@@ -12,7 +12,7 @@ type ListConfiguracoesOperacionaisParams = {
   unidadeId: string;
   dominio?: string;
   categoria?: string;
-  subtipo?: EtapaProdutividade | TipoPausaRegra;
+  subtipo?: EtapaProdutividade | TipoPausaRegra | 'parametros';
   ativo?: boolean;
 };
 

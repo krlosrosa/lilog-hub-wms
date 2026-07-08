@@ -19,6 +19,24 @@ export type StatusTransporte =
 
 export type FiltroStatusTransporte = 'todos' | StatusTransporte;
 
+export type FiltroRapidoTransporte =
+  | 'todos'
+  | 'sem_placa'
+  | 'alocados'
+  | 'sem_mapa'
+  | 'com_mapa';
+
+export const FILTRO_RAPIDO_TRANSPORTE_LABELS: Record<
+  FiltroRapidoTransporte,
+  string
+> = {
+  todos: 'Todos',
+  sem_placa: 'Sem placa',
+  alocados: 'Alocados',
+  sem_mapa: 'Sem mapa',
+  com_mapa: 'Com mapa',
+};
+
 export type NivelPrioridadeTransporte =
   | 'urgente'
   | 'prioritaria'
@@ -215,6 +233,8 @@ export type RemessaItem = {
   volume: number;
   origem?: OrigemRemessa;
   motivoReentrega?: string;
+  itinerario?: string | null;
+  itinerarioId?: string | null;
   itens?: RemessaLinhaItem[];
 };
 
@@ -259,6 +279,7 @@ export type TransporteGrupo = {
   volumeTotal: number;
   distanciaKm: number;
   itinerario: string | null;
+  itinerarioId?: string | null;
   perfilEsperado: TipoVeiculo;
   status: StatusTransporte;
   veiculoAlocado?: VeiculoAlocado;
@@ -279,6 +300,7 @@ export type TransporteGrupo = {
   dataTransporte: string;
   mapaGeradoEm?: string | null;
   ultimoMapaLoteId?: string | null;
+  temMapaConferenciaReentrega?: boolean;
 };
 
 export type Veiculo = {
@@ -418,9 +440,17 @@ export function chavePerfilTarifa(
 }
 
 export type TransporteSummary = {
+  totalTransportes: number;
   totalRemessas: number;
   transportesPendentes: number;
   placasAlocadas: number;
+  custoPrevistoTotal: number;
+  transportesComPlaca: number;
+  pesoTotalKg: number;
+  custoPorTon: number;
+  dropsizeMedio: number;
+  totalEntregas: number;
+  ocupacaoMedia: number;
 };
 
 export type CustoDetalhado = {
@@ -476,6 +506,8 @@ export type CustoFreteSummary = {
   variacaoValor: number;
   variacaoPercentual: number;
   pendentesLancamento: number;
+  pesoTotalKg: number;
+  custoPorTon: number;
 };
 
 export type CustoFreteInsightRanking = {
@@ -502,6 +534,7 @@ export type CustoFreteIndicadores = {
   dropsizeMedio: number;
   ocupacaoMedia: number;
   custoPorKgMedio: number;
+  custoPorTonMedio: number;
   custoPorKmMedio: number;
   rankingOcupacaoPorRota: Array<{
     rota: string;
@@ -512,7 +545,7 @@ export type CustoFreteIndicadores = {
   rankingDropsizePorRota: Array<{
     rota: string;
     dropsize: number;
-    remessas: number;
+    entregas: number;
   }>;
 };
 
@@ -520,6 +553,8 @@ export type RankingTransportadoraCusto = {
   transportadora: string;
   transportes: number;
   totalPago: number;
+  pesoTotalKg: number;
+  custoPorTon: number;
   percentualTotal: number;
 };
 

@@ -62,7 +62,7 @@ export class DefinirEnderecoSugeridoItemArmazenagemUseCase {
       );
     }
 
-    if (endereco.centro.unidadeId !== demanda.unidadeId) {
+    if (endereco.unidadeId !== demanda.unidadeId) {
       throw new BadRequestException(
         'Endereço informado não pertence à unidade da demanda',
       );

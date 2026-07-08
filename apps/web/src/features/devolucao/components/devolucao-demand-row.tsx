@@ -1,132 +1,159 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { cn } from '@lilog/ui';
 
-import { DevolucaoChegadaAction } from '@/features/devolucao/components/devolucao-chegada-action';
 import {
   DevolucaoStatusBadge,
-  TipoDemandaBadge,
+  TipoNfBadge,
 } from '@/features/devolucao/components/devolucao-status-badge';
-import type { DemandaItem } from '@/features/devolucao/types/devolucao-gestao.schema';
-import { canRegistrarChegada } from '@/features/devolucao/types/devolucao-gestao.schema';
+import type { DemandaDevolucaoListItem } from '@/features/devolucao/types/devolucao-gestao.schema';
+import { canAgruparDemanda } from '@/features/devolucao/types/devolucao-grupo-descarga.schema';
+import { formatDemandaData } from '@/features/devolucao/types/devolucao-gestao.schema';
 
 type DevolucaoDemandRowProps = {
-  demanda: DemandaItem;
+  demanda: DemandaDevolucaoListItem;
   className?: string;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (demandaId: string) => void;
 };
 
-function progressBarColor(status: DemandaItem['status'], progresso: number) {
-  if (status === 'atrasado') return 'bg-destructive';
-  if (status === 'finalizado') return 'bg-primary';
-  if (status === 'aguardando-chegada') return 'bg-primary/40';
-  if (progresso === 0) return 'bg-muted-foreground';
-  return 'bg-tertiary';
-}
-
-export function DevolucaoDemandRow({ demanda, className }: DevolucaoDemandRowProps) {
-  const aguardandoChegada = canRegistrarChegada(demanda.status);
+export function DevolucaoDemandRow({
+  demanda,
+  className,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
+}: DevolucaoDemandRowProps) {
+  const router = useRouter();
   const isInactive =
-    demanda.status === 'finalizado' ||
-    (demanda.status !== 'aguardando-chegada' && demanda.progresso === 0);
-  const barColor = progressBarColor(demanda.status, demanda.progresso);
+    demanda.status === 'concluida' || demanda.status === 'cancelada';
+  const podeSelecionar =
+    selectable &&
+    canAgruparDemanda(demanda.status, demanda.grupoDescargaId ?? null);
+
+  const openDemanda = () => {
+    router.push(`/devolucao/${demanda.id}`);
+  };
 
   return (
     <tr
+      role="button"
+      tabIndex={0}
+      onClick={(event) => {
+        if (
+          selectable &&
+          podeSelecionar &&
+          (event.target as HTMLElement).closest('[data-select-checkbox]')
+        ) {
+          return;
+        }
+        openDemanda();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openDemanda();
+        }
+      }}
       className={cn(
-        'transition-colors hover:bg-surface-highest/50',
-        aguardandoChegada &&
+        'cursor-pointer transition-colors hover:bg-surface-highest/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset',
+        demanda.status === 'aberta' &&
           'border-l-2 border-l-primary bg-primary/[0.03] hover:bg-primary/[0.06]',
+        selected && 'bg-primary/[0.08]',
         className,
       )}
     >
+      {selectable ? (
+        <td className="w-10 px-2 py-1.5">
+          <input
+            data-select-checkbox
+            type="checkbox"
+            checked={selected}
+            disabled={!podeSelecionar}
+            onChange={() => onToggleSelect?.(demanda.id)}
+            onClick={(event) => event.stopPropagation()}
+            aria-label={`Selecionar demanda ${demanda.codigoDemanda}`}
+          />
+        </td>
+      ) : null}
       <td className="px-2 py-1.5">
         <span
           className={cn(
-            'inline-block rounded border border-outline-variant bg-muted px-1.5 py-0.5 font-mono text-[10px] font-bold text-foreground',
-            isInactive && !aguardandoChegada && 'opacity-50',
-            aguardandoChegada && 'border-primary/20 text-primary',
+            'font-mono text-[11px] font-bold text-foreground',
+            isInactive && 'opacity-70',
           )}
         >
-          {demanda.doca}
+          {demanda.codigoDemanda}
         </span>
       </td>
-      <td className={cn('px-2 py-1.5', isInactive && !aguardandoChegada && 'opacity-70')}>
-        {aguardandoChegada ? (
-          <div className="flex flex-col">
-            <span className="text-[11px] font-semibold text-foreground">
-              {demanda.veiculo}
-            </span>
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {demanda.placa}
-            </span>
-          </div>
-        ) : (
-          <Link
-            href={`/devolucao/${demanda.id}`}
-            className="flex flex-col hover:text-primary"
-          >
-            <span className="text-[11px] font-semibold text-foreground">
-              {demanda.veiculo}
-            </span>
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {demanda.placa}
-            </span>
-          </Link>
+      <td
+        className={cn(
+          'px-2 py-1.5 font-mono text-[11px]',
+          isInactive && 'opacity-70',
         )}
+      >
+        {demanda.transporteId ?? '—'}
       </td>
       <td
         className={cn(
-          'hidden max-w-[100px] truncate px-2 py-1.5 text-[11px] sm:table-cell',
-          isInactive && !aguardandoChegada && 'opacity-70',
+          'px-2 py-1.5 font-mono text-[11px] font-semibold',
+          isInactive && 'opacity-70',
         )}
       >
-        {demanda.motorista}
+        {demanda.placa ?? '—'}
       </td>
-      <td className={cn('px-2 py-1.5', isInactive && !aguardandoChegada && 'opacity-70')}>
-        <TipoDemandaBadge tipo={demanda.tipo} compact />
+      <td
+        className={cn(
+          'hidden max-w-[140px] truncate px-2 py-1.5 text-[11px] sm:table-cell',
+          isInactive && 'opacity-70',
+        )}
+      >
+        {demanda.cliente ?? '—'}
       </td>
-      <td className="w-24 px-2 py-1.5">
-        <div
-          className={cn(
-            'flex items-center gap-1.5',
-            demanda.status === 'atrasado' && 'text-destructive',
+      <td
+        className={cn(
+          'px-2 py-1.5 text-center font-mono text-[11px]',
+          isInactive && 'opacity-70',
+        )}
+      >
+        {demanda.totalNfs}
+      </td>
+      <td
+        className={cn(
+          'hidden px-2 py-1.5 text-center font-mono text-[11px] md:table-cell',
+          isInactive && 'opacity-70',
+        )}
+      >
+        {demanda.totalItens}
+      </td>
+      <td className="px-2 py-1.5">
+        <div className="flex flex-wrap gap-1">
+          {demanda.tiposNf.length === 0 ? (
+            <span className="text-[10px] text-muted-foreground">—</span>
+          ) : (
+            demanda.tiposNf.map((tipo) => (
+              <TipoNfBadge key={tipo} tipo={tipo} compact />
+            ))
           )}
-        >
-          <div className="h-0.5 flex-1 overflow-hidden rounded-full bg-muted">
-            <div
-              className={cn('h-full rounded-full', barColor)}
-              style={{ width: `${demanda.progresso}%` }}
-            />
-          </div>
-          <span className="font-mono text-[10px] tabular-nums">
-            {demanda.progresso}%
-          </span>
         </div>
-      </td>
-      <td
-        className={cn(
-          'hidden px-2 py-1.5 font-mono text-[11px] md:table-cell',
-          demanda.status === 'atrasado' && 'text-destructive',
-          demanda.status === 'finalizado' && 'text-muted-foreground',
-        )}
-      >
-        {demanda.previsao}
       </td>
       <td className="px-2 py-1.5">
         <DevolucaoStatusBadge status={demanda.status} compact />
+        {demanda.codigoGrupo ? (
+          <div className="mt-1 font-mono text-[10px] text-muted-foreground">
+            {demanda.codigoGrupo}
+          </div>
+        ) : null}
       </td>
-      <td className="px-2 py-1.5">
-        {aguardandoChegada ? (
-          <DevolucaoChegadaAction
-            demandaId={demanda.id}
-            placa={demanda.placa}
-            compact
-          />
-        ) : (
-          <span className="text-[10px] text-muted-foreground">—</span>
+      <td
+        className={cn(
+          'hidden px-2 py-1.5 font-mono text-[10px] text-muted-foreground lg:table-cell',
         )}
+      >
+        {formatDemandaData(demanda.createdAt)}
       </td>
     </tr>
   );

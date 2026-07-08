@@ -13,6 +13,8 @@ export type MapaGrupoProcessoApi =
   | 'conferencia'
   | 'carregamento';
 
+export type GestaoRecursosProcessoApi = MapaGrupoProcessoApi | 'devolucao';
+
 export type DemandaFuncionarioPapelApi = 'responsavel' | 'auxiliar';
 
 export type DemandaFuncionarioApi = {
@@ -145,4 +147,68 @@ export type CriarDemandasApiResponse = {
 
 export type AddFuncionarioDemandaPayload = {
   sessaoFuncionarioId: string;
+};
+
+export type DevolucaoAlocacaoFuncaoApi = 'lider' | 'conferente' | 'auxiliar';
+
+export type DevolucaoAlocacaoEtapaApi =
+  | 'aguardando'
+  | 'checklist'
+  | 'conferencia'
+  | 'finalizacao'
+  | 'concluida';
+
+export type DemandaDevolucaoStatusApi =
+  | 'rascunho'
+  | 'aberta'
+  | 'em_analise'
+  | 'em_execucao'
+  | 'concluida'
+  | 'cancelada';
+
+export type DemandaDevolucaoRecursoApi = {
+  id: string;
+  demandaId: string;
+  codigoDemanda: string;
+  status: DemandaDevolucaoStatusApi;
+  etapa: DevolucaoAlocacaoEtapaApi;
+  totalNfs: number;
+  totalItens: number;
+  pesoDevolvido: number;
+  cliente: string | null;
+  placa: string | null;
+  transporteId: string | null;
+  sessaoFuncionarioId: string;
+  funcionarioId: number;
+  funcao: DevolucaoAlocacaoFuncaoApi;
+  atribuidoEm: string;
+  inicioEm: string | null;
+  tempoEsperadoMinutos: number;
+};
+
+export type RecursosDevolucaoSessaoApiResponse = {
+  sessaoId: string;
+  unidadeId: string;
+  funcionarios: RecursosSessaoFuncionarioApi[];
+  alocacoes: DemandaDevolucaoRecursoApi[];
+  kpis: RecursosSessaoKpiApi[];
+};
+
+export type CriarAlocacaoDevolucaoPayload = {
+  unidadeId: string;
+  demandaId: string;
+  sessaoId: string;
+  sessaoFuncionarioId: string;
+  funcao?: DevolucaoAlocacaoFuncaoApi;
+};
+
+export type CriarAlocacaoDevolucaoApiResponse = {
+  id: string;
+  demandaId: string;
+  sessaoId: string;
+  sessaoFuncionarioId: string;
+  funcao: DevolucaoAlocacaoFuncaoApi;
+  status: 'em_andamento' | 'concluida' | 'cancelada';
+  atribuidoEm: string;
+  inicioEm: string | null;
 };

@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Inject, Injectable } from '@nes
 
 import type { UploadLoteResponse } from '../../dtos/expedicao/upload-lote.dto.js';
 import { calcularFaixaRemessaItem } from '../../services/expedicao/calcular-faixa-remessa-item.js';
+import { consolidarItensRemessa } from '../../services/expedicao/consolidar-itens-remessa.js';
 import {
   isUnidadeCaixa,
   normalizarQuantidadeRemessaItem,
@@ -128,8 +129,10 @@ export class CriarUploadLoteUseCase {
 
     const remessasResolvidas = remessas.map((remessa) => ({
       ...remessa,
-      itens: remessa.itens.map((item) =>
-        this.resolverItem(item, produtoPorSku, skusInvalidos, dataReferencia),
+      itens: consolidarItensRemessa(
+        remessa.itens.map((item) =>
+          this.resolverItem(item, produtoPorSku, skusInvalidos, dataReferencia),
+        ),
       ),
     }));
 
@@ -164,7 +167,7 @@ export class CriarUploadLoteUseCase {
 
       return {
         ...item,
-        produtoId: produto.id,
+        produtoId: produto.produtoId,
         faixa,
         quantidadeNormalizadaUnidades: normalizarQuantidadeRemessaItem(
           item.quantidade,
@@ -176,7 +179,7 @@ export class CriarUploadLoteUseCase {
 
     return {
       ...item,
-      produtoId: produto?.id ?? null,
+      produtoId: produto?.produtoId ?? null,
       faixa,
       quantidadeNormalizadaUnidades: normalizarQuantidadeRemessaItem(
         item.quantidade,

@@ -1,9 +1,11 @@
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   ConflictException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { Cache } from 'cache-manager';
 
 import { CreatePerfilTarifaInputSchema } from '../../../domain/model/perfil-tarifa/perfil-tarifa.model.js';
 import {
@@ -15,6 +17,7 @@ import {
   type IUnidadeRepository,
 } from '../../../domain/repositories/unidade/unidade.repository.js';
 import { mapPerfilTarifaToResponse } from '../../dtos/perfil-tarifa/map-perfil-tarifa-response.js';
+import { invalidatePerfisTarifasCache } from './invalidate-perfis-tarifas-cache.js';
 
 @Injectable()
 export class CreatePerfilTarifaUseCase {
@@ -23,6 +26,8 @@ export class CreatePerfilTarifaUseCase {
     private readonly perfilTarifaRepository: IPerfilTarifaRepository,
     @Inject(UNIDADE_REPOSITORY)
     private readonly unidadeRepository: IUnidadeRepository,
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
   ) {}
 
   async execute(data: unknown) {
@@ -48,6 +53,11 @@ export class CreatePerfilTarifaUseCase {
     }
 
     const created = await this.perfilTarifaRepository.create(parsed);
+
+    await invalidatePerfisTarifasCache(
+      this.cacheManager,
+      parsed.unidadeId,
+    );
 
     return mapPerfilTarifaToResponse(created);
   }

@@ -14,11 +14,11 @@ import type {
 } from '@/features/enderecos/types/enderecos-impressao-etiqueta.schema';
 
 export const MOCK_CONFIGURACAO_DEFAULT: EnderecoConfiguracaoFormValues = {
-  enderecoMascarado: 'A 0004 001 05',
+  enderecoMascarado: 'A 004 0001 05',
   centroId: '00000000-0000-0000-0000-000000000001',
   zona: 'A',
-  rua: '0004',
-  posicao: '001',
+  rua: '004',
+  posicao: '0001',
   nivel: '05',
   tipo: 'picking',
   tipoEstrutura: 'porta-palete',
@@ -44,6 +44,10 @@ export const TIPO_ESTRUTURA_OPCOES = [
   { value: 'drive-in', label: 'Drive-In' },
   { value: 'estante-dinamica', label: 'Estante Dinâmica' },
   { value: 'flow-rack', label: 'Flow Rack' },
+  { value: 'piso', label: 'Piso / Chão' },
+  { value: 'staging', label: 'Staging / Triagem' },
+  { value: 'area-delimitada', label: 'Área Delimitada' },
+  { value: 'patio', label: 'Pátio' },
 ] as const;
 
 export const MOCK_LABEL_PREVIEW: LabelPreview = {

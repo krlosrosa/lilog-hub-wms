@@ -7,24 +7,30 @@ import { toast } from 'sonner';
 import {
   formatCentroLabel,
   listCentros,
-  listEnderecos,
 } from '@/features/enderecos/lib/endereco-api';
 import type { CentroOptionApi } from '@/features/enderecos/types/endereco.api';
 import {
   createProdutoEndereco,
   deleteProdutoEndereco,
   listProdutoEnderecos,
+  listSlottingProdutoEnderecos,
   updateProdutoEndereco,
 } from '@/features/produto-endereco/lib/produto-endereco-api';
-import type { ProdutoEnderecoApi } from '@/features/produto-endereco/types/produto-endereco.api';
+import type {
+  ProdutoEnderecoApi,
+  SlottingEnderecoApi,
+} from '@/features/produto-endereco/types/produto-endereco.api';
 import {
   buildSlottingDraft,
   resolverDraftNovaAlocacao,
   slottingDraftsEqual,
+  type FiltroAtivoProdutoEndereco,
+  type FiltroPapelProdutoEndereco,
   type ProdutoEnderecoPapelForm,
   type SlottingEnderecoLinha,
   type SlottingLinhaDraft,
 } from '@/features/produto-endereco/types/produto-endereco.schema';
+import type { SortDirection } from '@/components/ui/sortable-table-head';
 import type { ProdutoApi } from '@/features/produto/types/produto.api';
 import { useUnidadeContext } from '@/contexts/unidade-context';
 import { ApiClientError } from '@/lib/api';
@@ -60,21 +66,38 @@ async function listarAlocacoesDoCentro(
   return items;
 }
 
-type FiltroTipoEndereco = 'todos' | 'picking' | 'pulmao';
+type FiltroTipoEndereco = 'todos' | 'picking' | 'pulmao' | 'aereo';
 type FiltroSlotting = 'todos' | 'com_produto' | 'sem_produto';
 
-function escolherAlocacaoPrincipal(
-  alocacoes: ProdutoEnderecoApi[],
-): ProdutoEnderecoApi | undefined {
-  if (alocacoes.length === 0) return undefined;
+export type SlottingSortColumn =
+  | 'endereco'
+  | 'zona'
+  | 'tipo'
+  | 'produto'
+  | 'papel'
+  | 'ordem'
+  | 'status';
 
-  const ativas = alocacoes.filter((item) => item.ativo);
-  const pool = ativas.length > 0 ? ativas : alocacoes;
+type SlottingStatsCentro = {
+  totalAlocacoes: number;
+  alocacoesAtivas: number;
+  enderecosComProduto: number;
+};
 
-  const primaria = pool.find((item) => item.papel === 'picking_primario');
-  if (primaria) return primaria;
+function buildSlottingDraftFromRow(row: SlottingEnderecoApi): SlottingLinhaDraft {
+  if (row.alocacao) {
+    return {
+      alocacaoId: row.alocacao.id,
+      produtoId: row.alocacao.produtoId,
+      produtoSku: row.alocacao.produto.sku,
+      produtoDescricao: row.alocacao.produto.descricao,
+      papel: row.alocacao.papel,
+      ordem: row.alocacao.ordem,
+      ativo: row.alocacao.ativo,
+    };
+  }
 
-  return [...pool].sort((a, b) => a.ordem - b.ordem)[0];
+  return buildSlottingDraft(undefined, row.tipo);
 }
 
 export function useProdutoEnderecosGestao() {
@@ -86,9 +109,25 @@ export function useProdutoEnderecosGestao() {
   const [centroId, setCentroId] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState<FiltroTipoEndereco>('todos');
   const [slottingFiltro, setSlottingFiltro] = useState<FiltroSlotting>('todos');
+  const [papelFiltro, setPapelFiltro] =
+    useState<FiltroPapelProdutoEndereco>('todos');
+  const [ativoFiltro, setAtivoFiltro] =
+    useState<FiltroAtivoProdutoEndereco>('todos');
+  const [zonasFiltro, setZonasFiltro] = useState<string[]>([]);
   const [busca, setBusca] = useState('');
+  const [buscaProduto, setBuscaProduto] = useState('');
+  const [apenasPendentes, setApenasPendentes] = useState(false);
+  const [sortColumn, setSortColumn] = useState<SlottingSortColumn | null>(
+    'endereco',
+  );
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [pagina, setPagina] = useState(1);
   const [totalEnderecos, setTotalEnderecos] = useState(0);
+  const [statsCentro, setStatsCentro] = useState<SlottingStatsCentro>({
+    totalAlocacoes: 0,
+    alocacoesAtivas: 0,
+    enderecosComProduto: 0,
+  });
 
   const [enderecos, setEnderecos] = useState<
     {
@@ -138,6 +177,11 @@ export function useProdutoEnderecosGestao() {
       snapshotsRef.current = {};
       alocacoesCentroRef.current = [];
       setTotalEnderecos(0);
+      setStatsCentro({
+        totalAlocacoes: 0,
+        alocacoesAtivas: 0,
+        enderecosComProduto: 0,
+      });
       setIsLoading(false);
       return;
     }
@@ -145,47 +189,53 @@ export function useProdutoEnderecosGestao() {
     setIsLoading(true);
 
     try {
-      const enderecosResponse = await listEnderecos({
-        page: pagina,
-        limit: PAGE_SIZE,
-        centroId,
-        unidadeId,
-        tipo: tipoFiltro === 'todos' ? undefined : tipoFiltro,
-        search: busca,
-      });
-
-      let alocacoes: ProdutoEnderecoApi[] = [];
-
-      try {
-        alocacoes = await listarAlocacoesDoCentro(centroId, unidadeId);
-      } catch {
-        toast.error('Não foi possível carregar as alocações existentes');
-      }
+      const [slottingResponse, alocacoes] = await Promise.all([
+        listSlottingProdutoEnderecos({
+          page: pagina,
+          limit: PAGE_SIZE,
+          centroId,
+          unidadeId,
+          tipo: tipoFiltro === 'todos' ? undefined : tipoFiltro,
+          search: busca,
+          zonas: zonasFiltro.length > 0 ? zonasFiltro : undefined,
+          slotting:
+            slottingFiltro === 'todos' ? undefined : slottingFiltro,
+          papel: papelFiltro === 'todos' ? undefined : papelFiltro,
+          ativo:
+            ativoFiltro === 'todos'
+              ? undefined
+              : ativoFiltro,
+          searchProduto: buscaProduto,
+          sortBy: sortColumn ?? 'endereco',
+          sortOrder: sortDirection,
+        }),
+        listarAlocacoesDoCentro(centroId, unidadeId).catch(() => {
+          toast.error('Não foi possível carregar as alocações existentes');
+          return [] as ProdutoEnderecoApi[];
+        }),
+      ]);
 
       alocacoesCentroRef.current = alocacoes;
 
-      const mapa = new Map<string, ProdutoEnderecoApi[]>();
-      for (const alocacao of alocacoes) {
-        const lista = mapa.get(alocacao.enderecoId) ?? [];
-        lista.push(alocacao);
-        mapa.set(alocacao.enderecoId, lista);
-      }
+      setStatsCentro({
+        totalAlocacoes: alocacoes.length,
+        alocacoesAtivas: alocacoes.filter((item) => item.ativo).length,
+        enderecosComProduto: new Set(alocacoes.map((item) => item.enderecoId))
+          .size,
+      });
 
       const novosDrafts: Record<string, SlottingLinhaDraft> = {};
       const novosSnapshots: Record<string, SlottingLinhaDraft> = {};
 
-      for (const endereco of enderecosResponse.items) {
-        const alocacao = escolherAlocacaoPrincipal(
-          mapa.get(endereco.id) ?? [],
-        );
-        const draft = buildSlottingDraft(alocacao, endereco.tipo);
-        novosDrafts[endereco.id] = draft;
-        novosSnapshots[endereco.id] = { ...draft };
+      for (const row of slottingResponse.items) {
+        const draft = buildSlottingDraftFromRow(row);
+        novosDrafts[row.enderecoId] = draft;
+        novosSnapshots[row.enderecoId] = { ...draft };
       }
 
       setEnderecos(
-        enderecosResponse.items.map((item) => ({
-          id: item.id,
+        slottingResponse.items.map((item) => ({
+          id: item.enderecoId,
           enderecoMascarado: item.enderecoMascarado,
           zona: item.zona,
           rua: item.rua,
@@ -194,7 +244,7 @@ export function useProdutoEnderecosGestao() {
       );
       setDrafts(novosDrafts);
       snapshotsRef.current = novosSnapshots;
-      setTotalEnderecos(enderecosResponse.total);
+      setTotalEnderecos(slottingResponse.total);
     } catch (error) {
       const message =
         error instanceof ApiClientError
@@ -206,10 +256,28 @@ export function useProdutoEnderecosGestao() {
       snapshotsRef.current = {};
       alocacoesCentroRef.current = [];
       setTotalEnderecos(0);
+      setStatsCentro({
+        totalAlocacoes: 0,
+        alocacoesAtivas: 0,
+        enderecosComProduto: 0,
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [unidadeId, centroId, pagina, tipoFiltro, busca]);
+  }, [
+    unidadeId,
+    centroId,
+    pagina,
+    tipoFiltro,
+    busca,
+    zonasFiltro,
+    slottingFiltro,
+    papelFiltro,
+    ativoFiltro,
+    buscaProduto,
+    sortColumn,
+    sortDirection,
+  ]);
 
   useEffect(() => {
     void carregarDados();
@@ -222,16 +290,9 @@ export function useProdutoEnderecosGestao() {
 
   const linhas = useMemo((): SlottingEnderecoLinha[] => {
     return enderecos
-      .filter((endereco) => {
-        const draft = drafts[endereco.id];
-        if (!draft) return false;
-
-        if (slottingFiltro === 'com_produto') return Boolean(draft.produtoId);
-        if (slottingFiltro === 'sem_produto') return !draft.produtoId;
-        return true;
-      })
       .map((endereco) => {
-        const draft = drafts[endereco.id] ?? buildSlottingDraft(undefined, endereco.tipo);
+        const draft =
+          drafts[endereco.id] ?? buildSlottingDraft(undefined, endereco.tipo);
         const snapshot = snapshotsRef.current[endereco.id] ?? draft;
 
         return {
@@ -244,8 +305,75 @@ export function useProdutoEnderecosGestao() {
           isDirty: !slottingDraftsEqual(draft, snapshot),
           isSaving: savingEnderecoIds.has(endereco.id),
         };
-      });
-  }, [enderecos, drafts, slottingFiltro, savingEnderecoIds]);
+      })
+      .filter((linha) => !apenasPendentes || linha.isDirty);
+  }, [enderecos, drafts, apenasPendentes, savingEnderecoIds]);
+
+  const pendentesCount = useMemo(
+    () => linhas.filter((linha) => linha.isDirty).length,
+    [linhas],
+  );
+
+  const filtrosClientAtivos = useMemo(() => {
+    let count = 0;
+    if (apenasPendentes) count += 1;
+    return count;
+  }, [apenasPendentes]);
+
+  const filtrosAtivos = useMemo(() => {
+    let count = filtrosClientAtivos;
+    if (tipoFiltro !== 'todos') count += 1;
+    if (busca.trim()) count += 1;
+    if (slottingFiltro !== 'todos') count += 1;
+    if (papelFiltro !== 'todos') count += 1;
+    if (ativoFiltro !== 'todos') count += 1;
+    if (zonasFiltro.length > 0) count += 1;
+    if (buscaProduto.trim()) count += 1;
+    return count;
+  }, [
+    filtrosClientAtivos,
+    tipoFiltro,
+    busca,
+    slottingFiltro,
+    papelFiltro,
+    ativoFiltro,
+    zonasFiltro,
+    buscaProduto,
+  ]);
+
+  const toggleZona = useCallback((zona: string) => {
+    setPagina(1);
+    setZonasFiltro((prev) =>
+      prev.includes(zona) ? prev.filter((item) => item !== zona) : [...prev, zona],
+    );
+  }, []);
+
+  const limparFiltros = useCallback(() => {
+    setTipoFiltro('todos');
+    setSlottingFiltro('todos');
+    setPapelFiltro('todos');
+    setAtivoFiltro('todos');
+    setZonasFiltro([]);
+    setBusca('');
+    setBuscaProduto('');
+    setApenasPendentes(false);
+    setPagina(1);
+  }, []);
+
+  const alternarOrdenacao = useCallback((coluna: SlottingSortColumn) => {
+    setPagina(1);
+    setSortColumn((prevColuna) => {
+      if (prevColuna !== coluna) {
+        setSortDirection('asc');
+        return coluna;
+      }
+
+      setSortDirection((prevDirecao) =>
+        prevDirecao === 'asc' ? 'desc' : 'asc',
+      );
+      return coluna;
+    });
+  }, []);
 
   const persistirLinha = useCallback(
     async (enderecoId: string, draft: SlottingLinhaDraft) => {
@@ -398,7 +526,7 @@ export function useProdutoEnderecosGestao() {
       const draftBase: SlottingLinhaDraft = {
         ...(drafts[enderecoId] ??
           buildSlottingDraft(undefined, enderecoTipo)),
-        produtoId: produto.id,
+        produtoId: produto.produtoId,
         produtoSku: produto.sku,
         produtoDescricao: produto.descricao,
       };
@@ -473,16 +601,49 @@ export function useProdutoEnderecosGestao() {
     slottingFiltro,
     setSlottingFiltro: (value: FiltroSlotting) => {
       setSlottingFiltro(value);
+      setPagina(1);
+    },
+    papelFiltro,
+    setPapelFiltro: (value: FiltroPapelProdutoEndereco) => {
+      setPapelFiltro(value);
+      setPagina(1);
+    },
+    ativoFiltro,
+    setAtivoFiltro: (value: FiltroAtivoProdutoEndereco) => {
+      setAtivoFiltro(value);
+      setPagina(1);
+    },
+    zonasFiltro,
+    toggleZona,
+    setZonasFiltro: (value: string[]) => {
+      setZonasFiltro(value);
+      setPagina(1);
     },
     busca,
     setBusca: (value: string) => {
       setBusca(value);
       setPagina(1);
     },
+    buscaProduto,
+    setBuscaProduto: (value: string) => {
+      setBuscaProduto(value);
+      setPagina(1);
+    },
+    apenasPendentes,
+    setApenasPendentes,
+    sortColumn,
+    sortDirection,
+    alternarOrdenacao,
+    filtrosAtivos,
+    filtrosClientAtivos,
+    limparFiltros,
+    statsCentro,
+    pendentesCount,
     pagina,
     setPagina,
     totalPaginas,
     total: totalEnderecos,
+    totalExibidos: linhas.length,
     pageSize: PAGE_SIZE,
     linhas,
     selecionarProduto,
@@ -497,3 +658,4 @@ export function useProdutoEnderecosGestao() {
 }
 
 export type { FiltroTipoEndereco, FiltroSlotting };
+export type { SortDirection } from '@/components/ui/sortable-table-head';

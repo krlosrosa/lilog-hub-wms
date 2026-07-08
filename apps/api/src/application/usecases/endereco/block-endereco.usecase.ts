@@ -52,7 +52,7 @@ export class BlockEnderecoUseCase {
     await this.enderecoEventPublisher.publish({
       type: ENDERECO_EVENT.BLOQUEADO,
       enderecoId: updated.id,
-      centroId: updated.centroId,
+      unidadeId: updated.unidadeId,
       enderecoMascarado: updated.enderecoMascarado,
       userId,
       motivo,

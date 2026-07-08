@@ -43,12 +43,18 @@ describe('CriarUploadLoteUseCase — duplicidade de rota', () => {
         {
           provide: PRODUTO_REPOSITORY,
           useValue: {
-            findBySku: vi.fn().mockResolvedValue({
-              id: 'prod-1',
-              unidadesPorCaixa: 1,
-            }),
-            findByProdutoId: vi.fn(),
-            findById: vi.fn(),
+            findByCodigosRemessa: vi.fn().mockResolvedValue(
+              new Map([
+                [
+                  'SKU-1',
+                  {
+                    produtoId: 'prod-1',
+                    sku: 'SKU-1',
+                    unidadesPorCaixa: 1,
+                  },
+                ],
+              ]),
+            ),
           },
         },
         {

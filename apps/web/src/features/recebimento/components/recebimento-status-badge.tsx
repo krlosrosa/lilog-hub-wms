@@ -4,14 +4,10 @@ import type { ReactNode } from 'react';
 
 import { cn } from '@lilog/ui';
 
-import type { RecebimentoStatus } from '@/features/recebimento/types/recebimento-lista.schema';
-
-export const RECEBIMENTO_STATUS_LABELS: Record<RecebimentoStatus, string> = {
-  'em-transito': 'Em trânsito',
-  descarregando: 'Descarregando',
-  agendado: 'Agendado',
-  concluido: 'Concluído',
-};
+import {
+  RECEBIMENTO_STATUS_LABELS,
+  type RecebimentoStatus,
+} from '@/features/recebimento/types/recebimento-lista.schema';
 
 type RecebimentoStatusBadgeProps = {
   status: RecebimentoStatus;
@@ -28,7 +24,7 @@ export function RecebimentoStatusBadge({
     : 'px-2.5 py-0.5 text-xs';
   let content: ReactNode;
 
-  if (status === 'descarregando') {
+  if (status === 'em_conferencia') {
     content = (
       <span
         className={cn(
@@ -40,18 +36,18 @@ export function RecebimentoStatusBadge({
           className="size-1 animate-pulse rounded-full bg-tertiary"
           aria-hidden
         />
-        {labels.descarregando}
+        {labels.em_conferencia}
       </span>
     );
-  } else if (status === 'em-transito') {
+  } else if (status === 'liberado_para_conferencia') {
     content = (
       <span
         className={cn(
-          'rounded-full bg-destructive/15 font-semibold text-destructive',
+          'rounded-full bg-secondary/15 font-semibold text-secondary-foreground',
           sizeClass,
         )}
       >
-        {labels['em-transito']}
+        {labels.liberado_para_conferencia}
       </span>
     );
   } else if (status === 'agendado') {
@@ -65,6 +61,43 @@ export function RecebimentoStatusBadge({
         {labels.agendado}
       </span>
     );
+  } else if (status === 'aguardando') {
+    content = (
+      <span
+        className={cn(
+          'inline-flex w-fit items-center gap-1 rounded-full bg-amber-500/15 font-semibold text-amber-700 dark:text-amber-400',
+          sizeClass,
+        )}
+      >
+        <span
+          className="size-1 animate-pulse rounded-full bg-amber-500"
+          aria-hidden
+        />
+        {labels.aguardando}
+      </span>
+    );
+  } else if (status === 'conferido') {
+    content = (
+      <span
+        className={cn(
+          'rounded-full bg-amber-500/15 font-semibold text-amber-700 dark:text-amber-400',
+          sizeClass,
+        )}
+      >
+        {labels.conferido}
+      </span>
+    );
+  } else if (status === 'cancelado') {
+    content = (
+      <span
+        className={cn(
+          'rounded-full bg-destructive/15 font-semibold text-destructive',
+          sizeClass,
+        )}
+      >
+        {labels.cancelado}
+      </span>
+    );
   } else {
     content = (
       <span
@@ -73,7 +106,7 @@ export function RecebimentoStatusBadge({
           sizeClass,
         )}
       >
-        {labels.concluido}
+        {labels.finalizado}
       </span>
     );
   }
