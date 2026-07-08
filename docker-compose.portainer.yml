@@ -63,7 +63,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.lilog-api.rule=Host(`${API_HOST}`)
       - traefik.http.routers.lilog-api.service=lilog-api
-      - traefik.http.routers.lilog-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.lilog-api.tls.certresolver=cloudflare
       - traefik.http.services.lilog-api.loadbalancer.server.port=3001
 
   web:
@@ -90,7 +90,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.lilog-web.rule=Host(`${WEB_HOST}`)
       - traefik.http.routers.lilog-web.service=lilog-web
-      - traefik.http.routers.lilog-web.tls.certresolver=letsencrypt
+      - traefik.http.routers.lilog-web.tls.certresolver=cloudflare
       - traefik.http.services.lilog-web.loadbalancer.server.port=3000
 
   pwa:
@@ -113,7 +113,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.lilog-pwa.rule=Host(`${PWA_HOST}`)
       - traefik.http.routers.lilog-pwa.service=lilog-pwa
-      - traefik.http.routers.lilog-pwa.tls.certresolver=letsencrypt
+      - traefik.http.routers.lilog-pwa.tls.certresolver=cloudflare
       - traefik.http.services.lilog-pwa.loadbalancer.server.port=80
 
   pwa-lideranca:
@@ -136,7 +136,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.lilog-pwa-lideranca.rule=Host(`${PWA_LIDERANCA_HOST}`)
       - traefik.http.routers.lilog-pwa-lideranca.service=lilog-pwa-lideranca
-      - traefik.http.routers.lilog-pwa-lideranca.tls.certresolver=letsencrypt
+      - traefik.http.routers.lilog-pwa-lideranca.tls.certresolver=cloudflare
       - traefik.http.services.lilog-pwa-lideranca.loadbalancer.server.port=80
 
   redis:

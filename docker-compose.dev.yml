@@ -60,7 +60,7 @@ services:
       - traefik.http.routers.portal-terceiros.rule=Host(`${PORTAL_HOST:-portal.seudominio.com.br}`)
       - traefik.http.routers.portal-terceiros.service=portal-terceiros
       - traefik.http.routers.portal-terceiros.entrypoints=websecure
-      - traefik.http.routers.portal-terceiros.tls.certresolver=letsencrypt
+      - traefik.http.routers.portal-terceiros.tls.certresolver=cloudflare
       - traefik.http.services.portal-terceiros.loadbalancer.server.port=3002
 
   redis:
