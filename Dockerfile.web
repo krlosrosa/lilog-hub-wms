@@ -37,7 +37,8 @@ ENV NODE_OPTIONS="--max-old-space-size=1536"
 COPY apps/web ./apps/web
 COPY packages ./packages
 
-RUN pnpm --filter @lilog/contracts build \
+RUN mkdir -p apps/web/public \
+  && pnpm --filter @lilog/contracts build \
   && pnpm --filter @lilog/ui build \
   && pnpm --filter web build
 
