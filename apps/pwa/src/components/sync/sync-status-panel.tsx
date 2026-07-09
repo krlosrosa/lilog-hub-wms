@@ -20,6 +20,8 @@ import {
 
   RotateCcw,
 
+  QrCode,
+
   Trash2,
 
   Wifi,
@@ -45,6 +47,9 @@ import { useSyncStatus } from '@/lib/offline/hooks/use-sync-status';
 import { resetAllErrors, resetError, removeAllOutboxEntries, removeOutboxEntry } from '@/lib/offline/outbox';
 
 import { syncNow } from '@/lib/offline/sync-engine';
+import { groupOutboxErrorsByDemand } from '@/lib/offline/sync-export';
+
+import { SyncExportModal } from './sync-export-modal';
 
 
 
@@ -549,12 +554,22 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
     useSyncStatus();
 
   const [isManualSyncing, setIsManualSyncing] = useState(false);
-
-
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportEntries, setExportEntries] = useState<OutboxEntry[]>([]);
 
   const lastSyncLabel = useMemo(() => formatRelativeSync(lastSyncAt), [lastSyncAt]);
+  const demandErrorGroups = useMemo(
+    () => groupOutboxErrorsByDemand(errors),
+    [errors],
+  );
 
   const busy = isManualSyncing || isSyncing;
+
+  const openExportForEntries = (entries: OutboxEntry[]) => {
+    hapticMedium();
+    setExportEntries(entries);
+    setExportOpen(true);
+  };
 
 
 
@@ -674,11 +689,15 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
   return (
 
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <>
+
+      <Sheet open={open} onOpenChange={onOpenChange}>
 
       <SheetContent
 
         side="bottom"
+
+        closeClassName="top-10"
 
         className="flex max-h-[88vh] flex-col gap-0 rounded-t-2xl border-outline-variant bg-surface px-0 pb-0 pt-2"
 
@@ -690,7 +709,7 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
         <div className="min-h-0 flex-1 overflow-y-auto px-margin-mobile pb-[calc(20px+env(safe-area-inset-bottom,0px))] hide-scrollbar">
 
-          <SheetHeader className="text-left">
+          <SheetHeader className="pr-12 text-left">
 
             <SheetTitle className="flex items-center gap-2 text-headline-md text-on-surface">
 
@@ -734,88 +753,59 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
 
 
-          <div className="mt-4 flex gap-2">
-
-            <button
-
-              type="button"
-
-              disabled={!isOnline || busy}
-
-              onClick={() => void handleSyncNow()}
-
-              className="flex h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation transition-transform active:scale-[0.98] disabled:opacity-50"
-
-            >
-
-              {busy ? (
-
-                <>
-
+          <div className="mt-4 -mx-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex w-max min-w-full gap-2 px-1">
+              <button
+                type="button"
+                disabled={!isOnline || busy}
+                onClick={() => void handleSyncNow()}
+                aria-label={busy ? 'Sincronizando' : 'Sincronizar agora'}
+                title={busy ? 'Sincronizando…' : 'Sincronizar agora'}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary text-on-secondary touch-manipulation transition-transform active:scale-[0.98] disabled:opacity-50"
+              >
+                {busy ? (
                   <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-
-                  Sincronizando…
-
-                </>
-
-              ) : (
-
-                <>
-
+                ) : (
                   <RefreshCw className="h-5 w-5" aria-hidden />
+                )}
+              </button>
 
-                  Sincronizar agora
-
-                </>
-
+              {errors.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => openExportForEntries(errors)}
+                  aria-label="Exportar tudo"
+                  title="Exportar tudo"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-outline-variant bg-surface-container touch-manipulation active:scale-[0.98]"
+                >
+                  <QrCode className="h-5 w-5 text-secondary" aria-hidden />
+                </button>
               )}
 
-            </button>
+              {errors.length > 0 && (
+                <button
+                  type="button"
+                  disabled={!isOnline || busy}
+                  onClick={() => void handleRetryAll()}
+                  className="flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container px-4 text-label-md font-semibold text-on-surface touch-manipulation active:scale-[0.98] disabled:opacity-50"
+                >
+                  <RotateCcw className="h-4 w-4 text-secondary" aria-hidden />
+                  Erros
+                </button>
+              )}
 
-            {errors.length > 0 && (
-
-              <button
-
-                type="button"
-
-                disabled={!isOnline || busy}
-
-                onClick={() => void handleRetryAll()}
-
-                className="flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container px-4 text-label-md font-semibold text-on-surface touch-manipulation active:scale-[0.98] disabled:opacity-50"
-
-              >
-
-                <RotateCcw className="h-4 w-4 text-secondary" aria-hidden />
-
-                Erros
-
-              </button>
-
-            )}
-
-            {queueCount > 0 && (
-
-              <button
-
-                type="button"
-
-                disabled={busy}
-
-                onClick={() => void handleDeleteAll()}
-
-                className="flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-destructive/30 bg-error-container/10 px-4 text-label-md font-semibold text-destructive touch-manipulation active:scale-[0.98] disabled:opacity-50"
-
-              >
-
-                <Trash2 className="h-4 w-4" aria-hidden />
-
-                Excluir todos
-
-              </button>
-
-            )}
-
+              {queueCount > 0 && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void handleDeleteAll()}
+                  className="flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-destructive/30 bg-error-container/10 px-4 text-label-md font-semibold text-destructive touch-manipulation active:scale-[0.98] disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                  Excluir todos
+                </button>
+              )}
+            </div>
           </div>
 
 
@@ -968,29 +958,113 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
             ) : (
 
-              <ul className="space-y-2">
+              <div className="space-y-4">
 
-                {errors.map((entry) => (
+                {demandErrorGroups.length > 0 && (
 
-                  <OutboxRow
+                  <div className="space-y-2">
 
-                    key={entry.id}
+                    <p className="text-label-sm text-on-surface-variant">
 
-                    entry={entry}
+                      Demandas com falha — exporte uma por vez e importe no portal da demanda.
 
-                    variant="error"
+                    </p>
 
-                    deleteDisabled={busy}
+                    <ul className="space-y-2">
 
-                    onRetry={(id) => void handleRetry(id)}
+                      {demandErrorGroups.map((group) => (
 
-                    onDelete={(id) => void handleDeleteEntry(id)}
+                        <li key={`${group.module}:${group.demandId}`}>
 
-                  />
+                          <article className="rounded-lg border border-outline-variant bg-surface p-3">
 
-                ))}
+                            <div className="flex items-start justify-between gap-3">
 
-              </ul>
+                              <div className="min-w-0 flex-1">
+
+                                <p className="truncate font-mono text-body-sm font-semibold text-on-surface">
+
+                                  {group.demandId === 'sem-demanda'
+
+                                    ? 'Sem demanda identificada'
+
+                                    : `#${group.demandId}`}
+
+                                </p>
+
+                                <p className="mt-0.5 text-label-sm text-on-surface-variant">
+
+                                  {group.moduleLabel} · {group.entries.length} falha
+
+                                  {group.entries.length === 1 ? '' : 's'} ·{' '}
+
+                                  {formatTimestamp(group.firstErrorAt)}
+
+                                </p>
+
+                                <p className="mt-1 truncate text-label-sm text-on-surface-variant">
+
+                                  {group.labelSample}
+
+                                </p>
+
+                              </div>
+
+                              <button
+
+                                type="button"
+
+                                onClick={() => openExportForEntries(group.entries)}
+
+                                className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container px-3 text-label-sm font-semibold text-on-surface touch-manipulation active:scale-[0.98]"
+
+                              >
+
+                                <QrCode className="h-3.5 w-3.5 text-secondary" aria-hidden />
+
+                                Exportar
+
+                              </button>
+
+                            </div>
+
+                          </article>
+
+                        </li>
+
+                      ))}
+
+                    </ul>
+
+                  </div>
+
+                )}
+
+                <ul className="space-y-2">
+
+                  {errors.map((entry) => (
+
+                    <OutboxRow
+
+                      key={entry.id}
+
+                      entry={entry}
+
+                      variant="error"
+
+                      deleteDisabled={busy}
+
+                      onRetry={(id) => void handleRetry(id)}
+
+                      onDelete={(id) => void handleDeleteEntry(id)}
+
+                    />
+
+                  ))}
+
+                </ul>
+
+              </div>
 
             )}
 
@@ -1000,7 +1074,21 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
       </SheetContent>
 
-    </Sheet>
+      </Sheet>
+
+      <SyncExportModal
+
+        open={exportOpen}
+        onOpenChange={(open) => {
+          setExportOpen(open);
+          if (!open) {
+            setExportEntries([]);
+          }
+        }}
+        entries={exportEntries}
+      />
+
+    </>
 
   );
 

@@ -659,6 +659,13 @@
       "when": 1785537600000,
       "tag": "0110_pesagens_recebimento",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1785624000000,
+      "tag": "0111_offline_import_logs",
+      "breakpoints": true
     }
   ]
 }

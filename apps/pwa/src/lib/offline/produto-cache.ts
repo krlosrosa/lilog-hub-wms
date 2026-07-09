@@ -17,6 +17,8 @@ export type ProdutoApiResponse = {
   shelfLife?: number | null;
 };
 
+const CATALOG_KEY = (unidadeId: string) => `__catalog__:${unidadeId}`;
+
 export function mapProdutoApiResponse(item: ProdutoApiResponse): ProdutoApi {
   return {
     produtoId: item.produtoId ?? item.id ?? '',
@@ -83,6 +85,28 @@ export async function loadDemandProdutos(demandId: string): Promise<ProdutoApi[]
   return entry?.produtos ?? [];
 }
 
+export async function saveCatalogoProdutos(
+  unidadeId: string,
+  produtos: ProdutoApi[],
+): Promise<void> {
+  if (!unidadeId.trim()) return;
+
+  await db.demandProdutos.put({
+    demandId: CATALOG_KEY(unidadeId),
+    produtos,
+    cachedAt: Date.now(),
+  });
+}
+
+export async function loadCatalogoProdutos(
+  unidadeId: string,
+): Promise<ProdutoApi[]> {
+  if (!unidadeId.trim()) return [];
+
+  const entry = await db.demandProdutos.get(CATALOG_KEY(unidadeId));
+  return entry?.produtos ?? [];
+}
+
 function normalizeSearchTerm(term: string): string {
   return term.trim().toLowerCase();
 }
@@ -115,10 +139,20 @@ export function findProdutoInCatalog(
 export async function searchProdutoWithCache(
   demandId: string,
   term: string,
+  unidadeId?: string,
 ): Promise<ProdutoApi | null> {
-  const catalog = await loadDemandProdutos(demandId);
-  const fromCache = findProdutoInCatalog(term, catalog);
-  if (fromCache) return fromCache;
+  const demandCatalog = await loadDemandProdutos(demandId);
+  const fromDemand = findProdutoInCatalog(term, demandCatalog);
+  if (fromDemand) return fromDemand;
+
+  const resolvedUnidadeId =
+    unidadeId ?? (await db.demands.get(demandId))?.unidadeId;
+
+  if (resolvedUnidadeId) {
+    const globalCatalog = await loadCatalogoProdutos(resolvedUnidadeId);
+    const fromGlobal = findProdutoInCatalog(term, globalCatalog);
+    if (fromGlobal) return fromGlobal;
+  }
 
   if (!navigator.onLine || !isApiConfigured()) {
     return null;

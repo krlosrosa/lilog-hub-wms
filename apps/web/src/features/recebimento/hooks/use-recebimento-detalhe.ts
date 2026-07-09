@@ -113,6 +113,7 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
   const [isFinalizarOpen, setIsFinalizarOpen] = useState(false);
   const [isExcluirOpen, setIsExcluirOpen] = useState(false);
   const [isLinkRastreioOpen, setIsLinkRastreioOpen] = useState(false);
+  const [isImportOfflineOpen, setIsImportOfflineOpen] = useState(false);
 
   const carregar = useCallback(async () => {
     setIsLoading(true);
@@ -427,6 +428,14 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
     setIsLinkRastreioOpen(false);
   }, []);
 
+  const openImportOffline = useCallback(() => {
+    setIsImportOfflineOpen(true);
+  }, []);
+
+  const closeImportOffline = useCallback(() => {
+    setIsImportOfflineOpen(false);
+  }, []);
+
   const closeExcluir = useCallback(() => {
     if (!isSubmitting) {
       setIsExcluirOpen(false);
@@ -567,6 +576,9 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
     isLinkRastreioOpen,
     openLinkRastreio,
     closeLinkRastreio,
+    isImportOfflineOpen,
+    openImportOffline,
+    closeImportOffline,
     recarregar: carregar,
   };
 }

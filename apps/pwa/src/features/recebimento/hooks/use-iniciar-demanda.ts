@@ -5,7 +5,12 @@ import { hapticMedium } from '@/lib/haptics';
 import { isApiConfigured } from '@/lib/offline/api-client';
 import { saveUnitDocasToDb } from '@/lib/offline/checklist-cache';
 import { db } from '@/lib/offline/db';
-import { saveDemandProdutos } from '@/lib/offline/produto-cache';
+import {
+  loadCatalogoProdutos,
+  saveCatalogoProdutos,
+  saveDemandProdutos,
+} from '@/lib/offline/produto-cache';
+import { isCatalogStale, recordCatalogSync } from '@/lib/offline/sync-meta';
 
 import {
   ensureConferenciaContext,
@@ -46,26 +51,43 @@ export function useIniciarDemanda() {
         await db.demands.put(demand);
 
         const checklistDone = demand.preRecebimentoSituacao === 'em_conferencia';
+        const unidadeId = demand.unidadeId;
 
         if (isApiConfigured() && navigator.onLine) {
-          const [apiContext, docas, produtos] = await Promise.all([
+          const [apiContext, docas] = await Promise.all([
             fetchConferenciaContext(demand.id),
-            demand.unidadeId
-              ? listDocas(demand.unidadeId).catch(() => [])
+            unidadeId
+              ? listDocas(unidadeId).catch(() => [])
               : Promise.resolve([]),
-            fetchAllProdutos().catch(() => []),
           ]);
 
           const mapped = mapConferenciaContext(apiContext);
           await saveConferenciaContextToDb(demand.id, mapped);
           setConferenciaContextStore(demand.id, mapped);
 
-          if (demand.unidadeId && docas.length > 0) {
-            await saveUnitDocasToDb(demand.unidadeId, docas);
+          if (unidadeId && docas.length > 0) {
+            await saveUnitDocasToDb(unidadeId, docas);
           }
 
-          if (produtos.length > 0) {
-            await saveDemandProdutos(demand.id, produtos);
+          if (unidadeId) {
+            const stale = await isCatalogStale(db, unidadeId);
+            if (stale) {
+              void fetchAllProdutos()
+                .then(async (produtos) => {
+                  if (produtos.length === 0) return;
+                  await saveCatalogoProdutos(unidadeId, produtos);
+                  await recordCatalogSync(db, unidadeId);
+                  await saveDemandProdutos(demand.id, produtos);
+                })
+                .catch(() => {
+                  // Catálogo anterior (se existir) continua válido.
+                });
+            }
+
+            const existing = await loadCatalogoProdutos(unidadeId);
+            if (existing.length > 0) {
+              await saveDemandProdutos(demand.id, existing);
+            }
           }
         } else {
           const cached = await ensureConferenciaContext(demand.id);
@@ -73,6 +95,13 @@ export function useIniciarDemanda() {
             throw new Error(
               'Sem conexão. Inicie a demanda com internet para carregar os dados.',
             );
+          }
+
+          if (unidadeId) {
+            const existing = await loadCatalogoProdutos(unidadeId);
+            if (existing.length > 0) {
+              await saveDemandProdutos(demand.id, existing);
+            }
           }
         }
 

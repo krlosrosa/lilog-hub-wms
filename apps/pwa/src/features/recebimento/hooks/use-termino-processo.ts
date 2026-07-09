@@ -5,11 +5,10 @@ import { hapticMedium } from '@/lib/haptics';
 import { clearDemandCache } from '@/lib/offline/demand-cache';
 import { isApiConfigured } from '@/lib/offline/api-client';
 
+import { getAvariasRegistradas } from '../lib/conferencia-avarias-store';
 import { getConferenciaContextStore, ensureConferenciaContext } from '../lib/conferencia-context-store';
-import {
-  encerrarConferencia,
-  listAvarias,
-} from '../lib/recebimento-api';
+import { listAvarias } from '../lib/recebimento-api';
+import { syncEncerrarConferencia } from '../lib/recebimento-sync';
 import { getSkuItemsByDemandId } from './use-lista-itens';
 import { useDemandById } from './use-demand-by-id';
 import type { SkuItem } from '../types/recebimento.schema';
@@ -53,6 +52,21 @@ function buildDivergencias(items: SkuItem[]): TerminoDivergenciaItem[] {
     }));
 }
 
+function mapLocalAvariasToTermino(
+  demandId: string,
+  skuByProduto: Map<string, string>,
+): TerminoAvariaItem[] {
+  return getAvariasRegistradas(demandId).map((avaria) => ({
+    sku: avaria.sku ?? avaria.produtoId ?? '—',
+    name:
+      (avaria.sku ? skuByProduto.get(avaria.sku) : undefined) ??
+      (avaria.produtoId ? skuByProduto.get(avaria.produtoId) : undefined) ??
+      avaria.tipo,
+    quantity: avaria.quantidadeCaixa + avaria.quantidadeUnidade,
+    motivo: `${avaria.tipo} / ${avaria.causa}`,
+  }));
+}
+
 export function useTerminoProcesso(demandId: string) {
   const navigate = useNavigate();
   const demand = useDemandById(demandId);
@@ -63,7 +77,6 @@ export function useTerminoProcesso(demandId: string) {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
   const [avarias, setAvarias] = useState<TerminoAvariaItem[]>([]);
-  const [divergencias, setDivergencias] = useState<TerminoDivergenciaItem[]>([]);
   const [encerrado, setEncerrado] = useState(false);
   const [items, setItems] = useState<SkuItem[]>(() => getSkuItemsByDemandId(demandId));
 
@@ -79,17 +92,30 @@ export function useTerminoProcesso(demandId: string) {
   }, [demandId]);
 
   const naoConferidos = useMemo(() => buildNaoConferidos(items), [items]);
-  const divergenciasFromItems = useMemo(() => buildDivergencias(items), [items]);
-  const divergenciasVisiveis =
-    divergenciasFromItems.length > 0 ? divergenciasFromItems : divergencias;
+  const divergencias = useMemo(() => buildDivergencias(items), [items]);
 
   useEffect(() => {
-    if (!recebimentoId || !isApiConfigured()) return;
+    const skuByProduto = new Map(
+      (context?.itens ?? []).map((item) => [item.sku, item.name]),
+    );
+    for (const meta of Object.values(context?.itemMetaBySku ?? {})) {
+      skuByProduto.set(meta.produtoId, meta.descricao);
+      skuByProduto.set(meta.sku, meta.descricao);
+    }
+
+    const local = mapLocalAvariasToTermino(demandId, skuByProduto);
+    if (local.length > 0) {
+      setAvarias(local);
+    }
+
+    if (!recebimentoId || !isApiConfigured() || !navigator.onLine) {
+      return;
+    }
 
     void listAvarias(recebimentoId).then((apiAvarias) => {
-      const skuByProduto = new Map(
-        (context?.itens ?? []).map((item) => [item.sku, item.name]),
-      );
+      if (apiAvarias.length < local.length) {
+        return;
+      }
 
       setAvarias(
         apiAvarias.map((avaria) => ({
@@ -100,7 +126,7 @@ export function useTerminoProcesso(demandId: string) {
         })),
       );
     });
-  }, [context?.itens, recebimentoId]);
+  }, [context?.itemMetaBySku, context?.itens, demandId, recebimentoId]);
 
   const tempoTotal = encerrado ? '—' : 'Em andamento';
   const acuracia =
@@ -132,54 +158,28 @@ export function useTerminoProcesso(demandId: string) {
     setConfirmModalOpen(false);
   }, []);
 
-  const handleFinalizarDoca = useCallback(async () => {
+  const handleFinalizarDoca = useCallback(() => {
     if (isFinalizing) return;
 
     setIsFinalizing(true);
     setFinalizeError(null);
+    setEncerrado(true);
+    setConfirmModalOpen(false);
 
-    try {
-      if (recebimentoId && isApiConfigured()) {
-        const result = await encerrarConferencia(recebimentoId);
-        setEncerrado(true);
+    const encerrarLabel = `Encerrar conferência ${demand?.id ?? demandId}`;
+    const resolvedRecebimentoId = recebimentoId;
+    const resolvedRouteId = demand?.routeId;
 
-        const skuByProduto = new Map(
-          Object.values(context?.itemMetaBySku ?? {}).map((meta) => [
-            meta.produtoId,
-            { sku: meta.sku, name: meta.descricao },
-          ]),
-        );
-
-        setDivergencias(
-          (result.divergencias ?? []).map((div) => {
-            const produto = div.produtoId
-              ? skuByProduto.get(div.produtoId)
-              : undefined;
-
-            return {
-              sku: produto?.sku ?? div.produtoId ?? '—',
-              name: produto?.name ?? div.tipoDivergencia,
-              label: 'Divergência',
-              esperado: div.quantidadeEsperada ?? 0,
-              contado: div.quantidadeRecebida ?? 0,
-            };
-          }),
-        );
-      }
-
-      await clearDemandCache(demandId, demand?.routeId);
-
-      setIsFinalizing(false);
-      setConfirmModalOpen(false);
-      navigate({ to: '/recebimento' });
-    } catch (error) {
-      setIsFinalizing(false);
-      setFinalizeError(
-        error instanceof Error ? error.message : 'Falha ao encerrar conferência',
-      );
+    if (resolvedRecebimentoId && isApiConfigured()) {
+      void syncEncerrarConferencia(resolvedRecebimentoId, encerrarLabel);
     }
+
+    void clearDemandCache(demandId, resolvedRouteId);
+
+    setIsFinalizing(false);
+    navigate({ to: '/recebimento' });
   }, [
-    context?.itemMetaBySku,
+    demand?.id,
     demand?.routeId,
     demandId,
     isFinalizing,
@@ -194,7 +194,7 @@ export function useTerminoProcesso(demandId: string) {
       dock: demand?.dock ?? context?.dock ?? '—',
       avarias,
       naoConferidos,
-      divergencias: divergenciasVisiveis,
+      divergencias,
       tempoTotal,
       acuracia,
       isAccordionAvariaOpen,

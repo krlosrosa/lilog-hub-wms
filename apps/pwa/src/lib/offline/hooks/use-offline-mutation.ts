@@ -39,12 +39,7 @@ export function useOfflineMutation(options?: UseOfflineMutationOptions) {
         });
 
         if (isOnline) {
-          const result = await flushOutbox();
-          if (result.failed > 0) {
-            throw new Error(
-              result.lastError ?? 'Algumas alterações falharam ao sincronizar',
-            );
-          }
+          void flushOutbox();
         }
 
         options?.onSuccess?.();

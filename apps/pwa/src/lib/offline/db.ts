@@ -19,7 +19,7 @@ import type {
 
 export type OutboxStatus = 'pending' | 'syncing' | 'error';
 
-export type OutboxMethod = 'POST' | 'PATCH' | 'DELETE';
+export type OutboxMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface OutboxEntry {
   id?: number;

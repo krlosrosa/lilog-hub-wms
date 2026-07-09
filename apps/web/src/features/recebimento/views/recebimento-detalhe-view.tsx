@@ -8,6 +8,7 @@ import {
   Loader2,
   QrCode,
   RotateCcw,
+  Smartphone,
   Tags,
   Trash2,
   Truck,
@@ -31,6 +32,7 @@ import { ConferenciaTable } from '@/features/recebimento/components/conferencia-
 import { FotosEvidencias } from '@/features/recebimento/components/fotos-evidencia';
 import { InspecaoCard } from '@/features/recebimento/components/inspecao-card';
 import { ModalConfirmarRecebimento } from '@/features/recebimento/components/modal-confirmar-recebimento';
+import { ModalImportarOfflinePwa } from '@/features/recebimento/components/modal-importar-offline-pwa';
 import { LiberarConferenciaSheet } from '@/features/recebimento/components/liberar-conferencia-sheet';
 import { ModalLinkRastreio } from '@/features/recebimento/components/modal-link-rastreio';
 import { RecepcionarCarroSheet } from '@/features/recebimento/components/recepcionar-carro-sheet';
@@ -72,6 +74,9 @@ export function RecebimentoDetalheView({
     isLinkRastreioOpen,
     openLinkRastreio,
     closeLinkRastreio,
+    isImportOfflineOpen,
+    openImportOffline,
+    closeImportOffline,
     conferenciaPagina,
     conferenciaTotalPaginas,
     conferenciaItensPagina,
@@ -79,6 +84,7 @@ export function RecebimentoDetalheView({
     conferenciaTotalItens,
     conferenciaPageSize,
     setPaginaConferencia,
+    recarregar,
   } = useRecebimentoDetalhe(recebimentoId);
 
   if (isLoading) {
@@ -160,6 +166,18 @@ export function RecebimentoDetalheView({
             </p>
 
             <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 border-outline-variant px-2.5 text-xs"
+                disabled={isSubmitting}
+                onClick={openImportOffline}
+              >
+                <Smartphone className="size-3.5" aria-hidden />
+                <span className="hidden sm:inline">Importar PWA</span>
+                <span className="sm:hidden">PWA</span>
+              </Button>
               {podeGerarLinkRastreio ? (
                 <Button
                   type="button"
@@ -369,6 +387,14 @@ export function RecebimentoDetalheView({
         onClose={closeLinkRastreio}
         preRecebimentoId={r.id}
         placa={r.placa}
+      />
+
+      <ModalImportarOfflinePwa
+        open={isImportOfflineOpen}
+        onClose={closeImportOffline}
+        demandId={r.id}
+        recebimentoId={r.recebimentoId}
+        onImported={recarregar}
       />
 
       <AlertDialog

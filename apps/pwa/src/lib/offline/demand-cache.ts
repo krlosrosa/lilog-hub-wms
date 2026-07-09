@@ -2,19 +2,6 @@ import { clearConferenciaSessionData } from '@/features/recebimento/lib/conferen
 
 import { db } from './db';
 
-function matchesDemandEndpoint(
-  endpoint: string,
-  demandId: string,
-  routeId?: string,
-): boolean {
-  const encodedDemandId = encodeURIComponent(demandId);
-  if (endpoint.includes(encodedDemandId)) return true;
-  if (routeId && routeId !== demandId) {
-    return endpoint.includes(encodeURIComponent(routeId));
-  }
-  return false;
-}
-
 export async function clearDemandCache(
   demandId: string,
   routeId?: string,
@@ -31,7 +18,6 @@ export async function clearDemandCache(
       db.checklistDrafts,
       db.demandProdutos,
       db.photos,
-      db.outbox,
     ],
     async () => {
       const allPhotos = await db.photos.toArray();
@@ -55,18 +41,6 @@ export async function clearDemandCache(
         if (photoIds.length > 0) {
           await db.photos.bulkDelete(photoIds);
         }
-      }
-
-      const allOutbox = await db.outbox.toArray();
-      const outboxIds = allOutbox
-        .filter((entry) =>
-          [...ids].some((id) => matchesDemandEndpoint(entry.endpoint, id)),
-        )
-        .map((entry) => entry.id!)
-        .filter((id) => id != null);
-
-      if (outboxIds.length > 0) {
-        await db.outbox.bulkDelete(outboxIds);
       }
     },
   );

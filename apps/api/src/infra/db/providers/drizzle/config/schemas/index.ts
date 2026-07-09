@@ -34,6 +34,7 @@ export * from './master-data.schema.js';
 export * from './armazenagem.schema.js';
 export * from './doca.schema.js';
 export * from './recebimento.schema.js';
+export * from './offline-import.schema.js';
 export * from './estoque.schema.js';
 export * from './documento.schema.js';
 export * from './cnc.schema.js';

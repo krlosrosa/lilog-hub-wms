@@ -38,8 +38,22 @@ export function useListaDemanda() {
       return;
     }
 
-    setIsRefreshing(true);
     setFetchError(null);
+
+    try {
+      const cached = await db.demands.toArray();
+      const filtered = cached.filter((item) => item.unidadeId === unidadeId);
+      if (filtered.length > 0) {
+        setDemands(filtered);
+        setIsDemandsLoading(false);
+      } else {
+        setIsDemandsLoading(true);
+      }
+    } catch {
+      setIsDemandsLoading(true);
+    }
+
+    setIsRefreshing(true);
 
     try {
       if (isOnline) {
@@ -81,7 +95,6 @@ export function useListaDemanda() {
       return;
     }
 
-    setIsDemandsLoading(true);
     void loadDemands();
   }, [canFetchDemands, loadDemands]);
 

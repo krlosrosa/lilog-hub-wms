@@ -869,7 +869,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
               label: `Remover lote ${resolvedSku}`,
             });
           }
-          await refreshConferenciaContextFromApi();
+          void refreshConferenciaContextFromApi();
         }
 
         const nextLotes = lotesConferidos.filter((entry) => entry.id !== id);
@@ -934,7 +934,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
             photoIds: [],
             label: `Remover palete ${idPalete}`,
           });
-          await refreshConferenciaContextFromApi();
+          void refreshConferenciaContextFromApi();
         }
 
         const nextLotes = lotesConferidos.filter(
@@ -1566,7 +1566,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
         await postLotesToRecebimento(lotesPaleteAtual, meta, recebimentoId, {
           replaceExisting: false,
         });
-        await refreshConferenciaContextFromApi();
+        void refreshConferenciaContextFromApi();
       }
 
       await mergeLotesComRascunho(
@@ -1833,7 +1833,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       await persistLocal();
 
       if (isApiConfigured()) {
-        await refreshConferenciaContextFromApi();
+        void refreshConferenciaContextFromApi();
       }
 
       clearConferenciaNavigation(demandId);

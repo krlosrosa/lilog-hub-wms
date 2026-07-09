@@ -5,8 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { useUnidade } from '@/features/unidade';
-import { isApiConfigured } from '@/lib/offline/api-client';
-import { useOfflineMutation } from '@/lib/offline/hooks/use-offline-mutation';
+import { db } from '@/lib/offline/db';
 import { usePhotoCapture } from '@/lib/offline/hooks/use-photo-capture';
 
 import {
@@ -14,7 +13,11 @@ import {
   AVARIA_NATUREZA_OPTIONS,
   AVARIA_TIPO_OPTIONS,
 } from '../lib/avaria-labels';
-import { addAvariaRegistrada, getAvariasRegistradas } from '../lib/conferencia-avarias-store';
+import {
+  addAvariaRegistrada,
+  createAvariaId,
+  getAvariasRegistradas,
+} from '../lib/conferencia-avarias-store';
 import { peekConferenciaNavigation } from '../lib/conferencia-conferidos-store';
 import { getConferenciaContextStore } from '../lib/conferencia-context-store';
 import {
@@ -24,7 +27,6 @@ import {
 import { buildLotesDisponiveisPorProduto } from '../lib/build-paletes-conferidos-resumo';
 import { buildAvariaRelatedId } from '../lib/avaria-evidencia-utils';
 import { validateAvariaQuantidadeForSkus } from '../lib/avaria-quantidade';
-import { mapAvariaApiToRegistro } from '../lib/map-avaria-api';
 import {
   fetchParametrosRecebimentoConferencia,
   getCachedParametrosRecebimentoConferencia,
@@ -34,12 +36,12 @@ import {
   listRecebimentoConferenciaRascunhos,
 } from '../lib/recebimento-conferencia-rascunho';
 import { resolveConferidoTotaisForSkuRecebimento } from '../lib/resolve-conferido-totais';
-import { submitAvaria } from '../lib/recebimento-api';
-import { uploadAvariaPhotos } from '../lib/upload-avaria-photos';
+import { syncAvariaRecebimento } from '../lib/recebimento-sync';
 import {
   buildAvariaSchema,
   DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA,
   type AvariaForm,
+  type AvariaRegistro,
   type ParametrosRecebimentoConferencia,
 } from '../types/recebimento.schema';
 import { useDemandById } from './use-demand-by-id';
@@ -87,7 +89,6 @@ export function useAvaria(demandId: string) {
   } = usePhotoCapture({
     relatedId: avariaRelatedId,
   });
-  const { mutate, isPending: isOfflinePending } = useOfflineMutation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [avariasRegistradas, setAvariasRegistradas] = useState(() =>
@@ -266,10 +267,6 @@ export function useAvaria(demandId: string) {
     form.setValue(field, next, { shouldValidate: true, shouldDirty: true });
   };
 
-  const clearPhotos = useCallback(async () => {
-    await Promise.all(photos.map((photo) => remove(photo.id)));
-  }, [photos, remove]);
-
   const navigateToConferencia = useCallback(() => {
     const navigation = peekConferenciaNavigation(demandId);
     setConferenciaEntryStep(demandId, navigation?.step ?? 3);
@@ -328,48 +325,54 @@ export function useAvaria(demandId: string) {
       skusAlvo,
     };
 
-    if (isApiConfigured() && navigator.onLine) {
-      setIsSubmitting(true);
-      try {
-        await uploadAvariaPhotos(recebimentoId, photoIds);
-        const result = await submitAvaria(recebimentoId, payload);
+    const tempId = createAvariaId();
+    const registroLocal: AvariaRegistro = {
+      id: tempId,
+      produtoId: activeProdutoId ?? undefined,
+      sku: activeSku || undefined,
+      lote: replicar ? undefined : values.lote?.trim() || undefined,
+      skusAfetados: skusAlvo.length > 0 ? skusAlvo : undefined,
+      quantidadeCaixa: values.quantidadeCaixa,
+      quantidadeUnidade: values.quantidadeUnidade,
+      tipo: values.tipo,
+      natureza: values.natureza,
+      causa: values.causa,
+      photoCount: photoIds.length,
+      replicado: replicar,
+    };
 
-        for (const item of result.items) {
-          addAvariaRegistrada(demandId, mapAvariaApiToRegistro(item, demandId));
-        }
-
-        setAvariasRegistradas(getAvariasRegistradas(demandId));
-
-        form.reset(DEFAULT_VALUES);
-        await clearPhotos();
-        navigateToConferencia();
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Falha ao registrar avaria';
-        setSubmitError(message);
-        return;
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-
+    setIsSubmitting(true);
     try {
-      await mutate({
-        endpoint: `/recebimentos/${recebimentoId}/avarias`,
-        method: 'POST',
+      await syncAvariaRecebimento(
+        recebimentoId,
         payload,
         photoIds,
         label,
-      });
+        () => {
+          addAvariaRegistrada(demandId, registroLocal);
+          setAvariasRegistradas(getAvariasRegistradas(demandId));
+        },
+      );
+
+      // Desvincula da UI, mas mantém blobs no Dexie para o outbox sincronizar.
+      if (photoIds.length > 0) {
+        await Promise.all(
+          photoIds.map((photoId) =>
+            db.photos.update(photoId, {
+              relatedId: `avaria-queued-${tempId}`,
+            }),
+          ),
+        );
+      }
 
       form.reset(DEFAULT_VALUES);
-      await clearPhotos();
       navigateToConferencia();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Falha ao registrar avaria';
       setSubmitError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   });
 
@@ -390,7 +393,7 @@ export function useAvaria(demandId: string) {
       },
       form,
       photos,
-      isSubmitting: isSubmitting || isOfflinePending,
+      isSubmitting,
       submitError,
       errors: form.formState.errors,
       minPhotos: MIN_PHOTOS,

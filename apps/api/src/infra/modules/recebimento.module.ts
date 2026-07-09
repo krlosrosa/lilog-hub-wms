@@ -38,10 +38,13 @@ import {
   GerarLinkRastreioUseCase,
   GetRastreioStatusUseCase,
 } from '../../application/usecases/recebimento/gerar-link-rastreio.usecase.js';
+import { ImportOfflineRecebimentoUseCase } from '../../application/usecases/recebimento/import-offline-recebimento.usecase.js';
+import { OFFLINE_IMPORT_LOG_REPOSITORY } from '../../domain/repositories/offline-import/offline-import-log.repository.js';
 import { CONFERENCIA_REPOSITORY } from '../../domain/repositories/recebimento/conferencia.repository.js';
 import { PRE_RECEBIMENTO_REPOSITORY } from '../../domain/repositories/recebimento/pre-recebimento.repository.js';
 import { RECEBIMENTO_AVARIA_REPOSITORY } from '../../domain/repositories/recebimento/recebimento-avaria.repository.js';
 import { RECEBIMENTO_REPOSITORY } from '../../domain/repositories/recebimento/recebimento.repository.js';
+
 import { CancelPreRecebimentoController } from '../../presentation/controllers/recebimento/cancel-pre-recebimento.controller.js';
 import { LiberarConferenciaController } from '../../presentation/controllers/recebimento/liberar-conferencia.controller.js';
 import { RecepcionarCarroController } from '../../presentation/controllers/recebimento/recepcionar-carro.controller.js';
@@ -73,8 +76,10 @@ import { ListRecebimentosController } from '../../presentation/controllers/receb
 import { UpdatePreRecebimentoController } from '../../presentation/controllers/recebimento/update-pre-recebimento.controller.js';
 import { GerarLinkRastreioController } from '../../presentation/controllers/recebimento/gerar-link-rastreio.controller.js';
 import { GetRastreioStatusController } from '../../presentation/controllers/recebimento/get-rastreio-status.controller.js';
+import { ImportOfflineRecebimentoController } from '../../presentation/controllers/recebimento/import-offline-recebimento.controller.js';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard.js';
 import { GerarPdfDeHtmlService } from '../pdf/gerar-pdf-de-html.service.js';
+import { OfflineImportLogService } from '../db/offline-import/offline-import-log.service.js';
 import { ConferenciaService } from '../db/recebimento/conferencia.service.js';
 import { PreRecebimentoService } from '../db/recebimento/pre-recebimento.service.js';
 import { RecebimentoAvariaService } from '../db/recebimento/recebimento-avaria.service.js';
@@ -143,6 +148,7 @@ import { UserModule } from './user.module.js';
     RegistrarAvariaController,
     GerarLinkRastreioController,
     GetRastreioStatusController,
+    ImportOfflineRecebimentoController,
   ],
   providers: [
     CreatePreRecebimentoUseCase,
@@ -180,6 +186,7 @@ import { UserModule } from './user.module.js';
     ListRecebimentoAvariasUseCase,
     GerarLinkRastreioUseCase,
     GetRastreioStatusUseCase,
+    ImportOfflineRecebimentoUseCase,
     RecebimentoEventPublisher,
     GerarPdfDeHtmlService,
     PermissionsGuard,
@@ -198,6 +205,10 @@ import { UserModule } from './user.module.js';
     {
       provide: RECEBIMENTO_AVARIA_REPOSITORY,
       useClass: RecebimentoAvariaService,
+    },
+    {
+      provide: OFFLINE_IMPORT_LOG_REPOSITORY,
+      useClass: OfflineImportLogService,
     },
   ],
 })

@@ -331,3 +331,45 @@ export async function gerarLinkRastreio(
     },
   );
 }
+
+export type ImportOfflineRecebimentoPayload = {
+  exportId: string;
+  unidadeId?: string;
+  entries: Array<{
+    outboxId?: number;
+    label: string;
+    endpoint: string;
+    method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+    payload: unknown;
+    createdAt: number;
+    photoRefs?: Array<{
+      photoId: number;
+      outboxId: number;
+      filename: string;
+      mimeType: string;
+      relatedId: string;
+    }>;
+  }>;
+};
+
+export type ImportOfflineRecebimentoResult = {
+  demandId: string;
+  recebimentoId: string;
+  exportId: string;
+  appliedCount: number;
+  skippedCount: number;
+  errors: Array<{ label: string; message: string }>;
+};
+
+export function importOfflineRecebimento(
+  preRecebimentoId: string,
+  payload: ImportOfflineRecebimentoPayload,
+) {
+  return apiRequest<ImportOfflineRecebimentoResult>(
+    `/pre-recebimentos/${encodeURIComponent(preRecebimentoId)}/offline/importar`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+}
