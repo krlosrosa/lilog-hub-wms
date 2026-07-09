@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from '@tanstack/react-router';
+import * as Sentry from '@sentry/react';
 import { ThemeProvider } from 'next-themes';
 import { registerSW } from 'virtual:pwa-register';
 
@@ -9,6 +10,18 @@ import { UnidadeProvider } from '@/features/unidade';
 
 import { router } from './router';
 import './styles/globals.css';
+
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
+  integrations: [
+    Sentry.browserTracingIntegration(),
+    Sentry.replayIntegration(),
+  ],
+  tracesSampleRate: 1.0,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+});
 
 if (import.meta.env.PROD) {
   registerSW({ immediate: true });

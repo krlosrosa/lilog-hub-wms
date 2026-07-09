@@ -40,7 +40,8 @@ import { SheetHeaderClose } from './sheet-header-close';
 interface SyncExportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  entries: OutboxEntry[];
+  entries?: OutboxEntry[];
+  preBuiltPackage?: SyncExportPackage | null;
 }
 
 function InstructionStep({
@@ -73,7 +74,8 @@ function InstructionStep({
 export function SyncExportModal({
   open,
   onOpenChange,
-  entries,
+  entries = [],
+  preBuiltPackage = null,
 }: SyncExportModalProps) {
   const { unidadeSelecionada } = useUnidade();
   const [pkg, setPkg] = useState<SyncExportPackage | null>(null);
@@ -110,6 +112,13 @@ export function SyncExportModal({
       return;
     }
 
+    if (preBuiltPackage) {
+      setPkg(preBuiltPackage);
+      setBuildError(null);
+      setIsBuilding(false);
+      return;
+    }
+
     if (entries.length === 0) return;
 
     let cancelled = false;
@@ -138,7 +147,7 @@ export function SyncExportModal({
     return () => {
       cancelled = true;
     };
-  }, [entries, open, unidadeSelecionada?.id]);
+  }, [entries, open, preBuiltPackage, unidadeSelecionada?.id]);
 
   const handlePrevChunk = useCallback(() => {
     hapticLight();

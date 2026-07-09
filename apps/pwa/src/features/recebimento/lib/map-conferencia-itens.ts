@@ -5,6 +5,7 @@ import type {
 import type { SkuItem } from '../types/recebimento.schema';
 import {
   applyResumoToSkuItems,
+  toBaseUnits,
   type ResumoConferidoProduto,
 } from './resolve-recebimento-divergencia';
 
@@ -111,7 +112,31 @@ export function mapConferenciaContext(
     };
   });
 
-  const resumoConferido = context.resumoConferido ?? [];
+  const resumoConferidoFromApi = context.resumoConferido ?? [];
+  const resumoByProdutoId = new Map(
+    resumoConferidoFromApi.map((entry) => [entry.produtoId, entry]),
+  );
+
+  for (const item of groupedItens) {
+    if (resumoByProdutoId.has(item.produtoId)) {
+      continue;
+    }
+
+    const qtdContabil = toBaseUnits(
+      item.quantidadeEsperada,
+      item.unidadeMedida,
+      item.unidadesPorCaixa,
+    );
+
+    resumoByProdutoId.set(item.produtoId, {
+      produtoId: item.produtoId,
+      qtdContabil,
+      qtdFisica: 0,
+      hasDivergencia: false,
+    });
+  }
+
+  const resumoConferido = [...resumoByProdutoId.values()];
 
   const knownProdutoIds = new Set(groupedItens.map((item) => item.produtoId));
   const conferidoSkus = new Set(

@@ -35,6 +35,7 @@ import { AvariaQuickCaptureButton } from '../components/avaria-quick-capture-but
 import { ChecklistResumoCard } from '../components/checklist-resumo-card';
 import { PaleteSessionBanner } from '../components/palete-conferencia-cards';
 import { setConferenciaNavigation } from '../lib/conferencia-conferidos-store';
+import { getConferenciaContextStore } from '../lib/conferencia-context-store';
 import { resolveMaintainedLoteContext } from '../lib/conferencia-form';
 import { setConferenciaEntryStep } from '../lib/conferencia-sku-session';
 import {
@@ -495,9 +496,6 @@ function WizardBottomDock({
 
 export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
   const { state, actions } = useDetalheItem(demandId, initKey);
-  const avarias = useAvariasRegistradas(demandId);
-  const checklistResumo = useChecklistResumo(demandId);
-
   const {
     step,
     item,
@@ -532,6 +530,21 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
     gs1WedgeValue,
     ignoreMaintainedLote,
   } = state;
+
+  const activeSku = skuValue.trim() || item.sku;
+  const activeProdutoId = useMemo(() => {
+    if (!activeSku) return null;
+    return (
+      getConferenciaContextStore(demandId)?.itemMetaBySku[activeSku.toLowerCase()]
+        ?.produtoId ?? null
+    );
+  }, [activeSku, demandId]);
+
+  const avarias = useAvariasRegistradas(demandId, {
+    sku: activeSku,
+    produtoId: activeProdutoId,
+  });
+  const checklistResumo = useChecklistResumo(demandId);
 
   const etiquetaRegister = actions.register('etiqueta');
   const etiquetaRegisterProps = {

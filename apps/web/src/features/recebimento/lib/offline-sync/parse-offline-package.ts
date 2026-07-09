@@ -190,6 +190,8 @@ function readPayloadDemandId(payload: unknown): string | null {
   return null;
 }
 
+const OFFLINE_RECEBIMENTO_PLACEHOLDER = '__offline__';
+
 export function entryBelongsToDemandIds(
   entry: Pick<SyncExportEntry, 'endpoint' | 'payload'>,
   demandIds: string[],
@@ -202,7 +204,15 @@ export function entryBelongsToDemandIds(
   }
 
   const payloadId = readPayloadDemandId(entry.payload);
-  return payloadId != null && normalized.includes(payloadId);
+  if (payloadId != null && normalized.includes(payloadId)) {
+    return true;
+  }
+
+  if (entry.endpoint.includes(`/recebimentos/${OFFLINE_RECEBIMENTO_PLACEHOLDER}`)) {
+    return payloadId != null && normalized.includes(payloadId);
+  }
+
+  return false;
 }
 
 export function filterPackageByDemandIds(

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-
+import { APP_FILTER } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 
 
 
@@ -73,6 +74,7 @@ import { EmailModule } from './infra/modules/email.module.js';
 @Module({
 
   imports: [
+    SentryModule.forRoot(),
 
     ConfigModule.forRoot({
 
@@ -146,6 +148,13 @@ import { EmailModule } from './infra/modules/email.module.js';
 
     PortalModule,
 
+  ],
+
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
   ],
 
 })

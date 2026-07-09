@@ -64,6 +64,8 @@ export type ConferenciaItemBlindRecord = {
 
   unidadesPorCaixa: number;
 
+  quantidadeEsperada: number;
+
   config: ProdutoConferenciaConfigRecord;
 
 };

@@ -1,6 +1,7 @@
 import { eq, inArray } from 'drizzle-orm';
 
 import { buildResumoConferidoPorProduto } from '../../../domain/services/recebimento-resumo-conferido.js';
+import { toBaseUnits } from '../../../domain/services/unidade-medida.js';
 import { resolveProdutoConferenciaConfig } from '../../../domain/services/recebimento-produto-rules.js';
 import type {
   ConferenciaConferidoRecord,
@@ -168,6 +169,11 @@ export async function getConferenciaContextDb(
       descricao: produto.descricao,
       unidadeMedida: item.unidadeMedida,
       unidadesPorCaixa: produto.unidadesPorCaixa ?? 1,
+      quantidadeEsperada: toBaseUnits(
+        Number(item.quantidadeEsperada),
+        item.unidadeMedida,
+        produto.unidadesPorCaixa ?? 1,
+      ),
       config: resolveProdutoConferenciaConfig(produtoRecord),
     };
   });

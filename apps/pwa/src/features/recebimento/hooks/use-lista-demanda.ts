@@ -4,6 +4,9 @@ import { useAuth } from '@/features/auth/lib/auth-context';
 import { useUnidade } from '@/features/unidade';
 import { db } from '@/lib/offline/db';
 import { fetchDemands } from '@/lib/offline/api-client';
+import { mergeRemoteDemandWithLocal } from '@/lib/offline/merge-demands-offline';
+import { getPendingEntries } from '@/lib/offline/outbox';
+import { extractDemandFromOutbox } from '@/lib/offline/sync-export/demand-grouping';
 import { useNetworkStatus } from '@/lib/offline/hooks/use-network';
 
 import type { Demand } from '../types/recebimento.schema';
@@ -57,11 +60,38 @@ export function useListaDemanda() {
 
     try {
       if (isOnline) {
-        const remote = await fetchDemands<Demand>(unidadeId);
-        setDemands(remote);
+        const [remote, existing, pendingEntries, checklistDrafts] =
+          await Promise.all([
+            fetchDemands<Demand>(unidadeId),
+            db.demands.toArray(),
+            getPendingEntries(db),
+            db.checklistDrafts.toArray(),
+          ]);
+
+        const pendingOutboxDemandIds = new Set(
+          pendingEntries
+            .map((entry) => extractDemandFromOutbox(entry))
+            .filter((extracted) => extracted?.module === 'recebimento')
+            .map((extracted) => extracted!.demandId),
+        );
+
+        for (const draft of checklistDrafts) {
+          pendingOutboxDemandIds.add(draft.demandId);
+        }
+
+        const existingById = new Map(existing.map((demand) => [demand.id, demand]));
+        const merged = remote.map((remoteDemand) =>
+          mergeRemoteDemandWithLocal(
+            remoteDemand,
+            existingById.get(remoteDemand.id),
+            pendingOutboxDemandIds.has(remoteDemand.id),
+          ),
+        );
+
+        setDemands(merged);
         await db.demands.clear();
-        if (remote.length > 0) {
-          await db.demands.bulkPut(remote);
+        if (merged.length > 0) {
+          await db.demands.bulkPut(merged);
         }
         return;
       }

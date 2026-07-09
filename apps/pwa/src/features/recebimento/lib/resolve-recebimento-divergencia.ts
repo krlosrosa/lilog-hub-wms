@@ -75,14 +75,38 @@ export function removeResumoConferidoLocal(input: {
   );
 }
 
+export function resolveQtdContabilForProduto(
+  context: {
+    resumoConferido?: ResumoConferidoProduto[];
+    itens: SkuItem[];
+  },
+  produtoId: string,
+  sku: string,
+): number | undefined {
+  const fromResumo = context.resumoConferido?.find(
+    (entry) => entry.produtoId === produtoId,
+  )?.qtdContabil;
+  if (fromResumo !== undefined) {
+    return fromResumo;
+  }
+
+  const item = context.itens.find(
+    (entry) => entry.sku.toLowerCase() === sku.trim().toLowerCase(),
+  );
+  return item?.qtdEsperada ?? item?.quantidadeEsperada;
+}
+
 export function upsertResumoConferidoLocal(input: {
   resumoConferido: ResumoConferidoProduto[];
   produtoId: string;
   qtdFisica: number;
+  qtdContabil?: number;
 }): ResumoConferidoProduto[] {
   const next = [...input.resumoConferido];
   const index = next.findIndex((entry) => entry.produtoId === input.produtoId);
-  const qtdContabil = index >= 0 ? next[index]?.qtdContabil : undefined;
+  const qtdContabil =
+    input.qtdContabil ??
+    (index >= 0 ? next[index]?.qtdContabil : undefined);
 
   if (qtdContabil === undefined) {
     return next;

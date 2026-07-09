@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { hapticMedium } from '@/lib/haptics';
 import { isApiConfigured } from '@/lib/offline/api-client';
+import { getChecklistDraft } from '@/lib/offline/checklist-cache';
 import { db } from '@/lib/offline/db';
 import {
   loadDemandProdutos,
@@ -33,6 +34,7 @@ import {
   type MappedConferenciaContext,
 } from '../lib/map-conferencia-itens';
 import { fetchConferenciaContext } from '../lib/recebimento-api';
+import { applyRascunhosToConferenciaContext } from '../lib/apply-rascunhos-to-context';
 import type { ProdutoApi } from '../types/recebimento.api';
 import {
   previewSkuForConferencia,
@@ -88,37 +90,52 @@ export function useListaItens(demandId: string) {
   const [catalog, setCatalog] = useState<ProdutoApi[]>([]);
 
   const loadContext = useCallback(async () => {
-    if (!isApiConfigured()) {
-      const cached = await ensureConferenciaContext(demandId);
+    const cached = await ensureConferenciaContext(demandId);
+    if (cached) {
       setContext(cached);
+      setIsLoading(false);
+    }
+
+    if (!isApiConfigured() || !navigator.onLine) {
+      if (!cached) {
+        setLoadError('Sem dados em cache para esta demanda.');
+      }
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    if (!cached) {
+      setIsLoading(true);
+    }
     setLoadError(null);
 
     try {
       const apiContext = await fetchConferenciaContext(demandId);
       const mapped = mapConferenciaContext(apiContext);
-      setConferenciaContextStore(demandId, mapped);
-      await saveConferenciaContextToDb(demandId, mapped);
-      setContext(mapped);
+      const merged = await applyRascunhosToConferenciaContext(mapped, demandId);
+      setConferenciaContextStore(demandId, merged);
+      await saveConferenciaContextToDb(demandId, merged);
+      setContext(merged);
 
       const cachedDemand = await db.demands.get(demandId);
+      const checklistDraft = await getChecklistDraft(demandId);
       const hasRecebimento =
         Boolean(apiContext.recebimentoId) ||
         Boolean(cachedDemand?.recebimentoId) ||
         Boolean(getConferenciaContextStore(demandId)?.recebimentoId);
 
-      if (!hasRecebimento) {
+      const checklistCompletedLocally =
+        apiContext.checklistPreenchido ||
+        cachedDemand?.preRecebimentoSituacao === 'em_conferencia' ||
+        cachedDemand?.preRecebimentoSituacao === 'conferido' ||
+        cachedDemand?.pendingOfflineSync === true ||
+        Boolean(checklistDraft);
+
+      if (!hasRecebimento && !checklistCompletedLocally) {
         navigate({ to: '/recebimento/$id/checklist', params: { id: demandId } });
       }
     } catch (error) {
-      const cached = await ensureConferenciaContext(demandId);
-      if (cached) {
-        setContext(cached);
-      } else {
+      if (!cached) {
         setLoadError(
           error instanceof Error ? error.message : 'Falha ao carregar itens',
         );

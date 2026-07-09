@@ -1,3 +1,5 @@
+import './instrument.js';
+
 import 'reflect-metadata';
 
 import { RequestMethod } from '@nestjs/common';

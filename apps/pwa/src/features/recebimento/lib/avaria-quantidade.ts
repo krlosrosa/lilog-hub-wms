@@ -2,6 +2,7 @@ import type {
   AvariaRegistro,
   QuantidadeModo,
 } from '../types/recebimento.schema';
+import { getConferenciaContextStore } from './conferencia-context-store';
 import { resolveConferidoTotaisForSkuRecebimento } from './resolve-conferido-totais';
 import type { RecebimentoConferenciaRascunhoEntry } from './recebimento-conferencia-rascunho';
 
@@ -19,18 +20,47 @@ export function sumAvariasQuantidade(
   );
 }
 
+function avariaMatchesSku(
+  avaria: AvariaRegistro,
+  sku: string,
+  produtoId?: string | null,
+): boolean {
+  const normalized = sku.trim().toLowerCase();
+
+  if (avaria.skusAfetados && avaria.skusAfetados.length > 0) {
+    if (!normalized) {
+      return Boolean(produtoId && avaria.produtoId === produtoId);
+    }
+
+    return avaria.skusAfetados.some((s) => s.toLowerCase() === normalized);
+  }
+
+  if (avaria.sku?.trim()) {
+    return normalized ? avaria.sku.toLowerCase() === normalized : false;
+  }
+
+  return Boolean(produtoId && avaria.produtoId === produtoId);
+}
+
+export function filterAvariasForSku(
+  avarias: AvariaRegistro[],
+  sku: string,
+  produtoId?: string | null,
+): AvariaRegistro[] {
+  if (!sku.trim() && !produtoId) {
+    return avarias;
+  }
+
+  return avarias.filter((avaria) => avariaMatchesSku(avaria, sku, produtoId));
+}
+
 export function sumAvariasRegistradasForSku(
   avarias: AvariaRegistro[],
   sku: string,
+  produtoId?: string | null,
 ): QuantidadePar {
-  const normalized = sku.toLowerCase();
-
   return sumAvariasQuantidade(
-    avarias.filter(
-      (avaria) =>
-        avaria.sku?.toLowerCase() === normalized ||
-        avaria.skusAfetados?.some((s) => s.toLowerCase() === normalized),
-    ),
+    filterAvariasForSku(avarias, sku, produtoId),
   );
 }
 
@@ -118,11 +148,19 @@ export function validateAvariaQuantidadeForSkus(input: {
       };
     }
 
+    const produtoId =
+      getConferenciaContextStore(input.demandId)?.itemMetaBySku[normalized]
+        ?.produtoId ?? null;
+
     const error = validateAvariaQuantidade({
       quantidadeCaixa: input.quantidadeCaixa,
       quantidadeUnidade: input.quantidadeUnidade,
       conferido,
-      avariasRegistradas: sumAvariasRegistradasForSku(input.avariasRegistradas, sku),
+      avariasRegistradas: sumAvariasRegistradasForSku(
+        input.avariasRegistradas,
+        sku,
+        produtoId,
+      ),
       quantidadeModo: input.quantidadeModo,
       skuLabel: input.skus.length > 1 ? sku : undefined,
     });

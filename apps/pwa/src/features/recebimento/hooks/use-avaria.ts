@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { useUnidade } from '@/features/unidade';
+import { getChecklistDraft } from '@/lib/offline/checklist-cache';
 import { db } from '@/lib/offline/db';
+import { saveAvariasForDemand, loadAvariasForDemand } from '@/lib/offline/avaria-cache';
 import { usePhotoCapture } from '@/lib/offline/hooks/use-photo-capture';
 
 import {
@@ -14,9 +16,9 @@ import {
   AVARIA_TIPO_OPTIONS,
 } from '../lib/avaria-labels';
 import {
-  addAvariaRegistrada,
   createAvariaId,
   getAvariasRegistradas,
+  setAvariasRegistradas as replaceAvariasRegistradas,
 } from '../lib/conferencia-avarias-store';
 import { peekConferenciaNavigation } from '../lib/conferencia-conferidos-store';
 import { getConferenciaContextStore } from '../lib/conferencia-context-store';
@@ -36,7 +38,6 @@ import {
   listRecebimentoConferenciaRascunhos,
 } from '../lib/recebimento-conferencia-rascunho';
 import { resolveConferidoTotaisForSkuRecebimento } from '../lib/resolve-conferido-totais';
-import { syncAvariaRecebimento } from '../lib/recebimento-sync';
 import {
   buildAvariaSchema,
   DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA,
@@ -133,17 +134,41 @@ export function useAvaria(demandId: string) {
     return context?.itemMetaBySku[activeSku.toLowerCase()]?.produtoId ?? null;
   }, [activeSku, demandId]);
 
+  const rascunho = useLiveQuery(
+    () =>
+      activeSku
+        ? getRecebimentoConferenciaRascunho(demandId, activeSku)
+        : undefined,
+    [demandId, activeSku],
+  );
+
+  const resolvedProdutoId = activeProdutoId ?? rascunho?.produtoId ?? null;
+
   const lotesDisponiveis = useMemo(() => {
-    const context = getConferenciaContextStore(demandId);
-    if (!activeProdutoId || !context) {
-      return [];
+    const lotes = new Set<string>();
+
+    for (const lote of rascunho?.lotes ?? []) {
+      const value = lote.lote?.trim();
+      if (value) {
+        lotes.add(value);
+      }
     }
 
-    const conferidos =
-      context.conferidosDetalheByProdutoId?.[activeProdutoId] ?? [];
+    const context = getConferenciaContextStore(demandId);
+    if (resolvedProdutoId && context) {
+      const conferidos =
+        context.conferidosDetalheByProdutoId?.[resolvedProdutoId] ?? [];
 
-    return buildLotesDisponiveisPorProduto(conferidos, activeProdutoId);
-  }, [activeProdutoId, demandId]);
+      for (const lote of buildLotesDisponiveisPorProduto(
+        conferidos,
+        resolvedProdutoId,
+      )) {
+        lotes.add(lote);
+      }
+    }
+
+    return [...lotes].sort((a, b) => a.localeCompare(b));
+  }, [demandId, rascunho?.lotes, resolvedProdutoId]);
 
   const exigeSelecaoLote = lotesDisponiveis.length > 1;
 
@@ -152,14 +177,6 @@ export function useAvaria(demandId: string) {
       form.setValue('lote', lotesDisponiveis[0]!, { shouldValidate: true });
     }
   }, [form, lotesDisponiveis]);
-
-  const rascunho = useLiveQuery(
-    () =>
-      activeSku
-        ? getRecebimentoConferenciaRascunho(demandId, activeSku)
-        : undefined,
-    [demandId, activeSku],
-  );
 
   const conferenciaRascunhos = useLiveQuery(
     () => listRecebimentoConferenciaRascunhos(demandId),
@@ -278,12 +295,12 @@ export function useAvaria(demandId: string) {
   }, [demandId, navigate]);
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    if (!recebimentoId) {
-      form.setError('quantidadeCaixa', {
-        message: 'Recebimento não iniciado para esta carga',
-      });
-      return;
-    }
+    const checklistDraft = await getChecklistDraft(demandId);
+    const resolvedRecebimentoId =
+      getConferenciaContextStore(demandId)?.recebimentoId ??
+      demand?.recebimentoId ??
+      checklistDraft?.recebimentoId ??
+      null;
 
     const photoIds = getPhotoIds();
     if (photoIds.length < MIN_PHOTOS) {
@@ -292,8 +309,18 @@ export function useAvaria(demandId: string) {
     }
 
     setSubmitError(null);
-    const label = `Avaria ${demand?.id ?? demandId}`;
     const replicar = values.replicarParaTodosConferidos && podeReplicar;
+
+    if (!activeSku.trim()) {
+      setSubmitError('Selecione um produto conferido para registrar a avaria');
+      return;
+    }
+
+    if (!conferidoTotais.hasConferencia) {
+      setSubmitError('Conferir o item antes de registrar avaria');
+      return;
+    }
+
     const quantidadeError = validateQuantidadeLimites(values, replicar);
 
     if (quantidadeError) {
@@ -312,26 +339,13 @@ export function useAvaria(demandId: string) {
         ? [activeSku]
         : [];
 
-    const payload = {
-      produtoId: activeProdutoId ?? undefined,
-      lote: replicar ? undefined : values.lote?.trim() || undefined,
-      tipo: values.tipo,
-      natureza: values.natureza,
-      causa: values.causa,
-      quantidadeCaixas: values.quantidadeCaixa,
-      quantidadeUnidades: values.quantidadeUnidade,
-      photoCount: photoIds.length,
-      replicarParaTodos: replicar,
-      skusAlvo,
-    };
-
     const tempId = createAvariaId();
     const registroLocal: AvariaRegistro = {
       id: tempId,
-      produtoId: activeProdutoId ?? undefined,
+      produtoId: resolvedProdutoId ?? undefined,
       sku: activeSku || undefined,
       lote: replicar ? undefined : values.lote?.trim() || undefined,
-      skusAfetados: skusAlvo.length > 0 ? skusAlvo : undefined,
+      skusAfetados: replicar && skusAlvo.length > 0 ? skusAlvo : undefined,
       quantidadeCaixa: values.quantidadeCaixa,
       quantidadeUnidade: values.quantidadeUnidade,
       tipo: values.tipo,
@@ -343,18 +357,16 @@ export function useAvaria(demandId: string) {
 
     setIsSubmitting(true);
     try {
-      await syncAvariaRecebimento(
-        recebimentoId,
-        payload,
-        photoIds,
-        label,
-        () => {
-          addAvariaRegistrada(demandId, registroLocal);
-          setAvariasRegistradas(getAvariasRegistradas(demandId));
-        },
-      );
+      const cached = await loadAvariasForDemand(demandId, resolvedRecebimentoId);
+      const next = cached.some((avaria) => avaria.id === registroLocal.id)
+        ? cached
+        : [...cached, registroLocal];
 
-      // Desvincula da UI, mas mantém blobs no Dexie para o outbox sincronizar.
+      replaceAvariasRegistradas(demandId, next);
+      setAvariasRegistradas(getAvariasRegistradas(demandId));
+      await saveAvariasForDemand(demandId, resolvedRecebimentoId, next);
+
+      // Desvincula da UI, mas mantém os blobs no Dexie para o envio final.
       if (photoIds.length > 0) {
         await Promise.all(
           photoIds.map((photoId) =>

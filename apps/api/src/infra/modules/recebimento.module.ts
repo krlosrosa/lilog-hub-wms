@@ -29,6 +29,7 @@ import { GetPreRecebimentoDetalheUseCase } from '../../application/usecases/rece
 import { ListOperadorDemandasUseCase } from '../../application/usecases/recebimento/list-operador-demandas.usecase.js';
 import { ListRecebimentoAvariasUseCase } from '../../application/usecases/recebimento/list-recebimento-avarias.usecase.js';
 import { RegistrarAvariaUseCase } from '../../application/usecases/recebimento/registrar-avaria.usecase.js';
+import { RemoverAvariasRecebimentoUseCase } from '../../application/usecases/recebimento/remover-avarias-recebimento.usecase.js';
 import { GetRecebimentoByPreRecebimentoUseCase } from '../../application/usecases/recebimento/get-recebimento-by-pre-recebimento.usecase.js';
 import { GetRecebimentoUseCase } from '../../application/usecases/recebimento/get-recebimento.usecase.js';
 import { IniciarRecebimentoUseCase } from '../../application/usecases/recebimento/iniciar-recebimento.usecase.js';
@@ -70,6 +71,7 @@ import { GetPreRecebimentoDetalheController } from '../../presentation/controlle
 import { ListOperadorDemandasController } from '../../presentation/controllers/recebimento/list-operador-demandas.controller.js';
 import { ListRecebimentoAvariasController } from '../../presentation/controllers/recebimento/list-recebimento-avarias.controller.js';
 import { RegistrarAvariaController } from '../../presentation/controllers/recebimento/registrar-avaria.controller.js';
+import { RemoverAvariasRecebimentoController } from '../../presentation/controllers/recebimento/remover-avarias-recebimento.controller.js';
 import { GetRecebimentoByPreRecebimentoController } from '../../presentation/controllers/recebimento/get-recebimento-by-pre-recebimento.controller.js';
 import { GetRecebimentoController } from '../../presentation/controllers/recebimento/get-recebimento.controller.js';
 import { IniciarRecebimentoController } from '../../presentation/controllers/recebimento/iniciar-recebimento.controller.js';
@@ -149,6 +151,7 @@ import { UserModule } from './user.module.js';
     SugerirEtiquetasRecebimentoController,
     GetRecebimentoController,
     RegistrarAvariaController,
+    RemoverAvariasRecebimentoController,
     GerarLinkRastreioController,
     GetRastreioStatusController,
     ImportOfflineRecebimentoController,
@@ -187,6 +190,7 @@ import { UserModule } from './user.module.js';
     ListOperadorDemandasUseCase,
     GetConferenciaContextUseCase,
     RegistrarAvariaUseCase,
+    RemoverAvariasRecebimentoUseCase,
     ListRecebimentoAvariasUseCase,
     GerarLinkRastreioUseCase,
     GetRastreioStatusUseCase,

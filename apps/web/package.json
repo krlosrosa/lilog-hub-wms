@@ -18,6 +18,7 @@
     "@hookform/resolvers": "^5.4.0",
     "@lilog/contracts": "workspace:*",
     "@lilog/ui": "workspace:*",
+    "@sentry/nextjs": "^10.64.0",
     "@zxing/browser": "^0.2.0",
     "@zxing/library": "0.22.0",
     "lucide-react": "^1.16.0",

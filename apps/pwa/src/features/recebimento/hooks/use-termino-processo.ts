@@ -2,13 +2,14 @@ import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { hapticMedium } from '@/lib/haptics';
-import { clearDemandCache } from '@/lib/offline/demand-cache';
+import { db } from '@/lib/offline/db';
 import { isApiConfigured } from '@/lib/offline/api-client';
 
 import { getAvariasRegistradas } from '../lib/conferencia-avarias-store';
 import { getConferenciaContextStore, ensureConferenciaContext } from '../lib/conferencia-context-store';
 import { listAvarias } from '../lib/recebimento-api';
-import { syncEncerrarConferencia } from '../lib/recebimento-sync';
+import { submitConferenciaBackground } from '../lib/submit-conferencia';
+import { triggerAutoSyncIfPending } from '@/lib/offline/sync-engine';
 import { getSkuItemsByDemandId } from './use-lista-itens';
 import { useDemandById } from './use-demand-by-id';
 import type { SkuItem } from '../types/recebimento.schema';
@@ -112,20 +113,24 @@ export function useTerminoProcesso(demandId: string) {
       return;
     }
 
-    void listAvarias(recebimentoId).then((apiAvarias) => {
-      if (apiAvarias.length < local.length) {
-        return;
-      }
+    void listAvarias(recebimentoId)
+      .then((apiAvarias) => {
+        if (apiAvarias.length < local.length) {
+          return;
+        }
 
-      setAvarias(
-        apiAvarias.map((avaria) => ({
-          sku: avaria.produtoId ?? '—',
-          name: skuByProduto.get(avaria.produtoId ?? '') ?? avaria.tipo,
-          quantity: avaria.quantidadeCaixas + avaria.quantidadeUnidades,
-          motivo: `${avaria.tipo} / ${avaria.causa}`,
-        })),
-      );
-    });
+        setAvarias(
+          apiAvarias.map((avaria) => ({
+            sku: avaria.produtoId ?? '—',
+            name: skuByProduto.get(avaria.produtoId ?? '') ?? avaria.tipo,
+            quantity: avaria.quantidadeCaixas + avaria.quantidadeUnidades,
+            motivo: `${avaria.tipo} / ${avaria.causa}`,
+          })),
+        );
+      })
+      .catch(() => {
+        // Mantém avarias locais quando a API falha.
+      });
   }, [context?.itemMetaBySku, context?.itens, demandId, recebimentoId]);
 
   const tempoTotal = encerrado ? '—' : 'Em andamento';
@@ -166,26 +171,30 @@ export function useTerminoProcesso(demandId: string) {
     setEncerrado(true);
     setConfirmModalOpen(false);
 
-    const encerrarLabel = `Encerrar conferência ${demand?.id ?? demandId}`;
-    const resolvedRecebimentoId = recebimentoId;
-    const resolvedRouteId = demand?.routeId;
+    // Marca a demanda como conferida localmente e dispara o envio em segundo
+    // plano. O usuário não fica travado esperando a sincronização terminar.
+    void (async () => {
+      const cachedDemand = await db.demands.get(demandId);
+      if (cachedDemand) {
+        await db.demands.put({
+          ...cachedDemand,
+          status: 'conferido',
+          statusLabel: 'Aguardando sincronização',
+          preRecebimentoSituacao: 'conferido',
+          pendingOfflineSync: true,
+        });
+      }
 
-    if (resolvedRecebimentoId && isApiConfigured()) {
-      void syncEncerrarConferencia(resolvedRecebimentoId, encerrarLabel);
-    }
-
-    void clearDemandCache(demandId, resolvedRouteId);
+      void submitConferenciaBackground(demandId).then((result) => {
+        if (result.status !== 'success') {
+          triggerAutoSyncIfPending();
+        }
+      });
+    })();
 
     setIsFinalizing(false);
     navigate({ to: '/recebimento' });
-  }, [
-    demand?.id,
-    demand?.routeId,
-    demandId,
-    isFinalizing,
-    navigate,
-    recebimentoId,
-  ]);
+  }, [demandId, isFinalizing, navigate]);
 
   return {
     state: {

@@ -1,49 +1,27 @@
-import { db } from '@/lib/offline/db';
-import { enqueue, type EnqueueInput } from '@/lib/offline/outbox';
-import { flushOutbox } from '@/lib/offline/sync-engine';
+export const OFFLINE_RECEBIMENTO_PLACEHOLDER = '__offline__';
 
-import type { SubmitAvariaPayload } from '../types/recebimento.api';
-
-async function fireAndForget(
-  entry: EnqueueInput,
-  optimisticUpdate?: () => void | Promise<void>,
-): Promise<void> {
-  if (optimisticUpdate) {
-    await optimisticUpdate();
-  }
-
-  await enqueue(db, entry);
-  void flushOutbox();
+export function resolveOutboxRecebimentoId(
+  recebimentoId: string | null | undefined,
+): string {
+  const normalized = recebimentoId?.trim();
+  return normalized || OFFLINE_RECEBIMENTO_PLACEHOLDER;
 }
 
-export async function syncAvariaRecebimento(
-  recebimentoId: string,
-  payload: SubmitAvariaPayload,
-  photoIds: number[],
-  label: string,
-  optimisticUpdate?: () => void | Promise<void>,
-): Promise<void> {
-  await fireAndForget(
-    {
-      endpoint: `/recebimentos/${encodeURIComponent(recebimentoId)}/avarias`,
-      method: 'POST',
-      payload,
-      photoIds,
-      label,
-    },
-    optimisticUpdate,
-  );
+export function buildRecebimentoEndpoint(
+  recebimentoId: string | null | undefined,
+  path: string,
+): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `/recebimentos/${encodeURIComponent(resolveOutboxRecebimentoId(recebimentoId))}${normalizedPath}`;
 }
 
-export async function syncEncerrarConferencia(
-  recebimentoId: string,
-  label: string,
-): Promise<void> {
-  await fireAndForget({
-    endpoint: `/recebimentos/${encodeURIComponent(recebimentoId)}/encerrar`,
-    method: 'PUT',
-    payload: {},
-    photoIds: [],
-    label,
-  });
+export function withRecebimentoDemandPayload<T extends Record<string, unknown>>(
+  preRecebimentoId: string,
+  payload: T,
+): T & { preRecebimentoId: string; demandId: string } {
+  return {
+    ...payload,
+    preRecebimentoId,
+    demandId: preRecebimentoId,
+  };
 }

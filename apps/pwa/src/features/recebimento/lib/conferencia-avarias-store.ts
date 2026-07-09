@@ -15,6 +15,19 @@ export function isAvariasSeeded(demandId: string): boolean {
   return seededDemands.has(demandId);
 }
 
+export function setAvariasRegistradas(
+  demandId: string,
+  records: AvariaRegistro[],
+) {
+  store.set(demandId, dedupeAvariasById(cloneAvarias(records)));
+  seededDemands.add(demandId);
+}
+
+export function clearAvariasSession(demandId: string) {
+  store.delete(demandId);
+  seededDemands.delete(demandId);
+}
+
 function dedupeAvariasById(avarias: AvariaRegistro[]): AvariaRegistro[] {
   const seen = new Set<string>();
   return avarias.filter((avaria) => {
@@ -29,8 +42,7 @@ export function seedAvariasRegistradas(
   records: AvariaRegistro[],
 ) {
   if (seededDemands.has(demandId)) return;
-  store.set(demandId, dedupeAvariasById(cloneAvarias(records)));
-  seededDemands.add(demandId);
+  setAvariasRegistradas(demandId, records);
 }
 
 export function addAvariaRegistrada(demandId: string, registro: AvariaRegistro) {

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { hapticMedium } from '@/lib/haptics';
 import { isApiConfigured } from '@/lib/offline/api-client';
+import { saveAvariasForDemand, hasAvariasCacheForDemand } from '@/lib/offline/avaria-cache';
 import { saveUnitDocasToDb } from '@/lib/offline/checklist-cache';
 import { db } from '@/lib/offline/db';
 import {
@@ -18,12 +19,56 @@ import {
   setConferenciaContextStore,
 } from '../lib/conferencia-context-store';
 import { mapConferenciaContext } from '../lib/map-conferencia-itens';
+import { mapAvariaApiToRegistro } from '../lib/map-avaria-api';
 import {
   fetchAllProdutos,
   fetchConferenciaContext,
+  listAvarias,
   listDocas,
 } from '../lib/recebimento-api';
+import { fetchParametrosRecebimentoConferencia } from '../lib/recebimento-config';
 import type { Demand } from '../types/recebimento.schema';
+
+async function syncCatalogoParaDemanda(
+  unidadeId: string,
+  demandId: string,
+): Promise<void> {
+  const existing = await loadCatalogoProdutos(unidadeId);
+  const stale = await isCatalogStale(db, unidadeId);
+
+  if (!stale) {
+    if (existing.length > 0) {
+      await saveDemandProdutos(demandId, existing);
+    }
+    return;
+  }
+
+  if (existing.length === 0) {
+    try {
+      const produtos = await fetchAllProdutos();
+      if (produtos.length > 0) {
+        await saveCatalogoProdutos(unidadeId, produtos);
+        await recordCatalogSync(db, unidadeId);
+        await saveDemandProdutos(demandId, produtos);
+      }
+    } catch {
+      // Sem catálogo disponível para uso offline.
+    }
+    return;
+  }
+
+  await saveDemandProdutos(demandId, existing);
+  void fetchAllProdutos()
+    .then(async (produtos) => {
+      if (produtos.length === 0) return;
+      await saveCatalogoProdutos(unidadeId, produtos);
+      await recordCatalogSync(db, unidadeId);
+      await saveDemandProdutos(demandId, produtos);
+    })
+    .catch(() => {
+      // Catálogo anterior continua válido.
+    });
+}
 
 export function useIniciarDemanda() {
   const navigate = useNavigate();
@@ -50,7 +95,10 @@ export function useIniciarDemanda() {
 
         await db.demands.put(demand);
 
-        const checklistDone = demand.preRecebimentoSituacao === 'em_conferencia';
+        const checklistDone =
+          demand.preRecebimentoSituacao === 'em_conferencia' ||
+          demand.preRecebimentoSituacao === 'conferido' ||
+          demand.pendingOfflineSync === true;
         const unidadeId = demand.unidadeId;
 
         if (isApiConfigured() && navigator.onLine) {
@@ -65,29 +113,35 @@ export function useIniciarDemanda() {
           await saveConferenciaContextToDb(demand.id, mapped);
           setConferenciaContextStore(demand.id, mapped);
 
+          if (mapped.recebimentoId) {
+            void hasAvariasCacheForDemand(demand.id, mapped.recebimentoId)
+              .then(async (hasLocalCache) => {
+                if (hasLocalCache) return;
+
+                const items = await listAvarias(mapped.recebimentoId!);
+                const registros = items.map((item) =>
+                  mapAvariaApiToRegistro(item, demand.id),
+                );
+                await saveAvariasForDemand(
+                  demand.id,
+                  mapped.recebimentoId,
+                  registros,
+                );
+              })
+              .catch(() => {
+                // Avarias em cache anterior continuam válidas.
+              });
+          }
+
           if (unidadeId && docas.length > 0) {
             await saveUnitDocasToDb(unidadeId, docas);
           }
 
           if (unidadeId) {
-            const stale = await isCatalogStale(db, unidadeId);
-            if (stale) {
-              void fetchAllProdutos()
-                .then(async (produtos) => {
-                  if (produtos.length === 0) return;
-                  await saveCatalogoProdutos(unidadeId, produtos);
-                  await recordCatalogSync(db, unidadeId);
-                  await saveDemandProdutos(demand.id, produtos);
-                })
-                .catch(() => {
-                  // Catálogo anterior (se existir) continua válido.
-                });
-            }
-
-            const existing = await loadCatalogoProdutos(unidadeId);
-            if (existing.length > 0) {
-              await saveDemandProdutos(demand.id, existing);
-            }
+            void fetchParametrosRecebimentoConferencia(unidadeId).catch(() => {
+              // Config anterior no IndexedDB continua válida.
+            });
+            await syncCatalogoParaDemanda(unidadeId, demand.id);
           }
         } else {
           const cached = await ensureConferenciaContext(demand.id);

@@ -16,7 +16,6 @@ import { useEffect, useState } from 'react';
 
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { logPhotoPreviewLoadFailed } from '@/lib/images/photo-debug-log';
-import { PhotoDebugPanel } from '@/lib/images/photo-debug-panel';
 
 import { AvariaSelectField } from '../components/avaria-select-field';
 import { useAvaria } from '../hooks/use-avaria';
@@ -425,8 +424,6 @@ export function AvariaView({ demandId }: AvariaViewProps) {
               />
             ))}
           </div>
-
-          <PhotoDebugPanel className="mt-3" />
         </section>
 
         {submitError ? (

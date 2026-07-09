@@ -1,4 +1,5 @@
 import { createRootRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import * as Sentry from '@sentry/react';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -8,6 +9,24 @@ import { AppBar, isAppBarHidden } from '@/components/layout/app-bar';
 export const Route = createRootRoute({
   component: RootLayout,
 });
+
+function ErroGlobal() {
+  return (
+    <div className="flex h-dvh flex-col items-center justify-center gap-4 p-8 text-center">
+      <h2 className="text-lg font-semibold">Algo deu errado</h2>
+      <p className="text-sm text-muted-foreground">
+        Ocorreu um erro inesperado. Nossa equipe foi notificada.
+      </p>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-on-secondary"
+      >
+        Recarregar
+      </button>
+    </div>
+  );
+}
 
 function RootLayout() {
   const { user, isLoading } = useAuth();
@@ -74,7 +93,9 @@ function RootLayout() {
       <main
         className={`${animationClass} scroll-native min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[calc(env(safe-area-inset-bottom,0px)+16px)]`}
       >
-        <Outlet key={pathname} />
+        <Sentry.ErrorBoundary fallback={<ErroGlobal />}>
+          <Outlet key={pathname} />
+        </Sentry.ErrorBoundary>
       </main>
     </div>
   );

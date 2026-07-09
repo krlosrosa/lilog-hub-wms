@@ -5,8 +5,6 @@ import { useForm, type UseFormReturn } from 'react-hook-form';
 
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useUnidade } from '@/features/unidade';
-import { isApiConfigured } from '@/lib/offline/api-client';
-import { useOfflineMutation } from '@/lib/offline/hooks/use-offline-mutation';
 import {
   produtoToConfig,
   produtoToMeta,
@@ -32,9 +30,7 @@ import {
   saveConferenciaContextToDb,
   setConferenciaContextStore,
 } from '../lib/conferencia-context-store';
-import { mapConferenciaContext } from '../lib/map-conferencia-itens';
 import type { ConferenciaItemMeta } from '../lib/map-conferencia-itens';
-import { mapConferirPayloadFromLote } from '../lib/map-conferir-payload';
 import {
   applyGs1BarcodeInput,
   looksLikeGs1Barcode,
@@ -43,23 +39,13 @@ import {
   resolveLoteFieldInput,
   resolvePesoInputValue,
 } from '../lib/parse-gs1-barcode';
-import {
-  applyResumoToSkuItems,
-  removeResumoConferidoLocal,
-  resolveQtdFisicaFromLotes,
-  upsertResumoConferidoLocal,
-} from '../lib/resolve-recebimento-divergencia';
+import { mergeSkuConferenciaIntoContext } from '../lib/merge-conferencia-sku-save';
 import {
   buildLotesFromConferidosApi,
   deleteRecebimentoConferenciaRascunho,
   getRecebimentoConferenciaRascunho,
-  isPersistedLote,
-  resolveItemRecebimentoId,
   saveRecebimentoConferenciaRascunho,
 } from '../lib/recebimento-conferencia-rascunho';
-import {
-  fetchConferenciaContext,
-} from '../lib/recebimento-api';
 import {
   fetchParametrosRecebimentoConferencia,
   getCachedParametrosRecebimentoConferencia,
@@ -77,6 +63,7 @@ import {
 } from '../lib/conferencia-sku-session';
 import { getSkuItemsByDemandId } from './use-lista-itens';
 import { useDemandById } from './use-demand-by-id';
+import type { ProdutoApi } from '../types/recebimento.api';
 import {
   buildDetalheItemSchema,
   DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA,
@@ -190,7 +177,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
   const navigate = useNavigate();
   const demand = useDemandById(demandId);
   const { unidadeSelecionada } = useUnidade();
-  const { mutate, isPending: isSavingConferencia } = useOfflineMutation();
+  const [isSavingConferencia, setIsSavingConferencia] = useState(false);
   const [parametrosConferencia, setParametrosConferencia] =
     useState<ParametrosRecebimentoConferencia>(() => {
       const unidadeId = unidadeSelecionada?.id ?? demand?.unidadeId;
@@ -227,38 +214,18 @@ export function useDetalheItem(demandId: string, initKey?: string) {
   const gs1InputRef = useRef<HTMLInputElement>(null);
   const [gs1WedgeValue, setGs1WedgeValue] = useState('');
   const [ignoreMaintainedLote, setIgnoreMaintainedLote] = useState(false);
+  const [catalogProduto, setCatalogProduto] = useState<ProdutoApi | null>(null);
 
   useEffect(() => {
     setSessionSku(getConferenciaSkuSession(demandId));
   }, [demandId]);
 
   useEffect(() => {
-    const applyContext = (mapped: ReturnType<typeof mapConferenciaContext>) => {
-      setExigePaleteConferencia(mapped.exigePaleteConferencia);
-      setConferenciaContextStore(demandId, mapped);
-    };
-
-    if (!isApiConfigured()) {
-      void ensureConferenciaContext(demandId).then((ctx) => {
-        if (ctx) {
-          setExigePaleteConferencia(ctx.exigePaleteConferencia);
-        }
-      });
-      return;
-    }
-
-    void fetchConferenciaContext(demandId)
-      .then(async (apiContext) => {
-        const mapped = mapConferenciaContext(apiContext);
-        applyContext(mapped);
-        await saveConferenciaContextToDb(demandId, mapped);
-      })
-      .catch(async () => {
-        const cached = await ensureConferenciaContext(demandId);
-        if (cached) {
-          setExigePaleteConferencia(cached.exigePaleteConferencia);
-        }
-      });
+    void ensureConferenciaContext(demandId).then((ctx) => {
+      if (ctx) {
+        setExigePaleteConferencia(ctx.exigePaleteConferencia);
+      }
+    });
   }, [demandId]);
 
   useEffect(() => {
@@ -503,12 +470,16 @@ export function useDetalheItem(demandId: string, initKey?: string) {
 
   useEffect(() => {
     const normalizedSku = (skuValue.trim() || sessionSku || '').toLowerCase();
-    if (!normalizedSku) return;
+    if (!normalizedSku) {
+      setCatalogProduto(null);
+      return;
+    }
 
     const context = getConferenciaContextStore(demandId);
     const meta = context?.itemMetaBySku[normalizedSku];
     if (meta) {
       setProdutoConfig(meta.config);
+      setCatalogProduto(null);
       return;
     }
 
@@ -516,7 +487,11 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       demandId,
       skuValue.trim() || sessionSku || '',
     ).then((produto) => {
-      if (!produto) return;
+      if (!produto) {
+        setCatalogProduto(null);
+        return;
+      }
+      setCatalogProduto(produto);
       setProdutoConfig(
         produtoToConfig(
           produto,
@@ -567,12 +542,16 @@ export function useDetalheItem(demandId: string, initKey?: string) {
 
     return {
       sku: resolvedSku,
-      name: 'Item novo — conferência avulsa',
+      name:
+        fromCargo?.name ??
+        contextMeta?.descricao ??
+        catalogProduto?.descricao ??
+        'Item novo — conferência avulsa',
       supplier: demand?.supplier ?? '—',
       expiry: '—',
       isNovo: true,
     };
-  }, [demand?.supplier, demandId, sessionSku, skuValue]);
+  }, [catalogProduto?.descricao, demand?.supplier, demandId, sessionSku, skuValue]);
 
   const conferidoTotais = useMemo(
     () =>
@@ -624,22 +603,6 @@ export function useDetalheItem(demandId: string, initKey?: string) {
     }
   }, [canAdvanceStep1, canAdvanceStep2, controlaPalete, demandId, form, idPaleteValue, step]);
 
-  const refreshConferenciaContextFromApi = useCallback(async () => {
-    if (!isApiConfigured()) {
-      return;
-    }
-
-    try {
-      const apiContext = await fetchConferenciaContext(demandId);
-      const mapped = mapConferenciaContext(apiContext);
-      setExigePaleteConferencia(mapped.exigePaleteConferencia);
-      setConferenciaContextStore(demandId, mapped);
-      await saveConferenciaContextToDb(demandId, mapped);
-    } catch {
-      // Mantém contexto local se a API falhar.
-    }
-  }, [demandId]);
-
   const syncLocalAfterLotesChange = useCallback(
     async (
       nextLotes: LoteConferido[],
@@ -669,68 +632,12 @@ export function useDetalheItem(demandId: string, initKey?: string) {
         return;
       }
 
-      const normalizedSku = resolvedSku.toLowerCase();
-      const resumoConferido =
-        nextLotes.length === 0
-          ? removeResumoConferidoLocal({
-              resumoConferido: context.resumoConferido ?? [],
-              produtoId: meta.produtoId,
-            })
-          : upsertResumoConferidoLocal({
-              resumoConferido: context.resumoConferido ?? [],
-              produtoId: meta.produtoId,
-              qtdFisica: resolveQtdFisicaFromLotes(
-                nextLotes,
-                meta.unidadesPorCaixa,
-              ),
-            });
-
-      let nextItems = context.itens.map((skuItem) => {
-        if (skuItem.sku.toLowerCase() !== normalizedSku) {
-          return skuItem;
-        }
-
-        if (nextLotes.length === 0) {
-          return {
-            ...skuItem,
-            status: 'pendente' as const,
-            hasDivergencia: false,
-            qtdEsperada: undefined,
-            qtdConferida: undefined,
-            quantidadeEsperada: undefined,
-          };
-        }
-
-        return { ...skuItem, status: 'conferido' as const };
+      const nextContext = mergeSkuConferenciaIntoContext(context, {
+        sku: resolvedSku,
+        meta,
+        lotes: nextLotes,
+        removing: nextLotes.length === 0,
       });
-
-      nextItems = applyResumoToSkuItems(
-        nextItems,
-        context.itemMetaBySku,
-        resumoConferido,
-      );
-
-      const conferidoSkus = new Set(context.conferidoSkus);
-      if (nextLotes.length === 0) {
-        conferidoSkus.delete(normalizedSku);
-      } else {
-        conferidoSkus.add(normalizedSku);
-      }
-
-      const conferidosDetalheByProdutoId = {
-        ...context.conferidosDetalheByProdutoId,
-      };
-      if (nextLotes.length === 0) {
-        delete conferidosDetalheByProdutoId[meta.produtoId];
-      }
-
-      const nextContext = {
-        ...context,
-        itens: nextItems,
-        resumoConferido,
-        conferidoSkus,
-        conferidosDetalheByProdutoId,
-      };
       setConferenciaContextStore(demandId, nextContext);
       await saveConferenciaContextToDb(demandId, nextContext);
     },
@@ -762,55 +669,6 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       demandId,
       parametrosConferencia.solicitarPesoPvar,
       parametrosConferencia.exigirEtiquetaPesoVariavel,
-    ],
-  );
-
-  const postLotesToRecebimento = useCallback(
-    async (
-      lotes: LoteConferido[],
-      meta: ConferenciaItemMeta,
-      recebimentoId: string,
-      options: { replaceExisting: boolean },
-    ) => {
-      const values = form.getValues();
-      const resolvedSku = values.sku.trim() || sessionSku?.trim() || '';
-      const fallbackIdPalete = values.idPalete?.trim() || undefined;
-
-      if (options.replaceExisting) {
-        await mutate({
-          endpoint: `/recebimentos/${recebimentoId}/itens/${meta.produtoId}`,
-          method: 'DELETE',
-          payload: {},
-          photoIds: [],
-          label: `Atualizar conferência ${resolvedSku}`,
-        });
-      }
-
-      for (const lote of lotes) {
-        const payload = mapConferirPayloadFromLote(
-          lote,
-          meta,
-          parametrosConferencia.loteModo,
-          fallbackIdPalete,
-          controlaPalete,
-        );
-        const loteLabel = lote.lote || lote.validade || 'sem lote';
-
-        await mutate({
-          endpoint: `/recebimentos/${recebimentoId}/itens`,
-          method: 'POST',
-          payload,
-          photoIds: [],
-          label: `Conferir ${resolvedSku} (${loteLabel})`,
-        });
-      }
-    },
-    [
-      controlaPalete,
-      form,
-      mutate,
-      parametrosConferencia.loteModo,
-      sessionSku,
     ],
   );
 
@@ -846,32 +704,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
         return;
       }
 
-      const context = getConferenciaContextStore(demandId);
-      const recebimentoId = context?.recebimentoId ?? demand?.recebimentoId;
-      const itemRecebimentoId = resolveItemRecebimentoId(lote);
-
       try {
-        if (recebimentoId && isApiConfigured()) {
-          if (lote.pesagemId) {
-            await mutate({
-              endpoint: `/recebimentos/${recebimentoId}/pesagens/${lote.pesagemId}`,
-              method: 'DELETE',
-              payload: {},
-              photoIds: [],
-              label: `Remover pesagem ${resolvedSku}`,
-            });
-          } else if (itemRecebimentoId) {
-            await mutate({
-              endpoint: `/recebimentos/${recebimentoId}/itens-linha/${itemRecebimentoId}`,
-              method: 'DELETE',
-              payload: {},
-              photoIds: [],
-              label: `Remover lote ${resolvedSku}`,
-            });
-          }
-          void refreshConferenciaContextFromApi();
-        }
-
         const nextLotes = lotesConferidos.filter((entry) => entry.id !== id);
         await syncLocalAfterLotesChange(nextLotes, resolvedSku, meta);
       } catch (error) {
@@ -881,12 +714,8 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       }
     },
     [
-      demand?.recebimentoId,
-      demandId,
       form,
       lotesConferidos,
-      mutate,
-      refreshConferenciaContextFromApi,
       resolveItemMetaForSku,
       sessionSku,
       syncLocalAfterLotesChange,
@@ -921,22 +750,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
         return;
       }
 
-      const context = getConferenciaContextStore(demandId);
-      const recebimentoId = context?.recebimentoId ?? demand?.recebimentoId;
-      const hasPersisted = lotesPalete.some((lote) => isPersistedLote(lote));
-
       try {
-        if (hasPersisted && recebimentoId && isApiConfigured()) {
-          await mutate({
-            endpoint: `/recebimentos/${recebimentoId}/paletes/${encodeURIComponent(idPalete)}?produtoId=${encodeURIComponent(meta.produtoId)}`,
-            method: 'DELETE',
-            payload: {},
-            photoIds: [],
-            label: `Remover palete ${idPalete}`,
-          });
-          void refreshConferenciaContextFromApi();
-        }
-
         const nextLotes = lotesConferidos.filter(
           (lote) => lote.idPalete !== idPalete,
         );
@@ -948,12 +762,8 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       }
     },
     [
-      demand?.recebimentoId,
-      demandId,
       form,
       lotesConferidos,
-      mutate,
-      refreshConferenciaContextFromApi,
       resolveItemMetaForSku,
       sessionSku,
       syncLocalAfterLotesChange,
@@ -1540,7 +1350,6 @@ export function useDetalheItem(demandId: string, initKey?: string) {
     }
 
     const context = getConferenciaContextStore(demandId);
-    const recebimentoId = context?.recebimentoId ?? demand?.recebimentoId;
     let meta = context?.itemMetaBySku[resolvedSku.toLowerCase()] ?? null;
 
     if (!meta) {
@@ -1562,13 +1371,6 @@ export function useDetalheItem(demandId: string, initKey?: string) {
     }
 
     try {
-      if (recebimentoId && isApiConfigured()) {
-        await postLotesToRecebimento(lotesPaleteAtual, meta, recebimentoId, {
-          replaceExisting: false,
-        });
-        void refreshConferenciaContextFromApi();
-      }
-
       await mergeLotesComRascunho(
         demandId,
         resolvedSku,
@@ -1592,13 +1394,10 @@ export function useDetalheItem(demandId: string, initKey?: string) {
   }, [
     appendPendingLoteBeforeAction,
     canFecharPalete,
-    demand?.recebimentoId,
     demandId,
     form,
     initKey,
     parametrosConferencia.solicitarPesoPvar,
-    postLotesToRecebimento,
-    refreshConferenciaContextFromApi,
     sessionSku,
   ]);
 
@@ -1647,7 +1446,6 @@ export function useDetalheItem(demandId: string, initKey?: string) {
     }
 
     const context = getConferenciaContextStore(demandId);
-    const recebimentoId = context?.recebimentoId ?? demand?.recebimentoId;
 
     let meta = context?.itemMetaBySku[resolvedSku.toLowerCase()] ?? null;
 
@@ -1725,68 +1523,13 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       }
 
       const latestContext = getConferenciaContextStore(demandId) ?? context;
-      if (latestContext) {
-        const normalizedSku = resolvedSku.toLowerCase();
-        let nextItems = latestContext.itens.map((skuItem) => {
-          if (skuItem.sku.toLowerCase() !== normalizedSku) {
-            return skuItem;
-          }
-
-          if (isRemovendoConferenciaFinal) {
-            return {
-              ...skuItem,
-              status: 'pendente' as const,
-              hasDivergencia: false,
-              qtdEsperada: undefined,
-              qtdConferida: undefined,
-              quantidadeEsperada: undefined,
-            };
-          }
-
-          return { ...skuItem, status: 'conferido' as const };
+      if (latestContext && meta) {
+        const nextContext = mergeSkuConferenciaIntoContext(latestContext, {
+          sku: resolvedSku,
+          meta,
+          lotes: isRemovendoConferenciaFinal ? [] : lotesParaSalvarFinal,
+          removing: isRemovendoConferenciaFinal,
         });
-
-        const resumoConferido = isRemovendoConferenciaFinal
-          ? removeResumoConferidoLocal({
-              resumoConferido: latestContext.resumoConferido ?? [],
-              produtoId: meta!.produtoId,
-            })
-          : upsertResumoConferidoLocal({
-              resumoConferido: latestContext.resumoConferido ?? [],
-              produtoId: meta!.produtoId,
-              qtdFisica: resolveQtdFisicaFromLotes(
-                lotesParaSalvarFinal,
-                meta!.unidadesPorCaixa,
-              ),
-            });
-
-        nextItems = applyResumoToSkuItems(
-          nextItems,
-          latestContext.itemMetaBySku,
-          resumoConferido,
-        );
-
-        const conferidoSkus = new Set(latestContext.conferidoSkus);
-        if (isRemovendoConferenciaFinal) {
-          conferidoSkus.delete(normalizedSku);
-        } else {
-          conferidoSkus.add(normalizedSku);
-        }
-
-        const conferidosDetalheByProdutoId = {
-          ...latestContext.conferidosDetalheByProdutoId,
-        };
-        if (isRemovendoConferenciaFinal) {
-          delete conferidosDetalheByProdutoId[meta!.produtoId];
-        }
-
-        const nextContext = {
-          ...latestContext,
-          itens: nextItems,
-          resumoConferido,
-          conferidoSkus,
-          conferidosDetalheByProdutoId,
-        };
         setConferenciaContextStore(demandId, nextContext);
         await saveConferenciaContextToDb(demandId, nextContext);
       }
@@ -1796,46 +1539,9 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       }
     };
 
-    const finishSave = async () => {
-      await persistLocal();
-      clearConferenciaNavigation(demandId);
-      await navigate({
-        to: '/recebimento/$id/itens',
-        params: { id: demandId },
-      });
-    };
-
-    if (!recebimentoId || !isApiConfigured()) {
-      await finishSave();
-      return;
-    }
-
     try {
-      if (recebimentoId && isApiConfigured()) {
-        if (!isRemovendoConferenciaFinal) {
-          await postLotesToRecebimento(
-            lotesParaSalvarFinal,
-            meta,
-            recebimentoId,
-            { replaceExisting: true },
-          );
-        } else {
-          await mutate({
-            endpoint: `/recebimentos/${recebimentoId}/itens/${meta.produtoId}`,
-            method: 'DELETE',
-            payload: {},
-            photoIds: [],
-            label: `Remover conferência ${resolvedSku}`,
-          });
-        }
-      }
-
+      setIsSavingConferencia(true);
       await persistLocal();
-
-      if (isApiConfigured()) {
-        void refreshConferenciaContextFromApi();
-      }
-
       clearConferenciaNavigation(demandId);
       clearPaleteSession(demandId);
       await navigate({
@@ -1846,23 +1552,20 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       setSaveError(
         error instanceof Error ? error.message : 'Falha ao conferir item',
       );
+    } finally {
+      setIsSavingConferencia(false);
     }
   }, [
     appendPendingLoteBeforeAction,
     canSaveConferencia,
     canRemoverConferencia,
     controlaPalete,
-    demand?.recebimentoId,
     demandId,
     form,
     hasPendingLoteDraft,
-    hasRascunhoAcumulado,
     lotesConferidos,
-    mutate,
     navigate,
     parametrosConferencia.solicitarPesoPvar,
-    postLotesToRecebimento,
-    refreshConferenciaContextFromApi,
     sessionSku,
   ]);
 

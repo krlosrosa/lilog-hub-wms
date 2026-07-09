@@ -41,6 +41,17 @@ export async function markError(
   });
 }
 
+export async function markDiscarded(
+  database: AppDB,
+  id: number,
+  message: string
+): Promise<void> {
+  await database.outbox.update(id, {
+    status: 'discarded',
+    errorMessage: message,
+  });
+}
+
 export async function resetError(database: AppDB, id: number): Promise<void> {
   await database.outbox.update(id, {
     status: 'pending',

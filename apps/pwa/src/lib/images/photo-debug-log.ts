@@ -1,42 +1,18 @@
 import { db } from '@/lib/offline/db';
 import { getPhoto } from '@/lib/offline/photo-store';
 
-import { pushPhotoDebugEntry } from './photo-debug-store';
-
-const LOG_PREFIX = '[PhotoDebug]';
-
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function serializeDetail(detail: Record<string, unknown>): string {
-  try {
-    return JSON.stringify(detail, null, 2);
-  } catch {
-    return String(detail);
-  }
-}
-
 export function logPhotoDebug(
-  event: string,
-  detail: Record<string, unknown> = {},
-  summary?: string,
+  _event: string,
+  _detail: Record<string, unknown> = {},
+  _summary?: string,
 ): void {
-  const payload = {
-    at: new Date().toISOString(),
-    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-    ...detail,
-  };
-
-  console.warn(LOG_PREFIX, event, payload);
-
-  pushPhotoDebugEntry({
-    event,
-    summary: summary ?? event,
-    detail: serializeDetail(payload),
-  });
+  // Diagnóstico de foto desativado em produção.
 }
 
 async function canDecodeBlob(blob: Blob): Promise<{

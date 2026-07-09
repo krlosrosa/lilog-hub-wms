@@ -1,4 +1,5 @@
 import type { OutboxEntry } from '../db';
+import { OFFLINE_RECEBIMENTO_PLACEHOLDER } from '@/features/recebimento/lib/recebimento-sync';
 
 export type SyncExportModule =
   | 'recebimento'
@@ -71,8 +72,18 @@ export function extractDemandFromOutbox(entry: OutboxEntry): DemandGroupKey | nu
 
   for (const pattern of ENDPOINT_PATTERNS) {
     const match = endpoint.match(pattern.regex);
-    const demandId = match?.[1] ? decodeURIComponent(match[1]) : null;
+    let demandId = match?.[1] ? decodeURIComponent(match[1]) : null;
     if (demandId) {
+      if (
+        pattern.module === 'recebimento' &&
+        demandId === OFFLINE_RECEBIMENTO_PLACEHOLDER
+      ) {
+        const payloadDemandId = readPayloadDemandId(entry.payload);
+        if (payloadDemandId) {
+          demandId = payloadDemandId;
+        }
+      }
+
       return { demandId, module: pattern.module };
     }
   }

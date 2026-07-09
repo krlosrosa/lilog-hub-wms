@@ -1,4 +1,5 @@
 import { request } from '@/lib/offline/api-client';
+import { db } from '@/lib/offline/db';
 
 import {
   DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA,
@@ -24,6 +25,47 @@ type ConfiguracaoOperacionalApiResponse = {
 };
 
 const cachePorUnidade = new Map<string, ParametrosRecebimentoConferencia>();
+
+function normalizeParametros(
+  parametros: ParametrosRecebimentoConferencia,
+): ParametrosRecebimentoConferencia {
+  return {
+    quantidadeModo: parametros.quantidadeModo,
+    loteModo: parametros.loteModo,
+    controlaPalete: parametros.controlaPalete ?? false,
+    solicitarPesoPvar: parametros.solicitarPesoPvar ?? true,
+    exigirEtiquetaPesoVariavel: parametros.exigirEtiquetaPesoVariavel ?? false,
+    condicoesChecklist:
+      parametros.condicoesChecklist?.length > 0
+        ? parametros.condicoesChecklist
+        : DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA.condicoesChecklist,
+  };
+}
+
+async function saveConfigToCache(
+  unidadeId: string,
+  config: ParametrosRecebimentoConferencia,
+): Promise<ParametrosRecebimentoConferencia> {
+  const normalized = normalizeParametros(config);
+  cachePorUnidade.set(unidadeId, normalized);
+  await db.unidadeConfigs.put({
+    unidadeId,
+    config: normalized,
+    cachedAt: Date.now(),
+  });
+  return normalized;
+}
+
+export async function loadCachedConfigFromDb(
+  unidadeId: string,
+): Promise<ParametrosRecebimentoConferencia | null> {
+  const entry = await db.unidadeConfigs.get(unidadeId);
+  if (!entry) return null;
+
+  const normalized = normalizeParametros(entry.config);
+  cachePorUnidade.set(unidadeId, normalized);
+  return normalized;
+}
 
 export function getCachedParametrosRecebimentoConferencia(
   unidadeId: string,
@@ -51,20 +93,12 @@ export async function fetchParametrosRecebimentoConferencia(
       response.items.find((item) => item.isPadrao) ?? response.items[0];
 
     const parametros = padrao?.parametros ?? DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA;
-    cachePorUnidade.set(unidadeId, {
-      quantidadeModo: parametros.quantidadeModo,
-      loteModo: parametros.loteModo,
-      controlaPalete: parametros.controlaPalete ?? false,
-      solicitarPesoPvar: parametros.solicitarPesoPvar ?? true,
-      exigirEtiquetaPesoVariavel:
-        parametros.exigirEtiquetaPesoVariavel ?? false,
-      condicoesChecklist:
-        parametros.condicoesChecklist?.length > 0
-          ? parametros.condicoesChecklist
-          : DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA.condicoesChecklist,
-    });
-    return cachePorUnidade.get(unidadeId)!;
+    return saveConfigToCache(unidadeId, parametros);
   } catch {
+    const cached = await loadCachedConfigFromDb(unidadeId);
+    if (cached) {
+      return cached;
+    }
     return DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA;
   }
 }

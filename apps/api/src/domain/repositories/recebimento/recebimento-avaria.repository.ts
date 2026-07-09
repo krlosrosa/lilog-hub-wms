@@ -39,4 +39,7 @@ export interface IRecebimentoAvariaRepository {
     items: CreateRecebimentoAvariaInput[],
   ): Promise<RecebimentoAvariaRecord[]>;
   listByRecebimento(recebimentoId: string): Promise<RecebimentoAvariaRecord[]>;
+  deleteByRecebimento(
+    recebimentoId: string,
+  ): Promise<{ removedCount: number }>;
 }

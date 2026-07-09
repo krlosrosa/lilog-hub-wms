@@ -15,16 +15,12 @@ import {
   type DockOption,
 } from '@/lib/offline/checklist-cache';
 import { db } from '@/lib/offline/db';
-import { ApiClientError, isApiConfigured } from '@/lib/offline/api-client';
+import { isApiConfigured } from '@/lib/offline/api-client';
 import { usePhotoCapture, type CapturedPhoto } from '@/lib/offline/hooks/use-photo-capture';
 
 import {
-  fetchAuthMe,
-  fetchConferenciaContext,
   getRecebimentoByPreRecebimento,
-  iniciarRecebimento,
   listDocas,
-  saveChecklist,
 } from '../lib/recebimento-api';
 import {
   ensureConferenciaContext,
@@ -32,8 +28,6 @@ import {
   setConferenciaContextStore,
   updateDemandRecebimentoId,
 } from '../lib/conferencia-context-store';
-import { mapConferenciaContext } from '../lib/map-conferencia-itens';
-import { uploadChecklistPhotos } from '../lib/upload-checklist-photos';
 import {
   fetchParametrosRecebimentoConferencia,
   getCachedParametrosRecebimentoConferencia,
@@ -102,6 +96,72 @@ export type ChecklistPhotoSlotState = {
   capture: () => void;
   removePhoto: (photoId: number) => Promise<void>;
 };
+
+type PersistChecklistOfflineParams = {
+  demandId: string;
+  values: ChecklistForm;
+  dockLabel: string;
+  recebimentoId: string | null;
+  cachedDemand: Awaited<ReturnType<typeof db.demands.get>>;
+  unidadeId: string;
+  lacrePhotoIds: number[];
+  bauFechadoPhotoIds: number[];
+  bauAbertoPhotoIds: number[];
+  extrasPhotoIds: number[];
+};
+
+async function persistChecklistOffline({
+  demandId,
+  values,
+  dockLabel,
+  recebimentoId,
+  cachedDemand,
+  unidadeId,
+  lacrePhotoIds,
+  bauFechadoPhotoIds,
+  bauAbertoPhotoIds,
+  extrasPhotoIds,
+}: PersistChecklistOfflineParams): Promise<void> {
+  const context = await ensureConferenciaContext(demandId);
+
+  await saveOfflineChecklistDraft({
+    demandId,
+    form: values,
+    dockId: values.dock,
+    dockLabel,
+    photoSlots: [
+      { slotId: 'lacre', photoIds: lacrePhotoIds },
+      { slotId: 'bau-fechado', photoIds: bauFechadoPhotoIds },
+      { slotId: 'bau-aberto', photoIds: bauAbertoPhotoIds },
+      { slotId: 'extras', photoIds: extrasPhotoIds },
+    ],
+    situacao: cachedDemand?.preRecebimentoSituacao ?? 'agendado',
+    recebimentoId,
+    responsavelId: readCachedFuncionarioId(),
+    unidadeId,
+  });
+
+  if (cachedDemand) {
+    await db.demands.put({
+      ...cachedDemand,
+      dock: dockLabel,
+      recebimentoId: recebimentoId ?? cachedDemand.recebimentoId,
+      status: 'em_conferencia',
+      preRecebimentoSituacao: 'em_conferencia',
+    });
+  }
+
+  if (context) {
+    const nextContext = recebimentoId
+      ? { ...context, recebimentoId }
+      : context;
+    setConferenciaContextStore(demandId, nextContext);
+    await saveConferenciaContextToDb(demandId, nextContext);
+    if (recebimentoId) {
+      updateDemandRecebimentoId(demandId, recebimentoId);
+    }
+  }
+}
 
 export function useChecklist(demandId: string) {
   const navigate = useNavigate();
@@ -172,7 +232,10 @@ export function useChecklist(demandId: string) {
     void ensureConferenciaContext(demandId);
   }, [demandId]);
 
-  const checklistDone = demand?.preRecebimentoSituacao === 'em_conferencia';
+  const checklistDone =
+    demand?.preRecebimentoSituacao === 'em_conferencia' ||
+    demand?.preRecebimentoSituacao === 'conferido' ||
+    demand?.pendingOfflineSync === true;
 
   useEffect(() => {
     if (demand === undefined) return;
@@ -303,15 +366,6 @@ export function useChecklist(demandId: string) {
     return Object.keys(nextErrors).length === 0;
   }, [requiredPhotoSlots]);
 
-  const getAllPhotoIds = useCallback(() => {
-    return [
-      ...lacrePhotos.getPhotoIds(),
-      ...bauFechadoPhotos.getPhotoIds(),
-      ...bauAbertoPhotos.getPhotoIds(),
-      ...extrasPhotos.getPhotoIds(),
-    ];
-  }, [lacrePhotos, bauFechadoPhotos, bauAbertoPhotos, extrasPhotos]);
-
   useEffect(() => {
     setPhotoErrors((prev) => {
       if (Object.keys(prev).length === 0) return prev;
@@ -333,7 +387,6 @@ export function useChecklist(demandId: string) {
       return;
     }
 
-    const photoIds = getAllPhotoIds();
     setSubmitError(null);
     setIsSubmitting(true);
 
@@ -344,135 +397,32 @@ export function useChecklist(demandId: string) {
         cachedDemand?.dock ??
         values.dock;
 
-      let recebimentoId = cachedDemand?.recebimentoId ?? null;
+      const recebimentoId = cachedDemand?.recebimentoId ?? null;
+      const unidadeId = cachedDemand?.unidadeId ?? demand?.unidadeId ?? '';
+      const offlineParams: PersistChecklistOfflineParams = {
+        demandId,
+        values,
+        dockLabel,
+        recebimentoId,
+        cachedDemand,
+        unidadeId,
+        lacrePhotoIds: lacrePhotos.getPhotoIds(),
+        bauFechadoPhotoIds: bauFechadoPhotos.getPhotoIds(),
+        bauAbertoPhotoIds: bauAbertoPhotos.getPhotoIds(),
+        extrasPhotoIds: extrasPhotos.getPhotoIds(),
+      };
 
-      if (isApiConfigured() && !navigator.onLine) {
-        const context = await ensureConferenciaContext(demandId);
-
-        await saveOfflineChecklistDraft({
-          demandId,
-          form: values,
-          dockId: values.dock,
-          dockLabel,
-          photoSlots: [
-            { slotId: 'lacre', photoIds: lacrePhotos.getPhotoIds() },
-            { slotId: 'bau-fechado', photoIds: bauFechadoPhotos.getPhotoIds() },
-            { slotId: 'bau-aberto', photoIds: bauAbertoPhotos.getPhotoIds() },
-            { slotId: 'extras', photoIds: extrasPhotos.getPhotoIds() },
-          ],
-          situacao: cachedDemand?.preRecebimentoSituacao ?? 'agendado',
-          recebimentoId,
-          responsavelId: readCachedFuncionarioId(),
-          unidadeId: cachedDemand?.unidadeId ?? demand?.unidadeId ?? '',
-        });
-
-        if (cachedDemand) {
-          await db.demands.put({
-            ...cachedDemand,
-            dock: dockLabel,
-            status: 'em_conferencia',
-            preRecebimentoSituacao: 'em_conferencia',
-          });
-        }
-
-        if (context) {
-          await saveConferenciaContextToDb(demandId, context);
-        }
-      } else if (isApiConfigured()) {
-        const context = await fetchConferenciaContext(demandId);
-        const situacao = context.situacao;
-
-        if (situacao === 'agendado') {
+      if (isApiConfigured()) {
+        if (
+          cachedDemand?.preRecebimentoSituacao === 'agendado' ||
+          cachedDemand?.preRecebimentoSituacao === 'aguardando'
+        ) {
           throw new Error(
             'Carga ainda não liberada para conferência no painel web.',
           );
         }
 
-        recebimentoId =
-          context.recebimentoId ?? recebimentoId ?? null;
-
-        if (!recebimentoId && situacao === 'liberado_para_conferencia') {
-          const me = await fetchAuthMe();
-          if (!me?.funcionarioId) {
-            throw new Error(
-              'Usuário sem funcionário vinculado para iniciar recebimento',
-            );
-          }
-
-          try {
-            const recebimento = await iniciarRecebimento({
-              preRecebimentoId: demandId,
-              docaId: values.dock,
-              responsavelId: me.funcionarioId,
-            });
-            recebimentoId = recebimento.id;
-          } catch (error) {
-            if (error instanceof ApiClientError && error.status === 409) {
-              const existing = await getRecebimentoByPreRecebimento(demandId);
-              recebimentoId = existing?.id ?? null;
-            } else {
-              throw error;
-            }
-          }
-        }
-
-        if (!recebimentoId) {
-          throw new Error(
-            'Não foi possível iniciar o recebimento. Verifique doca e permissões.',
-          );
-        }
-
-        updateDemandRecebimentoId(demandId, recebimentoId);
-
-        if (cachedDemand) {
-          try {
-            await db.demands.put({
-              ...cachedDemand,
-              dock: dockLabel,
-              recebimentoId,
-              status: 'em_conferencia',
-              preRecebimentoSituacao: 'em_conferencia',
-            });
-          } catch {
-            // não bloqueia navegação se o Dexie estiver em upgrade
-          }
-        }
-
-        const resolvedRecebimentoId = recebimentoId;
-        void (async () => {
-          try {
-            await uploadChecklistPhotos(resolvedRecebimentoId, [
-              { slotId: 'lacre', photoIds: lacrePhotos.getPhotoIds() },
-              { slotId: 'bau-fechado', photoIds: bauFechadoPhotos.getPhotoIds() },
-              { slotId: 'bau-aberto', photoIds: bauAbertoPhotos.getPhotoIds() },
-              { slotId: 'extras', photoIds: extrasPhotos.getPhotoIds() },
-            ]);
-          } catch {
-            // não bloqueia navegação se upload das fotos falhar
-          }
-
-          try {
-            await saveChecklist(resolvedRecebimentoId, {
-              lacre: values.lacre || undefined,
-              tempBau: values.tempBau,
-              tempProduto: values.tempProd,
-              conditions: values.conditions,
-              observacoes: values.observacoes || undefined,
-              photoCount: photoIds.length,
-            });
-          } catch {
-            // não bloqueia navegação se persistência do checklist falhar
-          }
-
-          try {
-            const refreshed = await fetchConferenciaContext(demandId);
-            const mapped = mapConferenciaContext(refreshed);
-            setConferenciaContextStore(demandId, mapped);
-            await saveConferenciaContextToDb(demandId, mapped);
-          } catch {
-            // não bloqueia navegação se refresh do contexto falhar
-          }
-        })();
+        await persistChecklistOffline(offlineParams);
       } else if (cachedDemand) {
         try {
           await db.demands.put({ ...cachedDemand, dock: dockLabel });

@@ -5,6 +5,7 @@ import {
   serializeConferenciaContext,
   type MappedConferenciaContext,
 } from './map-conferencia-itens';
+import { applyRascunhosToConferenciaContext } from './apply-rascunhos-to-context';
 
 const PREFIX = 'recebimento:conferencia-context';
 const CONFERIDOS_PREFIX = 'recebimento:conferidos';
@@ -83,13 +84,22 @@ export async function ensureConferenciaContext(
   demandId: string,
 ): Promise<MappedConferenciaContext | null> {
   const fromSession = getConferenciaContextStore(demandId);
-  if (fromSession) return fromSession;
+  let base = fromSession;
 
-  const fromDb = await loadConferenciaContextFromDb(demandId);
-  if (!fromDb) return null;
+  if (!base) {
+    const fromDb = await loadConferenciaContextFromDb(demandId);
+    if (!fromDb) return null;
+    base = fromDb;
+  }
 
-  setConferenciaContextStore(demandId, fromDb);
-  return fromDb;
+  const merged = await applyRascunhosToConferenciaContext(base, demandId);
+  setConferenciaContextStore(demandId, merged);
+
+  if (merged !== base) {
+    await saveConferenciaContextToDb(demandId, merged);
+  }
+
+  return merged;
 }
 
 export function clearConferenciaSessionData(demandId: string): void {

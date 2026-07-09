@@ -261,3 +261,39 @@ export async function getRecebimentoByPreRecebimento(
     throw error;
   }
 }
+
+export type ImportOfflineRecebimentoPayload = {
+  exportId: string;
+  unidadeId?: string;
+  entries: Array<{
+    outboxId?: number;
+    label: string;
+    endpoint: string;
+    method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+    payload: unknown;
+    createdAt: number;
+  }>;
+};
+
+export type ImportOfflineRecebimentoResult = {
+  demandId: string;
+  recebimentoId: string;
+  exportId: string;
+  appliedCount: number;
+  skippedCount: number;
+  errors: Array<{ label: string; message: string }>;
+};
+
+export function importOfflineRecebimento(
+  preRecebimentoId: string,
+  payload: ImportOfflineRecebimentoPayload,
+) {
+  return request<ImportOfflineRecebimentoResult>(
+    `/pre-recebimentos/${encodeURIComponent(preRecebimentoId)}/offline/importar`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
+}

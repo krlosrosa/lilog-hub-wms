@@ -16,6 +16,7 @@
     "@hookform/resolvers": "^5.4.0",
     "@lilog/contracts": "workspace:*",
     "@lilog/ui": "workspace:*",
+    "@sentry/react": "^10.64.0",
     "@tanstack/react-router": "^1.114.29",
     "@zxing/browser": "^0.2.0",
     "@zxing/library": "0.22.0",
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@lilog/eslint-config": "workspace:*",
     "@lilog/typescript-config": "workspace:*",
+    "@sentry/vite-plugin": "^5.3.0",
     "@tanstack/router-cli": "^1.114.29",
     "@tanstack/router-plugin": "^1.114.29",
     "@types/node": "^22.19.10",

@@ -24,17 +24,24 @@ import {
 
   Trash2,
 
+  TriangleAlert,
+
   Wifi,
 
   WifiOff,
 
 } from 'lucide-react';
 
+import { useLiveQuery } from 'dexie-react-hooks';
+
 import { useMemo, useState } from 'react';
 
 
 
 import { hapticLight, hapticMedium } from '@/lib/haptics';
+
+import { submitConferenciaBackground } from '@/features/recebimento/lib/submit-conferencia';
+import { buildConferenciaExportPackage } from '@/features/recebimento/lib/build-conferencia-package';
 
 import type { OutboxEntry } from '@/lib/offline/db';
 
@@ -46,8 +53,9 @@ import { useSyncStatus } from '@/lib/offline/hooks/use-sync-status';
 
 import { resetAllErrors, resetError, removeAllOutboxEntries, removeOutboxEntry } from '@/lib/offline/outbox';
 
-import { syncNow } from '@/lib/offline/sync-engine';
+import { syncNow, triggerAutoSyncIfPending } from '@/lib/offline/sync-engine';
 import { groupOutboxErrorsByDemand } from '@/lib/offline/sync-export';
+import type { SyncExportPackage } from '@/lib/offline/sync-export';
 
 import { SyncExportModal } from './sync-export-modal';
 
@@ -203,17 +211,21 @@ function OutboxRow({
 
   deleteDisabled = false,
 
+  retryDisabled = false,
+
 }: {
 
   entry: OutboxEntry;
 
-  variant: 'pending' | 'error';
+  variant: 'pending' | 'error' | 'discarded';
 
   onRetry?: (id: number) => void;
 
   onDelete?: (id: number) => void;
 
   deleteDisabled?: boolean;
+
+  retryDisabled?: boolean;
 
 }) {
 
@@ -231,7 +243,11 @@ function OutboxRow({
 
             ? 'border-destructive/30 bg-error-container/10'
 
-            : 'border-outline-variant bg-surface active:bg-surface-container',
+            : variant === 'discarded'
+
+              ? 'border-warning/30 bg-warning-container/10'
+
+              : 'border-outline-variant bg-surface active:bg-surface-container',
 
         )}
 
@@ -247,7 +263,11 @@ function OutboxRow({
 
               ? 'bg-error-container/30'
 
-              : 'bg-secondary-container',
+              : variant === 'discarded'
+
+                ? 'bg-warning-container/30'
+
+                : 'bg-secondary-container',
 
           )}
 
@@ -256,6 +276,10 @@ function OutboxRow({
           {variant === 'error' ? (
 
             <AlertCircle className="h-5 w-5 text-destructive" aria-hidden />
+
+          ) : variant === 'discarded' ? (
+
+            <TriangleAlert className="h-5 w-5 text-warning" aria-hidden />
 
           ) : entry.status === 'syncing' ? (
 
@@ -299,6 +323,30 @@ function OutboxRow({
 
           )}
 
+          {variant === 'discarded' && (
+
+            <>
+
+              {entry.errorMessage ? (
+
+                <p className="mt-1.5 rounded-md bg-warning-container/20 px-2 py-1 text-label-sm text-on-surface-variant">
+
+                  {entry.errorMessage}
+
+                </p>
+
+              ) : null}
+
+              <p className="mt-1.5 text-label-sm text-on-surface-variant">
+
+                Não foi possível sincronizar pois a conferência já foi encerrada no sistema.
+
+              </p>
+
+            </>
+
+          )}
+
         </div>
 
         <div className="flex shrink-0 flex-col gap-1.5">
@@ -309,6 +357,8 @@ function OutboxRow({
 
             type="button"
 
+            disabled={retryDisabled || entry.status === 'syncing'}
+
             onClick={() => {
 
               hapticLight();
@@ -317,7 +367,7 @@ function OutboxRow({
 
             }}
 
-            className="flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-surface px-3 text-label-sm font-semibold text-secondary touch-manipulation active:scale-95"
+            className="flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-surface px-3 text-label-sm font-semibold text-secondary touch-manipulation active:scale-95 disabled:opacity-40"
 
           >
 
@@ -329,7 +379,35 @@ function OutboxRow({
 
         )}
 
-        {entry.id != null && onDelete && (
+        {variant === 'discarded' && entry.id != null && onDelete && (
+
+          <button
+
+            type="button"
+
+            disabled={deleteDisabled || entry.status === 'syncing'}
+
+            onClick={() => {
+
+              hapticLight();
+
+              onDelete(entry.id!);
+
+            }}
+
+            className="flex h-9 items-center justify-center gap-1 rounded-lg border border-outline-variant bg-surface px-3 text-label-sm font-semibold text-on-surface-variant touch-manipulation active:scale-95 disabled:opacity-40"
+
+          >
+
+            <Trash2 className="h-3.5 w-3.5" aria-hidden />
+
+            Dispensar
+
+          </button>
+
+        )}
+
+        {variant !== 'discarded' && entry.id != null && onDelete && (
 
           <button
 
@@ -549,13 +627,23 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
   const { isOnline } = useNetworkStatus();
 
-  const { pending, errors, lastSyncAt, todaySyncedCount, isSyncing, hasIssues } =
+  const { pending, errors, discarded, lastSyncAt, todaySyncedCount, isSyncing, hasIssues } =
 
     useSyncStatus();
 
   const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportEntries, setExportEntries] = useState<OutboxEntry[]>([]);
+  const [exportDemandOpen, setExportDemandOpen] = useState(false);
+  const [exportDemandPackage, setExportDemandPackage] = useState<SyncExportPackage | null>(null);
+  const [isExportingDemandId, setIsExportingDemandId] = useState<string | null>(null);
+  const [sendingDemandId, setSendingDemandId] = useState<string | null>(null);
+
+  const pendingRecebimentos =
+    useLiveQuery(
+      () => db.demands.filter((demand) => demand.pendingOfflineSync === true).toArray(),
+      [],
+    ) ?? [];
 
   const lastSyncLabel = useMemo(() => formatRelativeSync(lastSyncAt), [lastSyncAt]);
   const demandErrorGroups = useMemo(
@@ -563,7 +651,7 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
     [errors],
   );
 
-  const busy = isManualSyncing || isSyncing;
+  const busy = isManualSyncing || isSyncing || sendingDemandId !== null;
 
   const openExportForEntries = (entries: OutboxEntry[]) => {
     hapticMedium();
@@ -597,6 +685,8 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
   const handleRetry = async (id: number) => {
 
+    if (busy) return;
+
     await resetError(db, id);
 
     if (isOnline) {
@@ -611,7 +701,73 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
 
 
+  const handleSendRecebimento = async (demandId: string) => {
+
+    if (!isOnline || busy) return;
+
+    hapticMedium();
+
+    setSendingDemandId(demandId);
+
+    try {
+
+      const result = await submitConferenciaBackground(demandId);
+
+      if (result.status !== 'success') {
+        triggerAutoSyncIfPending();
+      }
+
+    } finally {
+
+      setSendingDemandId(null);
+
+    }
+
+  };
+
+
+
+  const handleExportRecebimento = async (demandId: string) => {
+
+    if (busy || isExportingDemandId) return;
+
+    hapticMedium();
+
+    setIsExportingDemandId(demandId);
+
+    try {
+
+      const pkg = await buildConferenciaExportPackage(demandId);
+
+      setExportDemandPackage(pkg);
+
+      setExportDemandOpen(true);
+
+    } catch (error) {
+
+      window.alert(
+
+        error instanceof Error
+
+          ? error.message
+
+          : 'Falha ao preparar exportação via QR code.',
+
+      );
+
+    } finally {
+
+      setIsExportingDemandId(null);
+
+    }
+
+  };
+
+
+
   const handleRetryAll = async () => {
+
+    if (busy) return;
 
     hapticMedium();
 
@@ -629,7 +785,7 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
   const handleDeleteEntry = async (id: number) => {
 
-    const entry = pending.find((item) => item.id === id) ?? errors.find((item) => item.id === id);
+    const entry = pending.find((item) => item.id === id) ?? errors.find((item) => item.id === id) ?? discarded.find((item) => item.id === id);
 
     const label = entry?.label ?? 'este item';
 
@@ -773,10 +929,11 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
               {errors.length > 0 && (
                 <button
                   type="button"
+                  disabled={busy}
                   onClick={() => openExportForEntries(errors)}
                   aria-label="Exportar tudo"
                   title="Exportar tudo"
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-outline-variant bg-surface-container touch-manipulation active:scale-[0.98]"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-outline-variant bg-surface-container touch-manipulation active:scale-[0.98] disabled:opacity-50"
                 >
                   <QrCode className="h-5 w-5 text-secondary" aria-hidden />
                 </button>
@@ -825,6 +982,193 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
             </div>
 
           )}
+
+
+
+          {busy && (
+
+            <div
+
+              className="mt-3 flex items-center gap-2 rounded-lg border border-secondary/30 bg-secondary-container/20 px-3 py-2.5"
+
+              role="status"
+
+              aria-live="polite"
+
+            >
+
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-secondary" aria-hidden />
+
+              <p className="text-label-sm font-medium text-on-surface">
+
+                Sincronização em andamento. Aguarde para enviar ou tentar novamente.
+
+              </p>
+
+            </div>
+
+          )}
+
+
+
+          <section className="mt-6" aria-labelledby="sync-recebimentos-heading">
+
+            <h3
+
+              id="sync-recebimentos-heading"
+
+              className="mb-2 flex items-center justify-between gap-2"
+
+            >
+
+              <span className="flex items-center gap-2 text-label-md font-semibold text-on-surface">
+
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary-container">
+
+                  <CloudUpload className="h-3.5 w-3.5 text-on-secondary-container" aria-hidden />
+
+                </span>
+
+                Recebimentos a enviar
+
+              </span>
+
+              <span className="rounded-full bg-surface-container px-2.5 py-0.5 font-mono text-label-sm font-bold text-secondary">
+
+                {pendingRecebimentos.length}
+
+              </span>
+
+            </h3>
+
+            {pendingRecebimentos.length === 0 ? (
+
+              <EmptyBlock
+
+                icon={CheckCircle2}
+
+                title="Nada a enviar"
+
+                description="Conferências finalizadas já foram enviadas ao servidor."
+
+              />
+
+            ) : (
+
+              <ul className="space-y-2">
+
+                {pendingRecebimentos.map((demand) => {
+
+                  const isSending = sendingDemandId === demand.id;
+                  const isExporting = isExportingDemandId === demand.id;
+
+                  return (
+
+                    <li key={demand.id}>
+
+                      <article className="flex items-center gap-3 rounded-lg border border-outline-variant bg-surface p-3 shadow-sm">
+
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-container">
+
+                          {isSending || isExporting ? (
+
+                            <Loader2 className="h-5 w-5 animate-spin text-on-secondary-container" aria-hidden />
+
+                          ) : (
+
+                            <CloudUpload className="h-5 w-5 text-on-secondary-container" aria-hidden />
+
+                          )}
+
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+
+                          <p className="truncate text-body-md font-semibold text-on-surface">
+
+                            {demand.supplier ?? `Demanda ${demand.id}`}
+
+                          </p>
+
+                          <p className="mt-0.5 font-mono text-label-sm text-on-surface-variant">
+
+                            #{demand.id}
+
+                          </p>
+
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-1.5">
+
+                        <button
+
+                          type="button"
+
+                          disabled={busy || isExporting}
+
+                          onClick={() => void handleExportRecebimento(demand.id)}
+
+                          aria-label="Exportar via QR code"
+
+                          title="Exportar via QR code"
+
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-outline-variant bg-surface-container text-secondary touch-manipulation active:scale-95 disabled:opacity-50"
+
+                        >
+
+                          {isExporting ? (
+
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+
+                          ) : (
+
+                            <QrCode className="h-3.5 w-3.5" aria-hidden />
+
+                          )}
+
+                        </button>
+
+                        <button
+
+                          type="button"
+
+                          disabled={!isOnline || busy}
+
+                          onClick={() => void handleSendRecebimento(demand.id)}
+
+                          className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-outline-variant bg-surface px-3 text-label-sm font-semibold text-secondary touch-manipulation active:scale-95 disabled:opacity-50"
+
+                        >
+
+                          {isSending ? (
+
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+
+                          ) : (
+
+                            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+
+                          )}
+
+                          {isSending ? 'Enviando…' : 'Enviar'}
+
+                        </button>
+
+                        </div>
+
+                      </article>
+
+                    </li>
+
+                  );
+
+                })}
+
+              </ul>
+
+            )}
+
+          </section>
 
 
 
@@ -1014,9 +1358,11 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
                                 type="button"
 
+                                disabled={busy}
+
                                 onClick={() => openExportForEntries(group.entries)}
 
-                                className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container px-3 text-label-sm font-semibold text-on-surface touch-manipulation active:scale-[0.98]"
+                                className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container px-3 text-label-sm font-semibold text-on-surface touch-manipulation active:scale-[0.98] disabled:opacity-50"
 
                               >
 
@@ -1054,6 +1400,8 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
                       deleteDisabled={busy}
 
+                      retryDisabled={busy}
+
                       onRetry={(id) => void handleRetry(id)}
 
                       onDelete={(id) => void handleDeleteEntry(id)}
@@ -1065,6 +1413,92 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
                 </ul>
 
               </div>
+
+            )}
+
+          </section>
+
+
+
+          <section className="mt-6" aria-labelledby="sync-discarded-heading">
+
+            <h3
+
+              id="sync-discarded-heading"
+
+              className="mb-2 flex items-center justify-between gap-2"
+
+            >
+
+              <span className="flex items-center gap-2 text-label-md font-semibold text-on-surface">
+
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-warning-container/30">
+
+                  <TriangleAlert className="h-3.5 w-3.5 text-warning" aria-hidden />
+
+                </span>
+
+                Não sincronizável
+
+              </span>
+
+              <span
+
+                className={cn(
+
+                  'rounded-full px-2.5 py-0.5 font-mono text-label-sm font-bold',
+
+                  discarded.length > 0
+
+                    ? 'bg-warning-container/30 text-warning'
+
+                    : 'bg-surface-container text-on-surface-variant',
+
+                )}
+
+              >
+
+                {discarded.length}
+
+              </span>
+
+            </h3>
+
+            {discarded.length === 0 ? (
+
+              <EmptyBlock
+
+                icon={CheckCircle2}
+
+                title="Nada pendente"
+
+                description="Nenhum envio bloqueado por regra do sistema."
+
+              />
+
+            ) : (
+
+              <ul className="space-y-2">
+
+                {discarded.map((entry) => (
+
+                  <OutboxRow
+
+                    key={entry.id}
+
+                    entry={entry}
+
+                    variant="discarded"
+
+                    deleteDisabled={busy}
+
+                    onDelete={(id) => void handleDeleteEntry(id)}
+
+                  />
+
+                ))}
+
+              </ul>
 
             )}
 
@@ -1086,6 +1520,18 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
           }
         }}
         entries={exportEntries}
+      />
+
+      <SyncExportModal
+
+        open={exportDemandOpen}
+        onOpenChange={(open) => {
+          setExportDemandOpen(open);
+          if (!open) {
+            setExportDemandPackage(null);
+          }
+        }}
+        preBuiltPackage={exportDemandPackage}
       />
 
     </>

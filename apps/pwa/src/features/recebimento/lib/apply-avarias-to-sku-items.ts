@@ -1,32 +1,5 @@
 import type { AvariaRegistro, SkuItem } from '../types/recebimento.schema';
-
-function collectSkusWithAvaria(avarias: AvariaRegistro[]): Set<string> {
-  const skus = new Set<string>();
-
-  for (const avaria of avarias) {
-    if (avaria.sku) {
-      skus.add(avaria.sku.toLowerCase());
-    }
-
-    for (const sku of avaria.skusAfetados ?? []) {
-      skus.add(sku.toLowerCase());
-    }
-  }
-
-  return skus;
-}
-
-function collectProdutoIdsWithAvaria(avarias: AvariaRegistro[]): Set<string> {
-  const produtoIds = new Set<string>();
-
-  for (const avaria of avarias) {
-    if (avaria.produtoId) {
-      produtoIds.add(avaria.produtoId);
-    }
-  }
-
-  return produtoIds;
-}
+import { filterAvariasForSku } from './avaria-quantidade';
 
 export function applyAvariasToSkuItems(
   itens: SkuItem[],
@@ -37,14 +10,10 @@ export function applyAvariasToSkuItems(
     return itens;
   }
 
-  const skusWithAvaria = collectSkusWithAvaria(avarias);
-  const produtoIdsWithAvaria = collectProdutoIdsWithAvaria(avarias);
-
   return itens.map((item) => {
     const produtoId = itemMetaBySku[item.sku.toLowerCase()]?.produtoId;
     const hasAvaria =
-      skusWithAvaria.has(item.sku.toLowerCase()) ||
-      (produtoId != null && produtoIdsWithAvaria.has(produtoId)) ||
+      filterAvariasForSku(avarias, item.sku, produtoId).length > 0 ||
       item.hasAvaria === true;
 
     if (!hasAvaria) {

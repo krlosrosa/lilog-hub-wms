@@ -1,6 +1,18 @@
 import { clearConferenciaSessionData } from '@/features/recebimento/lib/conferencia-context-store';
+import { resolveAvariaCacheKey } from '@/lib/offline/avaria-cache';
+import { deleteChecklistDraft } from '@/lib/offline/checklist-cache';
 
 import { db } from './db';
+
+export async function clearRecebimentoDemandAfterSync(
+  demandId: string,
+  routeId?: string,
+): Promise<void> {
+  await db.recebimentoConferenciaRascunho.where('demandId').equals(demandId).delete();
+  await deleteChecklistDraft(demandId);
+  await db.recebimentoAvarias.delete(resolveAvariaCacheKey(demandId, null));
+  await clearDemandCache(demandId, routeId);
+}
 
 export async function clearDemandCache(
   demandId: string,

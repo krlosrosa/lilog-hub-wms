@@ -13,11 +13,13 @@ import type {
   ProdutoApi,
 } from '@/features/recebimento/types/recebimento.api';
 import type {
+  AvariaRegistro,
   ChecklistForm,
   Demand,
+  ParametrosRecebimentoConferencia,
 } from '@/features/recebimento/types/recebimento.schema';
 
-export type OutboxStatus = 'pending' | 'syncing' | 'error';
+export type OutboxStatus = 'pending' | 'syncing' | 'error' | 'discarded';
 
 export type OutboxMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -86,6 +88,18 @@ export interface DemandProdutosEntry {
   cachedAt: number;
 }
 
+export interface UnidadeConfigEntry {
+  unidadeId: string;
+  config: ParametrosRecebimentoConferencia;
+  cachedAt: number;
+}
+
+export interface RecebimentoAvariaEntry {
+  recebimentoId: string;
+  avarias: AvariaRegistro[];
+  cachedAt: number;
+}
+
 class AppDB extends Dexie {
   demands!: Table<Demand, string>;
   devolucaoDemands!: Table<DevolucaoDemand, string>;
@@ -103,6 +117,8 @@ class AppDB extends Dexie {
   unitDocas!: Table<UnitDocasEntry, string>;
   checklistDrafts!: Table<ChecklistDraftEntry, string>;
   demandProdutos!: Table<DemandProdutosEntry, string>;
+  unidadeConfigs!: Table<UnidadeConfigEntry, string>;
+  recebimentoAvarias!: Table<RecebimentoAvariaEntry, string>;
   photos!: Table<PhotoEntry, number>;
   outbox!: Table<OutboxEntry, number>;
   syncMeta!: Table<SyncMeta, string>;
@@ -229,6 +245,39 @@ class AppDB extends Dexie {
       unitDocas: 'unidadeId',
       checklistDrafts: 'demandId',
       demandProdutos: 'demandId',
+      photos: '++id, relatedId, createdAt',
+      outbox: '++id, status, createdAt',
+      syncMeta: 'id',
+    });
+    this.version(13).stores({
+      demands: 'id, routeId, status, supplier',
+      devolucaoDemands: 'id, routeId, status, supplier',
+      devolucaoDemandasDetalhes: 'id, updatedAt, cachedAt',
+      devolucaoConferenciaRascunho: '[demandId+itemId], demandId',
+      recebimentoConferenciaRascunho: '[demandId+sku], demandId',
+      inventoryDemands: 'id, type, zone',
+      demandContexts: 'demandId',
+      unitDocas: 'unidadeId',
+      checklistDrafts: 'demandId',
+      demandProdutos: 'demandId',
+      unidadeConfigs: 'unidadeId',
+      photos: '++id, relatedId, createdAt',
+      outbox: '++id, status, createdAt',
+      syncMeta: 'id',
+    });
+    this.version(14).stores({
+      demands: 'id, routeId, status, supplier',
+      devolucaoDemands: 'id, routeId, status, supplier',
+      devolucaoDemandasDetalhes: 'id, updatedAt, cachedAt',
+      devolucaoConferenciaRascunho: '[demandId+itemId], demandId',
+      recebimentoConferenciaRascunho: '[demandId+sku], demandId',
+      inventoryDemands: 'id, type, zone',
+      demandContexts: 'demandId',
+      unitDocas: 'unidadeId',
+      checklistDrafts: 'demandId',
+      demandProdutos: 'demandId',
+      unidadeConfigs: 'unidadeId',
+      recebimentoAvarias: 'recebimentoId',
       photos: '++id, relatedId, createdAt',
       outbox: '++id, status, createdAt',
       syncMeta: 'id',

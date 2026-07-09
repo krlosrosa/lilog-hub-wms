@@ -34,6 +34,7 @@ export type ConferenciaItemBlindApi = {
   descricao: string;
   unidadeMedida: string;
   unidadesPorCaixa: number;
+  quantidadeEsperada: number;
   config: ProdutoConferenciaConfigApi;
 };
 

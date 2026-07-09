@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const OFFLINE_RECEBIMENTO_PLACEHOLDER = '__offline__';
+
 export const OfflineImportEntrySchema = z.object({
   outboxId: z.coerce.number().int().optional(),
   label: z.string().min(1).max(500),

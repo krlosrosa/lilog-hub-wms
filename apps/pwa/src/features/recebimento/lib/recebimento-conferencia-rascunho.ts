@@ -2,9 +2,9 @@ import { db } from '@/lib/offline/db';
 
 import type { ConferenciaConferidoDetalheApi } from '../types/recebimento.api';
 import type { LoteConferido, QuantidadeModo } from '../types/recebimento.schema';
+import { toBaseUnits } from './resolve-recebimento-divergencia';
 
-export type RecebimentoConferenciaRascunhoEntry = {
-  demandId: string;
+export type RecebimentoConferenciaRascunhoEntry = {  demandId: string;
   sku: string;
   produtoId: string;
   lotes: LoteConferido[];
@@ -18,29 +18,54 @@ function formatValidadeForForm(value: string | null | undefined): string {
   return date.toISOString().slice(0, 10);
 }
 
+export function splitQuantidadeRecebidaParaConferenciaForm(input: {
+  quantidadeRecebida: number;
+  unidadeMedida?: string | null;
+  quantidadeModo: QuantidadeModo;
+  unidadesPorCaixa: number;
+}): Pick<LoteConferido, 'recebidaCaixa' | 'recebidaUnidade'> {
+  const baseUnits = toBaseUnits(
+    input.quantidadeRecebida,
+    input.unidadeMedida ?? 'UN',
+    input.unidadesPorCaixa,
+  );
+  const factor = Math.max(input.unidadesPorCaixa, 1);
+
+  if (input.quantidadeModo === 'caixa') {
+    return {
+      recebidaCaixa: Math.floor(baseUnits / factor),
+      recebidaUnidade: 0,
+    };
+  }
+
+  if (input.quantidadeModo === 'unidade') {
+    return {
+      recebidaCaixa: 0,
+      recebidaUnidade: baseUnits,
+    };
+  }
+
+  return {
+    recebidaCaixa: Math.floor(baseUnits / factor),
+    recebidaUnidade: baseUnits % factor,
+  };
+}
+
 export function buildLotesFromConferidosApi(
   rows: ConferenciaConferidoDetalheApi[],
   quantidadeModo: QuantidadeModo,
   unidadesPorCaixa: number,
 ): LoteConferido[] {
   return rows.map((row) => {
-    const qtd = row.quantidadeRecebida;
-    let recebidaCaixa = 0;
-    let recebidaUnidade = 0;
+    const { recebidaCaixa, recebidaUnidade } =
+      splitQuantidadeRecebidaParaConferenciaForm({
+        quantidadeRecebida: row.quantidadeRecebida,
+        unidadeMedida: row.unidadeMedida,
+        quantidadeModo,
+        unidadesPorCaixa,
+      });
 
-    if (quantidadeModo === 'caixa') {
-      recebidaCaixa = qtd;
-    } else if (quantidadeModo === 'unidade') {
-      recebidaUnidade = qtd;
-    } else if (unidadesPorCaixa > 1) {
-      recebidaCaixa = Math.floor(qtd / unidadesPorCaixa);
-      recebidaUnidade = qtd % unidadesPorCaixa;
-    } else {
-      recebidaUnidade = qtd;
-    }
-
-    return {
-      id: row.pesagemId ? `lote-saved-${row.pesagemId}` : `lote-saved-${row.id}`,
+    return {      id: row.pesagemId ? `lote-saved-${row.pesagemId}` : `lote-saved-${row.id}`,
       itemRecebimentoId: row.recebimentoItemId ?? row.id,
       lote: row.loteRecebido ?? '',
       validade: formatValidadeForForm(row.validade),

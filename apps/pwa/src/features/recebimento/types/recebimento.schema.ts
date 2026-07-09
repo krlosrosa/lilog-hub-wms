@@ -34,6 +34,7 @@ export const demandSchema = z.object({
   recebimentoId: z.string().optional(),
   unidadeId: z.string().optional(),
   preRecebimentoSituacao: z.string().optional(),
+  pendingOfflineSync: z.boolean().optional(),
 });
 
 export type Demand = z.infer<typeof demandSchema>;

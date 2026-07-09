@@ -1,4 +1,4 @@
-export { buildSyncExportPackage } from './build-package';
+export { buildSyncExportPackage, sortRecebimentoOutboxEntries } from './build-package';
 export { chunkExportForQr } from './chunk-payload';
 export {
   COMPACT_QR_PREFIX,

@@ -88,6 +88,8 @@ export const ConferenciaItemBlindSchema = z.object({
 
   unidadesPorCaixa: z.number().int().positive(),
 
+  quantidadeEsperada: z.number(),
+
   config: ProdutoConferenciaConfigSchema,
 
 });
