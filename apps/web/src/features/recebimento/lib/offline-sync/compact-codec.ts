@@ -14,6 +14,69 @@ import { SYNC_EXPORT_VERSION } from './types';
 
 export const COMPACT_QR_PREFIX = 'KLS2:';
 
+/** Alfabeto usado por lz-string em compressToEncodedURIComponent. */
+const LZ_URI_SAFE_BODY = /^[A-Za-z0-9+\-$.]+$/;
+
+/**
+ * Leitores em modo "teclado" com layout ABNT costumam enviar `Ç` no lugar de `:`.
+ * Normaliza o prefixo antes de descompactar.
+ */
+export function normalizeOfflineScanInput(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  const match = trimmed.match(/^kls2(.)/i);
+  if (!match) {
+    return trimmed;
+  }
+
+  return `KLS2:${trimmed.slice(5)}`;
+}
+
+export function extractCompactQrCandidates(raw: string): string[] {
+  const compact = raw.replace(/\s+/g, '');
+  if (!compact) {
+    return [];
+  }
+
+  if (!/^kls2/i.test(compact)) {
+    return [raw.trim()].filter(Boolean);
+  }
+
+  return compact
+    .split(/(?=KLS2[:\u00C7\u00E7])/i)
+    .map((part) => part.trim())
+    .filter((part) => /^KLS2/i.test(part));
+}
+
+function sanitizeCompactPayloadBody(body: string): string {
+  return body.replace(/[^A-Za-z0-9+\-$.]/g, '');
+}
+
+function tryDecompressEncodedPayload(encoded: string): string | null {
+  const json = decompressFromEncodedURIComponent(encoded);
+  if (json) {
+    return json;
+  }
+
+  const maxTrim = Math.min(500, encoded.length - 32);
+  for (let trim = 1; trim <= maxTrim; trim += 1) {
+    const trial = encoded.slice(0, encoded.length - trim);
+    if (!trial || !LZ_URI_SAFE_BODY.test(trial)) {
+      continue;
+    }
+
+    const trimmedJson = decompressFromEncodedURIComponent(trial);
+    if (trimmedJson) {
+      return trimmedJson;
+    }
+  }
+
+  return null;
+}
+
 type CompactPhotoRef = {
   i: number;
   o: number;
@@ -128,13 +191,14 @@ function isCompactChunk(value: unknown): value is CompactChunk {
 export function tryDecodeCompactQrPayload(
   raw: string,
 ): SyncExportPackage | SyncExportQrChunk | null {
-  const trimmed = raw.trim();
+  const trimmed = normalizeOfflineScanInput(raw);
   if (!trimmed.startsWith(COMPACT_QR_PREFIX)) {
     return null;
   }
 
-  const encoded = trimmed.slice(COMPACT_QR_PREFIX.length);
-  const json = decompressFromEncodedURIComponent(encoded);
+  const encodedRaw = trimmed.slice(COMPACT_QR_PREFIX.length);
+  const encoded = sanitizeCompactPayloadBody(encodedRaw);
+  const json = tryDecompressEncodedPayload(encoded);
 
   if (!json) {
     throw new Error('Falha ao descompactar QR compacto');

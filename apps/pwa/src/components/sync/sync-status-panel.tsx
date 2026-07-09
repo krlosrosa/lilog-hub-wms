@@ -671,7 +671,7 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
     try {
 
-      await syncNow();
+      await syncNow({ manual: true });
 
     } finally {
 
@@ -693,7 +693,7 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
       hapticMedium();
 
-      await syncNow();
+      await syncNow({ manual: true });
 
     }
 
@@ -775,7 +775,7 @@ export function SyncStatusPanel({ open, onOpenChange }: SyncStatusPanelProps) {
 
     if (isOnline) {
 
-      await syncNow();
+      await syncNow({ manual: true });
 
     }
 

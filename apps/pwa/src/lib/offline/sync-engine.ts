@@ -15,10 +15,13 @@ import { isRecebimentoOutboxEntry } from './sync-recebimento-import';
 
 const AUTO_SYNC_INTERVAL_MS = 45_000;
 const AUTO_SYNC_DEBOUNCE_MS = 800;
+const MAX_CONSECUTIVE_AUTO_SYNC_ERRORS = 3;
 
 let isFlushing = false;
 const flushingListeners = new Set<() => void>();
 let scheduledSync: ReturnType<typeof setTimeout> | null = null;
+let consecutiveAutoSyncErrors = 0;
+let autoSyncPaused = false;
 
 function notifyFlushingListeners() {
   for (const listener of flushingListeners) {
@@ -188,11 +191,45 @@ export async function flushOutbox(): Promise<{
   }
 }
 
-export async function syncNow(): Promise<{
+export function getAutoSyncPaused(): boolean {
+  return autoSyncPaused;
+}
+
+function resetAutoSyncBackoff(): void {
+  consecutiveAutoSyncErrors = 0;
+  autoSyncPaused = false;
+}
+
+function recordAutoSyncResult(result: { synced: number; failed: number }): void {
+  if (result.synced > 0 && result.failed === 0) {
+    resetAutoSyncBackoff();
+    return;
+  }
+
+  if (result.failed > 0) {
+    consecutiveAutoSyncErrors += 1;
+    if (consecutiveAutoSyncErrors >= MAX_CONSECUTIVE_AUTO_SYNC_ERRORS) {
+      autoSyncPaused = true;
+    }
+  }
+}
+
+function cancelScheduledAutoSync(): void {
+  if (scheduledSync) {
+    clearTimeout(scheduledSync);
+    scheduledSync = null;
+  }
+}
+
+export async function syncNow(options?: { manual?: boolean }): Promise<{
   synced: number;
   failed: number;
   lastError?: string;
 }> {
+  if (options?.manual) {
+    resetAutoSyncBackoff();
+  }
+
   if (isFlushing || !navigator.onLine) {
     return { synced: 0, failed: 0 };
   }
@@ -213,18 +250,23 @@ export async function syncNow(): Promise<{
 }
 
 function scheduleAutoSync(delayMs = AUTO_SYNC_DEBOUNCE_MS) {
+  if (!navigator.onLine || autoSyncPaused) return;
+
   if (scheduledSync) {
     clearTimeout(scheduledSync);
   }
 
   scheduledSync = setTimeout(() => {
     scheduledSync = null;
-    void syncNow();
+
+    if (!navigator.onLine || autoSyncPaused) return;
+
+    void syncNow().then(recordAutoSyncResult);
   }, delayMs);
 }
 
 function requestAutoSyncIfNeeded() {
-  if (!navigator.onLine) return;
+  if (!navigator.onLine || autoSyncPaused) return;
 
   void hasPendingSyncWork().then((hasPending) => {
     if (hasPending) {
@@ -239,7 +281,12 @@ export function triggerAutoSyncIfPending(): void {
 
 export function registerOnlineSyncListener(): () => void {
   const onlineHandler = () => {
+    resetAutoSyncBackoff();
     requestAutoSyncIfNeeded();
+  };
+
+  const offlineHandler = () => {
+    cancelScheduledAutoSync();
   };
 
   const visibilityHandler = () => {
@@ -249,6 +296,7 @@ export function registerOnlineSyncListener(): () => void {
   };
 
   window.addEventListener('online', onlineHandler);
+  window.addEventListener('offline', offlineHandler);
   document.addEventListener('visibilitychange', visibilityHandler);
 
   const intervalId = window.setInterval(() => {
@@ -259,12 +307,9 @@ export function registerOnlineSyncListener(): () => void {
 
   return () => {
     window.removeEventListener('online', onlineHandler);
+    window.removeEventListener('offline', offlineHandler);
     document.removeEventListener('visibilitychange', visibilityHandler);
     window.clearInterval(intervalId);
-
-    if (scheduledSync) {
-      clearTimeout(scheduledSync);
-      scheduledSync = null;
-    }
+    cancelScheduledAutoSync();
   };
 }

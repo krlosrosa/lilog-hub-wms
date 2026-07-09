@@ -4,6 +4,7 @@ export * from './outbox';
 export * from './photo-store';
 export {
   flushOutbox,
+  getAutoSyncPaused,
   syncNow,
   hasPendingSyncWork,
   registerOnlineSyncListener,

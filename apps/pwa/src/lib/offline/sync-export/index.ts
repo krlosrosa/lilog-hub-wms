@@ -3,6 +3,8 @@ export { chunkExportForQr } from './chunk-payload';
 export {
   COMPACT_QR_PREFIX,
   encodeCompactQrPayload,
+  extractCompactQrCandidates,
+  normalizeOfflineScanInput,
   tryDecodeCompactQrPayload,
 } from './compact-codec';
 export {

@@ -13,14 +13,15 @@ import {
   cn,
 } from '@lilog/ui';
 import type { Result } from '@zxing/library';
-import { Camera, FileJson, Loader2, ScanLine } from 'lucide-react';
+import { Camera, FileJson, Loader2, ScanLine, Barcode } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { OfflineQrCameraView } from '@/features/recebimento/components/offline-qr-camera-view';
 import { importOfflineRecebimento } from '@/features/recebimento/lib/recebimento-api';
+import { normalizeOfflineScanInput } from '@/features/recebimento/lib/offline-sync/compact-codec';
 import {
   filterPackageByDemandIds,
-  mergeScanIntoPackageState,
+  mergeBulkOfflineScans,
   parseOfflineScan,
   isSyncExportPackage,
   assembleFromChunks,
@@ -55,10 +56,12 @@ export function ModalImportarOfflinePwa({
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [textValue, setTextValue] = useState('');
+  const [bipValue, setBipValue] = useState('');
   const [chunks, setChunks] = useState<SyncExportQrChunk[]>([]);
   const [fullPackage, setFullPackage] = useState<SyncExportPackage | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [parseWarnings, setParseWarnings] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const lastScanRef = useRef('');
 
@@ -78,10 +81,12 @@ export function ModalImportarOfflinePwa({
     setCameraActive(false);
     setCameraError(null);
     setTextValue('');
+    setBipValue('');
     setChunks([]);
     setFullPackage(null);
     setStatusMessage(null);
     setParseError(null);
+    setParseWarnings([]);
     setIsSubmitting(false);
     lastScanRef.current = '';
   }, []);
@@ -98,24 +103,22 @@ export function ModalImportarOfflinePwa({
 
   const ingestRaw = useCallback((raw: string) => {
     setChunks((currentChunks) => {
-      try {
-        const result = mergeScanIntoPackageState({
-          raw,
-          currentPackage: null,
-          chunks: currentChunks,
-        });
+      const result = mergeBulkOfflineScans({
+        raw,
+        currentPackage: null,
+        chunks: currentChunks,
+      });
 
-        // Prefer assembled package from this scan when available.
-        setFullPackage((prev) => result.package ?? prev);
-        setStatusMessage(result.message);
-        setParseError(null);
-        return result.chunks;
-      } catch (error) {
-        setParseError(
-          error instanceof Error ? error.message : 'Falha ao processar código',
-        );
-        return currentChunks;
-      }
+      setFullPackage((prev) => result.package ?? prev);
+      setStatusMessage(result.message || null);
+      setParseWarnings(result.errors);
+      setParseError(
+        result.errors.length > 0 && !result.package && result.chunks.length === 0
+          ? result.errors.join(' · ')
+          : null,
+      );
+
+      return result.chunks;
     });
   }, []);
 
@@ -148,43 +151,81 @@ export function ModalImportarOfflinePwa({
       return;
     }
 
-    try {
-      const parsed = parseOfflineScan(raw);
-      if (isSyncExportPackage(parsed)) {
-        setFullPackage(parsed);
-        setChunks([]);
-        setStatusMessage(
-          `Pacote completo com ${parsed.entries.length} operação(ões).`,
-        );
+    setChunks((currentChunks) => {
+      const result = mergeBulkOfflineScans({
+        raw,
+        currentPackage: null,
+        chunks: currentChunks,
+      });
+
+      setFullPackage(result.package);
+      setChunks(result.chunks);
+      setStatusMessage(result.message || null);
+      setParseWarnings(result.errors);
+
+      if (result.package) {
         setParseError(null);
-        return;
+        return result.chunks;
       }
 
-      if (isSyncExportQrChunk(parsed)) {
-        const nextChunks = [parsed];
-        if (parsed.n === 1) {
-          const assembled = assembleFromChunks(nextChunks);
-          setFullPackage(assembled);
-          setChunks(nextChunks);
-          setStatusMessage(
-            `Pacote montado (${assembled.entries.length} operação(ões)).`,
-          );
-        } else {
-          setChunks(nextChunks);
-          setFullPackage(null);
-          setStatusMessage(
-            `Parte ${parsed.i + 1}/${parsed.n} recebida. Cole as demais partes ou use a câmera.`,
-          );
-        }
+      if (result.chunks.length > 0) {
         setParseError(null);
-        return;
+        return result.chunks;
       }
-    } catch (error) {
-      setParseError(
-        error instanceof Error ? error.message : 'Falha ao processar texto',
-      );
-    }
+
+      if (result.errors.length > 0) {
+        setParseError(result.errors.join(' · '));
+        return currentChunks;
+      }
+
+      try {
+        const parsed = parseOfflineScan(normalizeOfflineScanInput(raw));
+        if (isSyncExportPackage(parsed)) {
+          setFullPackage(parsed);
+          setStatusMessage(
+            `Pacote completo com ${parsed.entries.length} operação(ões).`,
+          );
+          setParseError(null);
+          return [];
+        }
+
+        if (isSyncExportQrChunk(parsed)) {
+          const nextChunks = [parsed];
+          if (parsed.n === 1) {
+            const assembled = assembleFromChunks(nextChunks);
+            setFullPackage(assembled);
+            setStatusMessage(
+              `Pacote montado (${assembled.entries.length} operação(ões)).`,
+            );
+          } else {
+            setFullPackage(null);
+            setStatusMessage(
+              `Parte ${parsed.i + 1}/${parsed.n} recebida. Cole as demais partes ou use a câmera.`,
+            );
+          }
+          setParseError(null);
+          return nextChunks;
+        }
+      } catch (error) {
+        setParseError(
+          error instanceof Error ? error.message : 'Falha ao processar texto',
+        );
+      }
+
+      return currentChunks;
+    });
   }, [textValue]);
+
+  const handleBipSubmit = useCallback(() => {
+    const raw = bipValue.trim();
+    if (!raw) {
+      setParseError('Bipe ou cole o código KLS2.');
+      return;
+    }
+
+    ingestRaw(raw);
+    setBipValue('');
+  }, [bipValue, ingestRaw]);
 
   const handleImport = useCallback(async () => {
     if (!filteredPackage || filteredPackage.entries.length === 0) {
@@ -261,6 +302,43 @@ export function ModalImportarOfflinePwa({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="space-y-2 rounded-lg border border-outline-variant/60 bg-muted/20 px-3 py-3">
+          <label
+            htmlFor="offline-import-bip"
+            className="text-xs font-medium text-foreground"
+          >
+            Leitor 2D / bipagem
+          </label>
+          <p className="text-[11px] text-muted-foreground">
+            Bipe o QR compacto (KLS2) gerado no PWA. Leitores em modo teclado
+            são aceitos mesmo quando enviam Ç no lugar de dois-pontos.
+          </p>
+          <div className="relative">
+            <Barcode
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <input
+              id="offline-import-bip"
+              type="text"
+              autoComplete="off"
+              value={bipValue}
+              onChange={(event) => setBipValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  handleBipSubmit();
+                }
+              }}
+              placeholder="Bipe o código KLS2…"
+              className={cn(
+                'h-10 w-full rounded-md border border-outline-variant bg-background py-2 pl-10 pr-3 font-mono text-xs text-foreground',
+                'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              )}
+            />
+          </div>
+        </div>
+
         <div className="flex gap-2">
           <Button
             type="button"
@@ -323,6 +401,12 @@ export function ModalImportarOfflinePwa({
             <textarea
               value={textValue}
               onChange={(event) => setTextValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault();
+                  handleProcessText();
+                }
+              }}
               rows={8}
               placeholder="KLS2:... ou {&quot;version&quot;:1,&quot;exportId&quot;:&quot;...&quot;,&quot;entries&quot;:[...]}"
               className={cn(
@@ -351,6 +435,14 @@ export function ModalImportarOfflinePwa({
           <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
             {parseError}
           </p>
+        ) : null}
+
+        {parseWarnings.length > 0 ? (
+          <ul className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+            {parseWarnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
         ) : null}
 
         {filteredPackage ? (

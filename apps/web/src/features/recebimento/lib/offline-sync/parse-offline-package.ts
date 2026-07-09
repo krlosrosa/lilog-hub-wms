@@ -1,4 +1,8 @@
-import { tryDecodeCompactQrPayload } from './compact-codec';
+import {
+  extractCompactQrCandidates,
+  normalizeOfflineScanInput,
+  tryDecodeCompactQrPayload,
+} from './compact-codec';
 import type {
   SyncExportEntry,
   SyncExportPackage,
@@ -42,7 +46,7 @@ export function isSyncExportQrChunk(value: unknown): value is SyncExportQrChunk 
 }
 
 export function parseOfflineScan(raw: string): SyncExportPackage | SyncExportQrChunk {
-  const trimmed = raw.trim();
+  const trimmed = normalizeOfflineScanInput(raw);
   if (!trimmed) {
     throw new Error('Código vazio');
   }
@@ -171,6 +175,101 @@ export function mergeScanIntoPackageState(input: {
     package: input.currentPackage,
     chunks: sameExport,
     message: `Parte ${parsed.i + 1}/${parsed.n} recebida. Continue escaneando.`,
+  };
+}
+
+export function mergeBulkOfflineScans(input: {
+  raw: string;
+  currentPackage: SyncExportPackage | null;
+  chunks: SyncExportQrChunk[];
+}): {
+  package: SyncExportPackage | null;
+  chunks: SyncExportQrChunk[];
+  message: string;
+  errors: string[];
+} {
+  const candidates = extractCompactQrCandidates(input.raw);
+  if (candidates.length <= 1) {
+    try {
+      const result = mergeScanIntoPackageState(input);
+      return { ...result, errors: [] };
+    } catch (error) {
+      return {
+        package: input.currentPackage,
+        chunks: input.chunks,
+        message: '',
+        errors: [
+          error instanceof Error ? error.message : 'Falha ao processar código',
+        ],
+      };
+    }
+  }
+
+  let state = {
+    package: input.currentPackage,
+    chunks: input.chunks,
+    message: '',
+  };
+  const errors: string[] = [];
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    try {
+      const result = mergeScanIntoPackageState({
+        raw: candidates[index]!,
+        currentPackage: state.package,
+        chunks: state.chunks,
+      });
+      state = {
+        package: result.package ?? state.package,
+        chunks: result.chunks,
+        message: result.message,
+      };
+    } catch (error) {
+      errors.push(
+        `QR ${index + 1}/${candidates.length}: ${
+          error instanceof Error ? error.message : 'Falha ao processar'
+        }`,
+      );
+    }
+  }
+
+  if (state.package) {
+    return {
+      ...state,
+      message:
+        errors.length > 0
+          ? `${state.message} Alguns códigos não puderam ser lidos.`
+          : state.message,
+      errors,
+    };
+  }
+
+  if (state.chunks.length > 0) {
+    const total = state.chunks[0]?.n ?? state.chunks.length;
+    const received = new Set(state.chunks.map((chunk) => chunk.i));
+    const missing = Array.from({ length: total }, (_, i) => i).filter(
+      (i) => !received.has(i),
+    );
+    const missingLabel = missing.map((i) => i + 1).join(', ');
+
+    return {
+      ...state,
+      message:
+        errors.length > 0
+          ? `Partes recebidas: ${received.size}/${total}. Falta rebipar QR(s): ${missingLabel}.`
+          : state.message,
+      errors,
+    };
+  }
+
+  return {
+    package: null,
+    chunks: input.chunks,
+    message: '',
+    errors:
+      errors.length > 0
+        ? errors
+        : ['Nenhum código KLS2 válido encontrado no texto'],
   };
 }
 
