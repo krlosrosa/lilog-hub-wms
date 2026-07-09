@@ -55,7 +55,7 @@ services:
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-.logistica-processo.com}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       PUPPETEER_SKIP_DOWNLOAD: 'true'
-      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_DSN: ${API_SENTRY_DSN:-}
     depends_on:
       redis:
         condition: service_started
@@ -84,9 +84,9 @@ services:
       dockerfile: Dockerfile.web
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-dev.logistica-processo.com/api}
-        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_SENTRY_DSN: ${WEB_SENTRY_DSN:-}
         SENTRY_ORG: ${SENTRY_ORG:-}
-        SENTRY_PROJECT: ${SENTRY_PROJECT:-lilog-web}
+        SENTRY_PROJECT: ${WEB_SENTRY_PROJECT:-lilog-web}
         SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN:-}
     container_name: lilog-web
     restart: unless-stopped
@@ -97,7 +97,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-dev.logistica-processo.com/api}
-      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+      NEXT_PUBLIC_SENTRY_DSN: ${WEB_SENTRY_DSN:-}
     networks:
       - proxy
     deploy:
@@ -123,9 +123,9 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-https://api-dev.logistica-processo.com/api}
         VITE_API_PORT: ${VITE_API_PORT:-443}
-        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_SENTRY_DSN: ${PWA_SENTRY_DSN:-}
         SENTRY_ORG: ${SENTRY_ORG:-}
-        SENTRY_PROJECT: ${SENTRY_PROJECT:-lilog-pwa}
+        SENTRY_PROJECT: ${PWA_SENTRY_PROJECT:-lilog-pwa}
         SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN:-}
     container_name: lilog-pwa
     restart: unless-stopped
@@ -155,9 +155,9 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-https://api-dev.logistica-processo.com/api}
         VITE_API_PORT: ${VITE_API_PORT:-443}
-        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_SENTRY_DSN: ${PWA_LIDERANCA_SENTRY_DSN:-}
         SENTRY_ORG: ${SENTRY_ORG:-}
-        SENTRY_PROJECT: ${SENTRY_PROJECT:-lilog-pwa-lideranca}
+        SENTRY_PROJECT: ${PWA_LIDERANCA_SENTRY_PROJECT:-lilog-pwa-lideranca}
         SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN:-}
     container_name: lilog-pwa-lideranca
     restart: unless-stopped
@@ -186,9 +186,9 @@ services:
       dockerfile: Dockerfile.portal
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-dev.logistica-processo.com/api}
-        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_SENTRY_DSN: ${PORTAL_SENTRY_DSN:-}
         SENTRY_ORG: ${SENTRY_ORG:-}
-        SENTRY_PROJECT: ${SENTRY_PROJECT:-lilog-portal}
+        SENTRY_PROJECT: ${PORTAL_SENTRY_PROJECT:-lilog-portal}
         SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN:-}
     container_name: lilog-portal
     restart: unless-stopped
@@ -199,7 +199,7 @@ services:
       NODE_ENV: production
       PORT: 3002
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-dev.logistica-processo.com/api}
-      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+      NEXT_PUBLIC_SENTRY_DSN: ${PORTAL_SENTRY_DSN:-}
     networks:
       - proxy
     deploy:
