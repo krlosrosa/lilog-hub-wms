@@ -29,26 +29,32 @@ RUN pnpm --version \
 
 FROM deps AS builder
 ENV NEXT_OUTPUT=standalone
+ENV DOCKER_BUILD=true
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV CI=true
 
 ARG NEXT_PUBLIC_API_URL=https://api-dev.logistica-processo.com/api
 ARG NEXT_PUBLIC_SENTRY_DSN=
 ARG SENTRY_ORG=
 ARG SENTRY_PROJECT=lilog-web
 ARG SENTRY_AUTH_TOKEN=
+# Heap do Node só para o next build (VPS 4GB: buildar web sozinho, sem paralelo)
+ARG WEB_BUILD_HEAP_MB=1280
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 ENV SENTRY_ORG=$SENTRY_ORG
 ENV SENTRY_PROJECT=$SENTRY_PROJECT
 ENV SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN
-ENV NODE_OPTIONS="--max-old-space-size=1536"
 
 COPY apps/web ./apps/web
 COPY packages ./packages
 
 RUN mkdir -p apps/web/public \
   && pnpm --filter @lilog/contracts build \
-  && pnpm --filter @lilog/ui build \
-  && pnpm --filter web build
+  && pnpm --filter @lilog/ui build
+
+RUN NODE_OPTIONS="--max-old-space-size=${WEB_BUILD_HEAP_MB}" \
+  pnpm --filter web build
 
 FROM base AS runner
 ENV NODE_ENV=production

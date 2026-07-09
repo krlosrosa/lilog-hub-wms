@@ -115,6 +115,7 @@ services:
         SENTRY_ORG: ${SENTRY_ORG:-}
         SENTRY_PROJECT: ${WEB_SENTRY_PROJECT:-lilog-web}
         SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN:-}
+        WEB_BUILD_HEAP_MB: ${WEB_BUILD_HEAP_MB:-1280}
     container_name: lilog-web
     restart: unless-stopped
     env_file:

@@ -6,10 +6,13 @@ version: '3.8'
 # Defina DATABASE_URL, JWT_SECRET etc. nas env vars da stack (não precisa de .env no servidor).
 # O env_file abaixo é opcional (required: false) — serve só se você criar .env manualmente via SSH.
 #
-# Servidor com pouca RAM: build um serviço por vez via SSH antes do deploy:
+# Servidor com pouca RAM: build um serviço por vez via SSH antes do deploy.
+# Web por último (next build consome mais RAM):
 #   docker compose -f docker-compose-prod.yml build api
+#   docker compose -f docker-compose-prod.yml build portal
+#   docker compose -f docker-compose-prod.yml build pwa
+#   docker compose -f docker-compose-prod.yml build pwa-lideranca
 #   docker compose -f docker-compose-prod.yml build web
-#   ...
 #   docker compose -f docker-compose-prod.yml up -d
 
 services:
@@ -76,6 +79,7 @@ services:
         SENTRY_ORG: ${SENTRY_ORG:-}
         SENTRY_PROJECT: ${WEB_SENTRY_PROJECT:-lilog-web}
         SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN:-}
+        WEB_BUILD_HEAP_MB: ${WEB_BUILD_HEAP_MB:-1280}
     container_name: lilog-web-prod
     restart: unless-stopped
     env_file:
