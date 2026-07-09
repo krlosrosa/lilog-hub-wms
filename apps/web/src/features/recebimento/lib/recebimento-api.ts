@@ -7,6 +7,7 @@ import type {
   ListPreRecebimentosApiResponse,
   ListPreRecebimentosParams,
   PreRecebimentoApi,
+  PreRecebimentoDetalheApi,
   PreRecebimentoSituacaoApi,
   RecebimentoAvariaApi,
   RecebimentoApi,
@@ -108,6 +109,12 @@ export async function listPreRecebimentos(
 export function getPreRecebimento(id: string) {
   return apiRequest<PreRecebimentoApi>(
     `/pre-recebimentos/${encodeURIComponent(id)}`,
+  );
+}
+
+export function getPreRecebimentoDetalhe(id: string) {
+  return apiRequest<PreRecebimentoDetalheApi>(
+    `/pre-recebimentos/${encodeURIComponent(id)}/detalhe`,
   );
 }
 

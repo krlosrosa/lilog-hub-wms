@@ -25,6 +25,7 @@ import { PreviewEnderecosPaletesBipadosRecebimentoUseCase } from '../../applicat
 import { SugerirEtiquetasRecebimentoUseCase } from '../../application/usecases/recebimento/sugerir-etiquetas-recebimento.usecase.js';
 import { GetConferenciaContextUseCase } from '../../application/usecases/recebimento/get-conferencia-context.usecase.js';
 import { GetPreRecebimentoUseCase } from '../../application/usecases/recebimento/get-pre-recebimento.usecase.js';
+import { GetPreRecebimentoDetalheUseCase } from '../../application/usecases/recebimento/get-pre-recebimento-detalhe.usecase.js';
 import { ListOperadorDemandasUseCase } from '../../application/usecases/recebimento/list-operador-demandas.usecase.js';
 import { ListRecebimentoAvariasUseCase } from '../../application/usecases/recebimento/list-recebimento-avarias.usecase.js';
 import { RegistrarAvariaUseCase } from '../../application/usecases/recebimento/registrar-avaria.usecase.js';
@@ -65,6 +66,7 @@ import { PreviewEnderecosPaletesBipadosRecebimentoController } from '../../prese
 import { SugerirEtiquetasRecebimentoController } from '../../presentation/controllers/recebimento/sugerir-etiquetas-recebimento.controller.js';
 import { GetConferenciaContextController } from '../../presentation/controllers/recebimento/get-conferencia-context.controller.js';
 import { GetPreRecebimentoController } from '../../presentation/controllers/recebimento/get-pre-recebimento.controller.js';
+import { GetPreRecebimentoDetalheController } from '../../presentation/controllers/recebimento/get-pre-recebimento-detalhe.controller.js';
 import { ListOperadorDemandasController } from '../../presentation/controllers/recebimento/list-operador-demandas.controller.js';
 import { ListRecebimentoAvariasController } from '../../presentation/controllers/recebimento/list-recebimento-avarias.controller.js';
 import { RegistrarAvariaController } from '../../presentation/controllers/recebimento/registrar-avaria.controller.js';
@@ -123,6 +125,7 @@ import { UserModule } from './user.module.js';
     GetConferenciaContextController,
     GetRecebimentoByPreRecebimentoController,
     GetPreRecebimentoController,
+    GetPreRecebimentoDetalheController,
     ListRecebimentosController,
     CreatePreRecebimentoController,
     UpdatePreRecebimentoController,
@@ -178,6 +181,7 @@ import { UserModule } from './user.module.js';
     ListPreRecebimentosUseCase,
     ListRecebimentosUseCase,
     GetPreRecebimentoUseCase,
+    GetPreRecebimentoDetalheUseCase,
     GetRecebimentoByPreRecebimentoUseCase,
     GetRecebimentoUseCase,
     ListOperadorDemandasUseCase,

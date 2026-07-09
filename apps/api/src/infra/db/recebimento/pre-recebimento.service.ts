@@ -16,6 +16,7 @@ import {
 } from '../providers/drizzle/drizzle.provider.js';
 import { createPreRecebimentoDb } from './create-pre-recebimento.drizzle.js';
 import { findPreRecebimentoByIdDb } from './find-pre-recebimento.drizzle.js';
+import { findPreRecebimentoDetalheDb } from './find-pre-recebimento-detalhe.drizzle.js';
 import { listPreRecebimentosDb } from './list-pre-recebimentos.drizzle.js';
 import { updatePreRecebimentoDb } from './update-pre-recebimento.drizzle.js';
 import { updatePreRecebimentoSituacaoDb } from './update-pre-recebimento-situacao.drizzle.js';
@@ -40,6 +41,10 @@ export class PreRecebimentoService implements IPreRecebimentoRepository {
 
   findById(id: string) {
     return findPreRecebimentoByIdDb(this.db, id);
+  }
+
+  findDetalheById(id: string) {
+    return findPreRecebimentoDetalheDb(this.db, id);
   }
 
   list(filter: ListPreRecebimentosFilter) {

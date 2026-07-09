@@ -90,6 +90,118 @@ export type ListPreRecebimentosResult = {
   limit: number;
 };
 
+export type PreRecebimentoDetalheItemEsperado = {
+  id: string;
+  produtoId: string;
+  quantidadeEsperada: number;
+  unidadeMedida: string;
+  loteEsperado: string | null;
+  pesoEsperado: number | null;
+  validadeEsperada: string | null;
+  unidadesPorCaixa: number;
+};
+
+export type PreRecebimentoDetalheItemRecebido = {
+  id: string;
+  produtoId: string;
+  quantidadeRecebida: number;
+  unidadeMedida: string;
+  loteRecebido: string | null;
+  pesoRecebido: number | null;
+  validade: string | null;
+  numeroSerie: string | null;
+  unitizadorId: string | null;
+  unitizadorCodigo: string | null;
+};
+
+export type PreRecebimentoDetalheDivergencia = {
+  id: string;
+  produtoId: string | null;
+  tipoDivergencia: string;
+  quantidadeEsperada: number | null;
+  quantidadeRecebida: number | null;
+  descricao: string | null;
+};
+
+export type PreRecebimentoDetalheAvaria = {
+  id: string;
+  recebimentoId: string;
+  produtoId: string | null;
+  tipo: string;
+  natureza: string;
+  causa: string;
+  quantidadeCaixas: number;
+  quantidadeUnidades: number;
+  lote: string | null;
+  photoCount: number;
+  replicado: boolean;
+  createdAt: string;
+};
+
+export type PreRecebimentoDetalheProduto = {
+  produtoId: string;
+  sku: string;
+  descricao: string;
+  ean: string | null;
+  unidadesPorCaixa: number;
+};
+
+export type PreRecebimentoDetalheRecord = {
+  preRecebimento: {
+    id: string;
+    unidadeId: string;
+    transportadoraNome: string | null;
+    placa: string | null;
+    motoristaNome: string | null;
+    motoristaTelefone: string | null;
+    grauPrioridade: string | null;
+    numeroOcr: string | null;
+    numeroTransporte: string | null;
+    origemDados: string;
+    horarioPrevisto: string;
+    observacao: string | null;
+    situacao: string;
+    dataChegada: string | null;
+    docaId: string | null;
+    createdAt: string;
+    updatedAt: string;
+    itens: PreRecebimentoDetalheItemEsperado[];
+  };
+  recebimento: {
+    id: string;
+    preRecebimentoId: string;
+    docaId: string | null;
+    responsavelId: number;
+    dataInicio: string;
+    dataFim: string | null;
+    situacao: string;
+    modoUnitizacao: string;
+    createdAt: string;
+    updatedAt: string;
+    itens: PreRecebimentoDetalheItemRecebido[];
+    divergencias: PreRecebimentoDetalheDivergencia[];
+  } | null;
+  checklist: {
+    id: string;
+    recebimentoId: string;
+    lacre: string | null;
+    tempBau: number | null;
+    tempProduto: number | null;
+    conditions: {
+      limpeza: boolean;
+      odor: boolean;
+      estrutura: boolean;
+      vedacao: boolean;
+    };
+    observacoes: string | null;
+    photoCount: number;
+    createdAt: string;
+  } | null;
+  avarias: PreRecebimentoDetalheAvaria[];
+  produtos: PreRecebimentoDetalheProduto[];
+  numDivergencias: number;
+};
+
 export interface IPreRecebimentoRepository {
   create(
     data: CreatePreRecebimentoInput,
@@ -100,6 +212,7 @@ export interface IPreRecebimentoRepository {
     data: UpdatePreRecebimentoInput,
   ): Promise<PreRecebimentoWithItens | null>;
   findById(id: string): Promise<PreRecebimentoWithItens | null>;
+  findDetalheById(id: string): Promise<PreRecebimentoDetalheRecord | null>;
   list(filter: ListPreRecebimentosFilter): Promise<ListPreRecebimentosResult>;
   updateSituacao(
     id: string,

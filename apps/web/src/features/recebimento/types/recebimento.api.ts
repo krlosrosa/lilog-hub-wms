@@ -216,3 +216,22 @@ export type GerarLinkRastreioResponse = {
   token: string;
   url: string;
 };
+
+export type PreRecebimentoDetalheProdutoApi = {
+  produtoId: string;
+  sku: string;
+  descricao: string;
+  ean: string | null;
+  unidadesPorCaixa: number;
+};
+
+export type PreRecebimentoDetalheApi = {
+  preRecebimento: PreRecebimentoApi & {
+    itens: ItemPreRecebimentoApi[];
+  };
+  recebimento: RecebimentoApi | null;
+  checklist: ChecklistRecebimentoApi | null;
+  avarias: RecebimentoAvariaApi[];
+  produtos: PreRecebimentoDetalheProdutoApi[];
+  numDivergencias: number;
+};

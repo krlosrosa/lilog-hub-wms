@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
-import { getProduto, listProdutos } from '@/features/produto/lib/produto-api';
 import type { ProdutoApi } from '@/features/produto/types/produto.api';
 import {
   compareChecklistPhotos,
@@ -12,15 +11,12 @@ import {
 } from '@/features/recebimento/lib/checklist-photo-label';
 import {
   cancelPreRecebimento,
-  fetchChecklist,
   finalizarRecebimento,
   getDocumentDownloadUrl,
-  getPreRecebimento,
-  getRecebimentoByPreRecebimento,
+  getPreRecebimentoDetalhe,
   liberarConferencia,
   recepcionarCarro,
   listAvariaDocumentos,
-  listAvarias,
   listChecklistDocumentos,
   reabrirConferencia,
   reimprimirEtiquetasRecebimento,
@@ -31,69 +27,33 @@ import {
 } from '@/features/recebimento/lib/enrich-conferencia-avarias';
 import { mapRecebimentoDetalhe } from '@/features/recebimento/lib/map-recebimento-detalhe';
 import type { RecebimentoDetalhe } from '@/features/recebimento/types/recebimento-detalhe.schema';
-import type { RecepcionarCarroPayload } from '@/features/recebimento/types/recebimento.api';
+import type {
+  PreRecebimentoDetalheProdutoApi,
+  RecepcionarCarroPayload,
+} from '@/features/recebimento/types/recebimento.api';
 import { ApiClientError } from '@/lib/api';
 
 const CONFERENCIA_PAGE_SIZE = 4;
 
-async function buildProdutoMap(
-  produtoIds: string[],
-): Promise<Map<string, ProdutoApi>> {
-  if (!produtoIds.length) {
-    return new Map();
-  }
-
-  const uniqueIds = new Set(produtoIds);
+function buildProdutoMapFromDetalhe(
+  produtos: PreRecebimentoDetalheProdutoApi[],
+): Map<string, ProdutoApi> {
   const map = new Map<string, ProdutoApi>();
 
-  const PAGE_SIZE = 100;
-  let page = 1;
-
-  // Percorre as páginas de produtos até encontrar todos os IDs necessários
-  // ou até esgotar as páginas disponíveis.
-  // Isso evita depender apenas da primeira página da listagem.
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const response = await listProdutos({ page, limit: PAGE_SIZE });
-
-    for (const produto of response.items) {
-      if (uniqueIds.has(produto.produtoId)) {
-        map.set(produto.produtoId, produto);
-        uniqueIds.delete(produto.produtoId);
-      }
-    }
-
-    const reachedLastPage = response.page * response.limit >= response.total;
-    const resolvedAllIds = uniqueIds.size === 0;
-
-    if (reachedLastPage || resolvedAllIds) {
-      break;
-    }
-
-    page += 1;
-  }
-
-  // Se ainda houver IDs não resolvidos pela listagem paginada,
-  // tenta buscar cada produto individualmente pelo endpoint /produtos/:id.
-  if (uniqueIds.size > 0) {
-    const unresolvedIds = Array.from(uniqueIds);
-
-    const resolvedIndividually = await Promise.all(
-      unresolvedIds.map(async (id) => {
-        try {
-          return await getProduto(id);
-        } catch {
-          return null;
-        }
-      }),
-    );
-
-    for (const produto of resolvedIndividually) {
-      if (produto && uniqueIds.has(produto.produtoId)) {
-        map.set(produto.produtoId, produto);
-        uniqueIds.delete(produto.produtoId);
-      }
-    }
+  for (const produto of produtos) {
+    map.set(produto.produtoId, {
+      produtoId: produto.produtoId,
+      sku: produto.sku,
+      descricao: produto.descricao,
+      ean: produto.ean,
+      unidadesPorCaixa: produto.unidadesPorCaixa,
+      // Campos obrigatórios do ProdutoApi não usados no detalhe
+      empresa: 'LDB',
+      categoria: 'seco',
+      tipo: 'PVAR',
+      createdAt: '',
+      updatedAt: '',
+    });
   }
 
   return map;
@@ -119,22 +79,16 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
     setIsLoading(true);
 
     try {
-      const preRecebimento = await getPreRecebimento(recebimentoId);
-      const recebimentoAtivo = await getRecebimentoByPreRecebimento(
-        recebimentoId,
-      );
+      const detalhe = await getPreRecebimentoDetalhe(recebimentoId);
+      const {
+        preRecebimento,
+        recebimento: recebimentoAtivo,
+        checklist,
+        avarias,
+        produtos,
+      } = detalhe;
 
-      const produtoIds = [
-        ...(preRecebimento.itens?.map((item) => item.produtoId) ?? []),
-        ...(recebimentoAtivo?.itens?.map((item) => item.produtoId) ?? []),
-      ];
-
-      const [produtoMap, checklist] = await Promise.all([
-        buildProdutoMap([...new Set(produtoIds)]),
-        recebimentoAtivo
-          ? fetchChecklist(recebimentoAtivo.id)
-          : Promise.resolve(null),
-      ]);
+      const produtoMap = buildProdutoMapFromDetalhe(produtos);
 
       let fotos: Awaited<
         ReturnType<typeof mapRecebimentoDetalhe>
@@ -144,17 +98,12 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
       let fotosAvaria: Awaited<
         ReturnType<typeof mapRecebimentoDetalhe>
       >['fotosAvaria'] = [];
-      let avariasApi: Awaited<ReturnType<typeof listAvarias>> = [];
 
       if (recebimentoAtivo) {
-        const [documentosChecklist, documentosAvaria, avarias] =
-          await Promise.all([
-            listChecklistDocumentos(recebimentoAtivo.id),
-            listAvariaDocumentos(recebimentoAtivo.id),
-            listAvarias(recebimentoAtivo.id),
-          ]);
-
-        avariasApi = avarias;
+        const [documentosChecklist, documentosAvaria] = await Promise.all([
+          listChecklistDocumentos(recebimentoAtivo.id),
+          listAvariaDocumentos(recebimentoAtivo.id),
+        ]);
 
         const sorted = [...documentosChecklist].sort((a, b) =>
           compareChecklistPhotos(a.nome, b.nome),
@@ -167,10 +116,7 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
             url: await getDocumentDownloadUrl(documento.id),
           })),
         );
-        fotoTotalInformado = Math.max(
-          fotoTotalInformado,
-          fotos.length,
-        );
+        fotoTotalInformado = Math.max(fotoTotalInformado, fotos.length);
 
         const fotosPorDocumento = new Map(
           await Promise.all(
@@ -228,7 +174,7 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
         fotosAvaria,
         conferencia: enrichConferenciaComAvarias(
           detalheBase.conferencia,
-          avariasApi,
+          avarias,
           new Map(),
         ),
       });
