@@ -50,6 +50,8 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       PUPPETEER_SKIP_DOWNLOAD: 'true'
       SENTRY_DSN: ${API_SENTRY_DSN:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
     networks:
       - proxy
     deploy:
