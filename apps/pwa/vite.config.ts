@@ -51,6 +51,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Single-bundle offline build exceeds Workbox default (2 MiB).
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}', 'splash/*.png'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api/],
