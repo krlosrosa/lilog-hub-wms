@@ -2,16 +2,14 @@
 # PRODUÇÃO — use ESTE arquivo no Portainer (Compose path).
 # NÃO use docker-compose.dev.yml (é só para desenvolvimento local).
 #
-# Servidor 4 GB RAM (ex.: DO s-2vcpu-4gb): NUNCA rode `docker compose build` sem
-# filtro em todos os serviços — o next build da web estoura RAM em paralelo.
-# Build um serviço por vez (web por último, sozinho):
+# Servidor 4 GB RAM (ex.: DO s-2vcpu-4gb): faça o PRIMEIRO deploy via SSH,
+# buildando um serviço por vez:
 #   docker compose -f docker-compose.portainer.yml build api
-#   docker compose -f docker-compose.portainer.yml build portal
+#   docker compose -f docker-compose.portainer.yml build web
 #   docker compose -f docker-compose.portainer.yml build pwa
 #   docker compose -f docker-compose.portainer.yml build pwa-lideranca
-#   docker compose -f docker-compose.portainer.yml build web
+#   docker compose -f docker-compose.portainer.yml build portal
 #   docker compose -f docker-compose.portainer.yml up -d
-# Se ainda falhar OOM no web, aumente swap no VPS ou WEB_BUILD_HEAP_MB no build.
 # =============================================================================
 
 version: '3.8'
@@ -90,7 +88,6 @@ services:
         SENTRY_ORG: ${SENTRY_ORG:-}
         SENTRY_PROJECT: ${WEB_SENTRY_PROJECT:-lilog-web}
         SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN:-}
-        WEB_BUILD_HEAP_MB: ${WEB_BUILD_HEAP_MB:-1280}
     container_name: lilog-web
     restart: unless-stopped
     env_file:

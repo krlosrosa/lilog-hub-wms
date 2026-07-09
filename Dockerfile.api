@@ -17,7 +17,6 @@ RUN apt-get update \
 FROM base AS deps
 ENV CI=true
 ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV NODE_OPTIONS="--max-old-space-size=1536"
 
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/api/package.json ./apps/api/
