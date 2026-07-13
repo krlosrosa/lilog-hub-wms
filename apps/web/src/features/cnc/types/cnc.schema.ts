@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { cncImpressaoOpcoesSchema } from '@/features/cnc/types/cnc-impressao.schema';
+
 export const cncSituacaoSchema = z.enum([
   'pendente',
   'em_analise',
@@ -89,12 +91,20 @@ export const cncItemSchema = z.object({
   naturezaAvaria: z.string().nullable(),
   causaAvaria: z.string().nullable(),
   tipoAvaria: z.string().nullable(),
+  shelfLifeDias: z.number().int().nullable(),
   descricaoDetalhe: z.string().nullable(),
   responsavelSugerido: cncResponsavelSchema.nullable(),
   createdAt: z.string(),
 });
 
 export type CncItem = z.infer<typeof cncItemSchema>;
+
+export const cncItemListadoSchema = cncItemSchema.extend({
+  cncNumero: z.string(),
+  cncSituacao: cncSituacaoSchema,
+});
+
+export type CncItemListado = z.infer<typeof cncItemListadoSchema>;
 
 export const cncEventoSchema = z.object({
   id: z.string().uuid(),
@@ -128,13 +138,13 @@ export const cncTratativaSchema = z.object({
 export type CncTratativa = z.infer<typeof cncTratativaSchema>;
 
 export const cncDetalheSchema = cncListItemSchema.extend({
-  acaoImediata: z.string().nullable(),
-  acaoCorretiva: z.string().nullable(),
+  observacao: z.string().nullable(),
   solicitanteId: z.number().int(),
   analistaId: z.number().int().nullable(),
   iniciadoEm: z.string().nullable(),
   encerradoEm: z.string().nullable(),
   encerradoPorUserId: z.number().int().nullable(),
+  opcoesImpressao: cncImpressaoOpcoesSchema.nullable(),
   itens: z.array(cncItemSchema),
   tratativas: z.array(cncTratativaSchema),
   eventos: z.array(cncEventoSchema),
@@ -190,7 +200,7 @@ export const CNC_SUBTIPO_LABELS: Record<CncSubtipoOcorrencia, string> = {
   sobra: 'Sobra',
   avaria: 'Avaria',
   lote_divergente: 'Lote divergente',
-  peso_divergente: 'Peso divergente',
+  peso_divergente: 'Divergência de Peso',
   validade_divergente: 'Validade divergente',
   produto_nao_previsto: 'Produto não previsto',
 };
@@ -214,4 +224,6 @@ export const CNC_EVENTO_LABELS: Record<string, string> = {
   CANCELADA: 'CNC cancelada',
   TRATATIVA_ADICIONADA: 'Tratativa adicionada',
   TRATATIVA_CONCLUIDA: 'Tratativa concluída',
+  ITEM_ATUALIZADO: 'Item atualizado',
+  ITEM_REMOVIDO: 'Item removido',
 };

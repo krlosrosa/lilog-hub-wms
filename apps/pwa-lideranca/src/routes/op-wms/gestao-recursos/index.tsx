@@ -1,7 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router';
-
-import { GestaoRecursosView } from '@/features/gestao-recursos/views/gestao-recursos-view';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/op-wms/gestao-recursos/')({
-  component: GestaoRecursosView,
+  beforeLoad: () => {
+    throw redirect({ to: '/expedicao/gestao-recursos' });
+  },
 });

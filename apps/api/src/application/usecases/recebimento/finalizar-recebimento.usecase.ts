@@ -20,13 +20,26 @@ import { buildTarefasFromItensBipados } from '../../../domain/services/build-tar
 import { createAlocadorSaldoClassificado } from '../../../domain/services/alocar-itens-por-classificacao-saldo.js';
 import type { AlocadorSaldoClassificado } from '../../../domain/services/alocar-itens-por-classificacao-saldo.js';
 import { RECEBIMENTO_EVENT } from '../../../domain/model/recebimento/recebimento.events.js';
+import {
+  CATEGORIA_CONFERENCIA,
+  DOMINIO_RECEBIMENTO,
+  ParametrosRecebimentoConferenciaSchema,
+  SUBTIPO_PARAMETROS,
+} from '../../../domain/model/configuracao-operacional/configuracao-operacional.model.js';
 import { classificarLinhasSaldoRecebimento } from '../../../domain/services/classificar-linhas-saldo-recebimento.js';
 import { aplicarBloqueioAvariaNasLinhasSaldo } from '../../../domain/services/aplicar-bloqueio-avaria-linhas-saldo.js';
 import {
   montarDescricaoCnc,
   montarItensCncRecebimento,
 } from '../../../domain/services/montar-itens-cnc-recebimento.js';
-import { buildUnidadesPorCaixaMap } from '../../../domain/services/unidade-medida.js';
+import {
+  buildUnidadesPorCaixaMap,
+  resolveDisplayQuantidadeConfig,
+} from '../../../domain/services/unidade-medida.js';
+import {
+  CONFIGURACAO_OPERACIONAL_REPOSITORY,
+  type IConfiguracaoOperacionalRepository,
+} from '../../../domain/repositories/configuracao-operacional/configuracao-operacional.repository.js';
 import {
   PRE_RECEBIMENTO_REPOSITORY,
   type IPreRecebimentoRepository,
@@ -108,6 +121,8 @@ export class FinalizarRecebimentoUseCase {
     private readonly armazenagemRepository: IArmazenagemRepository,
     @Inject(ENDERECO_REPOSITORY)
     private readonly enderecoRepository: IEnderecoRepository,
+    @Inject(CONFIGURACAO_OPERACIONAL_REPOSITORY)
+    private readonly configuracaoOperacionalRepository: IConfiguracaoOperacionalRepository,
     private readonly recebimentoEventPublisher: RecebimentoEventPublisher,
     private readonly cncEventPublisher: CncEventPublisher,
     private readonly recebimentoSaldoEventPublisher: RecebimentoSaldoEventPublisher,
@@ -397,12 +412,17 @@ export class FinalizarRecebimentoUseCase {
           .map((produto) => [produto!.produtoId, produto!]),
       );
 
+      const displayConfig = await this.resolveDisplayConfig(
+        preRecebimento.unidadeId,
+      );
+
       const itensCnc = montarItensCncRecebimento({
         divergencias,
         avarias,
         itensEsperados: preRecebimento.itens,
         itensRecebidos: itensConferidos,
         produtos,
+        displayConfig,
       });
 
       await this.cncEventPublisher.publish({
@@ -422,6 +442,24 @@ export class FinalizarRecebimentoUseCase {
       etiquetas:
         etiquetasComEndereco.length > 0 ? etiquetasComEndereco : undefined,
     };
+  }
+
+  private async resolveDisplayConfig(unidadeId: string) {
+    const configuracoes = await this.configuracaoOperacionalRepository.list({
+      unidadeId,
+      dominio: DOMINIO_RECEBIMENTO,
+      categoria: CATEGORIA_CONFERENCIA,
+      subtipo: SUBTIPO_PARAMETROS,
+      ativo: true,
+    });
+
+    const configPadrao =
+      configuracoes.find((item) => item.isPadrao) ?? configuracoes[0];
+    const parametros = ParametrosRecebimentoConferenciaSchema.parse(
+      configPadrao?.parametros ?? {},
+    );
+
+    return resolveDisplayQuantidadeConfig(parametros);
   }
 
   private async aplicarEnderecosValidadosEmTarefasBipadas(input: {

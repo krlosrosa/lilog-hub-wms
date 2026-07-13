@@ -6,6 +6,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   CloudUpload,
+  FlaskConical,
   LogIn,
   LogOut,
   PackageCheck,
@@ -37,6 +38,7 @@ interface ModuleItem {
 
 const QUICK_ACCESS = [
   { id: 'recebimento', to: '/recebimento', label: 'Recebimento', icon: LogIn },
+  { id: 'recebimento-v2', to: '/recebimento-v2', label: 'Receb. V2', icon: FlaskConical },
   { id: 'devolucao', to: '/devolucao', label: 'Devolução', icon: LogOut },
   { id: 'estoque', to: '/estoque', label: 'Estoque', icon: Boxes },
   { id: 'movimentacao', to: '/movimentacao', label: 'Movimentação', icon: ArrowLeftRight },
@@ -98,6 +100,15 @@ const MODULES: ModuleItem[] = [
     status: 'available',
     to: '/expedicao',
     iconTone: 'primary',
+  },
+  {
+    id: 'recebimento-v2',
+    title: 'Recebimento V2',
+    description: 'Conferência offline-first com sincronização inteligente',
+    icon: FlaskConical,
+    status: 'available',
+    to: '/recebimento-v2',
+    iconTone: 'secondary',
   },
 ];
 

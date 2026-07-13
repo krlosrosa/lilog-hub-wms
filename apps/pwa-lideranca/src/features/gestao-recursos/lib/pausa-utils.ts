@@ -28,6 +28,28 @@ export function getElapsedMinutes(startIso: string, now = new Date()): number {
   return Math.max(0, Math.round((now.getTime() - start) / 60_000));
 }
 
+export function formatElapsedSinceStart(
+  startIso: string,
+  now = new Date(),
+): string {
+  const minutes = getElapsedMinutes(startIso, now);
+
+  if (minutes < 1) {
+    return 'agora';
+  }
+
+  if (minutes < 60) {
+    return `há ${minutes} min`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  return remainingMinutes > 0
+    ? `há ${hours}h${remainingMinutes}min`
+    : `há ${hours}h`;
+}
+
 export function computePausaAtivaDeslocamentoMs(
   pausaInicio: string | null | undefined,
   now = new Date(),

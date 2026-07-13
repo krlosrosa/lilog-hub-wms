@@ -22,6 +22,7 @@ type ColumnKey =
   | 'transportadoraNome'
   | 'numeroOcr'
   | 'numeroTransporte'
+  | 'centroOrigem'
   | 'dataAgendada';
 
 const UNIDADE_CAIXA = 'CX';
@@ -112,6 +113,13 @@ const COLUMN_ALIASES: Record<ColumnKey, string[]> = {
     'n transporte(dt)',
     'numero transporte(dt)',
   ],
+  centroOrigem: [
+    'centro origem',
+    'centro de origem',
+    'cd. origem',
+    'cd origem',
+    'origem',
+  ],
   dataAgendada: [
     'data agendada',
     'dt agendada',
@@ -126,6 +134,7 @@ export type RecebimentoXlsxCabecalho = {
   placa?: string;
   numeroOcr?: string;
   numeroTransporte?: string;
+  centroOrigem?: string;
   horarioPrevisto?: string;
 };
 
@@ -356,6 +365,7 @@ function extractRowCabecalho(
     placa: readText('placa')?.toUpperCase(),
     numeroOcr: readText('numeroOcr'),
     numeroTransporte: readText('numeroTransporte'),
+    centroOrigem: readText('centroOrigem'),
     horarioPrevisto,
   };
 }

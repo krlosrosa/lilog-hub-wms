@@ -74,6 +74,14 @@ describe('resolveLoteFieldInput', () => {
       parsedFromGs1: false,
     });
   });
+
+  it('preserva lote alfanumérico sem padrão de fabricação', () => {
+    expect(resolveLoteFieldInput('ABC-1234')).toEqual({
+      lote: 'ABC-1234',
+      validade: null,
+      parsedFromGs1: false,
+    });
+  });
 });
 
 describe('applyGs1BarcodeInput', () => {

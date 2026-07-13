@@ -22,6 +22,9 @@ export type MappedConferenciaContext = {
   recebimentoId: string | null;
   unidadeId: string;
   dock: string | null;
+  conferenteId?: number | null;
+  conferente?: string | null;
+  conferenteMatricula?: string | null;
   modoUnitizacao: string;
   exigePaleteConferencia: boolean;
   itens: SkuItem[];
@@ -183,6 +186,9 @@ export function mapConferenciaContext(
     recebimentoId: context.recebimentoId,
     unidadeId: context.unidadeId,
     dock: context.dock,
+    conferenteId: context.conferenteId ?? null,
+    conferente: context.conferente ?? null,
+    conferenteMatricula: context.conferenteMatricula ?? null,
     modoUnitizacao: context.modoUnitizacao,
     exigePaleteConferencia,
     itens,

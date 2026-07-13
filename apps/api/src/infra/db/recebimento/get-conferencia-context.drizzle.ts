@@ -10,6 +10,7 @@ import type {
 import { mapProdutoRow } from '../produto/map-produto.drizzle.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 
+import { funcionarios } from '../providers/drizzle/config/schemas/auth.schema.js';
 import {
   checklistRecebimento,
   docas,
@@ -72,11 +73,16 @@ export async function getConferenciaContextDb(
 
       docaCodigo: docas.codigo,
 
+      conferenteNome: funcionarios.nome,
+      conferenteMatricula: funcionarios.matricula,
+
     })
 
     .from(recebimentos)
 
     .leftJoin(docas, eq(recebimentos.docaId, docas.id))
+
+    .leftJoin(funcionarios, eq(recebimentos.responsavelId, funcionarios.id))
 
     .where(eq(recebimentos.preRecebimentoId, preRecebimentoId))
 
@@ -248,6 +254,9 @@ export async function getConferenciaContextDb(
     recebimentoSituacao: recebimentoRow?.recebimento.situacao ?? null,
     dock: recebimentoRow?.docaCodigo ?? preDocaRow?.codigo ?? null,
     checklistPreenchido: !!checklistRow,
+    conferenteId: recebimentoRow?.recebimento.responsavelId ?? null,
+    conferente: recebimentoRow?.conferenteNome ?? null,
+    conferenteMatricula: recebimentoRow?.conferenteMatricula ?? null,
     modoUnitizacao,
     itens,
     conferidos,

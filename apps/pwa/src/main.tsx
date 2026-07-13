@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from '@tanstack/react-router';
 import * as Sentry from '@sentry/react';
 import { ThemeProvider } from 'next-themes';
+import { Toaster } from 'sonner';
 import { registerSW } from 'virtual:pwa-register';
 
 import { AuthProvider } from '@/features/auth';
@@ -62,6 +63,7 @@ createRoot(rootElement).render(
         <UnidadeProvider>
           <SyncProvider>
             <RouterProvider router={router} />
+            <Toaster richColors closeButton position="top-center" />
           </SyncProvider>
         </UnidadeProvider>
       </AuthProvider>

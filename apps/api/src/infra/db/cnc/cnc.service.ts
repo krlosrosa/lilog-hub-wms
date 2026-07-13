@@ -11,6 +11,10 @@ import type {
   ICncRepository,
   IniciarAnaliseCncInput,
   ListCncsFilter,
+  ListCncItensFilter,
+  UpdateCncItemInput,
+  UpdateObservacaoCncInput,
+  UpdateOpcoesImpressaoCncInput,
 } from '../../../domain/repositories/cnc/cnc.repository.js';
 import {
   DRIZZLE_PROVIDER,
@@ -33,7 +37,12 @@ import {
   countCncTratativasPendentesDb,
   listCncTratativasDb,
 } from './list-cnc-tratativas.drizzle.js';
+import { listCncItensDb } from './list-cnc-itens.drizzle.js';
 import { listCncsDb } from './list-cncs.drizzle.js';
+import { removeCncItemDb } from './remove-cnc-item.drizzle.js';
+import { updateCncItemDb } from './update-cnc-item.drizzle.js';
+import { updateObservacaoCncDb } from './update-observacao-cnc.drizzle.js';
+import { updateOpcoesImpressaoCncDb } from './update-opcoes-impressao-cnc.drizzle.js';
 
 @Injectable()
 export class CncService implements ICncRepository {
@@ -61,6 +70,10 @@ export class CncService implements ICncRepository {
     return listCncsDb(this.db, filter);
   }
 
+  listItens(filter: ListCncItensFilter) {
+    return listCncItensDb(this.db, filter);
+  }
+
   iniciarAnalise(id: string, data: IniciarAnaliseCncInput) {
     return iniciarAnaliseCncDb(this.db, id, data);
   }
@@ -71,6 +84,14 @@ export class CncService implements ICncRepository {
 
   cancelar(id: string, data: CancelarCncInput) {
     return cancelarCncDb(this.db, id, data);
+  }
+
+  updateObservacao(id: string, data: UpdateObservacaoCncInput) {
+    return updateObservacaoCncDb(this.db, id, data);
+  }
+
+  updateOpcoesImpressao(id: string, data: UpdateOpcoesImpressaoCncInput) {
+    return updateOpcoesImpressaoCncDb(this.db, id, data);
   }
 
   addTratativa(data: CreateCncTratativaInput) {
@@ -95,6 +116,14 @@ export class CncService implements ICncRepository {
 
   countTratativasPendentes(cncId: string) {
     return countCncTratativasPendentesDb(this.db, cncId);
+  }
+
+  updateItem(cncId: string, itemId: string, data: UpdateCncItemInput) {
+    return updateCncItemDb(this.db, cncId, itemId, data);
+  }
+
+  removeItem(cncId: string, itemId: string) {
+    return removeCncItemDb(this.db, cncId, itemId);
   }
 
   addEvento(data: AddCncEventoInput) {

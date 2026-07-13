@@ -18,6 +18,10 @@ import { funcionarios, users } from './auth.schema.js';
 import { produtos, unidades } from './master-data.schema.js';
 import { unitizadores } from './armazenagem.schema.js';
 import { docas } from './doca.schema.js';
+import {
+  sessaoFuncionarios,
+  sessoesTrabalho,
+} from './sessao-operacao.schema.js';
 
 export const recebimentoPgSchema = pgSchema('recebimento');
 
@@ -28,6 +32,7 @@ export const preRecebimentoSituacaoEnum = pgEnum(
     'aguardando',
     'liberado_para_conferencia',
     'em_conferencia',
+    'impedido',
     'conferido',
     'finalizado',
     'cancelado',
@@ -66,10 +71,13 @@ export const preRecebimentos = recebimentoPgSchema.table('pre_recebimentos', {
   origemDados: varchar('origem_dados', { length: 30 })
     .notNull()
     .default('manual'),
+  origem: varchar('origem', { length: 50 }).default('3201'),
   horarioPrevisto: timestamp('horario_previsto', {
     withTimezone: true,
   }).notNull(),
   observacao: text('observacao'),
+  quantidadePaletesEsperada: integer('quantidade_paletes_esperada'),
+  numeroTermoPalete: varchar('numero_termo_palete', { length: 100 }),
   situacao: preRecebimentoSituacaoEnum('situacao')
     .notNull()
     .default('agendado'),
@@ -151,6 +159,7 @@ export const recebimentos = recebimentoPgSchema.table('recebimentos', {
   situacao: recebimentoSituacaoEnum('situacao')
     .notNull()
     .default('em_conferencia'),
+  quantidadePaletes: integer('quantidade_paletes'),
   modoUnitizacao: varchar('modo_unitizacao', { length: 50 })
     .notNull()
     .default('gerar_etiqueta_na_armazenagem'),
@@ -246,6 +255,44 @@ export const recebimentoAvarias = recebimentoPgSchema.table('recebimento_avarias
     .notNull(),
 });
 
+export const temperaturaProdutoEtapaEnum = pgEnum(
+  'temperatura_produto_etapa_type',
+  ['inicio', 'meio', 'fim'],
+);
+
+export const recebimentoTemperaturasProduto = recebimentoPgSchema.table(
+  'recebimento_temperaturas_produto',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    recebimentoId: uuid('recebimento_id')
+      .notNull()
+      .references(() => recebimentos.id, { onDelete: 'cascade' }),
+    etapa: temperaturaProdutoEtapaEnum('etapa').notNull(),
+    temperatura: numeric('temperatura', { precision: 5, scale: 1 }).notNull(),
+    medidoEm: timestamp('medido_em', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    operatorId: integer('operator_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('recebimento_temperaturas_produto_recebimento_etapa_unique_idx').on(
+      table.recebimentoId,
+      table.etapa,
+    ),
+    index('recebimento_temperaturas_produto_recebimento_id_idx').on(
+      table.recebimentoId,
+    ),
+  ],
+);
+
 export const checklistRecebimento = recebimentoPgSchema.table(
   'checklist_recebimento',
   {
@@ -268,6 +315,50 @@ export const checklistRecebimento = recebimentoPgSchema.table(
       .defaultNow()
       .notNull(),
   },
+);
+
+export const recebimentoAlocacaoStatusEnum = pgEnum(
+  'recebimento_alocacao_status_type',
+  ['atribuida', 'iniciada', 'cancelada'],
+);
+
+export const recebimentoAlocacoes = recebimentoPgSchema.table(
+  'alocacoes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    preRecebimentoId: uuid('pre_recebimento_id')
+      .notNull()
+      .references(() => preRecebimentos.id, { onDelete: 'cascade' }),
+    sessaoId: uuid('sessao_id')
+      .notNull()
+      .references(() => sessoesTrabalho.id, { onDelete: 'restrict' }),
+    sessaoFuncionarioId: uuid('sessao_funcionario_id')
+      .notNull()
+      .references(() => sessaoFuncionarios.id, { onDelete: 'restrict' }),
+    funcionarioId: integer('funcionario_id')
+      .notNull()
+      .references(() => funcionarios.id, { onDelete: 'restrict' }),
+    status: recebimentoAlocacaoStatusEnum('status').notNull().default('atribuida'),
+    atribuidoPorUserId: integer('atribuido_por_user_id'),
+    atribuidoEm: timestamp('atribuido_em', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    inicioEm: timestamp('inicio_em', { withTimezone: true }),
+    canceladoEm: timestamp('cancelado_em', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('alocacoes_pre_recebimento_ativa_idx')
+      .on(table.preRecebimentoId)
+      .where(sql`${table.status} = 'atribuida'`),
+    index('alocacoes_sessao_id_idx').on(table.sessaoId),
+    index('alocacoes_sessao_funcionario_id_idx').on(table.sessaoFuncionarioId),
+  ],
 );
 
 export const divergenciasRecebimento = recebimentoPgSchema.table(
@@ -294,4 +385,29 @@ export const divergenciasRecebimento = recebimentoPgSchema.table(
       .defaultNow()
       .notNull(),
   },
+);
+
+export const impedimentosRecebimento = recebimentoPgSchema.table(
+  'impedimentos_recebimento',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    preRecebimentoId: uuid('pre_recebimento_id')
+      .notNull()
+      .references(() => preRecebimentos.id, { onDelete: 'cascade' }),
+    tipo: varchar('tipo', { length: 50 }).notNull(),
+    descricao: text('descricao').notNull(),
+    photoCount: integer('photo_count').notNull().default(0),
+    registradoPorId: integer('registrado_por_id').references(() => funcionarios.id, {
+      onDelete: 'set null',
+    }),
+    registradoEm: timestamp('registrado_em', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('impedimentos_recebimento_pre_id_idx').on(table.preRecebimentoId),
+  ],
 );

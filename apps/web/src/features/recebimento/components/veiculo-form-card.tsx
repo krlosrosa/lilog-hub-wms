@@ -97,6 +97,28 @@ export function VeiculoFormCard() {
           />
         </div>
 
+        <div className="space-y-0.5">
+          <label htmlFor="recv-paletes-esperados" className={fieldLabelClassName}>
+            Paletes esperados
+          </label>
+          <input
+            id="recv-paletes-esperados"
+            type="number"
+            min={0}
+            step={1}
+            inputMode="numeric"
+            placeholder="Opcional"
+            aria-invalid={Boolean(errors.quantidadePaletesEsperada)}
+            className={fieldInputClassName}
+            {...register('quantidadePaletesEsperada')}
+          />
+          {errors.quantidadePaletesEsperada?.message ? (
+            <p className={fieldErrorClassName} role="alert">
+              {errors.quantidadePaletesEsperada.message}
+            </p>
+          ) : null}
+        </div>
+
         <div className="space-y-0.5 sm:col-span-2">
           <label htmlFor="recv-horario" className={fieldLabelClassName}>
             Previsão de chegada *

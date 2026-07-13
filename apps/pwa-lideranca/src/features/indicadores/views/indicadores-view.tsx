@@ -4,7 +4,6 @@ import {
   Loader2,
   PackageOpen,
   RefreshCw,
-  ShieldX,
   Truck,
 } from 'lucide-react';
 
@@ -81,7 +80,6 @@ export function IndicadoresView() {
     unidadeNome,
     semUnidade,
     semExpedicaoAtiva,
-    semPermissao,
     snapshot,
     transportesFiltrados,
     transportesForaDoEixo,
@@ -105,14 +103,14 @@ export function IndicadoresView() {
   } = useIndicadoresPwa();
 
   const canShowPainel =
-    !semUnidade && !semExpedicaoAtiva && !semPermissao && !loadError;
+    !semUnidade && !semExpedicaoAtiva && !loadError;
 
   return (
     <div className="page-enter flex flex-col pb-8">
       <SessaoSubHeader
-        backTo="/"
-        backLabel="Voltar ao menu"
-        title="Indicadores"
+        backTo="/expedicao"
+        backLabel="Voltar à expedição"
+        title="Torre de Expedição"
         subtitle={
           isLoading
             ? 'Carregando operação...'
@@ -150,16 +148,6 @@ export function IndicadoresView() {
           icon={AlertCircle}
           title="Selecione uma unidade"
           description="Escolha a unidade no menu principal para visualizar os indicadores da expedição."
-        />
-      ) : semPermissao ? (
-        <EmptyState
-          icon={ShieldX}
-          tone="danger"
-          title="Acesso restrito"
-          description={
-            loadError ??
-            'Você não possui permissão para visualizar os indicadores de expedição.'
-          }
         />
       ) : semExpedicaoAtiva ? (
         <EmptyState

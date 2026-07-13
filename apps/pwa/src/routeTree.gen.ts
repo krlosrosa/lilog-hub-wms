@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RecebimentoIndexRouteImport } from './routes/recebimento/index'
+import { Route as RecebimentoV2IndexRouteImport } from './routes/recebimento-v2/index'
 import { Route as PesoVariavelIndexRouteImport } from './routes/peso-variavel/index'
 import { Route as PassagemBastaoIndexRouteImport } from './routes/passagem-bastao/index'
 import { Route as MovimentacaoIndexRouteImport } from './routes/movimentacao/index'
@@ -20,11 +21,13 @@ import { Route as ExpedicaoIndexRouteImport } from './routes/expedicao/index'
 import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
 import { Route as DevolucaoIndexRouteImport } from './routes/devolucao/index'
 import { Route as RecebimentoIdRouteImport } from './routes/recebimento/$id'
+import { Route as RecebimentoV2IdRouteImport } from './routes/recebimento-v2/$id'
 import { Route as RastreioTokenRouteImport } from './routes/rastreio/$token'
 import { Route as PesoVariavelIdRouteImport } from './routes/peso-variavel/$id'
 import { Route as PassagemBastaoResumoRouteImport } from './routes/passagem-bastao/resumo'
 import { Route as DevolucaoIdRouteImport } from './routes/devolucao/$id'
 import { Route as RecebimentoIdIndexRouteImport } from './routes/recebimento/$id.index'
+import { Route as RecebimentoV2IdIndexRouteImport } from './routes/recebimento-v2/$id.index'
 import { Route as PesoVariavelIdIndexRouteImport } from './routes/peso-variavel/$id.index'
 import { Route as MovimentacaoRessuprimentoIndexRouteImport } from './routes/movimentacao/ressuprimento/index'
 import { Route as MovimentacaoArmazenagemIndexRouteImport } from './routes/movimentacao/armazenagem/index'
@@ -38,6 +41,12 @@ import { Route as RecebimentoIdTerminoRouteImport } from './routes/recebimento/$
 import { Route as RecebimentoIdItensRouteImport } from './routes/recebimento/$id.itens'
 import { Route as RecebimentoIdChecklistRouteImport } from './routes/recebimento/$id.checklist'
 import { Route as RecebimentoIdAvariaRouteImport } from './routes/recebimento/$id.avaria'
+import { Route as RecebimentoV2IdResumoRouteImport } from './routes/recebimento-v2/$id.resumo'
+import { Route as RecebimentoV2IdPreparacaoRouteImport } from './routes/recebimento-v2/$id.preparacao'
+import { Route as RecebimentoV2IdItensRouteImport } from './routes/recebimento-v2/$id.itens'
+import { Route as RecebimentoV2IdConflitoRouteImport } from './routes/recebimento-v2/$id.conflito'
+import { Route as RecebimentoV2IdChecklistRouteImport } from './routes/recebimento-v2/$id.checklist'
+import { Route as RecebimentoV2IdAvariasRouteImport } from './routes/recebimento-v2/$id.avarias'
 import { Route as PesoVariavelIdResumoRouteImport } from './routes/peso-variavel/$id.resumo'
 import { Route as MovimentacaoRessuprimentoIdRouteImport } from './routes/movimentacao/ressuprimento/$id'
 import { Route as ExpedicaoSeparacaoIdRouteImport } from './routes/expedicao/separacao/$id'
@@ -82,6 +91,11 @@ const RecebimentoIndexRoute = RecebimentoIndexRouteImport.update({
   path: '/recebimento/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecebimentoV2IndexRoute = RecebimentoV2IndexRouteImport.update({
+  id: '/recebimento-v2/',
+  path: '/recebimento-v2/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PesoVariavelIndexRoute = PesoVariavelIndexRouteImport.update({
   id: '/peso-variavel/',
   path: '/peso-variavel/',
@@ -122,6 +136,11 @@ const RecebimentoIdRoute = RecebimentoIdRouteImport.update({
   path: '/recebimento/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecebimentoV2IdRoute = RecebimentoV2IdRouteImport.update({
+  id: '/recebimento-v2/$id',
+  path: '/recebimento-v2/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RastreioTokenRoute = RastreioTokenRouteImport.update({
   id: '/rastreio/$token',
   path: '/rastreio/$token',
@@ -146,6 +165,11 @@ const RecebimentoIdIndexRoute = RecebimentoIdIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => RecebimentoIdRoute,
+} as any)
+const RecebimentoV2IdIndexRoute = RecebimentoV2IdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RecebimentoV2IdRoute,
 } as any)
 const PesoVariavelIdIndexRoute = PesoVariavelIdIndexRouteImport.update({
   id: '/',
@@ -213,6 +237,38 @@ const RecebimentoIdAvariaRoute = RecebimentoIdAvariaRouteImport.update({
   id: '/avaria',
   path: '/avaria',
   getParentRoute: () => RecebimentoIdRoute,
+} as any)
+const RecebimentoV2IdResumoRoute = RecebimentoV2IdResumoRouteImport.update({
+  id: '/resumo',
+  path: '/resumo',
+  getParentRoute: () => RecebimentoV2IdRoute,
+} as any)
+const RecebimentoV2IdPreparacaoRoute =
+  RecebimentoV2IdPreparacaoRouteImport.update({
+    id: '/preparacao',
+    path: '/preparacao',
+    getParentRoute: () => RecebimentoV2IdRoute,
+  } as any)
+const RecebimentoV2IdItensRoute = RecebimentoV2IdItensRouteImport.update({
+  id: '/itens',
+  path: '/itens',
+  getParentRoute: () => RecebimentoV2IdRoute,
+} as any)
+const RecebimentoV2IdConflitoRoute = RecebimentoV2IdConflitoRouteImport.update({
+  id: '/conflito',
+  path: '/conflito',
+  getParentRoute: () => RecebimentoV2IdRoute,
+} as any)
+const RecebimentoV2IdChecklistRoute =
+  RecebimentoV2IdChecklistRouteImport.update({
+    id: '/checklist',
+    path: '/checklist',
+    getParentRoute: () => RecebimentoV2IdRoute,
+  } as any)
+const RecebimentoV2IdAvariasRoute = RecebimentoV2IdAvariasRouteImport.update({
+  id: '/avarias',
+  path: '/avarias',
+  getParentRoute: () => RecebimentoV2IdRoute,
 } as any)
 const PesoVariavelIdResumoRoute = PesoVariavelIdResumoRouteImport.update({
   id: '/resumo',
@@ -381,6 +437,7 @@ export interface FileRoutesByFullPath {
   '/passagem-bastao/resumo': typeof PassagemBastaoResumoRoute
   '/peso-variavel/$id': typeof PesoVariavelIdRouteWithChildren
   '/rastreio/$token': typeof RastreioTokenRoute
+  '/recebimento-v2/$id': typeof RecebimentoV2IdRouteWithChildren
   '/recebimento/$id': typeof RecebimentoIdRouteWithChildren
   '/devolucao/': typeof DevolucaoIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
@@ -389,6 +446,7 @@ export interface FileRoutesByFullPath {
   '/movimentacao/': typeof MovimentacaoIndexRoute
   '/passagem-bastao/': typeof PassagemBastaoIndexRoute
   '/peso-variavel/': typeof PesoVariavelIndexRoute
+  '/recebimento-v2/': typeof RecebimentoV2IndexRoute
   '/recebimento/': typeof RecebimentoIndexRoute
   '/devolucao/$id/avaria': typeof DevolucaoIdAvariaRoute
   '/devolucao/$id/checklist': typeof DevolucaoIdChecklistRoute
@@ -400,6 +458,12 @@ export interface FileRoutesByFullPath {
   '/expedicao/separacao/$id': typeof ExpedicaoSeparacaoIdRouteWithChildren
   '/movimentacao/ressuprimento/$id': typeof MovimentacaoRessuprimentoIdRouteWithChildren
   '/peso-variavel/$id/resumo': typeof PesoVariavelIdResumoRoute
+  '/recebimento-v2/$id/avarias': typeof RecebimentoV2IdAvariasRoute
+  '/recebimento-v2/$id/checklist': typeof RecebimentoV2IdChecklistRoute
+  '/recebimento-v2/$id/conflito': typeof RecebimentoV2IdConflitoRoute
+  '/recebimento-v2/$id/itens': typeof RecebimentoV2IdItensRoute
+  '/recebimento-v2/$id/preparacao': typeof RecebimentoV2IdPreparacaoRoute
+  '/recebimento-v2/$id/resumo': typeof RecebimentoV2IdResumoRoute
   '/recebimento/$id/avaria': typeof RecebimentoIdAvariaRoute
   '/recebimento/$id/checklist': typeof RecebimentoIdChecklistRoute
   '/recebimento/$id/itens': typeof RecebimentoIdItensRoute
@@ -413,6 +477,7 @@ export interface FileRoutesByFullPath {
   '/movimentacao/armazenagem/': typeof MovimentacaoArmazenagemIndexRoute
   '/movimentacao/ressuprimento/': typeof MovimentacaoRessuprimentoIndexRoute
   '/peso-variavel/$id/': typeof PesoVariavelIdIndexRoute
+  '/recebimento-v2/$id/': typeof RecebimentoV2IdIndexRoute
   '/recebimento/$id/': typeof RecebimentoIdIndexRoute
   '/estoque/contagem/$id/cega': typeof EstoqueContagemIdCegaRouteWithChildren
   '/estoque/contagem/$id/validacao': typeof EstoqueContagemIdValidacaoRouteWithChildren
@@ -445,6 +510,7 @@ export interface FileRoutesByTo {
   '/movimentacao': typeof MovimentacaoIndexRoute
   '/passagem-bastao': typeof PassagemBastaoIndexRoute
   '/peso-variavel': typeof PesoVariavelIndexRoute
+  '/recebimento-v2': typeof RecebimentoV2IndexRoute
   '/recebimento': typeof RecebimentoIndexRoute
   '/devolucao/$id/avaria': typeof DevolucaoIdAvariaRoute
   '/devolucao/$id/checklist': typeof DevolucaoIdChecklistRoute
@@ -452,6 +518,12 @@ export interface FileRoutesByTo {
   '/devolucao/$id/termino': typeof DevolucaoIdTerminoRoute
   '/estoque/contagem/$id': typeof EstoqueContagemIdRouteWithChildren
   '/peso-variavel/$id/resumo': typeof PesoVariavelIdResumoRoute
+  '/recebimento-v2/$id/avarias': typeof RecebimentoV2IdAvariasRoute
+  '/recebimento-v2/$id/checklist': typeof RecebimentoV2IdChecklistRoute
+  '/recebimento-v2/$id/conflito': typeof RecebimentoV2IdConflitoRoute
+  '/recebimento-v2/$id/itens': typeof RecebimentoV2IdItensRoute
+  '/recebimento-v2/$id/preparacao': typeof RecebimentoV2IdPreparacaoRoute
+  '/recebimento-v2/$id/resumo': typeof RecebimentoV2IdResumoRoute
   '/recebimento/$id/avaria': typeof RecebimentoIdAvariaRoute
   '/recebimento/$id/checklist': typeof RecebimentoIdChecklistRoute
   '/recebimento/$id/itens': typeof RecebimentoIdItensRoute
@@ -465,6 +537,7 @@ export interface FileRoutesByTo {
   '/movimentacao/armazenagem': typeof MovimentacaoArmazenagemIndexRoute
   '/movimentacao/ressuprimento': typeof MovimentacaoRessuprimentoIndexRoute
   '/peso-variavel/$id': typeof PesoVariavelIdIndexRoute
+  '/recebimento-v2/$id': typeof RecebimentoV2IdIndexRoute
   '/recebimento/$id': typeof RecebimentoIdIndexRoute
   '/estoque/recuperacao/$demandaId/$itemId': typeof EstoqueRecuperacaoDemandaIdItemIdRouteWithChildren
   '/estoque/recuperacao/$demandaId/resumo': typeof EstoqueRecuperacaoDemandaIdResumoRoute
@@ -491,6 +564,7 @@ export interface FileRoutesById {
   '/passagem-bastao/resumo': typeof PassagemBastaoResumoRoute
   '/peso-variavel/$id': typeof PesoVariavelIdRouteWithChildren
   '/rastreio/$token': typeof RastreioTokenRoute
+  '/recebimento-v2/$id': typeof RecebimentoV2IdRouteWithChildren
   '/recebimento/$id': typeof RecebimentoIdRouteWithChildren
   '/devolucao/': typeof DevolucaoIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
@@ -499,6 +573,7 @@ export interface FileRoutesById {
   '/movimentacao/': typeof MovimentacaoIndexRoute
   '/passagem-bastao/': typeof PassagemBastaoIndexRoute
   '/peso-variavel/': typeof PesoVariavelIndexRoute
+  '/recebimento-v2/': typeof RecebimentoV2IndexRoute
   '/recebimento/': typeof RecebimentoIndexRoute
   '/devolucao/$id/avaria': typeof DevolucaoIdAvariaRoute
   '/devolucao/$id/checklist': typeof DevolucaoIdChecklistRoute
@@ -510,6 +585,12 @@ export interface FileRoutesById {
   '/expedicao/separacao/$id': typeof ExpedicaoSeparacaoIdRouteWithChildren
   '/movimentacao/ressuprimento/$id': typeof MovimentacaoRessuprimentoIdRouteWithChildren
   '/peso-variavel/$id/resumo': typeof PesoVariavelIdResumoRoute
+  '/recebimento-v2/$id/avarias': typeof RecebimentoV2IdAvariasRoute
+  '/recebimento-v2/$id/checklist': typeof RecebimentoV2IdChecklistRoute
+  '/recebimento-v2/$id/conflito': typeof RecebimentoV2IdConflitoRoute
+  '/recebimento-v2/$id/itens': typeof RecebimentoV2IdItensRoute
+  '/recebimento-v2/$id/preparacao': typeof RecebimentoV2IdPreparacaoRoute
+  '/recebimento-v2/$id/resumo': typeof RecebimentoV2IdResumoRoute
   '/recebimento/$id/avaria': typeof RecebimentoIdAvariaRoute
   '/recebimento/$id/checklist': typeof RecebimentoIdChecklistRoute
   '/recebimento/$id/itens': typeof RecebimentoIdItensRoute
@@ -523,6 +604,7 @@ export interface FileRoutesById {
   '/movimentacao/armazenagem/': typeof MovimentacaoArmazenagemIndexRoute
   '/movimentacao/ressuprimento/': typeof MovimentacaoRessuprimentoIndexRoute
   '/peso-variavel/$id/': typeof PesoVariavelIdIndexRoute
+  '/recebimento-v2/$id/': typeof RecebimentoV2IdIndexRoute
   '/recebimento/$id/': typeof RecebimentoIdIndexRoute
   '/estoque/contagem/$id/cega': typeof EstoqueContagemIdCegaRouteWithChildren
   '/estoque/contagem/$id/validacao': typeof EstoqueContagemIdValidacaoRouteWithChildren
@@ -552,6 +634,7 @@ export interface FileRouteTypes {
     | '/passagem-bastao/resumo'
     | '/peso-variavel/$id'
     | '/rastreio/$token'
+    | '/recebimento-v2/$id'
     | '/recebimento/$id'
     | '/devolucao/'
     | '/estoque/'
@@ -560,6 +643,7 @@ export interface FileRouteTypes {
     | '/movimentacao/'
     | '/passagem-bastao/'
     | '/peso-variavel/'
+    | '/recebimento-v2/'
     | '/recebimento/'
     | '/devolucao/$id/avaria'
     | '/devolucao/$id/checklist'
@@ -571,6 +655,12 @@ export interface FileRouteTypes {
     | '/expedicao/separacao/$id'
     | '/movimentacao/ressuprimento/$id'
     | '/peso-variavel/$id/resumo'
+    | '/recebimento-v2/$id/avarias'
+    | '/recebimento-v2/$id/checklist'
+    | '/recebimento-v2/$id/conflito'
+    | '/recebimento-v2/$id/itens'
+    | '/recebimento-v2/$id/preparacao'
+    | '/recebimento-v2/$id/resumo'
     | '/recebimento/$id/avaria'
     | '/recebimento/$id/checklist'
     | '/recebimento/$id/itens'
@@ -584,6 +674,7 @@ export interface FileRouteTypes {
     | '/movimentacao/armazenagem/'
     | '/movimentacao/ressuprimento/'
     | '/peso-variavel/$id/'
+    | '/recebimento-v2/$id/'
     | '/recebimento/$id/'
     | '/estoque/contagem/$id/cega'
     | '/estoque/contagem/$id/validacao'
@@ -616,6 +707,7 @@ export interface FileRouteTypes {
     | '/movimentacao'
     | '/passagem-bastao'
     | '/peso-variavel'
+    | '/recebimento-v2'
     | '/recebimento'
     | '/devolucao/$id/avaria'
     | '/devolucao/$id/checklist'
@@ -623,6 +715,12 @@ export interface FileRouteTypes {
     | '/devolucao/$id/termino'
     | '/estoque/contagem/$id'
     | '/peso-variavel/$id/resumo'
+    | '/recebimento-v2/$id/avarias'
+    | '/recebimento-v2/$id/checklist'
+    | '/recebimento-v2/$id/conflito'
+    | '/recebimento-v2/$id/itens'
+    | '/recebimento-v2/$id/preparacao'
+    | '/recebimento-v2/$id/resumo'
     | '/recebimento/$id/avaria'
     | '/recebimento/$id/checklist'
     | '/recebimento/$id/itens'
@@ -636,6 +734,7 @@ export interface FileRouteTypes {
     | '/movimentacao/armazenagem'
     | '/movimentacao/ressuprimento'
     | '/peso-variavel/$id'
+    | '/recebimento-v2/$id'
     | '/recebimento/$id'
     | '/estoque/recuperacao/$demandaId/$itemId'
     | '/estoque/recuperacao/$demandaId/resumo'
@@ -661,6 +760,7 @@ export interface FileRouteTypes {
     | '/passagem-bastao/resumo'
     | '/peso-variavel/$id'
     | '/rastreio/$token'
+    | '/recebimento-v2/$id'
     | '/recebimento/$id'
     | '/devolucao/'
     | '/estoque/'
@@ -669,6 +769,7 @@ export interface FileRouteTypes {
     | '/movimentacao/'
     | '/passagem-bastao/'
     | '/peso-variavel/'
+    | '/recebimento-v2/'
     | '/recebimento/'
     | '/devolucao/$id/avaria'
     | '/devolucao/$id/checklist'
@@ -680,6 +781,12 @@ export interface FileRouteTypes {
     | '/expedicao/separacao/$id'
     | '/movimentacao/ressuprimento/$id'
     | '/peso-variavel/$id/resumo'
+    | '/recebimento-v2/$id/avarias'
+    | '/recebimento-v2/$id/checklist'
+    | '/recebimento-v2/$id/conflito'
+    | '/recebimento-v2/$id/itens'
+    | '/recebimento-v2/$id/preparacao'
+    | '/recebimento-v2/$id/resumo'
     | '/recebimento/$id/avaria'
     | '/recebimento/$id/checklist'
     | '/recebimento/$id/itens'
@@ -693,6 +800,7 @@ export interface FileRouteTypes {
     | '/movimentacao/armazenagem/'
     | '/movimentacao/ressuprimento/'
     | '/peso-variavel/$id/'
+    | '/recebimento-v2/$id/'
     | '/recebimento/$id/'
     | '/estoque/contagem/$id/cega'
     | '/estoque/contagem/$id/validacao'
@@ -721,6 +829,7 @@ export interface RootRouteChildren {
   PassagemBastaoResumoRoute: typeof PassagemBastaoResumoRoute
   PesoVariavelIdRoute: typeof PesoVariavelIdRouteWithChildren
   RastreioTokenRoute: typeof RastreioTokenRoute
+  RecebimentoV2IdRoute: typeof RecebimentoV2IdRouteWithChildren
   RecebimentoIdRoute: typeof RecebimentoIdRouteWithChildren
   DevolucaoIndexRoute: typeof DevolucaoIndexRoute
   EstoqueIndexRoute: typeof EstoqueIndexRoute
@@ -729,6 +838,7 @@ export interface RootRouteChildren {
   MovimentacaoIndexRoute: typeof MovimentacaoIndexRoute
   PassagemBastaoIndexRoute: typeof PassagemBastaoIndexRoute
   PesoVariavelIndexRoute: typeof PesoVariavelIndexRoute
+  RecebimentoV2IndexRoute: typeof RecebimentoV2IndexRoute
   RecebimentoIndexRoute: typeof RecebimentoIndexRoute
   EstoqueArmazenagemIdRoute: typeof EstoqueArmazenagemIdRouteWithChildren
   EstoqueContagemIdRoute: typeof EstoqueContagemIdRouteWithChildren
@@ -766,6 +876,13 @@ declare module '@tanstack/react-router' {
       path: '/recebimento'
       fullPath: '/recebimento/'
       preLoaderRoute: typeof RecebimentoIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recebimento-v2/': {
+      id: '/recebimento-v2/'
+      path: '/recebimento-v2'
+      fullPath: '/recebimento-v2/'
+      preLoaderRoute: typeof RecebimentoV2IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/peso-variavel/': {
@@ -824,6 +941,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecebimentoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/recebimento-v2/$id': {
+      id: '/recebimento-v2/$id'
+      path: '/recebimento-v2/$id'
+      fullPath: '/recebimento-v2/$id'
+      preLoaderRoute: typeof RecebimentoV2IdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/rastreio/$token': {
       id: '/rastreio/$token'
       path: '/rastreio/$token'
@@ -858,6 +982,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/recebimento/$id/'
       preLoaderRoute: typeof RecebimentoIdIndexRouteImport
       parentRoute: typeof RecebimentoIdRoute
+    }
+    '/recebimento-v2/$id/': {
+      id: '/recebimento-v2/$id/'
+      path: '/'
+      fullPath: '/recebimento-v2/$id/'
+      preLoaderRoute: typeof RecebimentoV2IdIndexRouteImport
+      parentRoute: typeof RecebimentoV2IdRoute
     }
     '/peso-variavel/$id/': {
       id: '/peso-variavel/$id/'
@@ -949,6 +1080,48 @@ declare module '@tanstack/react-router' {
       fullPath: '/recebimento/$id/avaria'
       preLoaderRoute: typeof RecebimentoIdAvariaRouteImport
       parentRoute: typeof RecebimentoIdRoute
+    }
+    '/recebimento-v2/$id/resumo': {
+      id: '/recebimento-v2/$id/resumo'
+      path: '/resumo'
+      fullPath: '/recebimento-v2/$id/resumo'
+      preLoaderRoute: typeof RecebimentoV2IdResumoRouteImport
+      parentRoute: typeof RecebimentoV2IdRoute
+    }
+    '/recebimento-v2/$id/preparacao': {
+      id: '/recebimento-v2/$id/preparacao'
+      path: '/preparacao'
+      fullPath: '/recebimento-v2/$id/preparacao'
+      preLoaderRoute: typeof RecebimentoV2IdPreparacaoRouteImport
+      parentRoute: typeof RecebimentoV2IdRoute
+    }
+    '/recebimento-v2/$id/itens': {
+      id: '/recebimento-v2/$id/itens'
+      path: '/itens'
+      fullPath: '/recebimento-v2/$id/itens'
+      preLoaderRoute: typeof RecebimentoV2IdItensRouteImport
+      parentRoute: typeof RecebimentoV2IdRoute
+    }
+    '/recebimento-v2/$id/conflito': {
+      id: '/recebimento-v2/$id/conflito'
+      path: '/conflito'
+      fullPath: '/recebimento-v2/$id/conflito'
+      preLoaderRoute: typeof RecebimentoV2IdConflitoRouteImport
+      parentRoute: typeof RecebimentoV2IdRoute
+    }
+    '/recebimento-v2/$id/checklist': {
+      id: '/recebimento-v2/$id/checklist'
+      path: '/checklist'
+      fullPath: '/recebimento-v2/$id/checklist'
+      preLoaderRoute: typeof RecebimentoV2IdChecklistRouteImport
+      parentRoute: typeof RecebimentoV2IdRoute
+    }
+    '/recebimento-v2/$id/avarias': {
+      id: '/recebimento-v2/$id/avarias'
+      path: '/avarias'
+      fullPath: '/recebimento-v2/$id/avarias'
+      preLoaderRoute: typeof RecebimentoV2IdAvariasRouteImport
+      parentRoute: typeof RecebimentoV2IdRoute
     }
     '/peso-variavel/$id/resumo': {
       id: '/peso-variavel/$id/resumo'
@@ -1183,6 +1356,30 @@ const PesoVariavelIdRouteWithChildren = PesoVariavelIdRoute._addFileChildren(
   PesoVariavelIdRouteChildren,
 )
 
+interface RecebimentoV2IdRouteChildren {
+  RecebimentoV2IdAvariasRoute: typeof RecebimentoV2IdAvariasRoute
+  RecebimentoV2IdChecklistRoute: typeof RecebimentoV2IdChecklistRoute
+  RecebimentoV2IdConflitoRoute: typeof RecebimentoV2IdConflitoRoute
+  RecebimentoV2IdItensRoute: typeof RecebimentoV2IdItensRoute
+  RecebimentoV2IdPreparacaoRoute: typeof RecebimentoV2IdPreparacaoRoute
+  RecebimentoV2IdResumoRoute: typeof RecebimentoV2IdResumoRoute
+  RecebimentoV2IdIndexRoute: typeof RecebimentoV2IdIndexRoute
+}
+
+const RecebimentoV2IdRouteChildren: RecebimentoV2IdRouteChildren = {
+  RecebimentoV2IdAvariasRoute: RecebimentoV2IdAvariasRoute,
+  RecebimentoV2IdChecklistRoute: RecebimentoV2IdChecklistRoute,
+  RecebimentoV2IdConflitoRoute: RecebimentoV2IdConflitoRoute,
+  RecebimentoV2IdItensRoute: RecebimentoV2IdItensRoute,
+  RecebimentoV2IdPreparacaoRoute: RecebimentoV2IdPreparacaoRoute,
+  RecebimentoV2IdResumoRoute: RecebimentoV2IdResumoRoute,
+  RecebimentoV2IdIndexRoute: RecebimentoV2IdIndexRoute,
+}
+
+const RecebimentoV2IdRouteWithChildren = RecebimentoV2IdRoute._addFileChildren(
+  RecebimentoV2IdRouteChildren,
+)
+
 interface RecebimentoIdRouteChildren {
   RecebimentoIdAvariaRoute: typeof RecebimentoIdAvariaRoute
   RecebimentoIdChecklistRoute: typeof RecebimentoIdChecklistRoute
@@ -1340,6 +1537,7 @@ const rootRouteChildren: RootRouteChildren = {
   PassagemBastaoResumoRoute: PassagemBastaoResumoRoute,
   PesoVariavelIdRoute: PesoVariavelIdRouteWithChildren,
   RastreioTokenRoute: RastreioTokenRoute,
+  RecebimentoV2IdRoute: RecebimentoV2IdRouteWithChildren,
   RecebimentoIdRoute: RecebimentoIdRouteWithChildren,
   DevolucaoIndexRoute: DevolucaoIndexRoute,
   EstoqueIndexRoute: EstoqueIndexRoute,
@@ -1348,6 +1546,7 @@ const rootRouteChildren: RootRouteChildren = {
   MovimentacaoIndexRoute: MovimentacaoIndexRoute,
   PassagemBastaoIndexRoute: PassagemBastaoIndexRoute,
   PesoVariavelIndexRoute: PesoVariavelIndexRoute,
+  RecebimentoV2IndexRoute: RecebimentoV2IndexRoute,
   RecebimentoIndexRoute: RecebimentoIndexRoute,
   EstoqueArmazenagemIdRoute: EstoqueArmazenagemIdRouteWithChildren,
   EstoqueContagemIdRoute: EstoqueContagemIdRouteWithChildren,

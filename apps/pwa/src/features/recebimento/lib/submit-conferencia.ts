@@ -179,7 +179,6 @@ async function runSubmit(demandId: string): Promise<SubmitConferenciaResult> {
         responsavelId: draft.responsavelId ?? undefined,
         lacre: draft.form.lacre || undefined,
         tempBau: draft.form.tempBau,
-        tempProduto: draft.form.tempProd,
         conditions: draft.form.conditions,
         observacoes: draft.form.observacoes || undefined,
         photoCount: checklistPhotoCount,

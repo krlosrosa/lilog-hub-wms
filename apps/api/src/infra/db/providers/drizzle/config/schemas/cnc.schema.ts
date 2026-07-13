@@ -11,6 +11,7 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 
+import type { CncOpcoesImpressao } from '../../../../../../domain/model/cnc/cnc.model.js';
 import { funcionarios, users } from './auth.schema.js';
 import { unidades } from './master-data.schema.js';
 
@@ -61,8 +62,7 @@ export const naoConformidades = cncPgSchema.table('nao_conformidades', {
     .default('indeterminado'),
   responsavelId: varchar('responsavel_id', { length: 50 }),
   descricao: text('descricao'),
-  acaoImediata: text('acao_imediata'),
-  acaoCorretiva: text('acao_corretiva'),
+  observacao: text('observacao'),
   situacao: cncSituacaoEnum('situacao').notNull().default('pendente'),
   solicitanteId: integer('solicitante_id')
     .notNull()
@@ -77,6 +77,7 @@ export const naoConformidades = cncPgSchema.table('nao_conformidades', {
     { onDelete: 'set null' },
   ),
   valorDebito: numeric('valor_debito', { precision: 12, scale: 2 }),
+  opcoesImpressao: jsonb('opcoes_impressao').$type<CncOpcoesImpressao>(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -120,6 +121,7 @@ export const cncItens = cncPgSchema.table('cnc_itens', {
   naturezaAvaria: varchar('natureza_avaria', { length: 50 }),
   causaAvaria: varchar('causa_avaria', { length: 50 }),
   tipoAvaria: varchar('tipo_avaria', { length: 50 }),
+  shelfLifeDias: integer('shelf_life_dias'),
   descricaoDetalhe: text('descricao_detalhe'),
   responsavelSugerido: cncResponsavelEnum('responsavel_sugerido'),
   createdAt: timestamp('created_at', { withTimezone: true })

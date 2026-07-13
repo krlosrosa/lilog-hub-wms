@@ -12,11 +12,14 @@ import {
 type RecebimentoStatusBadgeProps = {
   status: RecebimentoStatus;
   compact?: boolean;
+  /** Use em fundos escuros (ex.: painel TV). */
+  onDark?: boolean;
 };
 
 export function RecebimentoStatusBadge({
   status,
   compact,
+  onDark,
 }: RecebimentoStatusBadgeProps) {
   const labels = RECEBIMENTO_STATUS_LABELS;
   const sizeClass = compact
@@ -85,6 +88,27 @@ export function RecebimentoStatusBadge({
         )}
       >
         {labels.conferido}
+      </span>
+    );
+  } else if (status === 'impedido') {
+    content = (
+      <span
+        className={cn(
+          'inline-flex w-fit items-center gap-1 rounded-full font-semibold',
+          onDark
+            ? 'bg-orange-500/25 text-orange-300'
+            : 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+          sizeClass,
+        )}
+      >
+        <span
+          className={cn(
+            'size-1 rounded-full bg-orange-500',
+            onDark && 'shadow-[0_0_6px_rgba(249,115,22,0.8)]',
+          )}
+          aria-hidden
+        />
+        {labels.impedido}
       </span>
     );
   } else if (status === 'cancelado') {

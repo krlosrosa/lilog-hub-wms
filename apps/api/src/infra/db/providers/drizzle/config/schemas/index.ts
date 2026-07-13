@@ -48,3 +48,5 @@ export * from './op-wms.schema.js';
 export * from './corte-operacional.schema.js';
 export * from './devolucao.schema.js';
 export * from './cobranca-transportadora.schema.js';
+export * from './sync.schema.js';
+export * from './sync.schema.js';

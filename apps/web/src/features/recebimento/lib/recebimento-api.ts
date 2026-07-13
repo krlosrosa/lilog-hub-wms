@@ -13,6 +13,7 @@ import type {
   RecebimentoApi,
   RecepcionarCarroPayload,
   GerarLinkRastreioResponse,
+  TemperaturaProdutoItemApi,
 } from '@/features/recebimento/types/recebimento.api';
 import type {
   EtiquetaPaleteGerada,
@@ -160,6 +161,13 @@ export function liberarConferencia(
   );
 }
 
+export function retomarConferenciaImpedida(preRecebimentoId: string) {
+  return apiRequest<{ preRecebimentoId: string; impedimentoId: string }>(
+    `/pre-recebimentos/${encodeURIComponent(preRecebimentoId)}/retomar-conferencia`,
+    { method: 'PUT' },
+  );
+}
+
 export function recepcionarCarro(
   preRecebimentoId: string,
   payload: RecepcionarCarroPayload,
@@ -275,6 +283,12 @@ export async function fetchChecklist(
   }
 }
 
+export async function fetchTemperaturasProduto(recebimentoId: string) {
+  return apiRequest<{ recebimentoId: string; items: TemperaturaProdutoItemApi[] }>(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/temperaturas-produto`,
+  );
+}
+
 export async function listChecklistDocumentos(
   recebimentoId: string,
 ): Promise<DocumentoApi[]> {
@@ -315,6 +329,22 @@ export async function listAvariaDocumentos(
   const params = new URLSearchParams({
     entidadeTipo: 'recebimento_avaria',
     entidadeId: recebimentoId,
+    status: 'ativo',
+    page: '1',
+    limit: '50',
+  });
+  const result = await apiRequest<{ items: DocumentoApi[] }>(
+    `/documentos?${params.toString()}`,
+  );
+  return result.items ?? [];
+}
+
+export async function listImpedimentoDocumentos(
+  preRecebimentoId: string,
+): Promise<DocumentoApi[]> {
+  const params = new URLSearchParams({
+    entidadeTipo: 'impedimento_recebimento',
+    entidadeId: preRecebimentoId,
     status: 'ativo',
     page: '1',
     limit: '50',
@@ -379,4 +409,29 @@ export function importOfflineRecebimento(
       body: JSON.stringify(payload),
     },
   );
+}
+
+export type GerarMovimentacaoPayload = {
+  preRecebimentoIds: string[];
+  centrosPorEmpresa: Partial<Record<'LDB' | 'ITB' | 'DPA', string>>;
+};
+
+export async function postGerarMovimentacao(
+  payload: GerarMovimentacaoPayload,
+): Promise<{ filename: string }> {
+  const { blob, filename } = await apiDownloadBlob(
+    '/recebimentos/movimentacao/export',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+
+  const resolvedFilename = filename.endsWith('.xlsx')
+    ? filename
+    : `movimentacao-migo-${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+  downloadBlobArquivo(blob, resolvedFilename);
+
+  return { filename: resolvedFilename };
 }

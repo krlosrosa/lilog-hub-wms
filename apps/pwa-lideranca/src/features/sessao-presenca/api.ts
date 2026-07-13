@@ -16,6 +16,8 @@ type ListSessoesParams = {
   limit?: number;
   status?: string;
   dataReferencia?: string;
+  dataReferenciaInicio?: string;
+  dataReferenciaFim?: string;
 };
 
 type ListEscalasParams = {
@@ -37,7 +39,10 @@ export async function listSessoes(
     searchParams.set('status', params.status);
   }
 
-  if (params.dataReferencia) {
+  if (params.dataReferenciaInicio && params.dataReferenciaFim) {
+    searchParams.set('dataReferenciaInicio', params.dataReferenciaInicio);
+    searchParams.set('dataReferenciaFim', params.dataReferenciaFim);
+  } else if (params.dataReferencia) {
     searchParams.set('dataReferencia', params.dataReferencia);
   }
 

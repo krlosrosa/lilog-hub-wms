@@ -4,16 +4,13 @@ import { cn } from '@lilog/ui';
 import {
   Check,
   CircleDot,
-  ClipboardCheck,
   FileSearch,
+  MessageSquareText,
   ShieldCheck,
 } from 'lucide-react';
 
 import type { CncDetalhe } from '@/features/cnc/types/cnc.schema';
-import {
-  calcularProgressoTratativas,
-  formatCncDate,
-} from '@/features/cnc/lib/cnc-detalhe-utils';
+import { formatCncDate } from '@/features/cnc/lib/cnc-detalhe-utils';
 
 type CncAnaliseWorkflowProps = {
   cnc: CncDetalhe;
@@ -25,14 +22,13 @@ type StepState = 'done' | 'current' | 'upcoming' | 'skipped';
 type WorkflowStep = {
   id: string;
   label: string;
-  description: string;
   icon: typeof FileSearch;
   state: StepState;
   meta?: string;
 };
 
 function resolveSteps(cnc: CncDetalhe): WorkflowStep[] {
-  const progressoTratativas = calcularProgressoTratativas(cnc);
+  const temObservacao = Boolean(cnc.observacao?.trim());
   const cancelada = cnc.situacao === 'cancelada';
   const encerrada = cnc.situacao === 'encerrada';
   const emAnalise = cnc.situacao === 'em_analise';
@@ -49,18 +45,16 @@ function resolveSteps(cnc: CncDetalhe): WorkflowStep[] {
         ? 'current'
         : 'upcoming';
 
-  const tratativasState: StepState = cancelada
+  const observacaoState: StepState = cancelada
     ? 'skipped'
     : encerrada
-      ? progressoTratativas.total > 0
+      ? temObservacao
         ? 'done'
         : 'skipped'
       : emAnalise
-        ? progressoTratativas.total > 0
-          ? progressoTratativas.pendentes > 0
-            ? 'current'
-            : 'done'
-          : 'upcoming'
+        ? temObservacao
+          ? 'done'
+          : 'current'
         : 'upcoming';
 
   const encerramentoState: StepState = cancelada
@@ -73,7 +67,6 @@ function resolveSteps(cnc: CncDetalhe): WorkflowStep[] {
     {
       id: 'abertura',
       label: 'Abertura',
-      description: 'CNC registrada a partir do recebimento',
       icon: CircleDot,
       state: aberturaState,
       meta: formatCncDate(cnc.createdAt),
@@ -81,30 +74,20 @@ function resolveSteps(cnc: CncDetalhe): WorkflowStep[] {
     {
       id: 'analise',
       label: 'Análise',
-      description: 'Investigação das anomalias identificadas',
       icon: FileSearch,
       state: analiseState,
       meta: cnc.iniciadoEm ? formatCncDate(cnc.iniciadoEm) : undefined,
     },
     {
-      id: 'tratativas',
-      label: 'Tratativas',
-      description: 'Ações imediatas, corretivas e preventivas',
-      icon: ClipboardCheck,
-      state: tratativasState,
-      meta:
-        progressoTratativas.total > 0
-          ? `${progressoTratativas.concluidas}/${progressoTratativas.total} concluídas`
-          : undefined,
+      id: 'observacao',
+      label: 'Observação',
+      icon: MessageSquareText,
+      state: observacaoState,
+      meta: temObservacao ? 'Registrada' : undefined,
     },
     {
       id: 'encerramento',
       label: encerrada ? 'Encerrada' : cancelada ? 'Cancelada' : 'Encerramento',
-      description: encerrada
-        ? 'Não conformidade finalizada'
-        : cancelada
-          ? 'Processo interrompido'
-          : 'Conclusão com responsável e débito',
       icon: ShieldCheck,
       state: encerramentoState,
       meta: encerrada
@@ -121,7 +104,7 @@ function stepCircleClass(state: StepState) {
     case 'done':
       return 'border-primary bg-primary text-primary-foreground';
     case 'current':
-      return 'border-primary bg-primary/15 text-primary ring-4 ring-primary/20';
+      return 'border-primary bg-primary/15 text-primary ring-2 ring-primary/20';
     case 'skipped':
       return 'border-muted-foreground/30 bg-muted/30 text-muted-foreground';
     default:
@@ -136,41 +119,40 @@ export function CncAnaliseWorkflow({ cnc, className }: CncAnaliseWorkflowProps) 
     <nav
       aria-label="Fluxo de análise da CNC"
       className={cn(
-        'rounded-xl border border-outline-variant/50 bg-glass-bg p-4 shadow-inner-glow backdrop-blur-glass',
+        'rounded-lg border border-outline-variant/50 bg-glass-bg px-2 py-1.5 shadow-inner-glow backdrop-blur-glass sm:px-3 sm:py-2',
         className,
       )}
     >
-      <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <ol className="flex flex-nowrap items-center gap-1 overflow-x-auto sm:gap-2">
         {steps.map((step, index) => {
           const Icon = step.icon;
           const isLast = index === steps.length - 1;
 
           return (
-            <li key={step.id} className="relative flex gap-3">
-              {!isLast ? (
-                <span
-                  className="absolute left-[15px] top-9 hidden h-[calc(100%-12px)] w-px bg-outline-variant xl:block"
-                  aria-hidden
-                />
-              ) : null}
-
+            <li
+              key={step.id}
+              className={cn(
+                'flex min-w-0 flex-1 items-center gap-1.5',
+                !isLast && 'shrink-0',
+              )}
+            >
               <div
                 className={cn(
-                  'flex size-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                  'flex size-[18px] shrink-0 items-center justify-center rounded-full border-2 transition-colors sm:size-5',
                   stepCircleClass(step.state),
                 )}
               >
                 {step.state === 'done' ? (
-                  <Check className="size-3.5" aria-hidden />
+                  <Check className="size-2 sm:size-2.5" aria-hidden />
                 ) : (
-                  <Icon className="size-3.5" aria-hidden />
+                  <Icon className="size-2 sm:size-2.5" aria-hidden />
                 )}
               </div>
 
-              <div className="min-w-0 pt-0.5">
-                <p
+              <p className="min-w-0 truncate whitespace-nowrap text-[10px] leading-none sm:text-[11px]">
+                <span
                   className={cn(
-                    'text-xs font-semibold',
+                    'font-semibold',
                     step.state === 'current'
                       ? 'text-primary'
                       : step.state === 'done'
@@ -179,16 +161,25 @@ export function CncAnaliseWorkflow({ cnc, className }: CncAnaliseWorkflowProps) 
                   )}
                 >
                   {step.label}
-                </p>
-                <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                  {step.description}
-                </p>
+                </span>
                 {step.meta ? (
-                  <p className="mt-1 text-[10px] font-medium text-foreground/80">
-                    {step.meta}
-                  </p>
+                  <>
+                    <span className="mx-1 text-muted-foreground/40" aria-hidden>
+                      ·
+                    </span>
+                    <span className="font-normal text-muted-foreground">
+                      {step.meta}
+                    </span>
+                  </>
                 ) : null}
-              </div>
+              </p>
+
+              {!isLast ? (
+                <span
+                  className="mx-0.5 hidden h-px min-w-2 flex-1 bg-outline-variant sm:block"
+                  aria-hidden
+                />
+              ) : null}
             </li>
           );
         })}

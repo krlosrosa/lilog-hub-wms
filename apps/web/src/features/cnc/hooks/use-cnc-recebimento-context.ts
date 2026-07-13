@@ -11,6 +11,7 @@ import { alocarFotosPorAvaria } from '@/features/recebimento/lib/enrich-conferen
 import { mapChecklistToInspecao } from '@/features/recebimento/lib/map-recebimento-detalhe';
 import {
   fetchChecklist,
+  fetchTemperaturasProduto,
   getDocumentDownloadUrl,
   listAvariaDocumentos,
   listAvarias,
@@ -63,9 +64,10 @@ export function useCncRecebimentoContext(cnc: CncDetalhe | null) {
     setContext((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const [checklist, documentosChecklist, documentosAvaria, avarias] =
+      const [checklist, temperaturasResponse, documentosChecklist, documentosAvaria, avarias] =
         await Promise.all([
           fetchChecklist(recebimentoId),
+          fetchTemperaturasProduto(recebimentoId),
           listChecklistDocumentos(recebimentoId),
           listAvariaDocumentos(recebimentoId),
           listAvarias(recebimentoId),
@@ -111,7 +113,11 @@ export function useCncRecebimentoContext(cnc: CncDetalhe | null) {
       setContext({
         isLoading: false,
         error: null,
-        inspecao: mapChecklistToInspecao(checklist, divergenciasCount),
+        inspecao: mapChecklistToInspecao(
+          checklist,
+          divergenciasCount,
+          temperaturasResponse.items,
+        ),
         fotosChecklist,
         fotoTotalInformado,
         fotosPorReferencia,

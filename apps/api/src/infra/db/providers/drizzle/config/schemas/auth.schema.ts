@@ -2,6 +2,7 @@ import {
   date,
   integer,
   pgSchema,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -52,6 +53,21 @@ export const users = authPgSchema.table('users', {
   }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const usuarioUnidades = authPgSchema.table(
+  'usuario_unidades',
+  {
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    unidadeId: varchar('unidade_id', { length: 50 })
+      .notNull()
+      .references(() => unidades.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.unidadeId] }),
+  ],
+);
 
 export const usuariosTerceiros = authPgSchema.table('usuarios_terceiros', {
   id: serial('id').primaryKey(),

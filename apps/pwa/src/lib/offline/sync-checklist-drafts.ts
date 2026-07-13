@@ -74,7 +74,6 @@ export async function syncChecklistDrafts(): Promise<{
         await saveChecklist(recebimentoId, {
           lacre: draft.form.lacre || undefined,
           tempBau: draft.form.tempBau,
-          tempProduto: draft.form.tempProd,
           conditions: draft.form.conditions,
           observacoes: draft.form.observacoes || undefined,
           photoCount: draft.photoSlots.flatMap((slot) => slot.photoIds).length,

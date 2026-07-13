@@ -11,12 +11,15 @@ export async function updateRecebimentoStatusDb(
   id: string,
   situacao: RecebimentoSituacao,
   dataFim?: Date | null,
+  quantidadePaletes?: number | null,
 ): Promise<RecebimentoRecord | null> {
   const [updated] = await db
     .update(recebimentos)
     .set({
       situacao,
       dataFim: dataFim === undefined ? undefined : dataFim,
+      quantidadePaletes:
+        quantidadePaletes === undefined ? undefined : quantidadePaletes,
       updatedAt: new Date(),
     })
     .where(eq(recebimentos.id, id))

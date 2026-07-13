@@ -1,5 +1,6 @@
 import { Body, Controller, Param, Patch, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { PlacaVeiculoSchema } from '@lilog/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -23,11 +24,13 @@ import {
 } from '../../../shared/utils/request-user.js';
 
 const RecepcionarCarroBodySchema = z.object({
-  motoristaNome: z.string().max(255).optional(),
+  motoristaNome: z.string().min(1).max(255),
+  placa: PlacaVeiculoSchema,
   motoristaTelefone: z.string().max(20).optional(),
-  placa: z.string().max(20).optional(),
   dataChegada: z.iso.datetime().optional(),
   grauPrioridade: GrauPrioridadePreRecebimentoSchema.optional(),
+  quantidadePaletesEsperada: z.number().int().min(0).optional(),
+  numeroTermoPalete: z.string().max(100).optional(),
 });
 
 class RecepcionarCarroBodyDto extends createZodDto(RecepcionarCarroBodySchema) {}

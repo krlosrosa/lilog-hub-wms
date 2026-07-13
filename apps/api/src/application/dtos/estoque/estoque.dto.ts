@@ -48,6 +48,11 @@ export const ListSaldosEnderecoQuerySchema = z.object({
   unidadeId: z.string().min(1),
   depositoId: z.uuid().optional(),
   enderecoId: z.uuid().optional(),
+  enderecoIds: z
+    .union([z.string().uuid(), z.array(z.string().uuid())])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .pipe(z.array(z.string().uuid()).min(1))
+    .optional(),
   produtoId: z.string().min(1).max(50).optional(),
   lote: z.string().max(100).optional(),
   status: StatusSaldoEnderecoSchema.optional(),

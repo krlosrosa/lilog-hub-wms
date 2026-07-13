@@ -131,6 +131,7 @@ export function computeDemandaTimeline(
     return {
       id: demanda.id,
       mapaGrupoId: demanda.mapaGrupoId,
+      processo: demanda.mapaGrupoProcesso,
       label: demanda.mapaGrupoTitulo,
       startTime: formatTimeFromIso(start.toISOString()),
       expectedEndTime: formatTimeFromIso(end.toISOString()),

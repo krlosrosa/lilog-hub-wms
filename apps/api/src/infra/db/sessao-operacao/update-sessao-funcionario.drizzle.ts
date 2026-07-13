@@ -4,6 +4,7 @@ import type { UpdateSessaoFuncionarioPresencaInput } from '../../../domain/model
 import type { SessaoFuncionarioRecord } from '../../../domain/repositories/sessao-operacao/sessao-operacao.repository.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import {
+  equipes,
   funcionarios,
   sessaoFuncionarios,
 } from '../providers/drizzle/config/migrations/schema.js';
@@ -63,6 +64,11 @@ export async function updateSessaoFuncionarioPresencaDb(
       checkIn: sessaoFuncionarios.checkIn,
       checkOut: sessaoFuncionarios.checkOut,
       observacao: sessaoFuncionarios.observacao,
+      tipoVinculo: sessaoFuncionarios.tipoVinculo,
+      equipeOrigemId: sessaoFuncionarios.equipeOrigemId,
+      equipeOrigemNome: equipes.nome,
+      apoioInicio: sessaoFuncionarios.apoioInicio,
+      apoioFim: sessaoFuncionarios.apoioFim,
       createdAt: sessaoFuncionarios.createdAt,
       updatedAt: sessaoFuncionarios.updatedAt,
     })
@@ -71,6 +77,7 @@ export async function updateSessaoFuncionarioPresencaDb(
       funcionarios,
       eq(sessaoFuncionarios.funcionarioId, funcionarios.id),
     )
+    .leftJoin(equipes, eq(sessaoFuncionarios.equipeOrigemId, equipes.id))
     .where(eq(sessaoFuncionarios.id, updated.id))
     .limit(1);
 
@@ -88,6 +95,11 @@ export async function updateSessaoFuncionarioPresencaDb(
     checkIn: row.checkIn,
     checkOut: row.checkOut,
     observacao: row.observacao,
+    tipoVinculo: row.tipoVinculo,
+    equipeOrigemId: row.equipeOrigemId,
+    equipeOrigemNome: row.equipeOrigemNome,
+    apoioInicio: row.apoioInicio,
+    apoioFim: row.apoioFim,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

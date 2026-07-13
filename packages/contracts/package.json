@@ -12,7 +12,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "type-check": "tsc --noEmit -p tsconfig.build.json"
+    "type-check": "tsc --noEmit -p tsconfig.build.json",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "zod": "^4.0.0"
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@lilog/typescript-config": "workspace:*",
     "typescript": "~5.8.3",
+    "vitest": "^3.2.6",
     "zod": "^4.4.3"
   }
 }

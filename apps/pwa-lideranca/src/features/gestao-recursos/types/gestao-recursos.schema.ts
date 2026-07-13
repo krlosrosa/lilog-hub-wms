@@ -1,5 +1,7 @@
 import type { SessaoPausaTipoApi } from '@/features/gestao-recursos/types/gestao-recursos.api';
 
+import type { GestaoRecursosProcessoApi } from '@/features/gestao-recursos/types/gestao-recursos.api';
+
 export type OperatorStatus = 'atuando' | 'ocioso' | 'pausa';
 
 export type PausaMonitorStatus = 'em-tempo' | 'atrasado';
@@ -7,9 +9,10 @@ export type PausaMonitorStatus = 'em-tempo' | 'atrasado';
 export type TaskItem = {
   id: string;
   mapaGrupoId?: string;
-  processo?: 'operacional' | 'devolucao';
+  processo?: GestaoRecursosProcessoApi;
   label: string;
   startTime?: string;
+  startElapsed?: string;
   expectedEndTime?: string;
   estimatedSeconds?: number;
   pausaExtraMinutos?: number;
@@ -25,6 +28,7 @@ export type Operator = {
   status: OperatorStatus;
   currentMission?: string;
   startTime?: string;
+  startElapsed?: string;
   progress?: number;
   expectedEnd?: string;
   isLate?: boolean;
@@ -49,6 +53,8 @@ export type Operator = {
   pausaTempoRestanteMinutos?: number;
   pausaDevidaProgress?: number;
   tasks?: TaskItem[];
+  tipoVinculo?: 'titular' | 'apoio';
+  equipeOrigemNome?: string | null;
 };
 
 export type KpiAccent =
@@ -74,8 +80,3 @@ export type GestaoRecursosFilter =
   | 'precisa_pausa'
   | 'em_pausa'
   | 'ociosos';
-
-export type GestaoRecursosProcessoFilter =
-  | 'todos'
-  | 'operacional'
-  | 'devolucao';

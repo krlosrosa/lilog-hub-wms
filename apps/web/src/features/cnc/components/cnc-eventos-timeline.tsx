@@ -9,12 +9,17 @@ import {
   XCircle,
 } from 'lucide-react';
 
-import type { CncEvento } from '@/features/cnc/types/cnc.schema';
+import type { CncEvento, CncItem } from '@/features/cnc/types/cnc.schema';
 import { CNC_EVENTO_LABELS } from '@/features/cnc/types/cnc.schema';
-import { formatCncDate } from '@/features/cnc/lib/cnc-detalhe-utils';
+import {
+  formatCncDate,
+  formatarDetalhesEventoItem,
+  resolverContextoEventoItem,
+} from '@/features/cnc/lib/cnc-detalhe-utils';
 
 type CncEventosTimelineProps = {
   eventos: CncEvento[];
+  itens?: CncItem[];
 };
 
 function eventoIcon(tipo: string) {
@@ -32,6 +37,10 @@ function eventoIcon(tipo: string) {
 
   if (tipo.includes('CANCELADA')) {
     return XCircle;
+  }
+
+  if (tipo.includes('ITEM')) {
+    return Circle;
   }
 
   return Circle;
@@ -53,7 +62,10 @@ function eventoTone(tipo: string) {
   return 'border-outline-variant bg-surface-low text-muted-foreground';
 }
 
-export function CncEventosTimeline({ eventos }: CncEventosTimelineProps) {
+export function CncEventosTimeline({
+  eventos,
+  itens = [],
+}: CncEventosTimelineProps) {
   if (eventos.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-outline-variant px-4 py-8 text-center text-sm text-muted-foreground">
@@ -72,6 +84,8 @@ export function CncEventosTimeline({ eventos }: CncEventosTimelineProps) {
       {ordenados.map((evento, index) => {
         const Icon = eventoIcon(evento.tipoEvento);
         const isLast = index === ordenados.length - 1;
+        const contexto = resolverContextoEventoItem(evento, itens);
+        const detalhes = formatarDetalhesEventoItem(evento, contexto);
 
         return (
           <div key={evento.id} className="relative flex gap-3 pb-6">
@@ -108,6 +122,23 @@ export function CncEventosTimeline({ eventos }: CncEventosTimelineProps) {
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                   {evento.descricao}
                 </p>
+              ) : null}
+
+              {detalhes.length > 0 ? (
+                <ul className="mt-2 space-y-1">
+                  {detalhes.map((detalhe) => (
+                    <li
+                      key={detalhe}
+                      className="flex items-start gap-1.5 text-[11px] leading-relaxed text-foreground/85"
+                    >
+                      <span
+                        className="mt-1.5 size-1 shrink-0 rounded-full bg-primary/70"
+                        aria-hidden
+                      />
+                      {detalhe}
+                    </li>
+                  ))}
+                </ul>
               ) : null}
 
               {evento.situacaoAnterior && evento.situacaoNova ? (

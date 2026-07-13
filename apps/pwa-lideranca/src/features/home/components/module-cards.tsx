@@ -10,6 +10,7 @@ const ICON_TONE_CLASS: Record<LeadershipModule['iconTone'], string> = {
   secondary: 'bg-secondary-container text-on-secondary-container',
   primary: 'bg-primary-container text-on-primary-container',
   warning: 'bg-warning-container text-on-warning-container',
+  tertiary: 'bg-tertiary-container text-on-tertiary-container',
 };
 
 function FeaturedModuleCard({ module }: { module: LeadershipModule }) {

@@ -1,7 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router';
-
-import { IndicadoresView } from '@/features/indicadores/views/indicadores-view';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/indicadores/')({
-  component: IndicadoresView,
+  beforeLoad: () => {
+    throw redirect({ to: '/expedicao/torre' });
+  },
 });

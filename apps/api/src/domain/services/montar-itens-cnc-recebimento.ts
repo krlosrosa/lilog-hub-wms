@@ -9,10 +9,15 @@ import type {
 } from '../repositories/recebimento/recebimento.repository.js';
 import type { ProdutoRecord } from '../repositories/produto/produto.repository.js';
 import { inferFromAvariaNatureza } from './cnc-responsavel.js';
+import {
+  DEFAULT_DISPLAY_QUANTIDADE_CONFIG,
+  type DisplayQuantidadeConfig,
+  fromBaseUnitsForDisplayNullable,
+  toBaseUnits,
+} from './unidade-medida.js';
 
 const SUBTIPOS_EXCLUIDOS_CNC = new Set<CncSubtipoOcorrencia>([
   'lote_divergente',
-  'peso_divergente',
   'validade_divergente',
 ]);
 
@@ -63,6 +68,10 @@ function calcularQuantidadeDivergente(
     return recebida;
   }
 
+  if (subtipo === 'peso_divergente') {
+    return null;
+  }
+
   return null;
 }
 
@@ -95,15 +104,32 @@ function aggregateRecebidoPorProduto(
   return map;
 }
 
+function calcularQuantidadeAvariaUN(
+  avaria: RecebimentoAvariaRecord,
+  produtos: Map<string, ProdutoRecord>,
+): number {
+  const unidadesPorCaixa = avaria.produtoId
+    ? (produtos.get(avaria.produtoId)?.unidadesPorCaixa ?? 1)
+    : 1;
+
+  return (
+    avaria.quantidadeUnidades + avaria.quantidadeCaixas * unidadesPorCaixa
+  );
+}
+
 function resolveProduto(
   produtoId: string | null,
   produtos: Map<string, ProdutoRecord>,
-): Pick<CreateCncItemInput, 'produtoId' | 'sku' | 'descricaoProduto'> {
+): Pick<
+  CreateCncItemInput,
+  'produtoId' | 'sku' | 'descricaoProduto' | 'shelfLifeDias'
+> {
   if (!produtoId) {
     return {
       produtoId: null,
       sku: null,
       descricaoProduto: null,
+      shelfLifeDias: null,
     };
   }
 
@@ -113,6 +139,52 @@ function resolveProduto(
     produtoId,
     sku: produto?.sku ?? null,
     descricaoProduto: produto?.descricao ?? null,
+    shelfLifeDias: produto?.shelfLife ?? null,
+  };
+}
+
+function resolveQuantidadeBaseUN(
+  fromDivergencia: number | null | undefined,
+  fallback:
+    | {
+        quantidade: number;
+        unidadeMedida: string;
+        unidadesPorCaixa: number;
+      }
+    | undefined,
+): number | null {
+  if (fromDivergencia !== null && fromDivergencia !== undefined) {
+    return fromDivergencia;
+  }
+
+  if (!fallback) {
+    return null;
+  }
+
+  return toBaseUnits(
+    fallback.quantidade,
+    fallback.unidadeMedida,
+    fallback.unidadesPorCaixa,
+  );
+}
+
+function aplicarDisplayQuantidade(
+  qtdBaseUN: number | null,
+  unidadesPorCaixa: number | null | undefined,
+  displayConfig: DisplayQuantidadeConfig,
+): {
+  valor: number | null;
+  unidade: string | null;
+} {
+  const display = fromBaseUnitsForDisplayNullable(
+    qtdBaseUN,
+    unidadesPorCaixa,
+    displayConfig,
+  );
+
+  return {
+    valor: display.valor,
+    unidade: display.unidade,
   };
 }
 
@@ -122,11 +194,14 @@ export type MontarItensCncRecebimentoInput = {
   itensEsperados: ItemPreRecebimentoRecord[];
   itensRecebidos: ItemRecebimentoRecord[];
   produtos: Map<string, ProdutoRecord>;
+  displayConfig?: DisplayQuantidadeConfig;
 };
 
 export function montarItensCncRecebimento(
   input: MontarItensCncRecebimentoInput,
 ): CreateCncItemInput[] {
+  const displayConfig =
+    input.displayConfig ?? DEFAULT_DISPLAY_QUANTIDADE_CONFIG;
   const esperadosPorProduto = new Map(
     input.itensEsperados.map((item) => [item.produtoId, item]),
   );
@@ -146,31 +221,73 @@ export function montarItensCncRecebimento(
     const recebido = divergencia.produtoId
       ? recebidosPorProduto.get(divergencia.produtoId)
       : undefined;
+    const produto = divergencia.produtoId
+      ? input.produtos.get(divergencia.produtoId)
+      : undefined;
+    const unidadesPorCaixa =
+      esperado?.unidadesPorCaixa ?? produto?.unidadesPorCaixa ?? 1;
 
-    const quantidadeEsperada =
-      divergencia.quantidadeEsperada ?? esperado?.quantidadeEsperada ?? null;
-    const quantidadeRecebida =
-      divergencia.quantidadeRecebida ?? recebido?.quantidadeRecebida ?? null;
+    const quantidadeEsperadaBaseUN = resolveQuantidadeBaseUN(
+      divergencia.quantidadeEsperada,
+      esperado
+        ? {
+            quantidade: esperado.quantidadeEsperada,
+            unidadeMedida: esperado.unidadeMedida,
+            unidadesPorCaixa,
+          }
+        : undefined,
+    );
+    const quantidadeRecebidaBaseUN = resolveQuantidadeBaseUN(
+      divergencia.quantidadeRecebida,
+      recebido
+        ? {
+            quantidade: recebido.quantidadeRecebida,
+            unidadeMedida: recebido.unidadeMedida,
+            unidadesPorCaixa,
+          }
+        : undefined,
+    );
+    const quantidadeDivergenteBaseUN = calcularQuantidadeDivergente(
+      subtipo,
+      quantidadeEsperadaBaseUN,
+      quantidadeRecebidaBaseUN,
+    );
+
+    const quantidadeEsperadaDisplay = aplicarDisplayQuantidade(
+      quantidadeEsperadaBaseUN,
+      unidadesPorCaixa,
+      displayConfig,
+    );
+    const quantidadeRecebidaDisplay = aplicarDisplayQuantidade(
+      quantidadeRecebidaBaseUN,
+      unidadesPorCaixa,
+      displayConfig,
+    );
+    const quantidadeDivergenteDisplay = aplicarDisplayQuantidade(
+      quantidadeDivergenteBaseUN,
+      unidadesPorCaixa,
+      displayConfig,
+    );
 
     itens.push({
       tipo: 'divergencia',
       referenciaId: divergencia.id,
       subtipoOcorrencia: subtipo,
       ...resolveProduto(divergencia.produtoId, input.produtos),
-      quantidadeEsperada,
-      quantidadeRecebida,
-      quantidadeDivergente: calcularQuantidadeDivergente(
-        subtipo,
-        quantidadeEsperada,
-        quantidadeRecebida,
-      ),
-      unidadeMedida: recebido?.unidadeMedida ?? esperado?.unidadeMedida ?? null,
+      quantidadeEsperada: quantidadeEsperadaDisplay.valor,
+      quantidadeRecebida: quantidadeRecebidaDisplay.valor,
+      quantidadeDivergente: quantidadeDivergenteDisplay.valor,
+      unidadeMedida:
+        quantidadeEsperadaDisplay.unidade ??
+        quantidadeRecebidaDisplay.unidade ??
+        quantidadeDivergenteDisplay.unidade,
       loteEsperado: esperado?.loteEsperado ?? null,
       loteRecebido: recebido?.loteRecebido ?? null,
       validadeEsperada: esperado?.validadeEsperada ?? null,
       validadeRecebida: recebido?.validade ?? null,
       pesoEsperado: esperado?.pesoEsperado ?? null,
       pesoRecebido: recebido?.pesoRecebido ?? null,
+      causaAvaria: subtipo === 'falta' ? '88' : null,
       descricaoDetalhe: divergencia.descricao,
       responsavelSugerido: inferResponsavelDivergencia(),
     });
@@ -183,6 +300,20 @@ export function montarItensCncRecebimento(
     const esperado = avaria.produtoId
       ? esperadosPorProduto.get(avaria.produtoId)
       : undefined;
+    const produto = avaria.produtoId
+      ? input.produtos.get(avaria.produtoId)
+      : undefined;
+    const unidadesPorCaixa = produto?.unidadesPorCaixa ?? 1;
+
+    const quantidadeDivergenteBaseUN = calcularQuantidadeAvariaUN(
+      avaria,
+      input.produtos,
+    );
+    const quantidadeDivergenteDisplay = aplicarDisplayQuantidade(
+      quantidadeDivergenteBaseUN,
+      unidadesPorCaixa,
+      displayConfig,
+    );
 
     itens.push({
       tipo: 'avaria',
@@ -191,11 +322,11 @@ export function montarItensCncRecebimento(
       ...resolveProduto(avaria.produtoId, input.produtos),
       quantidadeCaixas: avaria.quantidadeCaixas,
       quantidadeUnidades: avaria.quantidadeUnidades,
-      quantidadeDivergente:
-        avaria.quantidadeUnidades > 0
-          ? avaria.quantidadeUnidades
-          : avaria.quantidadeCaixas,
-      unidadeMedida: recebido?.unidadeMedida ?? esperado?.unidadeMedida ?? null,
+      quantidadeDivergente: quantidadeDivergenteDisplay.valor,
+      unidadeMedida:
+        quantidadeDivergenteDisplay.valor !== null
+          ? quantidadeDivergenteDisplay.unidade
+          : null,
       loteEsperado: esperado?.loteEsperado ?? null,
       loteRecebido: recebido?.loteRecebido ?? null,
       validadeEsperada: esperado?.validadeEsperada ?? null,

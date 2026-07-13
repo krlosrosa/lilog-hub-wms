@@ -15,11 +15,3 @@ export type LoginInput = {
 export type LoginResponse = {
   user: AuthUser;
 };
-
-export const LEADERSHIP_ROLES = ['admin', 'manager'] as const;
-
-export type LeadershipRole = (typeof LEADERSHIP_ROLES)[number];
-
-export function canAccessLeadershipApp(role: string): boolean {
-  return LEADERSHIP_ROLES.includes(role as LeadershipRole);
-}

@@ -318,6 +318,9 @@ export class GetRecursosSessaoUseCase {
           pausaAtiva,
           alertaPausa,
           proximaPausa,
+          tipoVinculo: funcionario.tipoVinculo,
+          equipeOrigemNome: funcionario.equipeOrigemNome,
+          apoioInicio: funcionario.apoioInicio?.toISOString() ?? null,
         };
       }),
     );

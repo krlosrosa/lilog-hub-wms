@@ -6,10 +6,10 @@ import { AlertTriangle, PackageSearch } from 'lucide-react';
 
 import {
   compactTableBodyClassName,
-  compactTableClassName,
-  compactTableEmptyCellClassName,
-  compactTableHeadCellClassName,
   compactTableHeadRowClassName,
+  conferenciaTableClassName,
+  conferenciaTableEmptyCellClassName,
+  conferenciaTableHeadCellClassName,
 } from '@/components/ui/compact-table-classes';
 import { Pagination } from '@/features/filiais/components/pagination';
 import { ConferenciaRow } from '@/features/recebimento/components/conferencia-row';
@@ -25,6 +25,8 @@ const HEADERS = [
   { label: 'Contábil', className: 'w-14 text-center' },
   { label: 'Físico', className: 'w-14 text-center' },
   { label: 'Dif.', className: 'w-12 text-center' },
+  { label: 'Peso contábil (kg)', className: 'min-w-[72px] text-center' },
+  { label: 'Peso físico (kg)', className: 'min-w-[72px] text-center' },
   { label: 'Status', className: 'w-16' },
 ] as const;
 
@@ -97,30 +99,30 @@ export function ConferenciaTable({
             <PackageSearch className="size-3.5 shrink-0 text-primary" aria-hidden />
             Conferência de carga
           </h2>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">
-            Contábil vs. conferência física
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Contábil vs. conferência física · peso em kg para produtos PVAR
           </p>
         </div>
         {divergencias > 0 ? (
-          <span className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+          <span className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
             <AlertTriangle className="size-3 shrink-0" aria-hidden />
             {divergencias} divergência{divergencias === 1 ? '' : 's'}
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 rounded-md border border-status-active/25 bg-status-active/10 px-2 py-0.5 text-[10px] font-semibold text-status-active">
+          <span className="inline-flex items-center gap-1 rounded-md border border-status-active/25 bg-status-active/10 px-2 py-0.5 text-xs font-semibold text-status-active">
             Sem divergências
           </span>
         )}
       </div>
 
       <div className="overflow-x-auto">
-        <table className={compactTableClassName}>
+        <table className={conferenciaTableClassName}>
           <thead>
             <tr className={compactTableHeadRowClassName}>
               {HEADERS.map((h) => (
                 <th
                   key={h.label || 'expand'}
-                  className={compactTableHeadCellClassName(h.className)}
+                  className={conferenciaTableHeadCellClassName(h.className)}
                   scope="col"
                 >
                   {h.label}
@@ -143,7 +145,7 @@ export function ConferenciaTable({
               ))
             ) : (
               <tr>
-                <td className={compactTableEmptyCellClassName} colSpan={HEADERS.length}>
+                <td className={conferenciaTableEmptyCellClassName} colSpan={HEADERS.length}>
                   Nenhum item de conferência.
                 </td>
               </tr>

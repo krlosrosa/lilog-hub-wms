@@ -1,5 +1,6 @@
 import type {
   CncItemTipo,
+  CncOpcoesImpressao,
   CncOrigem,
   CncResponsavel,
   CncSituacao,
@@ -34,6 +35,7 @@ export type CncItemRecord = {
   naturezaAvaria: string | null;
   causaAvaria: string | null;
   tipoAvaria: string | null;
+  shelfLifeDias: number | null;
   descricaoDetalhe: string | null;
   responsavelSugerido: CncResponsavel | null;
   createdAt: Date;
@@ -75,8 +77,7 @@ export type CncRecord = {
   responsavel: CncResponsavel;
   responsavelId: string | null;
   descricao: string | null;
-  acaoImediata: string | null;
-  acaoCorretiva: string | null;
+  observacao: string | null;
   situacao: CncSituacao;
   solicitanteId: number;
   analistaId: number | null;
@@ -84,6 +85,7 @@ export type CncRecord = {
   encerradoEm: Date | null;
   encerradoPorUserId: number | null;
   valorDebito: number | null;
+  opcoesImpressao: CncOpcoesImpressao | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -119,6 +121,7 @@ export type CreateCncItemInput = {
   naturezaAvaria?: string | null;
   causaAvaria?: string | null;
   tipoAvaria?: string | null;
+  shelfLifeDias?: number | null;
   descricaoDetalhe?: string | null;
   responsavelSugerido?: CncResponsavel | null;
 };
@@ -150,6 +153,28 @@ export type ListCncsResult = {
   limit: number;
 };
 
+export type CncItemListRecord = CncItemRecord & {
+  cncNumero: string;
+  cncSituacao: CncSituacao;
+};
+
+export type ListCncItensFilter = {
+  page?: number;
+  limit?: number;
+  unidadeId: string;
+  dataInicio: string;
+  dataFim: string;
+  situacao?: CncSituacao;
+  tipo?: CncItemTipo;
+};
+
+export type ListCncItensResult = {
+  items: CncItemListRecord[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
 export type IniciarAnaliseCncInput = {
   analistaId: number;
   iniciadoEm: Date;
@@ -161,8 +186,7 @@ export type EncerrarCncInput = {
   responsavel?: CncResponsavel;
   responsavelId?: string | null;
   valorDebito?: number | null;
-  acaoImediata?: string | null;
-  acaoCorretiva?: string | null;
+  observacao?: string | null;
 };
 
 export type CancelarCncInput = {
@@ -184,6 +208,22 @@ export type ConcluirCncTratativaInput = {
   concluidaEm: Date;
 };
 
+export type UpdateObservacaoCncInput = {
+  observacao: string | null;
+};
+
+export type UpdateOpcoesImpressaoCncInput = {
+  opcoesImpressao: CncOpcoesImpressao;
+};
+
+export type UpdateCncItemInput = {
+  quantidadeEsperada?: number | null;
+  quantidadeRecebida?: number | null;
+  quantidadeDivergente?: number | null;
+  pesoEsperado?: number | null;
+  pesoRecebido?: number | null;
+};
+
 export type AddCncEventoInput = {
   cncId: string;
   tipoEvento: string;
@@ -200,12 +240,21 @@ export interface ICncRepository {
   findByOrigem(origem: CncOrigem, origemId: string): Promise<CncWithItens | null>;
   countByYear(year: number): Promise<number>;
   list(filter: ListCncsFilter): Promise<ListCncsResult>;
+  listItens(filter: ListCncItensFilter): Promise<ListCncItensResult>;
   iniciarAnalise(
     id: string,
     data: IniciarAnaliseCncInput,
   ): Promise<CncRecord | null>;
   encerrar(id: string, data: EncerrarCncInput): Promise<CncRecord | null>;
   cancelar(id: string, data: CancelarCncInput): Promise<CncRecord | null>;
+  updateObservacao(
+    id: string,
+    data: UpdateObservacaoCncInput,
+  ): Promise<CncRecord | null>;
+  updateOpcoesImpressao(
+    id: string,
+    data: UpdateOpcoesImpressaoCncInput,
+  ): Promise<CncRecord | null>;
   addTratativa(data: CreateCncTratativaInput): Promise<CncTratativaRecord>;
   concluirTratativa(
     cncId: string,
@@ -215,5 +264,11 @@ export interface ICncRepository {
   listTratativas(cncId: string): Promise<CncTratativaRecord[]>;
   countTratativas(cncId: string): Promise<number>;
   countTratativasPendentes(cncId: string): Promise<number>;
+  updateItem(
+    cncId: string,
+    itemId: string,
+    data: UpdateCncItemInput,
+  ): Promise<CncItemRecord | null>;
+  removeItem(cncId: string, itemId: string): Promise<CncItemRecord | null>;
   addEvento(data: AddCncEventoInput): Promise<CncEventoRecord>;
 }

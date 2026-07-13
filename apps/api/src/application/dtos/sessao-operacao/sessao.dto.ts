@@ -6,15 +6,18 @@ import {
   SessaoTrabalhoStatusSchema,
 } from '../../../domain/model/sessao-operacao/sessao-operacao.model.js';
 
+const dateReferenciaSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD');
+
 export const ListSessoesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   unidadeId: z.string().min(1).max(50),
   status: SessaoTrabalhoStatusSchema.optional(),
-  dataReferencia: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  dataReferencia: dateReferenciaSchema.optional(),
+  dataReferenciaInicio: dateReferenciaSchema.optional(),
+  dataReferenciaFim: dateReferenciaSchema.optional(),
 });
 
 export class ListSessoesQueryDto extends createZodDto(ListSessoesQuerySchema) {}
@@ -32,6 +35,7 @@ export const SessaoListItemSchema = z.object({
   status: SessaoTrabalhoStatusSchema,
   escalaNome: z.string(),
   equipeNome: z.string(),
+  equipeArea: z.string().nullable(),
   horaInicioPlanejada: z.string(),
   horaFimPlanejada: z.string(),
   cruzaMeiaNoite: z.boolean(),
@@ -69,6 +73,11 @@ export const SessaoFuncionarioSchema = z.object({
   checkIn: z.iso.datetime().nullable(),
   checkOut: z.iso.datetime().nullable(),
   observacao: z.string().nullable(),
+  tipoVinculo: z.enum(['titular', 'apoio']),
+  equipeOrigemId: z.uuid().nullable(),
+  equipeOrigemNome: z.string().nullable(),
+  apoioInicio: z.iso.datetime().nullable(),
+  apoioFim: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -115,4 +124,28 @@ export const ListSessaoFuncionarioPausasResponseSchema = z.object({
 
 export class ListSessaoFuncionarioPausasResponseDto extends createZodDto(
   ListSessaoFuncionarioPausasResponseSchema,
+) {}
+
+export const FuncionarioApoioCandidatoSchema = z.object({
+  funcionarioId: z.number().int().positive(),
+  matricula: z.string(),
+  nome: z.string(),
+  cargo: z.string(),
+  sessaoOrigemId: z.uuid(),
+  equipeOrigemId: z.uuid(),
+  equipeOrigemNome: z.string(),
+  equipeOrigemArea: z.string().nullable(),
+  statusPresenca: SessaoPresencaStatusSchema,
+});
+
+export class FuncionarioApoioCandidatoDto extends createZodDto(
+  FuncionarioApoioCandidatoSchema,
+) {}
+
+export const ListFuncionariosApoioCandidatosResponseSchema = z.object({
+  items: z.array(FuncionarioApoioCandidatoSchema),
+});
+
+export class ListFuncionariosApoioCandidatosResponseDto extends createZodDto(
+  ListFuncionariosApoioCandidatosResponseSchema,
 ) {}

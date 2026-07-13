@@ -1,13 +1,17 @@
 import { cn } from '@lilog/ui';
-import { Loader2, RefreshCw, Search, Users } from 'lucide-react';
+import { Loader2, RefreshCw, Search, UserPlus, Users } from 'lucide-react';
+import { useMemo } from 'react';
 
+import { AdicionarApoioSheet } from '@/features/gestao-recursos/components/adicionar-apoio-sheet';
 import { GestaoRecursosFilterChips } from '@/features/gestao-recursos/components/gestao-recursos-filter-chips';
-import { GestaoRecursosProcessoChips } from '@/features/gestao-recursos/components/gestao-recursos-processo-chips';
 import { GestaoRecursosResumoCard } from '@/features/gestao-recursos/components/gestao-recursos-resumo-card';
 import { OperadorRecursoCard } from '@/features/gestao-recursos/components/operador-recurso-card';
 import { PrecisaPausaAlertBanner } from '@/features/gestao-recursos/components/precisa-pausa-alert-banner';
 import { SessaoContextBanner } from '@/features/gestao-recursos/components/sessao-context-banner';
 import { useGestaoRecursosPwa } from '@/features/gestao-recursos/hooks/use-gestao-recursos-pwa';
+import { useFuncionarioApoio } from '@/features/gestao-recursos/hooks/use-funcionario-apoio';
+import { buildSessoesOrigemApoioOptions, filterCandidatosDeSessoesAbertas } from '@/features/gestao-recursos/lib/sessao-origem-apoio-options';
+import type { GestaoRecursosProcessoApi } from '@/features/gestao-recursos/types/gestao-recursos.api';
 import type { GestaoRecursosFilter } from '@/features/gestao-recursos/types/gestao-recursos.schema';
 import { SessaoSubHeader } from '@/features/sessao-presenca/components/sessao-sub-header';
 import { hapticMedium } from '@/lib/haptics';
@@ -35,11 +39,24 @@ const EMPTY_MESSAGES: Record<GestaoRecursosFilter, string> = {
   ociosos: 'Nenhum operador ocioso no momento.',
 };
 
-export function GestaoRecursosView() {
+export type GestaoRecursosViewProps = {
+  processo: GestaoRecursosProcessoApi;
+  titulo: string;
+  backTo: string;
+  backLabel?: string;
+};
+
+export function GestaoRecursosView({
+  processo,
+  titulo,
+  backTo,
+  backLabel = 'Voltar',
+}: GestaoRecursosViewProps) {
   const {
     unidadeNome,
     sessaoAtiva,
     sessoesAbertas,
+    todasSessoesAbertas,
     semUnidade,
     semSessaoAberta,
     selectSessao,
@@ -49,7 +66,6 @@ export function GestaoRecursosView() {
     filteredOperators,
     searchQuery,
     filter,
-    processoFilter,
     isLoading,
     isRefreshing,
     canShowPainel,
@@ -57,9 +73,20 @@ export function GestaoRecursosView() {
     loadError,
     setSearchQuery,
     setFilter,
-    setProcessoFilter,
     triggerRefresh,
-  } = useGestaoRecursosPwa();
+  } = useGestaoRecursosPwa({ processo });
+
+  const apoio = useFuncionarioApoio(sessaoAtiva?.id, triggerRefresh);
+
+  const candidatosApoio = useMemo(
+    () => filterCandidatosDeSessoesAbertas(apoio.candidatos, todasSessoesAbertas),
+    [apoio.candidatos, todasSessoesAbertas],
+  );
+
+  const sessoesOrigem = useMemo(
+    () => buildSessoesOrigemApoioOptions(candidatosApoio, todasSessoesAbertas),
+    [candidatosApoio, todasSessoesAbertas],
+  );
 
   const sessaoLabel = sessaoAtiva
     ? `${sessaoAtiva.equipeNome} · ${new Date(sessaoAtiva.dataReferencia).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`
@@ -68,9 +95,9 @@ export function GestaoRecursosView() {
   return (
     <div className="page-enter flex flex-col pb-8">
       <SessaoSubHeader
-        backTo="/"
-        backLabel="Voltar ao menu"
-        title="Gestão de Recursos"
+        backTo={backTo}
+        backLabel={backLabel}
+        title={titulo}
         subtitle={
           isLoading
             ? 'Carregando equipe...'
@@ -127,11 +154,6 @@ export function GestaoRecursosView() {
               atrasadosCount={atrasadosCount}
             />
 
-            <GestaoRecursosProcessoChips
-              active={processoFilter}
-              onChange={setProcessoFilter}
-            />
-
             <GestaoRecursosFilterChips
               active={filter}
               counts={counts}
@@ -155,6 +177,15 @@ export function GestaoRecursosView() {
               />
             </div>
 
+            <button
+              type="button"
+              onClick={apoio.openApoioSheet}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-outline-variant bg-surface px-3 py-2.5 text-label-sm font-semibold text-secondary shadow-sm transition-colors hover:bg-surface-container active:bg-surface-container-high"
+            >
+              <UserPlus className="size-4" aria-hidden />
+              Adicionar apoio de outro setor
+            </button>
+
             {filteredOperators.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-outline-variant px-4 py-10 text-center">
                 <Users className="size-8 text-on-surface-variant/60" aria-hidden />
@@ -167,7 +198,12 @@ export function GestaoRecursosView() {
             ) : (
               <div className="space-y-2.5">
                 {filteredOperators.map((operator) => (
-                  <OperadorRecursoCard key={operator.id} operator={operator} />
+                  <OperadorRecursoCard
+                    key={operator.id}
+                    operator={operator}
+                    onEncerrarApoio={apoio.handleEncerrarApoio}
+                    encerrandoApoioId={apoio.encerrandoId}
+                  />
                 ))}
               </div>
             )}
@@ -182,6 +218,17 @@ export function GestaoRecursosView() {
           </div>
         ) : null}
       </div>
+
+      <AdicionarApoioSheet
+        isOpen={apoio.apoioSheetOpen}
+        onClose={apoio.closeApoioSheet}
+        candidatos={candidatosApoio}
+        sessoesOrigem={sessoesOrigem}
+        onAdicionar={apoio.handleAdicionarApoio}
+        isLoading={apoio.adicionandoId != null}
+        isLoadingCandidatos={apoio.isLoadingCandidatos}
+        errorMessage={apoio.candidatosError}
+      />
     </div>
   );
 }

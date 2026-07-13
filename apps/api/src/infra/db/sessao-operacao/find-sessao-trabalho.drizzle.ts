@@ -32,6 +32,7 @@ export async function findSessaoByIdDb(
       updatedAt: sessoesTrabalho.updatedAt,
       escalaNome: escalasTrabalho.nome,
       equipeNome: equipes.nome,
+      equipeArea: equipes.area,
       horaInicioPlanejada: escalasTrabalho.horaInicioPlanejada,
       horaFimPlanejada: escalasTrabalho.horaFimPlanejada,
       cruzaMeiaNoite: escalasTrabalho.cruzaMeiaNoite,

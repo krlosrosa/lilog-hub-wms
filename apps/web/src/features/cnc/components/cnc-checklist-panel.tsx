@@ -8,9 +8,13 @@ import type { CncRecebimentoContext } from '@/features/cnc/hooks/use-cnc-recebim
 
 type CncChecklistPanelProps = {
   context: CncRecebimentoContext;
+  embedded?: boolean;
 };
 
-export function CncChecklistPanel({ context }: CncChecklistPanelProps) {
+export function CncChecklistPanel({
+  context,
+  embedded = false,
+}: CncChecklistPanelProps) {
   if (context.isLoading) {
     return (
       <div className="flex items-center justify-center gap-2 rounded-xl border border-outline-variant/50 bg-glass-bg px-4 py-16 text-sm text-muted-foreground">
@@ -43,18 +47,20 @@ export function CncChecklistPanel({ context }: CncChecklistPanelProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-sm font-semibold text-foreground">
-          Checklist do recebimento
-        </h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Inspeção térmica, condições do baú e evidências registradas no PWA
-          durante o recebimento.
-        </p>
-      </div>
+    <div className={embedded ? 'space-y-3' : 'space-y-4'}>
+      {!embedded ? (
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">
+            Checklist do recebimento
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Inspeção térmica, condições do baú e evidências registradas no PWA
+            durante o recebimento.
+          </p>
+        </div>
+      ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         <InspecaoCard inspecao={context.inspecao} />
         <FotosEvidencias
           fotos={context.fotosChecklist}

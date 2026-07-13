@@ -16,12 +16,32 @@ export type DemandaSeparacaoStatusApi =
   | 'concluida'
   | 'cancelada';
 
+export type MapaGrupoProcessoApi =
+  | 'separacao'
+  | 'conferencia'
+  | 'carregamento';
+
+export type GestaoRecursosProcessoApi = MapaGrupoProcessoApi | 'devolucao';
+
+export type DemandaFuncionarioPapelApi = 'responsavel' | 'auxiliar';
+
+export type DemandaFuncionarioApi = {
+  id: string;
+  demandaId: string;
+  sessaoFuncionarioId: string;
+  funcionarioId: number;
+  papel: DemandaFuncionarioPapelApi;
+  entrouEm: string;
+  saiuEm: string | null;
+};
+
 export type DemandaSeparacaoApi = {
   id: string;
   sessaoId: string;
   mapaGrupoId: string;
   mapaGrupoTitulo: string;
   mapaGrupoMicroUuid: string;
+  mapaGrupoProcesso: MapaGrupoProcessoApi;
   transporteId: string;
   transporteRota: string | null;
   sessaoFuncionarioId: string;
@@ -31,6 +51,7 @@ export type DemandaSeparacaoApi = {
   iniciadoEm: string | null;
   finalizadoEm: string | null;
   tempoEsperadoMinutos: number;
+  funcionarios?: DemandaFuncionarioApi[];
 };
 
 export type AlertaPausaApi = {
@@ -63,6 +84,9 @@ export type RecursosSessaoFuncionarioApi = {
   } | null;
   alertaPausa: AlertaPausaApi | null;
   proximaPausa: ProximaPausaApi | null;
+  tipoVinculo: 'titular' | 'apoio';
+  equipeOrigemNome: string | null;
+  apoioInicio: string | null;
 };
 
 export type RecursosSessaoKpiApi = {
@@ -102,6 +126,7 @@ export type SessaoApi = {
   status: SessaoTrabalhoStatusApi;
   escalaNome: string;
   equipeNome: string;
+  equipeArea: string | null;
   horaInicioPlanejada: string;
   horaFimPlanejada: string;
   cruzaMeiaNoite: boolean;
@@ -162,4 +187,39 @@ export type RecursosDevolucaoSessaoApiResponse = {
   funcionarios: RecursosSessaoFuncionarioApi[];
   alocacoes: DemandaDevolucaoRecursoApi[];
   kpis: RecursosSessaoKpiApi[];
+};
+
+export type FuncionarioApoioCandidatoApi = {
+  funcionarioId: number;
+  matricula: string;
+  nome: string;
+  cargo: string;
+  sessaoOrigemId: string;
+  equipeOrigemId: string;
+  equipeOrigemNome: string;
+  equipeOrigemArea: string | null;
+  statusPresenca: SessaoPresencaStatusApi;
+};
+
+export type ListFuncionariosApoioCandidatosApiResponse = {
+  items: FuncionarioApoioCandidatoApi[];
+};
+
+export type SessaoFuncionarioApoioApi = {
+  id: string;
+  funcionarioId: number;
+  matricula: string;
+  nome: string;
+  cargo: string;
+  status: SessaoPresencaStatusApi;
+  checkIn: string | null;
+  checkOut: string | null;
+  observacao: string | null;
+  tipoVinculo: 'titular' | 'apoio';
+  equipeOrigemId: string | null;
+  equipeOrigemNome: string | null;
+  apoioInicio: string | null;
+  apoioFim: string | null;
+  createdAt: string;
+  updatedAt: string;
 };

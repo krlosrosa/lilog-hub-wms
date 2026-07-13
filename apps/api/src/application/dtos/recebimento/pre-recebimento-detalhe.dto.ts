@@ -7,7 +7,9 @@ import {
   OrigemDadosPreRecebimentoSchema,
   PreRecebimentoSituacaoSchema,
   RecebimentoSituacaoSchema,
+  TemperaturaProdutoEtapaSchema,
   TipoDivergenciaSchema,
+  TipoImpedimentoSchema,
 } from '../../../domain/model/recebimento/recebimento.model.js';
 
 const ItemEsperadoDetalheSchema = z.object({
@@ -80,8 +82,11 @@ export const PreRecebimentoDetalheResponseSchema = z.object({
     numeroOcr: z.string().nullable(),
     numeroTransporte: z.string().nullable(),
     origemDados: OrigemDadosPreRecebimentoSchema.or(z.string()),
+    origem: z.string().nullable(),
     horarioPrevisto: z.iso.datetime(),
     observacao: z.string().nullable(),
+    quantidadePaletesEsperada: z.number().int().nonnegative().nullable(),
+    numeroTermoPalete: z.string().nullable(),
     situacao: PreRecebimentoSituacaoSchema,
     dataChegada: z.iso.datetime().nullable(),
     docaId: z.uuid().nullable(),
@@ -95,9 +100,12 @@ export const PreRecebimentoDetalheResponseSchema = z.object({
       preRecebimentoId: z.uuid(),
       docaId: z.uuid().nullable(),
       responsavelId: z.number().int(),
+      conferenteNome: z.string().nullable(),
+      conferenteMatricula: z.string().nullable(),
       dataInicio: z.iso.datetime(),
       dataFim: z.iso.datetime().nullable(),
       situacao: RecebimentoSituacaoSchema,
+      quantidadePaletes: z.number().int().nonnegative().nullable(),
       modoUnitizacao: ModoUnitizacaoSchema.or(z.string()),
       createdAt: z.iso.datetime(),
       updatedAt: z.iso.datetime(),
@@ -123,9 +131,28 @@ export const PreRecebimentoDetalheResponseSchema = z.object({
       createdAt: z.iso.datetime(),
     })
     .nullable(),
+  temperaturasProduto: z.array(
+    z.object({
+      etapa: TemperaturaProdutoEtapaSchema,
+      temperatura: z.number(),
+      medidoEm: z.iso.datetime().or(z.string()),
+    }),
+  ),
   avarias: z.array(AvariaDetalheSchema),
   produtos: z.array(ProdutoDetalheSchema),
   numDivergencias: z.number().int(),
+  impedimento: z
+    .object({
+      id: z.uuid(),
+      tipo: TipoImpedimentoSchema.or(z.string()),
+      descricao: z.string(),
+      photoCount: z.number().int(),
+      registradoPorId: z.number().int().nullable(),
+      registradoPorNome: z.string().nullable(),
+      registradoPorMatricula: z.string().nullable(),
+      registradoEm: z.iso.datetime().or(z.string()),
+    })
+    .nullable(),
 });
 
 export class PreRecebimentoDetalheResponseDto extends createZodDto(

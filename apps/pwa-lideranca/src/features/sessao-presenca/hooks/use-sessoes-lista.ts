@@ -17,7 +17,9 @@ export function useSessoesLista() {
   } = useUnidade();
   const unidadeId = unidadeSelecionada?.id ?? null;
 
-  const [dataReferencia, setDataReferencia] = useState(todayReference);
+  const [dataReferenciaInicio, setDataReferenciaInicio] =
+    useState(todayReference);
+  const [dataReferenciaFim, setDataReferenciaFim] = useState(todayReference);
   const [statusFiltro, setStatusFiltro] = useState<SessaoStatusFiltro>('todos');
   const [sessoes, setSessoes] = useState<SessaoApi[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -61,7 +63,8 @@ export function useSessoesLista() {
     try {
       const response = await listSessoes({
         unidadeId,
-        dataReferencia,
+        dataReferenciaInicio,
+        dataReferenciaFim,
         status: statusFiltro === 'todos' ? undefined : statusFiltro,
         limit: 50,
       });
@@ -75,7 +78,7 @@ export function useSessoesLista() {
       setIsRefreshing(false);
       setIsLoading(false);
     }
-  }, [dataReferencia, statusFiltro, unidadeId]);
+  }, [dataReferenciaFim, dataReferenciaInicio, statusFiltro, unidadeId]);
 
   useEffect(() => {
     if (isUnidadeLoading) return;
@@ -102,7 +105,8 @@ export function useSessoesLista() {
       unidadeId,
       unidadeSelecionada,
       unidadeError,
-      dataReferencia,
+      dataReferenciaInicio,
+      dataReferenciaFim,
       statusFiltro,
       sessoes: filteredSessoes,
       sessaoAberta,
@@ -114,7 +118,8 @@ export function useSessoesLista() {
       toast,
     },
     actions: {
-      setDataReferencia,
+      setDataReferenciaInicio,
+      setDataReferenciaFim,
       setStatusFiltro,
       refresh: loadSessoes,
       showToast,

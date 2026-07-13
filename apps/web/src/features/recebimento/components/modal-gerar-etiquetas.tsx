@@ -13,6 +13,7 @@ import {
 } from '@lilog/ui';
 import { AlertTriangle, Loader2, MapPin, Tags } from 'lucide-react';
 
+import { useDisplayConfig } from '@/features/config-operacional/hooks/use-display-config';
 import type {
   PaleteValidadoFinalizacao,
   PreviewPaleteArmazenagem,
@@ -53,6 +54,7 @@ export function ModalGerarEtiquetas({
   onPreviewEnderecos,
   isSubmitting = false,
 }: ModalGerarEtiquetasProps) {
+  const { formatQtd, formatQtdValue } = useDisplayConfig();
   const [step, setStep] = useState<Step>('revisao');
   const [isLoading, setIsLoading] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
@@ -275,16 +277,10 @@ export function ModalGerarEtiquetas({
                           </div>
                         </td>
                         <td className="px-3 py-2 text-sm">
-                          {new Intl.NumberFormat('pt-BR').format(
-                            item.quantidadeTotalUN,
-                          )}{' '}
-                          UN
+                          {formatQtd(item.quantidadeTotalUN)}
                         </td>
                         <td className="px-3 py-2 text-sm">
-                          {new Intl.NumberFormat('pt-BR').format(
-                            item.capacidadePorPaleteUN,
-                          )}{' '}
-                          UN
+                          {formatQtd(item.capacidadePorPaleteUN)}
                         </td>
                         <td className="px-3 py-2">
                           <input
@@ -351,8 +347,7 @@ export function ModalGerarEtiquetas({
                           </div>
                         </td>
                         <td className="px-3 py-2 text-sm">
-                          {new Intl.NumberFormat('pt-BR').format(palete.quantidade)}{' '}
-                          {palete.unidadeMedida}
+                          {formatQtdValue(palete.quantidade, palete.unidadeMedida)}
                         </td>
                         <td className="px-3 py-2">
                           <input

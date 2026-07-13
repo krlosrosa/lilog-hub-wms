@@ -3,8 +3,12 @@ import { ChevronDown } from 'lucide-react';
 import type { SelectHTMLAttributes } from 'react';
 
 export interface AvariaSelectOption {
+  /** Código numérico do checklist — salvo no banco via `value` */
   value: string;
+  /** Texto exibido no select (sem o número) */
   label: string;
+  /** Número do item no documento físico */
+  codigo?: number;
 }
 
 interface AvariaSelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement> {

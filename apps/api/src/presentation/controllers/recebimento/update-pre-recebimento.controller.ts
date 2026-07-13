@@ -48,6 +48,7 @@ const UpdatePreRecebimentoBodySchema = z.object({
   origemDados: z.enum(['manual', 'xlsx', 'xml', 'ocr']).optional(),
   horarioPrevisto: z.iso.datetime().optional(),
   observacao: z.string().nullable().optional(),
+  quantidadePaletesEsperada: z.number().int().nonnegative().nullable().optional(),
   itens: z.array(UpdatePreRecebimentoItemBodySchema).min(1).optional(),
   notasFiscais: z.array(UpdateNotaFiscalPreRecebimentoBodySchema).optional(),
 });

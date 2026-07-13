@@ -29,10 +29,13 @@ import type { UseFormRegisterReturn } from 'react-hook-form';
 
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 
+import { useAuth } from '@/features/auth/lib/auth-context';
+
 import { QrScannerModal } from '@/components/qr-scanner';
 
 import { AvariaQuickCaptureButton } from '../components/avaria-quick-capture-button';
 import { ChecklistResumoCard } from '../components/checklist-resumo-card';
+import { TemperaturaProdutoModalButton } from '../components/temperatura-produto-etapas-card';
 import { PaleteSessionBanner } from '../components/palete-conferencia-cards';
 import { setConferenciaNavigation } from '../lib/conferencia-conferidos-store';
 import { getConferenciaContextStore } from '../lib/conferencia-context-store';
@@ -41,15 +44,27 @@ import { setConferenciaEntryStep } from '../lib/conferencia-sku-session';
 import {
   canParseFabricacaoFromLote,
   parseFabricacaoFromLote,
-} from '../lib/parse-fabricacao-from-lote';
+} from '@lilog/contracts';
 import { useAvariasRegistradas } from '../hooks/use-avarias-registradas';
 import { useChecklistResumo } from '../hooks/use-checklist-resumo';
 import { useDetalheItem } from '../hooks/use-detalhe-item';
 import type { ConferenciaStep } from '../hooks/use-detalhe-item';
+import { useDemandById } from '../hooks/use-demand-by-id';
 import {
   CollapsibleRecordCard,
   RecordListItem,
 } from '../components/expandable-record-list';
+import {
+  formatConferenteLabel,
+  resolveConferenteInfo,
+} from '../lib/resolve-conferente-info';
+
+const FIELD_LABEL = 'text-xs font-medium text-on-surface-variant';
+const FIELD_TEXT = 'text-xs text-on-surface';
+const FIELD_TEXT_MUTED = 'text-xs text-on-surface-variant';
+const FIELD_MONO = 'text-xs font-mono text-on-surface';
+const FIELD_HINT = 'text-xs text-destructive';
+const FIELD_HINT_OK = 'text-xs text-secondary';
 
 interface DetalheItemViewProps {
   demandId: string;
@@ -64,23 +79,29 @@ function StepIndicator({
   totalSteps: number;
 }) {
   return (
-    <div className="flex items-center gap-2 border-b border-outline-variant/50 px-margin-mobile py-3">
-      {Array.from({ length: totalSteps }, (_, index) => index + 1).map((n) => (
-        <div
-          key={n}
-          className={cn(
-            'h-2 rounded-full transition-all duration-300',
-            n === activeStep
-              ? 'w-8 bg-secondary'
-              : n < activeStep
-                ? 'w-4 bg-secondary/40'
-                : 'w-4 bg-surface-container',
-          )}
-          aria-hidden
-        />
-      ))}
-      <span className="ml-auto text-label-sm text-on-surface-variant">
-        Etapa {activeStep} de {totalSteps}
+    <div
+      className="flex items-center gap-2 px-margin-mobile pb-2.5"
+      role="progressbar"
+      aria-valuenow={activeStep}
+      aria-valuemin={1}
+      aria-valuemax={totalSteps}
+      aria-label={`Etapa ${activeStep} de ${totalSteps}`}
+    >
+      <div className="flex min-w-0 flex-1 gap-1">
+        {Array.from({ length: totalSteps }, (_, index) => index + 1).map((n) => (
+          <div
+            key={n}
+            className={cn(
+              'h-1 flex-1 rounded-full transition-all duration-300',
+              n <= activeStep ? 'bg-secondary' : 'bg-surface-container',
+              n < activeStep && 'opacity-50',
+            )}
+            aria-hidden
+          />
+        ))}
+      </div>
+      <span className={cn('shrink-0 font-mono tabular-nums', FIELD_TEXT_MUTED)}>
+        {activeStep}/{totalSteps}
       </span>
     </div>
   );
@@ -116,12 +137,12 @@ function ScanField({
   const isControlled = value !== undefined && onChange !== undefined;
 
   return (
-    <div className="space-y-1.5">
-      <label className="text-label-md text-on-surface-variant" htmlFor={id}>
+    <div className="space-y-1">
+      <label className={FIELD_LABEL} htmlFor={id}>
         {label}
       </label>
       <div className="relative">
-        <Icon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-outline" />
+        <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-outline" />
         <input
           id={id}
           ref={inputRef}
@@ -133,20 +154,23 @@ function ScanField({
           {...(isControlled
             ? { value, onChange }
             : registerProps)}
-          className="h-12 w-full rounded-lg border border-outline-variant bg-surface-bright pl-12 pr-12 font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary"
+          className={cn(
+            'h-11 w-full rounded-lg border border-outline-variant bg-surface-bright pl-10 pr-11 font-mono outline-none transition-colors focus:border-secondary focus:ring-2 focus:ring-secondary',
+            FIELD_TEXT,
+          )}
         />
         {onScanClick ? (
           <button
             type="button"
             aria-label={`Escanear ${label}`}
             onClick={onScanClick}
-            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-secondary transition-transform active:scale-90 active:bg-surface-container-high touch-manipulation"
+            className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-secondary transition-transform active:scale-90 active:bg-surface-container-high touch-manipulation"
           >
-            <ScanLine className="h-5 w-5" />
+            <ScanLine className="h-4 w-4" />
           </button>
         ) : null}
       </div>
-      {error ? <p className="text-label-sm text-destructive">{error}</p> : null}
+      {error ? <p className={FIELD_HINT}>{error}</p> : null}
     </div>
   );
 }
@@ -169,12 +193,12 @@ function NumericField({
   inputRef?: RefObject<HTMLInputElement | null>;
 }) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-label-md text-on-surface-variant" htmlFor={id}>
+    <div className="space-y-1">
+      <label className={FIELD_LABEL} htmlFor={id}>
         {label}
       </label>
       <div className="relative">
-        <Hash className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-outline" />
+        <Hash className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-outline" />
         <input
           ref={inputRef}
           id={id}
@@ -185,10 +209,13 @@ function NumericField({
           autoComplete="off"
           value={value}
           onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
-          className="h-12 w-full rounded-lg border border-outline-variant bg-surface-bright pl-12 pr-4 font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary"
+          className={cn(
+            'h-11 w-full rounded-lg border border-outline-variant bg-surface-bright pl-10 pr-4 font-mono outline-none transition-colors focus:border-secondary focus:ring-2 focus:ring-secondary',
+            FIELD_TEXT,
+          )}
         />
       </div>
-      {error ? <p className="text-label-sm text-destructive">{error}</p> : null}
+      {error ? <p className={FIELD_HINT}>{error}</p> : null}
     </div>
   );
 }
@@ -221,13 +248,13 @@ function FabricacaoField({
   hintError?: string;
 }) {
   return (
-    <div className="min-w-0 space-y-1.5">
-      <label className="text-label-md text-on-surface-variant" htmlFor={id}>
+    <div className="min-w-0 space-y-1">
+      <label className={FIELD_LABEL} htmlFor={id}>
         Fabricação
       </label>
       <div className="relative min-w-0">
         <Calendar
-          className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-outline"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-outline"
           aria-hidden
         />
         {derivedFromLote ? (
@@ -236,8 +263,9 @@ function FabricacaoField({
             role="textbox"
             aria-readonly="true"
             className={cn(
-              'flex h-12 w-full min-w-0 items-center rounded-lg border border-outline-variant bg-surface-container-low pl-12 pr-4 font-mono text-body-md',
-              displayValue ? 'text-on-surface' : 'text-on-surface-variant',
+              'flex h-11 w-full min-w-0 items-center rounded-lg border border-outline-variant bg-surface-container-low pl-10 pr-3 font-mono',
+              FIELD_TEXT,
+              !displayValue && 'text-on-surface-variant',
             )}
           >
             <span className="truncate">{displayValue || 'Informe o lote acima'}</span>
@@ -248,19 +276,22 @@ function FabricacaoField({
             type="date"
             value={value}
             onChange={(event) => onChange(event.target.value)}
-            className="date-input-mobile h-12 w-full min-w-0 max-w-full rounded-lg border border-outline-variant bg-surface-bright pl-12 pr-3 font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary"
+            className={cn(
+              'date-input-mobile h-11 w-full min-w-0 max-w-full rounded-lg border border-outline-variant bg-surface-bright pl-10 pr-3 font-mono outline-none focus:border-secondary focus:ring-2 focus:ring-secondary',
+              FIELD_TEXT,
+            )}
           />
         )}
       </div>
-      {error ? <p className="text-label-sm text-destructive">{error}</p> : null}
+      {error ? <p className={FIELD_HINT}>{error}</p> : null}
       {hint ? (
-        <p className="flex items-start gap-1.5 text-label-sm text-secondary">
-          <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+        <p className={cn('flex items-start gap-1', FIELD_HINT_OK)}>
+          <CheckCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
           <span className="min-w-0 break-words">{hint}</span>
         </p>
       ) : null}
       {hintError ? (
-        <p className="min-w-0 break-words text-label-sm text-destructive">{hintError}</p>
+        <p className={cn('min-w-0 break-words', FIELD_HINT)}>{hintError}</p>
       ) : null}
     </div>
   );
@@ -296,9 +327,9 @@ function NumericStepper({
   };
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       {label ? (
-        <label className="text-label-md text-on-surface-variant" htmlFor={id}>
+        <label className={FIELD_LABEL} htmlFor={id}>
           {label}
         </label>
       ) : null}
@@ -306,10 +337,10 @@ function NumericStepper({
         <button
           type="button"
           onClick={() => adjust(-step)}
-          className="flex h-11 w-11 items-center justify-center rounded-l-lg text-on-surface-variant transition-colors active:bg-surface-container-high touch-manipulation"
+          className="flex h-10 w-10 items-center justify-center rounded-l-lg text-on-surface-variant transition-colors active:bg-surface-container-high touch-manipulation"
           aria-label={`Diminuir ${label}`}
         >
-          <Minus className="h-4 w-4" />
+          <Minus className="h-3.5 w-3.5" />
         </button>
         <input
           id={id}
@@ -319,23 +350,26 @@ function NumericStepper({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
-          className="numeric-input h-11 w-full min-w-0 flex-1 bg-transparent text-center font-mono text-headline-md font-semibold text-on-surface outline-none"
+          className={cn(
+            'numeric-input h-10 w-full min-w-0 flex-1 bg-transparent text-center font-mono font-semibold outline-none',
+            FIELD_TEXT,
+          )}
         />
         <button
           type="button"
           onClick={() => adjust(step)}
-          className="flex h-11 w-11 items-center justify-center rounded-r-lg text-on-surface-variant transition-colors active:bg-surface-container-high touch-manipulation"
+          className="flex h-10 w-10 items-center justify-center rounded-r-lg text-on-surface-variant transition-colors active:bg-surface-container-high touch-manipulation"
           aria-label={`Aumentar ${label}`}
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-3.5 w-3.5" />
         </button>
       </div>
-      {error ? <p className="text-label-sm text-destructive">{error}</p> : null}
+      {error ? <p className={FIELD_HINT}>{error}</p> : null}
     </div>
   );
 }
 
-function StepHeroCard({
+function CompactStepSection({
   icon: Icon,
   title,
   subtitle,
@@ -343,20 +377,135 @@ function StepHeroCard({
 }: {
   icon: typeof QrCode;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   children: ReactNode;
 }) {
   return (
-    <article className="rounded-xl border border-outline-variant bg-surface p-5 shadow-sm">
-      <div className="mb-5 flex flex-col items-center text-center">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-container">
-          <Icon className="h-8 w-8 text-secondary" />
+    <article className="overflow-hidden rounded-lg border border-outline-variant bg-surface shadow-sm">
+      <div className="flex items-center gap-2.5 border-b border-outline-variant/50 bg-surface-container-low/50 px-3 py-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary-container">
+          <Icon className="h-4 w-4 text-secondary" aria-hidden />
         </div>
-        <h2 className="text-headline-md font-semibold text-on-surface">{title}</h2>
-        <p className="mt-1 text-body-sm text-on-surface-variant">{subtitle}</p>
+        <div className="min-w-0 flex-1">
+          <h2 className={cn('font-semibold leading-tight', FIELD_TEXT)}>{title}</h2>
+          {subtitle ? (
+            <p className={cn('truncate', FIELD_TEXT_MUTED)}>{subtitle}</p>
+          ) : null}
+        </div>
       </div>
-      {children}
+      <div className="p-3">{children}</div>
     </article>
+  );
+}
+
+function ProductSummaryBar({
+  sku,
+  name,
+  palete,
+  showPalete,
+}: {
+  sku: string;
+  name: string;
+  palete?: string;
+  showPalete?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg border border-outline-variant bg-surface px-3 py-2 shadow-sm">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-container">
+        <Package className="h-4 w-4 text-secondary" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={cn('truncate font-bold text-primary', FIELD_MONO)}>{sku}</p>
+        <p className={cn('truncate', FIELD_TEXT)}>{name}</p>
+        {showPalete && palete ? (
+          <p className={cn('truncate', FIELD_TEXT_MUTED)}>Palete {palete}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function QuantidadeResumoGrid({
+  showCaixa,
+  showUnidade,
+  showPeso,
+  conferidoTotais,
+  hasLotesConferidos,
+  lotesCount,
+  isPvar,
+  gridClass,
+}: {
+  showCaixa: boolean;
+  showUnidade: boolean;
+  showPeso: boolean;
+  conferidoTotais: { caixa: number; unidade: number; peso: number };
+  hasLotesConferidos: boolean;
+  lotesCount: number;
+  isPvar: boolean;
+  gridClass: string;
+}) {
+  const cells = [
+    showCaixa
+      ? { label: 'Cx', value: conferidoTotais.caixa > 0 ? String(conferidoTotais.caixa) : '—' }
+      : null,
+    showUnidade
+      ? { label: 'Un', value: conferidoTotais.unidade > 0 ? String(conferidoTotais.unidade) : '—' }
+      : null,
+    showPeso
+      ? {
+          label: 'Kg',
+          value: conferidoTotais.peso > 0 ? conferidoTotais.peso.toFixed(3) : '—',
+        }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+
+  return (
+    <div
+      className={cn(
+        'rounded-lg border px-2.5 py-1.5',
+        hasLotesConferidos
+          ? 'border-secondary/30 bg-secondary/5'
+          : 'border-outline-variant/60 bg-surface-container-low',
+      )}
+    >
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className={cn('font-semibold uppercase tracking-wider', FIELD_TEXT_MUTED)}>
+          Conferido
+        </span>
+        {hasLotesConferidos ? (
+          <span className={cn('flex items-center gap-1 font-medium text-secondary', FIELD_TEXT)}>
+            <CheckCircle className="h-3 w-3" aria-hidden />
+            {lotesCount}{' '}
+            {isPvar
+              ? lotesCount === 1
+                ? 'caixa'
+                : 'caixas'
+              : lotesCount === 1
+                ? 'lote'
+                : 'lotes'}
+          </span>
+        ) : null}
+      </div>
+      <div className={cn('grid gap-1', gridClass)}>
+        {cells.map(({ label, value }) => (
+          <div
+            key={label}
+            className="flex items-baseline justify-between gap-2 rounded-md bg-surface px-2 py-1"
+          >
+            <span className={cn('uppercase', FIELD_TEXT_MUTED)}>{label}</span>
+            <span
+              className={cn(
+                'font-mono font-semibold tabular-nums',
+                FIELD_TEXT,
+                value === '—' && 'text-on-surface-variant',
+              )}
+            >
+              {value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -398,21 +547,22 @@ function WizardBottomDock({
         dockPadding
       )}
     >
-      <div className="pointer-events-auto flex gap-2 px-margin-mobile pt-3">
+      <div className="pointer-events-auto flex gap-2 px-margin-mobile pt-2.5">
         {step === 1 ? (
           <Button
             type="button"
             onClick={onNext}
             disabled={!canAdvanceStep1}
             className={cn(
-              'flex h-12 flex-1 items-center justify-center gap-2 rounded-lg text-label-md font-semibold touch-manipulation active:scale-[0.98]',
+              'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg font-semibold touch-manipulation active:scale-[0.98]',
+              FIELD_TEXT,
               canAdvanceStep1
                 ? 'bg-secondary text-on-secondary hover:bg-secondary/90'
                 : 'bg-surface-container-high text-on-surface-variant'
             )}
           >
             Próximo
-            <ArrowRight className="h-5 w-5" />
+            <ArrowRight className="h-4 w-4" />
           </Button>
         ) : null}
 
@@ -424,7 +574,7 @@ function WizardBottomDock({
               onClick={onPrev}
               className="flex h-11 flex-1 items-center justify-center gap-1 rounded-lg border-outline-variant text-secondary touch-manipulation active:scale-[0.98]"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-4 w-4" />
               Voltar
             </Button>
             <Button
@@ -432,14 +582,15 @@ function WizardBottomDock({
               onClick={onNext}
               disabled={!canAdvanceStep2}
               className={cn(
-                'flex h-12 flex-1 items-center justify-center gap-2 rounded-lg text-label-md font-semibold touch-manipulation active:scale-[0.98]',
+                'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg font-semibold touch-manipulation active:scale-[0.98]',
+                FIELD_TEXT,
                 canAdvanceStep2
                   ? 'bg-secondary text-on-secondary hover:bg-secondary/90'
                   : 'bg-surface-container-high text-on-surface-variant'
               )}
             >
               Próximo
-              <ArrowRight className="h-5 w-5" />
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </>
         ) : null}
@@ -452,7 +603,7 @@ function WizardBottomDock({
               onClick={onPrev}
               className="flex h-11 flex-1 items-center justify-center gap-1 rounded-lg border-outline-variant text-secondary touch-manipulation active:scale-[0.98]"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-4 w-4" />
               Voltar
             </Button>
             <Button
@@ -463,7 +614,8 @@ function WizardBottomDock({
               }}
               disabled={!canSaveConferencia || isSavingConferencia}
               className={cn(
-                'flex h-12 flex-1 items-center justify-center gap-2 rounded-lg text-label-md font-semibold touch-manipulation active:scale-[0.98]',
+                'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg font-semibold touch-manipulation active:scale-[0.98]',
+                FIELD_TEXT,
                 canSaveConferencia
                   ? 'bg-secondary text-on-secondary hover:bg-secondary/90'
                   : 'bg-surface-container-high text-on-surface-variant'
@@ -471,18 +623,18 @@ function WizardBottomDock({
             >
               {isSavingConferencia ? (
                 <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Salvando…
                 </>
               ) : canRemoverConferencia ? (
                 <>
-                  <PackageCheck className="h-5 w-5" />
-                  Remover conferência
+                  <PackageCheck className="h-4 w-4" />
+                  Remover
                 </>
               ) : (
                 <>
-                  <PackageCheck className="h-5 w-5" />
-                  Salvar conferência
+                  <PackageCheck className="h-4 w-4" />
+                  Salvar
                 </>
               )}
             </Button>
@@ -495,7 +647,13 @@ function WizardBottomDock({
 }
 
 export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
+  const { user } = useAuth();
+  const demand = useDemandById(demandId);
   const { state, actions } = useDetalheItem(demandId, initKey);
+  const conferenteLabel = useMemo(
+    () => formatConferenteLabel(resolveConferenteInfo(demandId, demand, user)),
+    [demand, demandId, user],
+  );
   const {
     step,
     item,
@@ -529,6 +687,7 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
     gs1InputRef,
     gs1WedgeValue,
     ignoreMaintainedLote,
+    loteDraftConfirmed,
   } = state;
 
   const activeSku = skuValue.trim() || item.sku;
@@ -558,7 +717,6 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
   const recebidaCaixa = form.watch('recebidaCaixa') ?? '';
   const recebidaUnidade = form.watch('recebidaUnidade') ?? '';
   const peso = form.watch('peso') ?? '';
-  const etiquetaValue = form.watch('etiqueta') ?? '';
   const loteValue = form.watch('lote') ?? '';
   const validadeValue = form.watch('validade') ?? '';
 
@@ -584,17 +742,34 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
     showCaixa && showUnidade ? 'grid-cols-2' : 'grid-cols-1';
   const showLote = loteModo === 'lote' || loteModo === 'ambos';
   const showValidade = loteModo === 'fabricacao' || loteModo === 'ambos';
+  const hasMaintainedLoteFromConferidos = lotesConferidos.some((entry) =>
+    entry.lote?.trim(),
+  );
   const maintainedLoteContext = useMemo(
     () =>
       resolveMaintainedLoteContext(
-        { lote: loteValue, validade: validadeValue },
+        isPvar && !loteDraftConfirmed && !hasMaintainedLoteFromConferidos
+          ? { lote: '', validade: '' }
+          : { lote: loteValue, validade: validadeValue },
         lotesConferidos,
         { ignoreExisting: ignoreMaintainedLote },
       ),
-    [loteValue, validadeValue, lotesConferidos, ignoreMaintainedLote],
+    [
+      isPvar,
+      loteDraftConfirmed,
+      hasMaintainedLoteFromConferidos,
+      loteValue,
+      validadeValue,
+      lotesConferidos,
+      ignoreMaintainedLote,
+    ],
   );
-  const showLoteInput = showLote && (!isPvar || !maintainedLoteContext.lote);
-  const showMaintainedLote = showLote && isPvar && !!maintainedLoteContext.lote;
+  const showMaintainedLote =
+    showLote &&
+    isPvar &&
+    (hasMaintainedLoteFromConferidos || loteDraftConfirmed) &&
+    !!maintainedLoteContext.lote;
+  const showLoteInput = showLote && (!isPvar || !showMaintainedLote);
   const effectiveLote = maintainedLoteContext.lote || loteValue;
   const fabricacaoDerivedFromLote = showLote && showValidade;
 
@@ -636,20 +811,28 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
     }
   }, [fabricacaoFromLote, fabricacaoIsoDate, form, loteValue]);
 
-  const dockHeight = step === 1 && controlaPalete ? '72px' : '80px';
+  const dockHeight = step === 1 && controlaPalete ? '64px' : '72px';
+
+  const headerSubtitle = useMemo(() => {
+    const parts: string[] = [];
+    if (skuValue || item.sku) parts.push(skuValue || item.sku);
+    if (conferenteLabel) parts.push(conferenteLabel);
+    if (parts.length === 0) return `Etapa ${displayStep} de ${totalSteps}`;
+    return parts.join(' · ');
+  }, [skuValue, item.sku, conferenteLabel, displayStep, totalSteps]);
 
   return (
     <div className="page-enter flex min-w-0 flex-col overflow-x-hidden">
       <div className="sticky top-0 z-30 border-b border-outline-variant/60 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
-        <div className="flex h-14 items-center gap-3 px-margin-mobile">
+        <div className="flex h-12 items-center gap-2 px-margin-mobile">
           {step > minStep ? (
             <button
               type="button"
               onClick={() => actions.prevStep()}
               aria-label="Voltar para etapa anterior"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-transform active:scale-90 touch-manipulation"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-transform active:scale-90 touch-manipulation"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
             </button>
           ) : (
             <Link
@@ -657,48 +840,49 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
               params={{ id: demandId }}
               aria-label="Voltar para checklist"
               onClick={() => hapticLight()}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-transform active:scale-90 touch-manipulation"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-transform active:scale-90 touch-manipulation"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
             </Link>
           )}
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-headline-md font-semibold text-on-surface leading-tight">
-              Conferência cega
-            </h1>
-            <p className="truncate font-mono text-label-sm text-on-surface-variant">
-              {skuValue || item.sku || `Etapa ${displayStep} de ${totalSteps}`}
-            </p>
+            <div className="flex items-center gap-1.5">
+              <h1 className={cn('truncate font-semibold leading-tight', FIELD_TEXT)}>
+                Conferência
+              </h1>
+              {'isNovo' in item && item.isNovo ? (
+                <span className={cn('shrink-0 rounded-md bg-surface-container px-1.5 py-0.5 font-medium text-on-surface-variant', FIELD_TEXT)}>
+                  Novo
+                </span>
+              ) : skuValue || item.sku ? (
+                <span className={cn('shrink-0 rounded-full bg-secondary-container px-1.5 py-0.5 font-medium text-on-secondary-container', FIELD_TEXT)}>
+                  Exp {item.expiry}
+                </span>
+              ) : null}
+            </div>
+            <p className={cn('truncate', FIELD_TEXT_MUTED)}>{headerSubtitle}</p>
           </div>
+          <TemperaturaProdutoModalButton demandId={demandId} variant="surface" />
           <Link
             to="/recebimento/$id/itens"
             params={{ id: demandId }}
             aria-label="Lista de itens conferidos"
             onClick={() => hapticLight()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-secondary transition-transform active:scale-90 touch-manipulation"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-container text-secondary transition-transform active:scale-90 touch-manipulation"
           >
-            <ClipboardList className="h-5 w-5" />
+            <ClipboardList className="h-4 w-4" />
           </Link>
-          {'isNovo' in item && item.isNovo ? (
-            <span className="shrink-0 rounded-lg border border-outline-variant bg-surface-container px-2.5 py-1 text-label-sm text-on-surface-variant">
-              Item novo
-            </span>
-          ) : skuValue || item.sku ? (
-            <span className="shrink-0 rounded-full bg-secondary-container px-2.5 py-1 text-label-sm text-on-secondary-container">
-              Exp {item.expiry}
-            </span>
-          ) : null}
         </div>
         <StepIndicator activeStep={displayStep} totalSteps={totalSteps} />
       </div>
 
       <div
-        className="min-w-0 overflow-x-hidden px-margin-mobile pt-4"
+        className="min-w-0 overflow-x-hidden px-margin-mobile pt-3"
         style={{
-          paddingBottom: `calc(${dockHeight} + env(safe-area-inset-bottom, 0px) + 16px)`,
+          paddingBottom: `calc(${dockHeight} + env(safe-area-inset-bottom, 0px) + 12px)`,
         }}
       >
-        <div className="mb-4">
+        <div className="mb-3">
           <ChecklistResumoCard {...checklistResumo} defaultOpen={false} />
         </div>
 
@@ -707,10 +891,10 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
         ) : null}
 
         {step === 1 && controlaPalete ? (
-          <StepHeroCard
+          <CompactStepSection
             icon={QrCode}
             title="Iniciar palete"
-            subtitle="Escaneie o ID do palete. Depois de conferir os lotes, use &quot;Fechar palete&quot; para salvar e informar o próximo."
+            subtitle="Escaneie o ID do palete"
           >
             <ScanField
               id="id-palete"
@@ -722,20 +906,20 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
               error={errors.idPalete?.message}
             />
             {idPaleteValue.trim() ? (
-              <p className="mt-4 flex items-center justify-center gap-1.5 text-label-sm font-medium text-secondary">
-                <CheckCircle className="h-4 w-4" aria-hidden />
+              <p className={cn('mt-2 flex items-center gap-1 font-medium', FIELD_HINT_OK)}>
+                <CheckCircle className="h-3.5 w-3.5" aria-hidden />
                 Palete identificado
               </p>
             ) : null}
-          </StepHeroCard>
+          </CompactStepSection>
         ) : null}
 
         {step === 2 ? (
-          <div className="space-y-4">
-            <StepHeroCard
+          <div className="space-y-3">
+            <CompactStepSection
               icon={Barcode}
-              title="SKU do Produto"
-              subtitle="Confirme ou escaneie o código do produto"
+              title="SKU do produto"
+              subtitle="Escaneie ou digite o código"
             >
               <ScanField
                 id="sku"
@@ -746,140 +930,63 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                 onScanClick={() => actions.openScan('sku')}
                 error={errors.sku?.message}
               />
-            </StepHeroCard>
+            </CompactStepSection>
 
             {skuValue.trim() ? (
-              <article className="rounded-xl border border-outline-variant bg-surface p-4 shadow-sm">
-                <div className="flex gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-container">
-                    <Package className="h-6 w-6 text-secondary" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-mono text-label-md font-bold text-primary">{item.sku}</p>
-                    <p className="line-clamp-2 text-body-sm text-on-surface">{item.name}</p>
-                    <p className="mt-0.5 truncate text-label-sm text-on-surface-variant">
-                      {item.supplier}
-                    </p>
-                  </div>
-                </div>
-              </article>
+              <ProductSummaryBar sku={item.sku} name={item.name} />
             ) : null}
           </div>
         ) : null}
 
         {step === 3 ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {saveError ? (
               <div
                 role="alert"
-                className="flex items-start gap-2 rounded-lg border border-error/30 bg-error-container/20 px-3 py-2.5 text-body-sm text-on-error-container"
+                className={cn(
+                  'flex items-start gap-2 rounded-lg border border-error/30 bg-error-container/20 px-2.5 py-2 text-on-error-container',
+                  FIELD_TEXT,
+                )}
               >
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                 <span>{saveError}</span>
               </div>
             ) : null}
 
-            <article className="rounded-xl border border-outline-variant bg-surface p-4 shadow-sm">
-              <div className="flex gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-container">
-                  <Package className="h-6 w-6 text-secondary" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-mono text-label-md font-bold text-primary">{item.sku}</p>
-                  <p className="line-clamp-2 text-body-sm font-semibold text-on-surface">{item.name}</p>
-                  {controlaPalete ? (
-                    <p className="mt-1 truncate font-mono text-label-sm text-on-surface-variant">
-                      Palete {idPaleteValue || '—'}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              <div
-                className={cn(
-                  'mt-3 rounded-lg border p-3',
-                  hasLotesConferidos
-                    ? 'border-secondary/30 bg-secondary/5'
-                    : 'border-outline-variant/80 bg-surface-container-low'
-                )}
-              >
-                <p className="mb-2 text-label-sm uppercase tracking-wider text-on-surface-variant">
-                  Quantidades informadas
-                </p>
-                <div className={cn('grid gap-2', quantidadeGridClass)}>
-                  {showCaixa ? (
-                    <div className="rounded-lg bg-surface px-3 py-2.5 text-center">
-                      <span className="block text-label-sm text-on-surface-variant">Caixa</span>
-                      <span
-                        className={cn(
-                          'font-mono text-headline-md font-semibold',
-                          conferidoTotais.caixa > 0 ? 'text-on-surface' : 'text-on-surface-variant',
-                        )}
-                      >
-                        {conferidoTotais.caixa > 0 ? conferidoTotais.caixa : '—'}
-                      </span>
-                    </div>
-                  ) : null}
-                  {showUnidade ? (
-                    <div className="rounded-lg bg-surface px-3 py-2.5 text-center">
-                      <span className="block text-label-sm text-on-surface-variant">Unidade</span>
-                      <span
-                        className={cn(
-                          'font-mono text-headline-md font-semibold',
-                          conferidoTotais.unidade > 0 ? 'text-on-surface' : 'text-on-surface-variant',
-                        )}
-                      >
-                        {conferidoTotais.unidade > 0 ? conferidoTotais.unidade : '—'}
-                      </span>
-                    </div>
-                  ) : null}
-                  {produtoConfig.pesoVariavel || produtoConfig.controlaPeso ? (
-                    <div className="rounded-lg bg-surface px-3 py-2.5 text-center">
-                      <span className="block text-label-sm text-on-surface-variant">Peso total (kg)</span>
-                      <span
-                        className={cn(
-                          'font-mono text-headline-md font-semibold',
-                          conferidoTotais.peso > 0 ? 'text-on-surface' : 'text-on-surface-variant',
-                        )}
-                      >
-                        {conferidoTotais.peso > 0
-                          ? conferidoTotais.peso.toFixed(3)
-                          : '—'}
-                      </span>
-                    </div>
-                  ) : null}
-                </div>
-                {hasLotesConferidos ? (
-                  <p className="mt-2 flex items-center justify-center gap-1.5 text-label-sm font-medium text-secondary">
-                    <CheckCircle className="h-4 w-4" aria-hidden />
-                    {lotesConferidos.length}{' '}
-                    {isPvar
-                      ? lotesConferidos.length === 1
-                        ? 'caixa conferida'
-                        : 'caixas conferidas'
-                      : lotesConferidos.length === 1
-                        ? 'lote conferido'
-                        : 'lotes conferidos'}
-                  </p>
-                ) : null}
-              </div>
-            </article>
+            <ProductSummaryBar
+              sku={item.sku}
+              name={item.name}
+              palete={idPaleteValue}
+              showPalete={controlaPalete}
+            />
+
+            <QuantidadeResumoGrid
+              showCaixa={showCaixa}
+              showUnidade={showUnidade}
+              showPeso={produtoConfig.pesoVariavel || produtoConfig.controlaPeso}
+              conferidoTotais={conferidoTotais}
+              hasLotesConferidos={hasLotesConferidos}
+              lotesCount={lotesConferidos.length}
+              isPvar={isPvar}
+              gridClass={quantidadeGridClass}
+            />
 
             <form
-              className="min-w-0 space-y-4 rounded-xl border border-outline-variant bg-surface p-4 shadow-sm"
+              className="min-w-0 space-y-3 rounded-lg border border-outline-variant bg-surface p-3 shadow-sm"
               onSubmit={(e) => e.preventDefault()}
             >
               {showMaintainedLote ? (
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 py-2.5">
-                  <div>
-                    <span className="block text-label-sm text-on-surface-variant">
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-outline-variant/40 bg-surface-container-low px-2.5 py-2">
+                  <div className="min-w-0">
+                    <span className={cn('block uppercase tracking-wide', FIELD_TEXT_MUTED)}>
                       Lote em uso
                     </span>
-                    <span className="font-mono text-body-md font-semibold text-on-surface">
+                    <span className={cn('font-semibold', FIELD_MONO)}>
                       {maintainedLoteContext.lote}
                     </span>
                     {maintainedFabricacaoDisplay ? (
-                      <span className="mt-1 block text-label-sm text-on-surface-variant">
-                        Fabricação: {maintainedFabricacaoDisplay}
+                      <span className={cn('block', FIELD_TEXT_MUTED)}>
+                        Fab. {maintainedFabricacaoDisplay}
                       </span>
                     ) : null}
                   </div>
@@ -887,6 +994,7 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                     type="button"
                     variant="outline"
                     size="sm"
+                    className={cn('h-8 shrink-0 px-2.5', FIELD_TEXT)}
                     onClick={() => actions.startLoteChange()}
                   >
                     Alterar
@@ -945,10 +1053,10 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
 
               {showCaixa || showUnidade ? (
                 <>
-                  <h3 className="text-label-md font-semibold uppercase tracking-wider text-on-surface-variant">
+                  <p className={cn('font-semibold uppercase tracking-wider', FIELD_TEXT_MUTED)}>
                     Quantidades
-                  </h3>
-                  <div className={cn('grid gap-3', quantidadeGridClass)}>
+                  </p>
+                  <div className={cn('grid gap-2', quantidadeGridClass)}>
                     {showCaixa ? (
                       <NumericStepper
                         id="recebida-caixa"
@@ -976,8 +1084,8 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
               ) : null}
 
                   {isPvar ? (
-                    <div className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 py-2 text-body-sm text-on-surface-variant">
-                      Cada registro representa <strong>1 caixa</strong> com seu peso individual.
+                    <div className={cn('rounded-lg border border-outline-variant/40 bg-surface-container-low px-2.5 py-1.5', FIELD_TEXT_MUTED)}>
+                      Cada registro = <strong className={FIELD_TEXT}>1 caixa</strong> com peso individual.
                     </div>
                   ) : null}
 
@@ -1000,10 +1108,10 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                     />
                   )}
                   {isPvar ? (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <ScanField
                         id="gs1-wedge"
-                        label="Código GS1 (coletor/leitor)"
+                        label="Código GS1 (coletor)"
                         icon={ScanLine}
                         placeholder="Bipe o código GS1 aqui"
                         value={gs1WedgeValue}
@@ -1022,9 +1130,8 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                         onKeyDown={(event) => actions.handlePesoKeyDown(event, peso)}
                         error={errors.peso?.message}
                       />
-                      <p className="text-label-sm text-on-surface-variant">
-                        Bipe o código GS1 e pressione Enter: o peso é validado, a caixa entra na
-                        lista e o campo fica pronto para a próxima bipagem.
+                      <p className={FIELD_TEXT_MUTED}>
+                        Bipe o GS1 + Enter: valida peso, adiciona caixa e prepara próxima bipagem.
                       </p>
                     </div>
                   ) : (
@@ -1043,13 +1150,16 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                 </>
               ) : null}
 
-              <div className="flex flex-col gap-2 border-t border-outline-variant/50 pt-4">
+              <div className="flex flex-col gap-1.5 border-t border-outline-variant/50 pt-3">
                 {saveError ? (
                   <div
                     role="alert"
-                    className="flex items-start gap-2 rounded-lg border border-error/30 bg-error-container/20 px-3 py-2.5 text-body-sm text-on-error-container"
+                    className={cn(
+                  'flex items-start gap-2 rounded-lg border border-error/30 bg-error-container/20 px-2.5 py-2 text-on-error-container',
+                  FIELD_TEXT,
+                )}
                   >
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                     <span>{saveError}</span>
                   </div>
                 ) : null}
@@ -1060,14 +1170,17 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                     void actions.handleAddLote();
                   }}
                   disabled={isSubmitting || isSavingConferencia}
-                  className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-secondary text-on-secondary text-headline-md shadow-md touch-manipulation hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-50"
+                  className={cn(
+                    'flex h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-secondary text-on-secondary font-semibold shadow-sm touch-manipulation hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-50',
+                    FIELD_TEXT,
+                  )}
                 >
                   {isSubmitting || isSavingConferencia ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <CheckCircle className="h-5 w-5" />
+                    <CheckCircle className="h-4 w-4" />
                   )}
-                  {isSubmitting ? 'Salvando lote...' : isPvar ? 'Adicionar caixa conferida' : 'Adicionar lote conferido'}
+                  {isSubmitting ? 'Salvando…' : isPvar ? 'Adicionar caixa' : 'Adicionar lote'}
                 </Button>
                 {controlaPalete ? (
                   <Button
@@ -1078,17 +1191,20 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                       void actions.handleFecharPalete();
                     }}
                     disabled={isSubmitting || isSavingConferencia}
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border-secondary/40 text-secondary touch-manipulation hover:bg-secondary/5 active:scale-[0.98] disabled:opacity-50"
+                    className={cn(
+                      'flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border-secondary/40 text-secondary touch-manipulation hover:bg-secondary/5 active:scale-[0.98] disabled:opacity-50',
+                      FIELD_TEXT,
+                    )}
                   >
                     {isSubmitting || isSavingConferencia ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <PackageCheck className="h-5 w-5" />
+                      <PackageCheck className="h-4 w-4" />
                     )}
-                    {isSubmitting || isSavingConferencia ? 'Fechando palete...' : 'Fechar palete'}
+                    {isSubmitting || isSavingConferencia ? 'Fechando…' : 'Fechar palete'}
                   </Button>
                 ) : null}
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <AvariaQuickCaptureButton
                     demandId={demandId}
                     sku={skuValue || item?.sku}
@@ -1096,7 +1212,10 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                   <Button
                     asChild
                     variant="outline"
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border-outline-variant text-destructive touch-manipulation active:scale-[0.98] hover:bg-destructive/10"
+                    className={cn(
+                      'flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border-outline-variant text-destructive touch-manipulation active:scale-[0.98] hover:bg-destructive/10',
+                      FIELD_TEXT,
+                    )}
                   >
                     <Link
                       to="/recebimento/$id/avaria"
@@ -1112,15 +1231,15 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                         setConferenciaEntryStep(demandId, step);
                       }}
                     >
-                      <AlertTriangle className="h-5 w-5" />
-                      Registrar avaria
+                      <AlertTriangle className="h-4 w-4" />
+                      Avaria
                     </Link>
                   </Button>
                 </div>
               </div>
             </form>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <CollapsibleRecordCard
                 title="Lotes conferidos"
                 count={lotesConferidos.length}
@@ -1134,16 +1253,19 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                         paleteKey === '__sem_palete__' ? 'Sem palete' : paleteKey;
 
                       return (
-                        <div key={paleteKey} className="space-y-2">
-                          <div className="flex items-center justify-between gap-2 px-1">
-                            <p className="truncate font-mono text-label-sm font-semibold text-on-surface-variant">
+                        <div key={paleteKey} className="space-y-1">
+                          <div className="flex items-center justify-between gap-2 px-0.5 pt-0.5">
+                            <p className={cn('truncate font-semibold', FIELD_TEXT_MUTED)}>
                               Palete {paleteLabel}
                             </p>
                             {paleteKey !== '__sem_palete__' ? (
                               <button
                                 type="button"
                                 onClick={() => void actions.removePalete(paleteKey)}
-                                className="shrink-0 text-label-sm font-medium text-destructive touch-manipulation active:opacity-70"
+                                className={cn(
+                                  'shrink-0 font-medium text-destructive touch-manipulation active:opacity-70',
+                                  FIELD_TEXT,
+                                )}
                               >
                                 Excluir palete
                               </button>
@@ -1155,10 +1277,10 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                               onRemove={() => void actions.removeLote(lote.id)}
                               removeLabel={`Excluir lote ${lote.lote || lote.validade || ''}`}
                             >
-                              <p className="truncate font-mono text-label-md font-semibold text-on-surface">
+                              <p className={cn('truncate font-semibold', FIELD_MONO)}>
                                 {lote.lote || lote.validade || '—'}
                               </p>
-                              <p className="text-label-sm text-on-surface-variant">
+                              <p className={cn('leading-snug', FIELD_TEXT_MUTED)}>
                                 {[
                                   showCaixa && lote.recebidaCaixa > 0
                                     ? `${lote.recebidaCaixa} cx`
@@ -1192,10 +1314,10 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                         onRemove={() => void actions.removeLote(lote.id)}
                         removeLabel={`Excluir lote ${lote.lote || lote.validade || ''}`}
                       >
-                        <p className="truncate font-mono text-label-md font-semibold text-on-surface">
+                        <p className={cn('truncate font-semibold', FIELD_MONO)}>
                           {lote.lote || lote.validade || '—'}
                         </p>
-                        <p className="text-label-sm text-on-surface-variant">
+                        <p className={cn('leading-snug', FIELD_TEXT_MUTED)}>
                           {[
                             showCaixa && lote.recebidaCaixa > 0
                               ? `${lote.recebidaCaixa} cx`
@@ -1238,13 +1360,13 @@ export function DetalheItemView({ demandId, initKey }: DetalheItemViewProps) {
                       onRemove={() => avarias.removeAvaria(avaria.id)}
                       removeLabel="Excluir registro de avaria"
                     >
-                      <p className="truncate text-label-md font-semibold text-on-surface">
+                      <p className={cn('truncate font-semibold', FIELD_TEXT)}>
                         {labels.tipo}
                       </p>
-                      <p className="text-label-sm text-on-surface-variant">
+                      <p className={cn('leading-snug', FIELD_TEXT_MUTED)}>
                         {avaria.quantidadeCaixa} cx · {avaria.quantidadeUnidade} un
                       </p>
-                      <p className="truncate text-label-sm text-on-surface-variant">
+                      <p className={cn('truncate leading-snug', FIELD_TEXT_MUTED)}>
                         {labels.natureza} · {labels.causa}
                         {avaria.lote ? ` · Lote ${avaria.lote}` : ''}
                         {avaria.photoCount > 0

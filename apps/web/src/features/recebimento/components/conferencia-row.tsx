@@ -5,7 +5,8 @@ import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 
 import { cn } from '@lilog/ui';
 
-import { compactTableCellClassName } from '@/components/ui/compact-table-classes';
+import { conferenciaTableCellClassName } from '@/components/ui/compact-table-classes';
+import { useDisplayConfig } from '@/features/config-operacional/hooks/use-display-config';
 import { ConferenciaAvariaExpand } from '@/features/recebimento/components/conferencia-avaria-expand';
 import { ConferenciaLoteExpand } from '@/features/recebimento/components/conferencia-lote-expand';
 
@@ -20,7 +21,15 @@ const LABEL_STATUS: Record<ConferenciaStatus, string> = {
   sobra: 'Sobra',
 };
 
-const COL_SPAN = 9;
+const COL_SPAN = 11;
+const PESO_DIVERGENCIA_TOLERANCIA = 0.001;
+
+function formatPesoKg(value: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  }).format(value);
+}
 
 type ConferenciaRowProps = {
   item: ConferenciaItem;
@@ -37,7 +46,7 @@ export const ConferenciaRow = memo(function ConferenciaRow({
   isLoteExpanded,
   onToggleLoteExpand,
 }: ConferenciaRowProps) {
-  const formato = Intl.NumberFormat('pt-BR');
+  const { formatQtd, formatQtdSigned } = useDisplayConfig();
   const divergence = item.qtdFisica - item.qtdXml;
   const temDivergencia = divergence !== 0;
   const qtdAvarias = item.avarias.length;
@@ -45,6 +54,7 @@ export const ConferenciaRow = memo(function ConferenciaRow({
   const temLotes = item.lotesDetalhe.length > 0;
   const labelAvarias =
     qtdAvarias === 1 ? '1 avaria' : `${qtdAvarias} avarias`;
+  const unidadesPorCaixa = item.unidadesPorCaixa ?? 1;
   const qtdAvariada = item.avarias.reduce(
     (acc, avaria) => ({
       caixas: acc.caixas + avaria.quantidadeCaixas,
@@ -52,6 +62,8 @@ export const ConferenciaRow = memo(function ConferenciaRow({
     }),
     { caixas: 0, unidades: 0 },
   );
+  const qtdAvariadaTotalUnidades =
+    qtdAvariada.unidades + qtdAvariada.caixas * unidadesPorCaixa;
 
   let divergenciaClasse =
     divergence === 0
@@ -60,13 +72,25 @@ export const ConferenciaRow = memo(function ConferenciaRow({
         ? 'text-destructive'
         : 'text-secondary';
 
-  const textoDivergencia =
-    divergence > 0
-      ? `+${formato.format(divergence)}`
-      : formato.format(divergence);
+  const textoDivergencia = formatQtdSigned(divergence, unidadesPorCaixa);
+
+  const pesoDiff =
+    item.pesoXml !== null && item.pesoFisico !== null
+      ? item.pesoFisico - item.pesoXml
+      : null;
+  const temDivergenciaPeso =
+    item.pesoVariavel &&
+    pesoDiff !== null &&
+    Math.abs(pesoDiff) > PESO_DIVERGENCIA_TOLERANCIA;
+  const pesoDivergenciaClasse =
+    pesoDiff === null || Math.abs(pesoDiff) <= PESO_DIVERGENCIA_TOLERANCIA
+      ? 'text-status-active'
+      : pesoDiff < 0
+        ? 'text-destructive'
+        : 'text-secondary';
 
   const badgeStatus = cn(
-    'inline-flex rounded px-1.5 py-px text-[9px] font-semibold',
+    'inline-flex rounded px-1.5 py-0.5 text-[11px] font-semibold',
     item.status === 'concluido' &&
       'bg-status-active/10 text-status-active',
     item.status === 'faltante' &&
@@ -76,7 +100,7 @@ export const ConferenciaRow = memo(function ConferenciaRow({
   );
 
   const rowBg =
-    temDivergencia && item.status !== 'concluido'
+    (temDivergencia && item.status !== 'concluido') || temDivergenciaPeso
       ? 'bg-destructive/[0.04]'
       : temAvaria
         ? 'bg-destructive/[0.03]'
@@ -88,7 +112,7 @@ export const ConferenciaRow = memo(function ConferenciaRow({
         role="row"
         className={cn('transition-colors hover:bg-muted/30', rowBg)}
       >
-        <td className={cn(compactTableCellClassName, 'w-7 pl-2')}>
+        <td className={cn(conferenciaTableCellClassName, 'w-7 pl-2')}>
           {temAvaria ? (
             <button
               type="button"
@@ -112,25 +136,25 @@ export const ConferenciaRow = memo(function ConferenciaRow({
         </td>
         <td
           className={cn(
-            compactTableCellClassName,
-            'max-w-[120px] font-mono text-[10px] text-muted-foreground',
+            conferenciaTableCellClassName,
+            'max-w-[120px] font-mono text-muted-foreground',
           )}
           title={item.sku}
         >
           <span className="line-clamp-2 break-all">{item.sku}</span>
         </td>
         <td
-          className={cn(compactTableCellClassName, 'max-w-[160px]')}
+          className={cn(conferenciaTableCellClassName, 'max-w-[160px]')}
           title={item.produto}
         >
-          <span className="line-clamp-2 text-xs font-medium text-foreground">
+          <span className="line-clamp-2 font-medium text-foreground">
             {item.produto}
           </span>
         </td>
         <td
           className={cn(
-            compactTableCellClassName,
-            'max-w-[80px] text-[10px] text-muted-foreground',
+            conferenciaTableCellClassName,
+            'max-w-[80px] text-muted-foreground',
           )}
           title={item.lote}
         >
@@ -159,60 +183,81 @@ export const ConferenciaRow = memo(function ConferenciaRow({
         </td>
         <td
           className={cn(
-            compactTableCellClassName,
-            'text-center text-[10px] tabular-nums',
+            conferenciaTableCellClassName,
+            'text-center tabular-nums',
             temAvaria
               ? 'font-semibold text-destructive'
               : 'text-muted-foreground',
           )}
           title={
             temAvaria
-              ? `${formato.format(qtdAvariada.caixas)} caixas · ${formato.format(qtdAvariada.unidades)} unidades avariadas`
+              ? `${formatQtd(qtdAvariadaTotalUnidades, unidadesPorCaixa)} (${formatQtd(qtdAvariada.caixas * unidadesPorCaixa, unidadesPorCaixa)} · ${formatQtd(qtdAvariada.unidades, unidadesPorCaixa)})`
               : undefined
           }
         >
-          {temAvaria ? (
-            <span className="inline-flex flex-col leading-tight">
-              {qtdAvariada.caixas > 0 ? (
-                <span>{formato.format(qtdAvariada.caixas)} cx</span>
-              ) : null}
-              {qtdAvariada.unidades > 0 ? (
-                <span>{formato.format(qtdAvariada.unidades)} un</span>
-              ) : null}
-              {qtdAvariada.caixas === 0 && qtdAvariada.unidades === 0 ? (
-                <span>—</span>
-              ) : null}
-            </span>
-          ) : (
-            '—'
-          )}
+          {temAvaria && qtdAvariadaTotalUnidades > 0
+            ? formatQtd(qtdAvariadaTotalUnidades, unidadesPorCaixa)
+            : '—'}
         </td>
         <td
           className={cn(
-            compactTableCellClassName,
+            conferenciaTableCellClassName,
             'text-center font-medium tabular-nums text-foreground',
           )}
         >
-          {formato.format(item.qtdXml)}
+          {formatQtd(item.qtdXml, unidadesPorCaixa)}
         </td>
         <td
           className={cn(
-            compactTableCellClassName,
+            conferenciaTableCellClassName,
             'text-center font-medium tabular-nums text-foreground',
           )}
         >
-          {formato.format(item.qtdFisica)}
+          {formatQtd(item.qtdFisica, unidadesPorCaixa)}
         </td>
         <td
           className={cn(
-            compactTableCellClassName,
+            conferenciaTableCellClassName,
             'text-center font-semibold tabular-nums',
             divergenciaClasse,
           )}
         >
           {textoDivergencia}
         </td>
-        <td className={compactTableCellClassName}>
+        <td
+          className={cn(
+            conferenciaTableCellClassName,
+            'text-center tabular-nums',
+            item.pesoVariavel && temDivergenciaPeso && pesoDivergenciaClasse,
+            !item.pesoVariavel && 'text-muted-foreground',
+          )}
+          title={
+            item.pesoVariavel
+              ? 'Peso esperado conforme pré-recebimento ou cadastro do produto'
+              : undefined
+          }
+        >
+          {item.pesoVariavel && item.pesoXml !== null
+            ? formatPesoKg(item.pesoXml)
+            : '—'}
+        </td>
+        <td
+          className={cn(
+            conferenciaTableCellClassName,
+            'text-center tabular-nums font-medium',
+            item.pesoVariavel && temDivergenciaPeso && pesoDivergenciaClasse,
+            !item.pesoVariavel && item.pesoFisico !== null && 'text-foreground',
+            !item.pesoVariavel && item.pesoFisico === null && 'text-muted-foreground',
+          )}
+          title={
+            !item.pesoVariavel && item.pesoFisico !== null
+              ? 'Peso conferido calculado (quantidade × peso da unidade)'
+              : undefined
+          }
+        >
+          {item.pesoFisico !== null ? formatPesoKg(item.pesoFisico) : '—'}
+        </td>
+        <td className={conferenciaTableCellClassName}>
           <span className={badgeStatus}>{LABEL_STATUS[item.status]}</span>
         </td>
       </tr>
@@ -234,6 +279,7 @@ export const ConferenciaRow = memo(function ConferenciaRow({
               <ConferenciaLoteExpand
                 lotes={item.lotesDetalhe}
                 produto={item.produto}
+                unidadesPorCaixa={unidadesPorCaixa}
               />
             </div>
           </td>

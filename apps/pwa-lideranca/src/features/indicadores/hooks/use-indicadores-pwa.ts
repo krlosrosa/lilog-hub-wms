@@ -21,7 +21,6 @@ import type {
   TransporteRisco,
 } from '@/features/indicadores/lib/torre-controle.schema';
 import { useUnidade } from '@/features/unidade';
-import { ApiClientError } from '@/lib/api-client';
 
 const POLL_INTERVAL_MS = 30_000;
 const LIVE_TICK_MS = 1_000;
@@ -53,7 +52,6 @@ export function useIndicadoresPwa() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [semExpedicaoAtiva, setSemExpedicaoAtiva] = useState(false);
-  const [semPermissao, setSemPermissao] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(0);
   const [filtroRapido, setFiltroRapido] = useState<FiltroRapidoTorre>('todos');
@@ -73,7 +71,6 @@ export function useIndicadoresPwa() {
         setSnapshot(criarSnapshotVazio());
         setUploadLoteId(null);
         setSemExpedicaoAtiva(false);
-        setSemPermissao(false);
         setLoadError(null);
         setIsLoading(false);
         return;
@@ -84,7 +81,6 @@ export function useIndicadoresPwa() {
       }
 
       setLoadError(null);
-      setSemPermissao(false);
 
       try {
         const transportesResponse = await listTransportes(unidadeId);
@@ -109,16 +105,11 @@ export function useIndicadoresPwa() {
         setSnapshot(torreSnapshot);
         setLastUpdatedAt(new Date());
       } catch (error) {
-        if (error instanceof ApiClientError && error.status === 403) {
-          setSemPermissao(true);
-          setLoadError('Sem permissão para visualizar a expedição.');
-        } else {
-          setLoadError(
-            error instanceof Error
-              ? error.message
-              : 'Não foi possível carregar os indicadores.',
-          );
-        }
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar os indicadores.',
+        );
       } finally {
         setIsLoading(false);
       }
@@ -140,7 +131,7 @@ export function useIndicadoresPwa() {
   }, [loadIndicadores]);
 
   useEffect(() => {
-    if (!unidadeSelecionada?.id || semExpedicaoAtiva || semPermissao) {
+    if (!unidadeSelecionada?.id || semExpedicaoAtiva) {
       return;
     }
 
@@ -149,7 +140,7 @@ export function useIndicadoresPwa() {
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [unidadeSelecionada?.id, semExpedicaoAtiva, semPermissao, loadIndicadores]);
+  }, [unidadeSelecionada?.id, semExpedicaoAtiva, loadIndicadores]);
 
   useEffect(() => {
     if (!lastUpdatedAt) {
@@ -235,7 +226,6 @@ export function useIndicadoresPwa() {
     unidadeNome: unidadeSelecionada?.nomeFilial ?? unidadeSelecionada?.nome ?? null,
     semUnidade,
     semExpedicaoAtiva,
-    semPermissao,
     uploadLoteId,
     snapshot,
     transportesOrdenados,

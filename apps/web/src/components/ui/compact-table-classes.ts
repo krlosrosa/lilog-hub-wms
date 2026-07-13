@@ -24,3 +24,19 @@ export function compactTableHeadCellClassName(className?: string) {
     className,
   );
 }
+
+/** Conferência de carga — tipografia levemente menor e unificada. */
+export const conferenciaTableClassName =
+  'w-full border-collapse text-left text-[11px]';
+
+export const conferenciaTableCellClassName = 'px-2 py-1 text-[11px]';
+
+export const conferenciaTableEmptyCellClassName =
+  'px-2 py-12 text-center text-[11px] text-muted-foreground';
+
+export function conferenciaTableHeadCellClassName(className?: string) {
+  return cn(
+    'border-b border-outline-variant px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground',
+    className,
+  );
+}

@@ -1,0 +1,1028 @@
+import { RECEBIMENTO_V2_OP_TYPES, type SyncBatchRequest, type SyncBatchResult } from '@lilog/contracts';
+
+import { toBaseUnits } from '@/features/recebimento/lib/resolve-recebimento-divergencia';
+
+import { filterSyncableOperations } from './palete-session-v2.service';
+import { reconcileRemoteSituacao } from '../lib/reconcile-remote-situacao';
+import { fetchPackage, fetchSnapshot, pushBatch } from '../api/sync-api';
+import {
+  buildSkuByProdutoIdMap,
+  mapServerAvariaToRecord,
+  mapServerConferenciaToRecord,
+  resolveSnapshotAvarias,
+  resolveSnapshotConferences,
+} from '../lib/map-snapshot-v2';
+import {
+  mapServerChecklistToRecord,
+  resolveDockLabel,
+  resolveSnapshotChecklist,
+} from '../lib/map-server-checklist-v2';
+import { recebimentoV2Db, ensureRecebimentoV2DbReady } from '../local-db/db';
+import type {
+  ChecklistPhotoMediaIds,
+  ExpectedItemRecord,
+  SyncConflictRecord,
+  SyncOperationRecord,
+  SyncOperationStatus,
+} from '../local-db/schema';
+import type { RecebimentoPackage } from '../types/recebimento-v2.schema';
+import {
+  countPendingPhotoUploads,
+  recoverStuckSyncState,
+  resolveRecebimentoIdForDemand,
+} from './sync-photo.helpers';
+import {
+  uploadChecklistPhotosV2,
+  type ChecklistPhotoUploadResult,
+} from './upload-checklist-photos-v2';
+import {
+  uploadAvariaPhotosV2,
+  type AvariaPhotoUploadResult,
+} from './upload-avaria-photos-v2';
+import {
+  uploadImpedimentoPhotosV2,
+  type ImpedimentoPhotoUploadResult,
+} from './upload-impedimento-photos-v2';
+
+export interface PushResult {
+  accepted: number;
+  rejected: number;
+  conflicts: number;
+  newRevision: number;
+  photosUploaded: number;
+  photosPending: number;
+}
+
+export type PullDemandOptions = {
+  /** Apaga dados locais e substitui pelo snapshot do servidor, descartando ops pendentes. */
+  force?: boolean;
+};
+
+const PULL_DISCARD_OP_STATUSES = new Set<SyncOperationStatus>(['pending', 'syncing', 'retry']);
+
+export async function countPullOverwriteRisk(demandId: string): Promise<number> {
+  await ensureRecebimentoV2DbReady();
+
+  const ops = await recebimentoV2Db.syncOperations
+    .where('aggregateId')
+    .equals(demandId)
+    .toArray();
+
+  return ops.filter((op) => PULL_DISCARD_OP_STATUSES.has(op.status)).length;
+}
+
+function isSuccessfulConferenceOp(
+  op: SyncOperationRecord,
+  opResult: SyncBatchResult['operations'][number],
+): boolean {
+  return (
+    (op.opType === RECEBIMENTO_V2_OP_TYPES.ITEM_CONFERIR ||
+      op.opType === RECEBIMENTO_V2_OP_TYPES.ITEM_LINHA_REMOVE ||
+      op.opType === RECEBIMENTO_V2_OP_TYPES.PESAGEM_REMOVE) &&
+    (opResult.status === 'applied' || opResult.status === 'skipped')
+  );
+}
+
+function isSuccessfulAvariaOp(
+  op: SyncOperationRecord,
+  opResult: SyncBatchResult['operations'][number],
+): boolean {
+  return (
+    op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR &&
+    (opResult.status === 'applied' || opResult.status === 'skipped')
+  );
+}
+
+function isSuccessfulImpedimentoOp(
+  op: SyncOperationRecord,
+  opResult: SyncBatchResult['operations'][number],
+): boolean {
+  return (
+    op.opType === RECEBIMENTO_V2_OP_TYPES.CONFERENCIA_SUSPENDER &&
+    (opResult.status === 'applied' || opResult.status === 'skipped')
+  );
+}
+
+async function applyImpedimentoSyncResults(
+  pendingOps: SyncOperationRecord[],
+  result: SyncBatchResult,
+  demandId: string,
+  now: number,
+): Promise<boolean> {
+  let applied = false;
+
+  for (const opResult of result.operations) {
+    if (opResult.status !== 'applied' && opResult.status !== 'skipped') {
+      continue;
+    }
+
+    const op = pendingOps.find((item) => item.id === opResult.opId);
+    if (!op || op.opType !== RECEBIMENTO_V2_OP_TYPES.CONFERENCIA_SUSPENDER) {
+      continue;
+    }
+
+    applied = true;
+
+    const payload = op.payload as { impedimentoId?: string };
+    if (!payload.impedimentoId) {
+      continue;
+    }
+
+    await recebimentoV2Db.impedimentos.update(payload.impedimentoId, {
+      ...(opResult.serverId ? { serverImpedimentoId: opResult.serverId } : {}),
+      syncStatus: 'synced',
+      updatedAt: now,
+    }).catch(() => undefined);
+  }
+
+  if (applied) {
+    const demand = await recebimentoV2Db.demands.get(demandId);
+    if (demand?.situacao !== 'em_conferencia' && demand?.situacao !== 'conferido') {
+      await recebimentoV2Db.demands.update(demandId, {
+        situacao: 'impedido',
+        status: 'impedido',
+        updatedAt: now,
+      }).catch(() => undefined);
+    }
+  }
+
+  return applied;
+}
+
+async function applyDamageSyncResults(
+  pendingOps: SyncOperationRecord[],
+  result: SyncBatchResult,
+  now: number,
+): Promise<void> {
+  for (const opResult of result.operations) {
+    if (opResult.status !== 'applied' && opResult.status !== 'skipped') {
+      continue;
+    }
+
+    const op = pendingOps.find((item) => item.id === opResult.opId);
+    if (!op) {
+      continue;
+    }
+
+    if (op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR) {
+      const payload = op.payload as { damageId?: string };
+      if (payload.damageId) {
+        await recebimentoV2Db.damages.update(payload.damageId, {
+          ...(opResult.serverId ? { serverAvariaId: opResult.serverId } : {}),
+          syncStatus: 'synced',
+          updatedAt: now,
+        }).catch(() => undefined);
+
+        if (opResult.serverId) {
+          const existingOp = await recebimentoV2Db.syncOperations.get(opResult.opId);
+          const existingPayload = (existingOp?.payload ?? op.payload) as Record<string, unknown>;
+          await recebimentoV2Db.syncOperations.update(opResult.opId, {
+            payload: {
+              ...existingPayload,
+              serverAvariaId: opResult.serverId,
+            },
+            updatedAt: now,
+          }).catch(() => undefined);
+        }
+      }
+      continue;
+    }
+
+    if (op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REMOVER) {
+      const payload = op.payload as { damageId?: string };
+      if (payload.damageId) {
+        await recebimentoV2Db.damages.update(payload.damageId, {
+          syncStatus: 'synced',
+          updatedAt: now,
+        }).catch(() => undefined);
+      }
+      continue;
+    }
+
+    if (op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_CLEAR) {
+      const damages = await recebimentoV2Db.damages
+        .where('demandId')
+        .equals(op.aggregateId)
+        .toArray();
+
+      for (const damage of damages) {
+        if (damage.deletedAt) {
+          await recebimentoV2Db.damages.update(damage.id, {
+            syncStatus: 'synced',
+            updatedAt: now,
+          }).catch(() => undefined);
+        }
+      }
+    }
+  }
+}
+
+async function applyConferenceSyncResults(
+  pendingOps: SyncOperationRecord[],
+  result: SyncBatchResult,
+  now: number,
+): Promise<void> {
+  for (const opResult of result.operations) {
+    if (opResult.status !== 'applied' && opResult.status !== 'skipped') {
+      continue;
+    }
+
+    const op = pendingOps.find((item) => item.id === opResult.opId);
+    if (!op || !isSuccessfulConferenceOp(op, opResult)) {
+      continue;
+    }
+
+    const payload = op.payload as { conferenceId?: string };
+    const conferenceId = payload.conferenceId;
+    if (!conferenceId) {
+      continue;
+    }
+
+    if (op.opType === RECEBIMENTO_V2_OP_TYPES.ITEM_CONFERIR && opResult.serverId) {
+      const existingOp = await recebimentoV2Db.syncOperations.get(opResult.opId);
+      const existingPayload = (existingOp?.payload ?? op.payload) as Record<string, unknown>;
+
+      await recebimentoV2Db.conferences.update(conferenceId, {
+        serverItemId: opResult.serverId,
+        ...(opResult.serverPesagemId ? { serverPesagemId: opResult.serverPesagemId } : {}),
+        syncStatus: 'synced',
+        updatedAt: now,
+      });
+      await recebimentoV2Db.syncOperations.update(opResult.opId, {
+        payload: {
+          ...existingPayload,
+          serverItemId: opResult.serverId,
+          ...(opResult.serverPesagemId ? { serverPesagemId: opResult.serverPesagemId } : {}),
+        },
+        updatedAt: now,
+      });
+      continue;
+    }
+
+    if (
+      op.opType === RECEBIMENTO_V2_OP_TYPES.ITEM_LINHA_REMOVE ||
+      op.opType === RECEBIMENTO_V2_OP_TYPES.PESAGEM_REMOVE
+    ) {
+      await recebimentoV2Db.conferences.update(conferenceId, {
+        syncStatus: 'synced',
+        updatedAt: now,
+      }).catch(() => undefined);
+    }
+  }
+}
+
+/**
+ * Checks if the local base revision is behind the server.
+ * Returns true if a conflict exists (server has newer revision).
+ */
+export async function checkRevisionConflict(
+  demandId: string,
+  baseRevision: number,
+): Promise<boolean> {
+  try {
+    const snapshot = await fetchSnapshot(demandId);
+    return snapshot.revision > baseRevision;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Builds a SyncBatchRequest from pending local operations.
+ */
+function buildBatchRequest(
+  ops: SyncOperationRecord[],
+  process: { id: string; unidadeId: string; serverRevision: number },
+): SyncBatchRequest {
+  return {
+    protocolVersion: 2,
+    adapter: 'recebimento-v2',
+    batchId: crypto.randomUUID(),
+    unidadeId: process.unidadeId,
+    aggregateType: 'recebimento',
+    aggregateId: process.id,
+    baseRevision: process.serverRevision,
+    operations: ops.map((op) => ({
+      opId: op.id,
+      type: op.opType,
+      sequence: op.sequence,
+      dependsOn: op.dependsOn,
+      idempotencyKey: op.idempotencyKey,
+      payload: op.payload,
+      attachments: [],
+      createdAt: op.createdAt,
+    })),
+  };
+}
+
+function isSuccessfulChecklistOp(
+  op: SyncOperationRecord,
+  opResult: SyncBatchResult['operations'][number],
+): boolean {
+  return (
+    op.opType === RECEBIMENTO_V2_OP_TYPES.CHECKLIST_UPSERT &&
+    (opResult.status === 'applied' || opResult.status === 'skipped')
+  );
+}
+
+function isSuccessfulEncerrarOp(
+  op: SyncOperationRecord,
+  opResult: SyncBatchResult['operations'][number],
+): boolean {
+  return (
+    op.opType === RECEBIMENTO_V2_OP_TYPES.CONFERENCIA_ENCERRAR &&
+    (opResult.status === 'applied' || opResult.status === 'skipped')
+  );
+}
+
+async function resolveRecebimentoId(
+  demandId: string,
+  result: SyncBatchResult,
+  pendingOps: SyncOperationRecord[],
+): Promise<string | null> {
+  if (result.resourceId) {
+    return resolveRecebimentoIdForDemand(demandId, result.resourceId);
+  }
+
+  for (const opResult of result.operations) {
+    if (!opResult.serverId) continue;
+
+    const op = pendingOps.find((item) => item.id === opResult.opId);
+    if (op?.opType === RECEBIMENTO_V2_OP_TYPES.CHECKLIST_UPSERT) {
+      return resolveRecebimentoIdForDemand(demandId, opResult.serverId);
+    }
+  }
+
+  return resolveRecebimentoIdForDemand(demandId);
+}
+
+async function countRemainingPendingPhotos(demandId: string): Promise<number> {
+  const photoCounts = await countPendingPhotoUploads(demandId);
+  return photoCounts.pending + photoCounts.uploading + photoCounts.error;
+}
+
+async function uploadChecklistPhotosAfterSync(
+  demandId: string,
+  result: SyncBatchResult,
+  pendingOps: SyncOperationRecord[],
+): Promise<ChecklistPhotoUploadResult> {
+  const recebimentoId = await resolveRecebimentoId(demandId, result, pendingOps);
+  if (!recebimentoId) {
+    return { uploaded: 0, failed: 0, skipped: 0 };
+  }
+
+  const syncedChecklistOps = result.operations
+    .filter((opResult) => {
+      const op = pendingOps.find((item) => item.id === opResult.opId);
+      return op != null && isSuccessfulChecklistOp(op, opResult);
+    })
+    .map((opResult) => pendingOps.find((item) => item.id === opResult.opId))
+    .filter((op): op is SyncOperationRecord => op != null);
+
+  if (syncedChecklistOps.length > 0) {
+    const latestChecklistOp = syncedChecklistOps[syncedChecklistOps.length - 1];
+    const photoMediaIds = latestChecklistOp.payload.photoMediaIds as
+      | ChecklistPhotoMediaIds
+      | undefined;
+    return uploadChecklistPhotosV2(recebimentoId, photoMediaIds);
+  }
+
+  return ensureChecklistPhotosUploaded(demandId, recebimentoId);
+}
+
+async function ensureChecklistPhotosUploaded(
+  demandId: string,
+  recebimentoId?: string | null,
+): Promise<ChecklistPhotoUploadResult> {
+  const resolvedRecebimentoId = await resolveRecebimentoIdForDemand(
+    demandId,
+    recebimentoId,
+  );
+
+  if (!resolvedRecebimentoId) {
+    return { uploaded: 0, failed: 0, skipped: 0 };
+  }
+
+  const checklist = await recebimentoV2Db.checklists.get(demandId);
+  if (!checklist?.photoMediaIds) {
+    return { uploaded: 0, failed: 0, skipped: 0 };
+  }
+
+  return uploadChecklistPhotosV2(resolvedRecebimentoId, checklist.photoMediaIds);
+}
+
+async function ensureAvariaPhotosUploaded(
+  demandId: string,
+  recebimentoId?: string | null,
+): Promise<AvariaPhotoUploadResult> {
+  const resolvedRecebimentoId = await resolveRecebimentoIdForDemand(
+    demandId,
+    recebimentoId,
+  );
+
+  if (!resolvedRecebimentoId) {
+    return { uploaded: 0, failed: 0, skipped: 0 };
+  }
+
+  const damages = await recebimentoV2Db.damages
+    .where('demandId')
+    .equals(demandId)
+    .and((damage) => !damage.deletedAt)
+    .toArray();
+
+  const mediaIds = [
+    ...new Set(damages.flatMap((damage) => damage.mediaIds ?? [])),
+  ];
+
+  return uploadAvariaPhotosV2(resolvedRecebimentoId, mediaIds);
+}
+
+async function ensureImpedimentoPhotosUploaded(
+  demandId: string,
+): Promise<ImpedimentoPhotoUploadResult> {
+  const impedimento = await recebimentoV2Db.impedimentos
+    .where('demandId')
+    .equals(demandId)
+    .first();
+
+  if (!impedimento?.mediaIds?.length) {
+    return { uploaded: 0, failed: 0, skipped: 0 };
+  }
+
+  return uploadImpedimentoPhotosV2(demandId, impedimento.mediaIds);
+}
+
+async function uploadImpedimentoPhotosAfterSync(
+  demandId: string,
+  result: SyncBatchResult,
+  pendingOps: SyncOperationRecord[],
+): Promise<ImpedimentoPhotoUploadResult> {
+  const syncedImpedimentoOps = result.operations
+    .filter((opResult) => {
+      const op = pendingOps.find((item) => item.id === opResult.opId);
+      return op != null && isSuccessfulImpedimentoOp(op, opResult);
+    })
+    .map((opResult) => pendingOps.find((item) => item.id === opResult.opId))
+    .filter((op): op is SyncOperationRecord => op != null);
+
+  let aggregate: ImpedimentoPhotoUploadResult = { uploaded: 0, failed: 0, skipped: 0 };
+
+  for (const op of syncedImpedimentoOps) {
+    const payload = op.payload as { mediaIds?: string[] };
+    const mediaIds = payload.mediaIds ?? op.attachmentIds;
+    const attempt = await uploadImpedimentoPhotosV2(demandId, mediaIds);
+    aggregate = {
+      uploaded: aggregate.uploaded + attempt.uploaded,
+      failed: aggregate.failed + attempt.failed,
+      skipped: aggregate.skipped + attempt.skipped,
+    };
+  }
+
+  const remaining = await ensureImpedimentoPhotosUploaded(demandId);
+  return {
+    uploaded: aggregate.uploaded + remaining.uploaded,
+    failed: aggregate.failed + remaining.failed,
+    skipped: aggregate.skipped + remaining.skipped,
+  };
+}
+
+async function uploadAvariaPhotosAfterSync(
+  demandId: string,
+  result: SyncBatchResult,
+  pendingOps: SyncOperationRecord[],
+  recebimentoId: string | null,
+): Promise<AvariaPhotoUploadResult> {
+  if (!recebimentoId) {
+    return { uploaded: 0, failed: 0, skipped: 0 };
+  }
+
+  const syncedAvariaOps = result.operations
+    .filter((opResult) => {
+      const op = pendingOps.find((item) => item.id === opResult.opId);
+      return op != null && isSuccessfulAvariaOp(op, opResult);
+    })
+    .map((opResult) => pendingOps.find((item) => item.id === opResult.opId))
+    .filter((op): op is SyncOperationRecord => op != null);
+
+  let aggregate: AvariaPhotoUploadResult = { uploaded: 0, failed: 0, skipped: 0 };
+
+  for (const op of syncedAvariaOps) {
+    const payload = op.payload as { mediaIds?: string[] };
+    const mediaIds = payload.mediaIds ?? op.attachmentIds;
+    const attempt = await uploadAvariaPhotosV2(recebimentoId, mediaIds);
+    aggregate = {
+      uploaded: aggregate.uploaded + attempt.uploaded,
+      failed: aggregate.failed + attempt.failed,
+      skipped: aggregate.skipped + attempt.skipped,
+    };
+  }
+
+  const remaining = await ensureAvariaPhotosUploaded(demandId, recebimentoId);
+  return {
+    uploaded: aggregate.uploaded + remaining.uploaded,
+    failed: aggregate.failed + remaining.failed,
+    skipped: aggregate.skipped + remaining.skipped,
+  };
+}
+
+/**
+ * Pushes all pending sync operations for a demand to the server.
+ */
+export async function pushDemand(demandId: string): Promise<PushResult> {
+  await recoverStuckSyncState(demandId);
+
+  const process = await recebimentoV2Db.processes.get(demandId);
+  if (!process) throw new Error(`Processo ${demandId} não encontrado`);
+
+  // Get all pending operations for this demand
+  const pendingOps = await recebimentoV2Db.syncOperations
+    .where('aggregateId')
+    .equals(demandId)
+    .and((op) => op.status === 'pending' || op.status === 'retry')
+    .sortBy('createdAt') as SyncOperationRecord[];
+
+  const syncableOps = await filterSyncableOperations(demandId, pendingOps);
+
+  if (syncableOps.length === 0) {
+    let photosUploaded = 0;
+
+    try {
+      const [checklistResult, avariaResult, impedimentoResult] = await Promise.all([
+        ensureChecklistPhotosUploaded(demandId),
+        ensureAvariaPhotosUploaded(demandId),
+        ensureImpedimentoPhotosUploaded(demandId),
+      ]);
+      photosUploaded =
+        checklistResult.uploaded + avariaResult.uploaded + impedimentoResult.uploaded;
+    } catch {
+      // Retry upload on a later sync cycle without blocking the caller.
+    }
+
+    return {
+      accepted: 0,
+      rejected: 0,
+      conflicts: 0,
+      newRevision: process.serverRevision,
+      photosUploaded,
+      photosPending: await countRemainingPendingPhotos(demandId),
+    };
+  }
+
+  const previousStatus = process.status;
+
+  await recebimentoV2Db.processes.update(demandId, {
+    status: 'syncing',
+    updatedAt: Date.now(),
+  });
+
+  const opIds = syncableOps.map((op) => op.id);
+
+  // Mark syncable ops as 'syncing'
+  await recebimentoV2Db.syncOperations
+    .where('id')
+    .anyOf(opIds)
+    .modify((op: SyncOperationRecord) => {
+      op.status = 'syncing';
+      op.updatedAt = Date.now();
+    });
+
+  const batch = buildBatchRequest(syncableOps, process);
+
+  let result: SyncBatchResult;
+  try {
+    result = await pushBatch(batch);
+  } catch (err) {
+    // Revert to retry on network error
+    await recebimentoV2Db.transaction(
+      'rw',
+      [recebimentoV2Db.syncOperations, recebimentoV2Db.processes],
+      async () => {
+        await recebimentoV2Db.syncOperations
+          .where('id')
+          .anyOf(opIds)
+          .modify((op: SyncOperationRecord) => {
+            op.status = 'retry';
+            op.attempts = (op.attempts ?? 0) + 1;
+            op.updatedAt = Date.now();
+          });
+
+        await recebimentoV2Db.processes.update(demandId, {
+          status: previousStatus === 'syncing' ? 'working' : previousStatus,
+          updatedAt: Date.now(),
+        });
+      },
+    );
+    throw err;
+  }
+
+  const now = Date.now();
+  let conflictCount = 0;
+
+  try {
+    await recebimentoV2Db.transaction(
+      'rw',
+      [
+        recebimentoV2Db.syncOperations,
+        recebimentoV2Db.syncConflicts,
+        recebimentoV2Db.processes,
+        recebimentoV2Db.checklists,
+        recebimentoV2Db.conferences,
+        recebimentoV2Db.damages,
+        recebimentoV2Db.impedimentos,
+        recebimentoV2Db.demands,
+      ],
+      async () => {
+        let rejectedCount = 0;
+        let retryCount = 0;
+
+        for (const opResult of result.operations) {
+          switch (opResult.status) {
+            case 'applied':
+            case 'skipped':
+              await recebimentoV2Db.syncOperations.update(opResult.opId, {
+                status: 'synced',
+                updatedAt: now,
+              });
+              break;
+
+            case 'conflict': {
+              conflictCount++;
+              await recebimentoV2Db.syncOperations.update(opResult.opId, {
+                status: 'conflict',
+                errorMessage: opResult.message,
+                updatedAt: now,
+              });
+
+              const conflict: SyncConflictRecord = {
+                id: crypto.randomUUID(),
+                aggregateId: demandId,
+                batchId: result.batchId,
+                serverRevision: result.serverRevision,
+                localRevision: process.serverRevision,
+                sections: ['operations'],
+                serverSnapshot: undefined,
+                resolved: false,
+                createdAt: now,
+              };
+              await recebimentoV2Db.syncConflicts.put(conflict);
+              break;
+            }
+
+            case 'rejected':
+              rejectedCount += 1;
+              await recebimentoV2Db.syncOperations.update(opResult.opId, {
+                status: 'rejected',
+                errorMessage: opResult.message,
+                updatedAt: now,
+              });
+              break;
+
+            case 'retryable':
+              retryCount += 1;
+              await recebimentoV2Db.syncOperations.update(opResult.opId, {
+                status: 'retry',
+                errorMessage: opResult.message,
+                attempts: (await recebimentoV2Db.syncOperations.get(opResult.opId))?.attempts ?? 1,
+                updatedAt: now,
+              });
+              break;
+          }
+        }
+
+        const impedimentoApplied = await applyImpedimentoSyncResults(
+          syncableOps,
+          result,
+          demandId,
+          now,
+        );
+
+        const remainingPendingOps = await recebimentoV2Db.syncOperations
+          .where('aggregateId')
+          .equals(demandId)
+          .filter((op) => op.status === 'pending' || op.status === 'retry')
+          .count();
+
+        const hasSuccessfulEncerrarOp = result.operations.some((opResult) => {
+          const op = syncableOps.find((item) => item.id === opResult.opId);
+          return op != null && isSuccessfulEncerrarOp(op, opResult);
+        });
+
+        const nextProcessStatus =
+          conflictCount > 0
+            ? 'conflict'
+            : remainingPendingOps > 0 || rejectedCount > 0 || retryCount > 0
+              ? 'pendingSync'
+              : hasSuccessfulEncerrarOp
+                ? 'completed'
+                : impedimentoApplied
+                  ? 'pendingSync'
+                  : 'working';
+
+        await recebimentoV2Db.processes.update(demandId, {
+          serverRevision: result.serverRevision,
+          lastSyncedAt: now,
+          updatedAt: now,
+          status: nextProcessStatus,
+          ...(result.resourceId ? { recebimentoId: result.resourceId } : {}),
+        });
+
+        const hasSuccessfulChecklistOp = result.operations.some((opResult) => {
+          const op = syncableOps.find((item) => item.id === opResult.opId);
+          return op != null && isSuccessfulChecklistOp(op, opResult);
+        });
+
+        if (hasSuccessfulChecklistOp) {
+          await recebimentoV2Db.checklists.update(demandId, {
+            syncStatus: 'synced',
+            updatedAt: now,
+          });
+        }
+
+        await applyConferenceSyncResults(syncableOps, result, now);
+        await applyDamageSyncResults(syncableOps, result, now);
+      },
+    );
+  } catch (err) {
+    await recebimentoV2Db.transaction(
+      'rw',
+      [recebimentoV2Db.syncOperations, recebimentoV2Db.processes],
+      async () => {
+        await recebimentoV2Db.syncOperations
+          .where('id')
+          .anyOf(opIds)
+          .modify((op: SyncOperationRecord) => {
+            op.status = 'pending';
+            op.updatedAt = now;
+          });
+
+        await recebimentoV2Db.processes.update(demandId, {
+          status: previousStatus === 'syncing' ? 'working' : previousStatus,
+          updatedAt: now,
+        });
+      },
+    );
+    throw err;
+  }
+
+  let photosUploaded = 0;
+
+  try {
+    const recebimentoId = await resolveRecebimentoId(demandId, result, syncableOps);
+    const [checklistResult, avariaResult, impedimentoResult] = await Promise.all([
+      uploadChecklistPhotosAfterSync(demandId, result, syncableOps),
+      uploadAvariaPhotosAfterSync(demandId, result, syncableOps, recebimentoId),
+      uploadImpedimentoPhotosAfterSync(demandId, result, syncableOps),
+    ]);
+    photosUploaded =
+      checklistResult.uploaded + avariaResult.uploaded + impedimentoResult.uploaded;
+  } catch {
+    // Photo upload must not fail the metadata sync batch.
+  }
+
+  return {
+    accepted: result.appliedCount,
+    rejected: result.errorCount,
+    conflicts: conflictCount,
+    newRevision: result.serverRevision,
+    photosUploaded,
+    photosPending: await countRemainingPendingPhotos(demandId),
+  };
+}
+
+/**
+ * Pulls the latest snapshot for a demand and applies changes to local DB,
+ * without overwriting locally-dirty (pending sync) records.
+ */
+async function buildSkuLookupForDemand(
+  demandId: string,
+  serverItems: Array<Record<string, unknown>>,
+): Promise<Map<string, string>> {
+  const expectedItems = await recebimentoV2Db.expectedItems
+    .where('demandId')
+    .equals(demandId)
+    .toArray();
+
+  const produtoIds = new Set(expectedItems.map((item) => item.produtoId));
+  for (const item of serverItems) {
+    if (item.produtoId) {
+      produtoIds.add(String(item.produtoId));
+    }
+  }
+
+  const products =
+    produtoIds.size > 0
+      ? await recebimentoV2Db.products.bulkGet([...produtoIds])
+      : [];
+
+  return buildSkuByProdutoIdMap(
+    expectedItems,
+    products.filter((product): product is NonNullable<typeof product> =>
+      Boolean(product && product.deletedAt === null),
+    ),
+  );
+}
+
+async function buildExpectedItemsFromPackage(
+  demandId: string,
+  pkg: RecebimentoPackage,
+  now: number,
+): Promise<ExpectedItemRecord[]> {
+  const detalheProdutos = new Map(
+    (pkg.detalhe?.produtos ?? []).map((produto) => [
+      produto.produtoId,
+      { sku: produto.sku, descricao: produto.descricao },
+    ]),
+  );
+
+  const produtoIds = pkg.preRecebimento?.itens?.map((item) => item.produtoId) ?? [];
+  const catalogProducts =
+    produtoIds.length > 0 ? await recebimentoV2Db.products.bulkGet(produtoIds) : [];
+  const catalogByProdutoId = new Map(
+    catalogProducts
+      .filter((product): product is NonNullable<typeof product> =>
+        Boolean(product && product.deletedAt === null),
+      )
+      .map((product) => [product.produtoId, product]),
+  );
+
+  return (pkg.preRecebimento?.itens ?? []).map((item) => {
+    const fromDetalhe = detalheProdutos.get(item.produtoId);
+    const fromCatalog = catalogByProdutoId.get(item.produtoId);
+    const sku =
+      item.sku?.trim() ||
+      fromDetalhe?.sku ||
+      fromCatalog?.sku ||
+      item.produtoId;
+    const descricao =
+      item.descricao?.trim() ||
+      fromDetalhe?.descricao ||
+      fromCatalog?.description ||
+      '';
+    const unidadesPorCaixa =
+      item.unidadesPorCaixa ?? fromCatalog?.unidadesPorCaixa ?? 1;
+
+    return {
+      id: `${demandId}::${item.produtoId}`,
+      demandId,
+      produtoId: item.produtoId,
+      sku,
+      descricao,
+      quantidadeEsperada: toBaseUnits(
+        item.quantidadeEsperada,
+        item.unidadeMedida,
+        unidadesPorCaixa,
+      ),
+      unidadeMedida: 'UN',
+      unidadesPorCaixa,
+      updatedAt: now,
+    };
+  });
+}
+
+export async function pullDemand(
+  demandId: string,
+  options?: PullDemandOptions,
+): Promise<void> {
+  await ensureRecebimentoV2DbReady();
+
+  const force = options?.force === true;
+  const now = Date.now();
+  const [snapshot, forcePackage] = await Promise.all([
+    fetchSnapshot(demandId),
+    force ? fetchPackage(demandId).catch(() => null) : Promise.resolve(null),
+  ]);
+  const forceExpectedItems =
+    force && forcePackage
+      ? await buildExpectedItemsFromPackage(demandId, forcePackage, now)
+      : null;
+  const snapshotConferences = resolveSnapshotConferences(snapshot);
+  const snapshotAvarias = resolveSnapshotAvarias(snapshot);
+  const snapshotChecklist = resolveSnapshotChecklist(snapshot);
+  const skuByProdutoId = await buildSkuLookupForDemand(demandId, [
+    ...snapshotConferences,
+    ...snapshotAvarias,
+  ]);
+  const process = await recebimentoV2Db.processes.get(demandId);
+  const demand = await recebimentoV2Db.demands.get(demandId).catch(() => undefined);
+  const unidadeId = process?.unidadeId ?? demand?.unidadeId ?? '';
+
+  let checklistDock = '';
+  if (snapshotChecklist) {
+    const docaId =
+      typeof snapshotChecklist.docaId === 'string' ? snapshotChecklist.docaId : null;
+    checklistDock = await resolveDockLabel(unidadeId, docaId);
+  }
+
+  const dirtyOps = await recebimentoV2Db.syncOperations
+    .where('aggregateId')
+    .equals(demandId)
+    .and((op: SyncOperationRecord) => PULL_DISCARD_OP_STATUSES.has(op.status))
+    .toArray() as SyncOperationRecord[];
+
+  const hasDirtyOps = dirtyOps.length > 0;
+  const shouldApplySnapshot = force || !hasDirtyOps;
+
+  const transactionTables = [
+    recebimentoV2Db.expectedItems,
+    recebimentoV2Db.conferences,
+    recebimentoV2Db.damages,
+    recebimentoV2Db.checklists,
+    recebimentoV2Db.temperatures,
+    recebimentoV2Db.processes,
+    recebimentoV2Db.demands,
+    ...(force ? [recebimentoV2Db.syncOperations] : []),
+  ];
+
+  await recebimentoV2Db.transaction('rw', transactionTables, async () => {
+    if (force && dirtyOps.length > 0) {
+      await recebimentoV2Db.syncOperations
+        .where('id')
+        .anyOf(dirtyOps.map((op) => op.id))
+        .modify((op: SyncOperationRecord) => {
+          op.status = 'rejected';
+          op.errorMessage = 'Descartado por atualização forçada do servidor';
+          op.updatedAt = now;
+        });
+    }
+
+    if (forceExpectedItems !== null) {
+      await recebimentoV2Db.expectedItems.where('demandId').equals(demandId).delete();
+      if (forceExpectedItems.length > 0) {
+        await recebimentoV2Db.expectedItems.bulkPut(forceExpectedItems);
+      }
+    } else if ((snapshot.expectedItems?.length ?? 0) > 0) {
+      await recebimentoV2Db.expectedItems.where('demandId').equals(demandId).delete();
+      await recebimentoV2Db.expectedItems.bulkPut(
+        snapshot.expectedItems!.map((item) => ({ ...item, updatedAt: item.updatedAt ?? now })),
+      );
+    }
+
+    if (shouldApplySnapshot) {
+      await recebimentoV2Db.conferences.where('demandId').equals(demandId).delete();
+      if (snapshotConferences.length > 0) {
+        await recebimentoV2Db.conferences.bulkPut(
+          snapshotConferences.map((item) =>
+            mapServerConferenciaToRecord(item, demandId, now, 'ambos', skuByProdutoId),
+          ),
+        );
+      }
+
+      await recebimentoV2Db.damages.where('demandId').equals(demandId).delete();
+      if (snapshotAvarias.length > 0) {
+        await recebimentoV2Db.damages.bulkPut(
+          snapshotAvarias.map((item) =>
+            mapServerAvariaToRecord(item, demandId, now, skuByProdutoId),
+          ),
+        );
+      }
+
+      if (snapshotChecklist) {
+        await recebimentoV2Db.checklists.put(
+          mapServerChecklistToRecord(snapshotChecklist, demandId, checklistDock, now),
+        );
+      } else if ((snapshot.checklists?.length ?? 0) > 0) {
+        for (const checklist of snapshot.checklists!) {
+          await recebimentoV2Db.checklists.put(
+            { syncStatus: 'synced', updatedAt: now, ...checklist } as never,
+          );
+        }
+      } else if (force) {
+        await recebimentoV2Db.checklists.delete(demandId);
+      }
+
+      await recebimentoV2Db.temperatures.where('demandId').equals(demandId).delete();
+      if ((snapshot.temperatures?.length ?? 0) > 0) {
+        await recebimentoV2Db.temperatures.bulkPut(
+          snapshot.temperatures!.map((t) => ({ syncStatus: 'synced', updatedAt: now, ...t })) as never[],
+        );
+      }
+    }
+
+    await recebimentoV2Db.processes.update(demandId, {
+      serverRevision: snapshot.revision,
+      lastPullAt: now,
+      updatedAt: now,
+      ...(force ? { status: 'working' as const } : {}),
+    });
+
+    if (snapshot.situacao && demand) {
+      await reconcileRemoteSituacao(demandId, snapshot.situacao, {
+        recebimentoId: snapshotChecklist?.recebimentoId ?? process?.recebimentoId,
+      });
+    } else if (snapshot.situacao && !demand) {
+      await recebimentoV2Db.demands.put({
+        id: demandId,
+        unidadeId,
+        routeId: demandId,
+        fornecedorCodigo: '',
+        fornecedorNome: '',
+        status: snapshot.situacao,
+        situacao: snapshot.situacao,
+        dataPrevisaoEntrega: '',
+        dataCriacao: '',
+        serverRevision: snapshot.revision,
+        updatedAt: now,
+      }).catch(() => undefined);
+    }
+  });
+}

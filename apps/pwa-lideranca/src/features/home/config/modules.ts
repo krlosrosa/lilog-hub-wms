@@ -1,14 +1,18 @@
 import {
-  BarChart3,
   ClipboardCheck,
-  Monitor,
+  LogOut,
+  PackageSearch,
   ShieldCheck,
+  Truck,
   UserCheck,
-  Users,
   type LucideIcon,
 } from 'lucide-react';
 
+import { FUTURE_AREA_MODULES } from './operational-areas';
+
 export type ModuleStatus = 'available' | 'coming_soon';
+
+export type LeadershipModuleSection = 'turno' | 'operacional' | 'futuro';
 
 export interface LeadershipModule {
   id: string;
@@ -17,8 +21,8 @@ export interface LeadershipModule {
   icon: LucideIcon;
   status: ModuleStatus;
   to?: string;
-  featured?: boolean;
-  iconTone: 'secondary' | 'primary' | 'warning';
+  section: LeadershipModuleSection;
+  iconTone: 'secondary' | 'primary' | 'warning' | 'tertiary';
 }
 
 export const LEADERSHIP_MODULES: LeadershipModule[] = [
@@ -29,28 +33,38 @@ export const LEADERSHIP_MODULES: LeadershipModule[] = [
     icon: UserCheck,
     status: 'available',
     to: '/sessao-presenca',
-    featured: true,
+    section: 'turno',
     iconTone: 'primary',
   },
   {
-    id: 'indicadores',
-    title: 'Indicadores',
-    description: 'KPIs e visão geral do turno',
-    icon: BarChart3,
+    id: 'expedicao',
+    title: 'Expedição',
+    description: 'Torre de controle e gestão de recursos do turno',
+    icon: Truck,
     status: 'available',
-    to: '/indicadores',
-    featured: true,
+    to: '/expedicao',
+    section: 'operacional',
     iconTone: 'secondary',
   },
   {
-    id: 'gestao-recursos',
-    title: 'Gestão de Recursos',
-    description: 'Equipe, demandas e pausas ao vivo',
-    icon: Users,
+    id: 'devolucao',
+    title: 'Devolução',
+    description: 'Alocações, conferentes e pausas da equipe',
+    icon: LogOut,
     status: 'available',
-    to: '/op-wms/gestao-recursos',
-    featured: true,
+    to: '/devolucao/gestao-recursos',
+    section: 'operacional',
     iconTone: 'warning',
+  },
+  {
+    id: 'recebimento',
+    title: 'Recebimento',
+    description: 'Atribuição de conferentes e acompanhamento das docas',
+    icon: PackageSearch,
+    status: 'available',
+    to: '/recebimento/gestao-recursos',
+    section: 'operacional',
+    iconTone: 'primary',
   },
   {
     id: 'passagem-bastao',
@@ -58,6 +72,7 @@ export const LEADERSHIP_MODULES: LeadershipModule[] = [
     description: 'Revisão e relatórios de turno',
     icon: ClipboardCheck,
     status: 'coming_soon',
+    section: 'futuro',
     iconTone: 'primary',
   },
   {
@@ -66,14 +81,19 @@ export const LEADERSHIP_MODULES: LeadershipModule[] = [
     description: 'Movimentações, CNC e exceções',
     icon: ShieldCheck,
     status: 'coming_soon',
+    section: 'futuro',
     iconTone: 'secondary',
   },
-  {
-    id: 'op-wms',
-    title: 'OP-WMS',
-    description: 'Picking, ressuprimento e outras visões WMS',
-    icon: Monitor,
-    status: 'coming_soon',
-    iconTone: 'primary',
-  },
+  ...FUTURE_AREA_MODULES.map(
+    (item): LeadershipModule => ({
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      icon: item.icon,
+      status: item.status,
+      to: item.to,
+      section: 'futuro',
+      iconTone: item.iconTone === 'tertiary' ? 'secondary' : item.iconTone,
+    }),
+  ),
 ];

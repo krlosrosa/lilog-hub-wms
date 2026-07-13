@@ -214,6 +214,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
   const gs1InputRef = useRef<HTMLInputElement>(null);
   const [gs1WedgeValue, setGs1WedgeValue] = useState('');
   const [ignoreMaintainedLote, setIgnoreMaintainedLote] = useState(false);
+  const [loteDraftConfirmed, setLoteDraftConfirmed] = useState(false);
   const [catalogProduto, setCatalogProduto] = useState<ProdutoApi | null>(null);
 
   useEffect(() => {
@@ -406,6 +407,8 @@ export function useDetalheItem(demandId: string, initKey?: string) {
     void (async () => {
       const resetLoteEntryFields = (idPalete = '') => {
         form.reset(buildFormForLoteEntry(resolvedSku, idPalete));
+        setLoteDraftConfirmed(false);
+        setIgnoreMaintainedLote(false);
       };
 
       conferenciaExistenteRef.current = Boolean(
@@ -425,6 +428,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
             ? getPaleteSession(demandId) ?? rascunho.lotes[0]?.idPalete ?? ''
             : rascunho.lotes[0]?.idPalete ?? '',
         );
+        setLoteDraftConfirmed(true);
         lotesLoadedKeyRef.current = loadKey;
         return;
       }
@@ -449,6 +453,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
             ? getPaleteSession(demandId) ?? lotes[0]?.idPalete ?? ''
             : lotes[0]?.idPalete ?? '',
         );
+        setLoteDraftConfirmed(true);
         lotesLoadedKeyRef.current = loadKey;
         return;
       }
@@ -599,6 +604,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       form.setValue('recebidaUnidade', '', { shouldValidate: false });
       form.setValue('peso', '', { shouldValidate: false });
       form.setValue('etiqueta', '', { shouldValidate: false });
+      setLoteDraftConfirmed(false);
       setStep(3);
     }
   }, [canAdvanceStep1, canAdvanceStep2, controlaPalete, demandId, form, idPaleteValue, step]);
@@ -879,6 +885,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
   const startLoteChange = useCallback(() => {
     hapticLight();
     setIgnoreMaintainedLote(true);
+    setLoteDraftConfirmed(false);
     setSaveError(null);
     form.setValue('lote', '', { shouldValidate: false });
     form.setValue('validade', '', { shouldValidate: false });
@@ -911,6 +918,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
 
           setLotesConferidos((prev) => [...prev, entry]);
           setIgnoreMaintainedLote(false);
+          setLoteDraftConfirmed(true);
           form.reset(
             buildFormForLoteEntry(
               values.sku,
@@ -1074,6 +1082,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
           shouldValidate: true,
         });
         setIgnoreMaintainedLote(false);
+        setLoteDraftConfirmed(true);
       }
 
       if (result.validade) {
@@ -1110,11 +1119,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
           shouldValidate: true,
         });
         setIgnoreMaintainedLote(false);
-      } else if (!resolved.parsedFromGs1) {
-        form.setValue('lote', text.replace(/\D/g, ''), {
-          shouldDirty: true,
-          shouldValidate: true,
-        });
+        setLoteDraftConfirmed(true);
       }
 
       if (resolved.validade) {
@@ -1172,6 +1177,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
               shouldValidate: true,
             });
             setIgnoreMaintainedLote(false);
+            setLoteDraftConfirmed(true);
           }
 
           if (result.validade) {
@@ -1210,6 +1216,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
           shouldValidate: true,
         });
         setIgnoreMaintainedLote(false);
+        setLoteDraftConfirmed(true);
       }
 
       if (result.validade) {
@@ -1606,6 +1613,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       gs1InputRef,
       gs1WedgeValue,
       ignoreMaintainedLote,
+      loteDraftConfirmed,
     },
     actions: {
       handleAddLote,

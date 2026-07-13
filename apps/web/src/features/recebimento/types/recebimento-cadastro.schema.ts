@@ -40,6 +40,17 @@ export const recebimentoCadastroFormSchema = z.object({
   origemDados: z.enum(['manual', 'xlsx', 'xml', 'ocr']),
   horarioPrevisto: z.string().min(1, 'Informe o horário previsto'),
   observacao: z.string().optional(),
+  quantidadePaletesEsperada: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((value) => {
+      if (value === undefined || value === '') {
+        return undefined;
+      }
+
+      const parsed = typeof value === 'number' ? value : Number(value);
+      return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
+    }),
   itens: z
     .array(itemPreRecebimentoSchema)
     .min(1, 'Adicione pelo menos 1 item'),

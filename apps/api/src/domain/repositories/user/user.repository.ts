@@ -53,6 +53,7 @@ export interface IUserRepository {
   unblock(id: number): Promise<UserRecord | null>;
   blockByFuncionarioId(funcionarioId: number): Promise<number>;
   listAccessibleUnidades(userId: number): Promise<UserUnidadeRecord[]>;
+  syncUserUnidades(userId: number, unidadeIds: string[]): Promise<void>;
 }
 
 export type { User };

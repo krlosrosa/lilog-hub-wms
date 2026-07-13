@@ -8,7 +8,7 @@ import { FeatureToastPortal } from '../components/feature-toast';
 import { SessaoCard } from '../components/sessao-card';
 import { FilterChip, SessaoSubHeader } from '../components/sessao-sub-header';
 import { useSessoesLista } from '../hooks/use-sessoes-lista';
-import { formatDataReferencia } from '../lib/sessao-labels';
+import { formatIntervaloDataReferencia } from '../lib/sessao-labels';
 import type { SessaoStatusFiltro } from '../types';
 
 function SessaoCardSkeleton() {
@@ -32,7 +32,8 @@ export function SessoesListaView() {
   const {
     sessoes,
     sessaoAberta,
-    dataReferencia,
+    dataReferenciaInicio,
+    dataReferenciaFim,
     statusFiltro,
     isLoading,
     isRefreshing,
@@ -50,7 +51,10 @@ export function SessoesListaView() {
         backTo="/"
         backLabel="Voltar para o menu"
         title="Presença da Equipe"
-        subtitle={formatDataReferencia(dataReferencia)}
+        subtitle={formatIntervaloDataReferencia(
+          dataReferenciaInicio,
+          dataReferenciaFim,
+        )}
         trailing={
           <button
             type="button"
@@ -72,14 +76,28 @@ export function SessoesListaView() {
 
       <div className="space-y-4 px-margin-mobile pt-3">
         <div className="flex items-center gap-2">
-          <CalendarDays className="h-4 w-4 shrink-0 text-on-surface-variant" aria-hidden />
-          <input
-            type="date"
-            value={dataReferencia}
-            onChange={(e) => actions.setDataReferencia(e.target.value)}
-            className="h-10 flex-1 rounded-lg border border-outline-variant bg-surface px-3 text-body-sm text-on-surface"
-            aria-label="Data de referência"
+          <CalendarDays
+            className="h-4 w-4 shrink-0 text-on-surface-variant"
+            aria-hidden
           />
+          <div className="grid flex-1 grid-cols-2 gap-2">
+            <input
+              type="date"
+              value={dataReferenciaInicio}
+              max={dataReferenciaFim}
+              onChange={(e) => actions.setDataReferenciaInicio(e.target.value)}
+              className="h-10 w-full rounded-lg border border-outline-variant bg-surface px-3 text-body-sm text-on-surface"
+              aria-label="Data inicial"
+            />
+            <input
+              type="date"
+              value={dataReferenciaFim}
+              min={dataReferenciaInicio}
+              onChange={(e) => actions.setDataReferenciaFim(e.target.value)}
+              className="h-10 w-full rounded-lg border border-outline-variant bg-surface px-3 text-body-sm text-on-surface"
+              aria-label="Data final"
+            />
+          </div>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -112,7 +130,7 @@ export function SessoesListaView() {
           <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-outline-variant p-8 text-center">
             <Users className="h-10 w-10 text-on-surface-variant/50" aria-hidden />
             <p className="text-body-sm text-on-surface-variant">
-              Nenhuma sessão para esta data.
+              Nenhuma sessão para este período.
             </p>
             <Button asChild className="gap-2">
               <Link to="/sessao-presenca/nova" onClick={() => hapticMedium()}>

@@ -41,6 +41,7 @@ import {
   resolveProdutoConferenciaConfig,
   validateConferirItemFields,
 } from '../../../domain/services/recebimento-produto-rules.js';
+import { toBaseUnits } from '../../../domain/services/unidade-medida.js';
 import { EtiquetaPesagemDuplicadaError } from '../../../infra/db/recebimento/create-pesagem-recebimento.drizzle.js';
 import { RecebimentoEventPublisher } from '../../services/recebimento-event.publisher.js';
 
@@ -225,6 +226,20 @@ export class ConferirItemUseCase {
       throw new BadRequestException(
         'unitizadorCodigo não é permitido quando o controle de palete está desativado',
       );
+    }
+
+    if (
+      !config.pesoVariavel &&
+      parsed.pesoRecebido === undefined &&
+      produto.pesoBrutoUnidade
+    ) {
+      const quantidadeEmUN = toBaseUnits(
+        parsed.quantidadeRecebida,
+        parsed.unidadeMedida,
+        produto.unidadesPorCaixa ?? 1,
+      );
+      parsed.pesoRecebido =
+        quantidadeEmUN * Number(produto.pesoBrutoUnidade);
     }
 
     let result;

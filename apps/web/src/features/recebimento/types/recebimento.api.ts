@@ -32,8 +32,10 @@ export type CreatePreRecebimentoPayload = {
   numeroOcr?: string;
   numeroTransporte?: string;
   origemDados?: OrigemDadosPreRecebimentoApi;
+  origem?: string;
   horarioPrevisto: string;
   observacao?: string;
+  quantidadePaletesEsperada?: number;
   itens: ItemPreRecebimentoPayload[];
   notasFiscais?: NotaFiscalPreRecebimentoPayload[];
 };
@@ -53,6 +55,7 @@ export type PreRecebimentoSituacaoApi =
   | 'aguardando'
   | 'liberado_para_conferencia'
   | 'em_conferencia'
+  | 'impedido'
   | 'conferido'
   | 'finalizado'
   | 'cancelado';
@@ -64,11 +67,13 @@ export type GrauPrioridadePreRecebimentoApi =
   | 'urgente';
 
 export type RecepcionarCarroPayload = {
-  motoristaNome?: string;
+  motoristaNome: string;
+  placa: string;
   motoristaTelefone?: string;
-  placa?: string;
   dataChegada?: string;
   grauPrioridade?: GrauPrioridadePreRecebimentoApi;
+  quantidadePaletesEsperada?: number;
+  numeroTermoPalete?: string;
 };
 
 export type PreRecebimentoApi = {
@@ -82,8 +87,11 @@ export type PreRecebimentoApi = {
   numeroOcr: string | null;
   numeroTransporte: string | null;
   origemDados: OrigemDadosPreRecebimentoApi;
+  origem: string | null;
   horarioPrevisto: string;
   observacao: string | null;
+  quantidadePaletesEsperada: number | null;
+  numeroTermoPalete: string | null;
   situacao: PreRecebimentoSituacaoApi;
   dataChegada: string | null;
   docaId: string | null;
@@ -152,9 +160,12 @@ export type RecebimentoApi = {
   preRecebimentoId: string;
   docaId: string | null;
   responsavelId: number;
+  conferenteNome?: string | null;
+  conferenteMatricula?: string | null;
   dataInicio: string;
   dataFim: string | null;
   situacao: RecebimentoSituacaoApi;
+  quantidadePaletes?: number | null;
   modoUnitizacao?: string;
   itens?: ItemRecebimentoApi[];
   divergencias?: DivergenciaRecebimentoApi[];
@@ -166,6 +177,14 @@ export type IniciarRecebimentoPayload = {
   preRecebimentoId: string;
   docaId?: string;
   responsavelId: number;
+};
+
+export type TemperaturaProdutoEtapaApi = 'inicio' | 'meio' | 'fim';
+
+export type TemperaturaProdutoItemApi = {
+  etapa: TemperaturaProdutoEtapaApi;
+  temperatura: number;
+  medidoEm: string;
 };
 
 export type ChecklistRecebimentoApi = {
@@ -225,13 +244,26 @@ export type PreRecebimentoDetalheProdutoApi = {
   unidadesPorCaixa: number;
 };
 
+export type ImpedimentoDetalheApi = {
+  id: string;
+  tipo: string;
+  descricao: string;
+  photoCount: number;
+  registradoPorId: number | null;
+  registradoPorNome: string | null;
+  registradoPorMatricula: string | null;
+  registradoEm: string;
+};
+
 export type PreRecebimentoDetalheApi = {
   preRecebimento: PreRecebimentoApi & {
     itens: ItemPreRecebimentoApi[];
   };
   recebimento: RecebimentoApi | null;
   checklist: ChecklistRecebimentoApi | null;
+  temperaturasProduto: TemperaturaProdutoItemApi[];
   avarias: RecebimentoAvariaApi[];
   produtos: PreRecebimentoDetalheProdutoApi[];
   numDivergencias: number;
+  impedimento: ImpedimentoDetalheApi | null;
 };

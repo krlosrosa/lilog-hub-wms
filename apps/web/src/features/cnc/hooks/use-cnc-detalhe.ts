@@ -126,12 +126,17 @@ export function useCncDetalhe(cncId: string) {
     [cncId, carregarDetalhe],
   );
 
+  const atualizarCnc = useCallback((patch: Partial<CncDetalhe>) => {
+    setCnc((atual) => (atual ? { ...atual, ...patch } : atual));
+  }, []);
+
   return {
     cnc,
     isLoading,
     notFound,
     processandoAcao,
     recarregar: carregarDetalhe,
+    atualizarCnc,
     actions: {
       iniciarAnalise,
       encerrar,

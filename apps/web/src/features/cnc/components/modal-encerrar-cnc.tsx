@@ -45,8 +45,7 @@ export function ModalEncerrarCnc({
   onOpenChange,
   onConfirm,
 }: ModalEncerrarCncProps) {
-  const [acaoImediata, setAcaoImediata] = useState(cnc.acaoImediata ?? '');
-  const [acaoCorretiva, setAcaoCorretiva] = useState(cnc.acaoCorretiva ?? '');
+  const [observacao, setObservacao] = useState(cnc.observacao ?? '');
   const [valorDebito, setValorDebito] = useState(
     cnc.valorDebito !== null ? String(cnc.valorDebito) : '',
   );
@@ -56,8 +55,7 @@ export function ModalEncerrarCnc({
 
   const handleConfirm = () => {
     onConfirm({
-      acaoImediata: acaoImediata.trim() || null,
-      acaoCorretiva: acaoCorretiva.trim() || null,
+      observacao: observacao.trim() || null,
       valorDebito: valorDebito.trim() ? Number(valorDebito) : null,
       responsavel,
     });
@@ -72,9 +70,9 @@ export function ModalEncerrarCnc({
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <p className="text-muted-foreground">
-              Registre as ações tomadas e encerre a CNC{' '}
+              Registre a observação final e encerre a CNC{' '}
               <span className="font-semibold text-foreground">{cnc.numero}</span>
-              . É necessário ao menos uma tratativa cadastrada e todas concluídas.
+              .
             </p>
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -105,35 +103,18 @@ export function ModalEncerrarCnc({
 
           <div>
             <label
-              htmlFor="encerrar-acao-imediata"
+              htmlFor="encerrar-observacao"
               className="mb-1 block text-label-md text-muted-foreground"
             >
-              Ação imediata
+              Observação
             </label>
             <textarea
-              id="encerrar-acao-imediata"
-              value={acaoImediata}
-              onChange={(event) => setAcaoImediata(event.target.value)}
-              rows={2}
+              id="encerrar-observacao"
+              value={observacao}
+              onChange={(event) => setObservacao(event.target.value)}
+              rows={3}
               className={inputClass}
-              placeholder="Descreva a ação imediata tomada..."
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="encerrar-acao-corretiva"
-              className="mb-1 block text-label-md text-muted-foreground"
-            >
-              Ação corretiva
-            </label>
-            <textarea
-              id="encerrar-acao-corretiva"
-              value={acaoCorretiva}
-              onChange={(event) => setAcaoCorretiva(event.target.value)}
-              rows={2}
-              className={inputClass}
-              placeholder="Descreva a ação corretiva..."
+              placeholder="Contexto, decisões ou pontos de atenção..."
             />
           </div>
 

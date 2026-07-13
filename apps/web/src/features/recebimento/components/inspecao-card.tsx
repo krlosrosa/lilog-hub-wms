@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  BadgeCheck,
   ClipboardCheck,
   ThermometerSnowflake,
   TrendingDown,
@@ -101,15 +100,21 @@ export function InspecaoCard({ inspecao }: InspecaoCardProps) {
           <p className="text-[9px] font-semibold uppercase text-muted-foreground">
             Produto
           </p>
-          <div className="flex items-baseline gap-0.5">
-            <span className="text-xl font-bold tabular-nums text-foreground">
-              {formatTemp(inspecao.tempProduto, tempFmt)}
-            </span>
-            <span className="text-[10px] text-muted-foreground">°C</span>
-          </div>
-          <div className="mt-0.5 flex items-center gap-0.5 text-[9px] text-status-active">
-            <BadgeCheck className="size-2.5 shrink-0" aria-hidden />
-            OK
+          <div className="mt-1 grid grid-cols-3 gap-1 text-center">
+            {[
+              { label: 'Ini', value: inspecao.tempProdutoInicio ?? inspecao.tempProduto },
+              { label: 'Meio', value: inspecao.tempProdutoMeio },
+              { label: 'Fim', value: inspecao.tempProdutoFim },
+            ].map((item) => (
+              <div key={item.label}>
+                <p className="text-[8px] uppercase text-muted-foreground">
+                  {item.label}
+                </p>
+                <p className="font-mono text-sm font-bold tabular-nums text-foreground">
+                  {formatTemp(item.value ?? null, tempFmt)}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 

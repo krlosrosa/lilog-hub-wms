@@ -117,7 +117,14 @@ export class RecebimentoService implements IRecebimentoRepository {
     id: string,
     situacao: RecebimentoSituacao,
     dataFim?: Date | null,
+    quantidadePaletes?: number | null,
   ) {
-    return updateRecebimentoStatusDb(this.db, id, situacao, dataFim);
+    return updateRecebimentoStatusDb(
+      this.db,
+      id,
+      situacao,
+      dataFim,
+      quantidadePaletes,
+    );
   }
 }

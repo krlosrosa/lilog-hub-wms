@@ -30,6 +30,10 @@ import { applyAvariasToSkuItems } from '../lib/apply-avarias-to-sku-items';
 import { buildPaletesConferidosResumo } from '../lib/build-paletes-conferidos-resumo';
 import { hasPaleteSession } from '../lib/conferencia-palete-session';
 import {
+  formatConferenteLabel,
+  resolveConferenteInfo,
+} from '../lib/resolve-conferente-info';
+import {
   mapConferenciaContext,
   type MappedConferenciaContext,
 } from '../lib/map-conferencia-itens';
@@ -331,6 +335,11 @@ export function useListaItens(demandId: string) {
 
   const canFinalize = progress.total > 0 && progress.counted > 0;
 
+  const conferenteLabel = useMemo(
+    () => formatConferenteLabel(resolveConferenteInfo(demandId, demand)),
+    [demand, demandId, context?.conferente, context?.conferenteMatricula],
+  );
+
   const handleFinalize = useCallback(async () => {
     if (!canFinalize || isFinalizing) return;
 
@@ -354,6 +363,7 @@ export function useListaItens(demandId: string) {
       loadError,
       cargaId: demand?.id ?? demandId,
       dock: demand?.dock ?? context?.dock ?? '—',
+      conferenteLabel,
       sheetOpen,
       skuInput,
       skuPreview,

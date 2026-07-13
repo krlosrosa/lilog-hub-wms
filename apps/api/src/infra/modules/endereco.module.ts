@@ -14,8 +14,12 @@ import {
 import { StartEnderecoInventoryUseCase } from '../../application/usecases/endereco/start-endereco-inventory.usecase.js';
 import { UnblockEnderecoUseCase } from '../../application/usecases/endereco/unblock-endereco.usecase.js';
 import { UpdateEnderecoUseCase } from '../../application/usecases/endereco/update-endereco.usecase.js';
+import { CriarEnderecosLoteUseCase } from '../../application/usecases/endereco/criar-enderecos-lote.usecase.js';
+import { GetMapaCdUseCase } from '../../application/usecases/endereco/get-mapa-cd.usecase.js';
 import { ImportEnderecosUseCase } from '../../application/usecases/endereco/import-enderecos.usecase.js';
 import { ENDERECO_REPOSITORY } from '../../domain/repositories/endereco/endereco.repository.js';
+import { CriarEnderecosLoteController } from '../../presentation/controllers/endereco/criar-enderecos-lote.controller.js';
+import { GetMapaCdController } from '../../presentation/controllers/endereco/get-mapa-cd.controller.js';
 import { ImportEnderecosController } from '../../presentation/controllers/endereco/import-enderecos.controller.js';
 import { BlockEnderecoController } from '../../presentation/controllers/endereco/block-endereco.controller.js';
 import { CreateEnderecoController } from '../../presentation/controllers/endereco/create-endereco.controller.js';
@@ -51,6 +55,8 @@ import { UnidadeModule } from './unidade.module.js';
     StartEnderecoInventoryController,
     FinishEnderecoInventoryController,
     ImportEnderecosController,
+    CriarEnderecosLoteController,
+    GetMapaCdController,
   ],
   providers: [
     ListEnderecosUseCase,
@@ -65,6 +71,8 @@ import { UnidadeModule } from './unidade.module.js';
     StartEnderecoInventoryUseCase,
     FinishEnderecoInventoryUseCase,
     ImportEnderecosUseCase,
+    CriarEnderecosLoteUseCase,
+    GetMapaCdUseCase,
     EnderecoEventPublisher,
     PermissionsGuard,
     {

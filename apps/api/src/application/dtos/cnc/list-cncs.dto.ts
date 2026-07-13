@@ -4,12 +4,15 @@ import { z } from 'zod';
 import {
   CncItemTipoSchema,
   CncOrigemSchema,
+  CncOpcoesImpressaoSchema,
   CncResponsavelSchema,
   CncSituacaoSchema,
   CncSubtipoOcorrenciaSchema,
   CncTratativaStatusSchema,
   CncTratativaTipoSchema,
 } from '../../../domain/model/cnc/cnc.model.js';
+
+export { CncOpcoesImpressaoSchema };
 
 export const ListCncsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -45,10 +48,13 @@ export const CncItemResponseSchema = z.object({
   naturezaAvaria: z.string().nullable(),
   causaAvaria: z.string().nullable(),
   tipoAvaria: z.string().nullable(),
+  shelfLifeDias: z.number().int().nullable(),
   descricaoDetalhe: z.string().nullable(),
   responsavelSugerido: CncResponsavelSchema.nullable(),
   createdAt: z.iso.datetime(),
 });
+
+export class CncItemResponseDto extends createZodDto(CncItemResponseSchema) {}
 
 export const CncEventoResponseSchema = z.object({
   id: z.uuid(),
@@ -86,8 +92,7 @@ export const CncResponseSchema = z.object({
   responsavel: CncResponsavelSchema,
   responsavelId: z.string().nullable(),
   descricao: z.string().nullable(),
-  acaoImediata: z.string().nullable(),
-  acaoCorretiva: z.string().nullable(),
+  observacao: z.string().nullable(),
   situacao: CncSituacaoSchema,
   solicitanteId: z.number().int(),
   analistaId: z.number().int().nullable(),
@@ -95,6 +100,7 @@ export const CncResponseSchema = z.object({
   encerradoEm: z.iso.datetime().nullable(),
   encerradoPorUserId: z.number().int().nullable(),
   valorDebito: z.number().nullable(),
+  opcoesImpressao: CncOpcoesImpressaoSchema.nullable(),
   itens: z.array(CncItemResponseSchema).optional(),
   tratativas: z.array(CncTratativaResponseSchema).optional(),
   eventos: z.array(CncEventoResponseSchema).optional(),
@@ -128,8 +134,7 @@ export const EncerrarCncBodySchema = z.object({
   responsavel: CncResponsavelSchema.optional(),
   responsavelId: z.string().min(1).max(50).nullable().optional(),
   valorDebito: z.number().nonnegative().nullable().optional(),
-  acaoImediata: z.string().nullable().optional(),
-  acaoCorretiva: z.string().nullable().optional(),
+  observacao: z.string().nullable().optional(),
 });
 
 export class EncerrarCncBodyDto extends createZodDto(EncerrarCncBodySchema) {}

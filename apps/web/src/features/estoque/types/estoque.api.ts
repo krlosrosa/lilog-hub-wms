@@ -198,6 +198,7 @@ export type ListSaldosEnderecoParams = {
   unidadeId: string;
   depositoId?: string;
   enderecoId?: string;
+  enderecoIds?: string[];
   produtoId?: string;
   lote?: string;
   status?: StatusSaldoEndereco;

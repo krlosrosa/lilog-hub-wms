@@ -13,6 +13,7 @@ import {
 } from '@lilog/ui';
 import { AlertTriangle, CheckCircle2, Loader2, MapPin } from 'lucide-react';
 
+import { useDisplayConfig } from '@/features/config-operacional/hooks/use-display-config';
 import {
   compactTableBodyClassName,
   compactTableClassName,
@@ -45,6 +46,7 @@ export function ModalValidarEnderecosPaletesBipados({
   onConfirm,
   isSubmitting = false,
 }: ModalValidarEnderecosPaletesBipadosProps) {
+  const { formatQtdValue } = useDisplayConfig();
   const [isLoading, setIsLoading] = useState(false);
   const [numeroRecebimento, setNumeroRecebimento] = useState('');
   const [paletes, setPaletes] = useState<PaleteEditavel[]>([]);
@@ -228,10 +230,7 @@ export function ModalValidarEnderecosPaletesBipados({
                                   {item.sku}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                  {new Intl.NumberFormat('pt-BR').format(
-                                    item.quantidade,
-                                  )}{' '}
-                                  {item.unidadeMedida}
+                                  {formatQtdValue(item.quantidade, item.unidadeMedida)}
                                   {item.lote ? ` · Lote ${item.lote}` : ''}
                                 </div>
                               </div>

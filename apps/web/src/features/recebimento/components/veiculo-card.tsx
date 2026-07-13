@@ -8,12 +8,16 @@ type VeiculoCardProps = {
   placa: string;
   transportadora: string;
   documentacaoOk: boolean;
+  quantidadePaletesEsperada?: number | null;
+  numeroTermoPalete?: string | null;
 };
 
 export function VeiculoCard({
   placa,
   transportadora,
   documentacaoOk,
+  quantidadePaletesEsperada = null,
+  numeroTermoPalete = null,
 }: VeiculoCardProps) {
   return (
     <section
@@ -57,6 +61,22 @@ export function VeiculoCard({
           </p>
           <p className="truncate text-sm font-semibold text-foreground">
             {transportadora}
+          </p>
+        </div>
+        <div className="rounded-md border border-outline-variant/50 bg-muted/15 px-2.5 py-2">
+          <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
+            Paletes esperados
+          </p>
+          <p className="text-sm font-semibold text-foreground">
+            {quantidadePaletesEsperada ?? '—'}
+          </p>
+        </div>
+        <div className="rounded-md border border-outline-variant/50 bg-muted/15 px-2.5 py-2">
+          <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
+            Termo palete
+          </p>
+          <p className="truncate text-sm font-semibold text-foreground">
+            {numeroTermoPalete ?? '—'}
           </p>
         </div>
       </div>

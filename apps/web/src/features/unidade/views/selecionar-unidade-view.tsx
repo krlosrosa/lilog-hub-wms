@@ -3,63 +3,37 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { cn } from '@lilog/ui';
-import { Building2, Loader2, Warehouse } from 'lucide-react';
+import { Building2, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 
 import { SidebarMain } from '@/components/layout/sidebar';
 import { useUnidadeContext } from '@/contexts/unidade-context';
-import {
-  listUnidades,
-  mapUnidadeToListaItem,
-} from '@/features/filiais/lib/unidade-api';
 import { FILTRO_CLUSTER_LABELS } from '@/features/filiais/types/filial-lista.schema';
-import type { FilialListaItem } from '@/features/filiais/types/filial-lista.schema';
-import { ApiClientError } from '@/lib/api';
+import type { UnidadeSelecionada } from '@/contexts/unidade-context';
 
 export function SelecionarUnidadeView() {
   const router = useRouter();
-  const { setUnidade, unidadeSelecionada } = useUnidadeContext();
-  const [unidades, setUnidades] = useState<FilialListaItem[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState<string | null>(null);
+  const {
+    unidades,
+    unidadeSelecionada,
+    isLoading,
+    error,
+    setUnidade,
+  } = useUnidadeContext();
   const [selecionandoId, setSelecionandoId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function carregarUnidades() {
-      setCarregando(true);
-      setErro(null);
-
-      try {
-        const response = await listUnidades({ page: 1, limit: 100 });
-        setUnidades(response.items.map(mapUnidadeToListaItem));
-      } catch (error) {
-        const message =
-          error instanceof ApiClientError
-            ? error.message
-            : 'Não foi possível carregar as unidades';
-
-        setErro(message);
-        toast.error(message);
-      } finally {
-        setCarregando(false);
-      }
+    if (!isLoading && unidades.length === 1 && !unidadeSelecionada) {
+      setUnidade(unidades[0]!);
+      router.push('/');
     }
-
-    void carregarUnidades();
-  }, []);
+  }, [isLoading, unidades, unidadeSelecionada, setUnidade, router]);
 
   const handleSelecionar = useCallback(
-    async (unidade: FilialListaItem) => {
+    async (unidade: UnidadeSelecionada) => {
       setSelecionandoId(unidade.id);
 
-      setUnidade({
-        id: unidade.id,
-        nome: unidade.nome,
-        cluster: unidade.cluster,
-        nomeFilial: unidade.nomeFilial,
-      });
-
+      setUnidade(unidade);
       router.push('/');
     },
     [router, setUnidade],
@@ -86,28 +60,28 @@ export function SelecionarUnidadeView() {
           </div>
         </header>
 
-        {carregando ? (
+        {isLoading ? (
           <div className="flex min-h-48 items-center justify-center rounded-lg border border-outline-variant bg-glass-bg">
             <Loader2 aria-hidden className="size-6 animate-spin text-muted-foreground" />
             <span className="sr-only">Carregando unidades</span>
           </div>
         ) : null}
 
-        {!carregando && erro ? (
+        {!isLoading && error ? (
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-            {erro}
+            {error}
           </div>
         ) : null}
 
-        {!carregando && !erro && unidades.length === 0 ? (
+        {!isLoading && !error && unidades.length === 0 ? (
           <div className="rounded-lg border border-outline-variant bg-glass-bg p-8 text-center">
             <p className="text-sm text-muted-foreground">
-              Nenhuma unidade cadastrada. Cadastre uma unidade para continuar.
+              Você não possui acesso a nenhuma unidade. Contate o administrador.
             </p>
           </div>
         ) : null}
 
-        {!carregando && !erro && unidades.length > 0 ? (
+        {!isLoading && !error && unidades.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {unidades.map((unidade) => {
               const isAtiva = unidadeSelecionada?.id === unidade.id;
@@ -139,18 +113,11 @@ export function SelecionarUnidadeView() {
                     </span>
                   </div>
 
-                  <div className="mt-5 flex items-center justify-between gap-3 border-t border-outline-variant/50 pt-4">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Warehouse aria-hidden className="size-4 shrink-0" />
-                      <span>
-                        {unidade.centrosCount}{' '}
-                        {unidade.centrosCount === 1 ? 'centro' : 'centros'}
-                      </span>
-                    </div>
-                    {isAtiva ? (
+                  {isAtiva ? (
+                    <div className="mt-5 border-t border-outline-variant/50 pt-4">
                       <span className="text-xs font-medium text-primary">Ativa</span>
-                    ) : null}
-                  </div>
+                    </div>
+                  ) : null}
                 </button>
               );
             })}

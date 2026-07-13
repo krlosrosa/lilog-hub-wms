@@ -67,3 +67,15 @@ export const IniciarSessaoPausaInputSchema = z.object({
 export type IniciarSessaoPausaInput = z.infer<
   typeof IniciarSessaoPausaInputSchema
 >;
+
+export const SessaoVinculoTipoSchema = z.enum(['titular', 'apoio']);
+
+export type SessaoVinculoTipo = z.infer<typeof SessaoVinculoTipoSchema>;
+
+export const AdicionarFuncionarioApoioInputSchema = z.object({
+  funcionarioId: z.number().int().positive(),
+});
+
+export type AdicionarFuncionarioApoioInput = z.infer<
+  typeof AdicionarFuncionarioApoioInputSchema
+>;

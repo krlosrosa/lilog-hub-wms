@@ -1,3 +1,4 @@
+import { PlacaVeiculoSchema } from '@lilog/contracts';
 import { z } from 'zod';
 
 export const PreRecebimentoSituacaoSchema = z.enum([
@@ -5,6 +6,7 @@ export const PreRecebimentoSituacaoSchema = z.enum([
   'aguardando',
   'liberado_para_conferencia',
   'em_conferencia',
+  'impedido',
   'conferido',
   'finalizado',
   'cancelado',
@@ -82,8 +84,10 @@ export const CreatePreRecebimentoInputSchema = z.object({
   numeroOcr: z.string().max(100).optional(),
   numeroTransporte: z.string().max(100).optional(),
   origemDados: OrigemDadosPreRecebimentoSchema.default('manual'),
+  origem: z.string().max(50).default('3201').optional(),
   horarioPrevisto: z.coerce.date(),
   observacao: z.string().optional(),
+  quantidadePaletesEsperada: z.number().int().nonnegative().optional(),
   itens: z.array(ItemPreRecebimentoInputSchema).min(1),
   notasFiscais: z.array(NotaFiscalPreRecebimentoInputSchema).optional(),
 });
@@ -98,8 +102,10 @@ export const UpdatePreRecebimentoInputSchema = z.object({
   numeroOcr: z.string().max(100).nullable().optional(),
   numeroTransporte: z.string().max(100).nullable().optional(),
   origemDados: OrigemDadosPreRecebimentoSchema.optional(),
+  origem: z.string().max(50).nullable().optional(),
   horarioPrevisto: z.coerce.date().optional(),
   observacao: z.string().nullable().optional(),
+  quantidadePaletesEsperada: z.number().int().nonnegative().nullable().optional(),
   itens: z.array(ItemPreRecebimentoInputSchema).min(1).optional(),
   notasFiscais: z.array(NotaFiscalPreRecebimentoInputSchema).optional(),
 });
@@ -120,11 +126,13 @@ export type GrauPrioridadePreRecebimento = z.infer<
 >;
 
 export const RecepcionarCarroInputSchema = z.object({
-  motoristaNome: z.string().max(255).optional(),
+  motoristaNome: z.string().min(1).max(255),
+  placa: PlacaVeiculoSchema,
   motoristaTelefone: z.string().max(20).optional(),
-  placa: z.string().max(20).optional(),
   dataChegada: z.iso.datetime().optional(),
   grauPrioridade: GrauPrioridadePreRecebimentoSchema.optional(),
+  quantidadePaletesEsperada: z.number().int().min(0).optional(),
+  numeroTermoPalete: z.string().max(100).optional(),
 });
 
 export type RecepcionarCarroInput = z.infer<
@@ -176,6 +184,47 @@ export type CreateChecklistRecebimentoInput = z.infer<
   typeof CreateChecklistRecebimentoInputSchema
 >;
 
+export const TemperaturaProdutoEtapaSchema = z.enum([
+  'inicio',
+  'meio',
+  'fim',
+]);
+
+export type TemperaturaProdutoEtapa = z.infer<
+  typeof TemperaturaProdutoEtapaSchema
+>;
+
+export const UpsertTemperaturaProdutoRecebimentoInputSchema = z.object({
+  etapa: TemperaturaProdutoEtapaSchema,
+  temperatura: z.number(),
+});
+
+export type UpsertTemperaturaProdutoRecebimentoInput = z.infer<
+  typeof UpsertTemperaturaProdutoRecebimentoInputSchema
+>;
+
+export const TipoImpedimentoSchema = z.enum([
+  'carreta_tombada',
+  'veiculo_avariado',
+  'condicao_insegura',
+  'acidente',
+  'outro',
+]);
+
+export type TipoImpedimento = z.infer<typeof TipoImpedimentoSchema>;
+
+export const RegistrarImpedimentoInputSchema = z.object({
+  preRecebimentoId: z.uuid(),
+  tipo: TipoImpedimentoSchema,
+  descricao: z.string().min(10).max(1000),
+  photoCount: z.number().int().min(1),
+  registradoPorId: z.number().int().positive().optional(),
+});
+
+export type RegistrarImpedimentoInput = z.infer<
+  typeof RegistrarImpedimentoInputSchema
+>;
+
 export const PESO_DIVERGENCIA_TOLERANCIA = 0.001;
 
 const PRE_RECEBIMENTO_TRANSITIONS: Record<
@@ -184,8 +233,9 @@ const PRE_RECEBIMENTO_TRANSITIONS: Record<
 > = {
   agendado: ['aguardando', 'cancelado'],
   aguardando: ['liberado_para_conferencia', 'cancelado'],
-  liberado_para_conferencia: ['em_conferencia', 'cancelado'],
-  em_conferencia: ['conferido'],
+  liberado_para_conferencia: ['em_conferencia', 'impedido', 'cancelado'],
+  em_conferencia: ['conferido', 'impedido'],
+  impedido: ['liberado_para_conferencia', 'cancelado'],
   conferido: ['finalizado', 'em_conferencia'],
   finalizado: [],
   cancelado: [],

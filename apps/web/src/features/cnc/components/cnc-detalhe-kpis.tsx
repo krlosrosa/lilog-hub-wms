@@ -3,15 +3,15 @@
 import {
   AlertTriangle,
   Banknote,
-  ClipboardCheck,
+  MessageSquareText,
   Package,
 } from 'lucide-react';
 
-import { EnderecoKpiCard } from '@/features/enderecos/components/endereco-kpi-card';
+import { cn } from '@lilog/ui';
+
 import type { CncDetalhe } from '@/features/cnc/types/cnc.schema';
 import { CNC_RESPONSAVEL_LABELS } from '@/features/cnc/types/cnc.schema';
 import {
-  calcularProgressoTratativas,
   calcularResumoAnomalias,
   formatCncCurrency,
 } from '@/features/cnc/lib/cnc-detalhe-utils';
@@ -20,75 +20,108 @@ type CncDetalheKpisProps = {
   cnc: CncDetalhe;
 };
 
-export function CncDetalheKpis({ cnc }: CncDetalheKpisProps) {
-  const anomalias = calcularResumoAnomalias(cnc.itens);
-  const tratativas = calcularProgressoTratativas(cnc);
+type KpiItemProps = {
+  label: string;
+  value: string;
+  detail?: string;
+  icon: typeof Package;
+  accent?: 'default' | 'tertiary' | 'destructive' | 'primary' | 'amber';
+};
+
+function KpiItem({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  accent = 'default',
+}: KpiItemProps) {
+  const valueColor = {
+    default: 'text-foreground',
+    tertiary: 'text-tertiary',
+    destructive: 'text-destructive',
+    primary: 'text-primary',
+    amber: 'text-amber-600 dark:text-amber-400',
+  }[accent];
+
+  const iconColor = {
+    default: 'text-primary',
+    tertiary: 'text-tertiary',
+    destructive: 'text-destructive',
+    primary: 'text-primary',
+    amber: 'text-amber-500',
+  }[accent];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <EnderecoKpiCard
-        icon={<Package className="size-4 shrink-0 text-primary" aria-hidden />}
+    <div
+      className={cn(
+        'flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-outline-variant/50',
+        'bg-glass-bg px-2 py-1.5 shadow-inner-glow backdrop-blur-glass sm:gap-2 sm:px-2.5',
+      )}
+    >
+      <Icon className={cn('size-3 shrink-0 sm:size-3.5', iconColor)} aria-hidden />
+      <p className="min-w-0 truncate text-[10px] leading-none sm:text-[11px]">
+        <span className="font-medium text-muted-foreground">{label}</span>
+        <span className="mx-1 text-muted-foreground/40" aria-hidden>
+          ·
+        </span>
+        <span className={cn('font-bold tabular-nums', valueColor)}>{value}</span>
+        {detail ? (
+          <>
+            <span className="mx-1 text-muted-foreground/40" aria-hidden>
+              ·
+            </span>
+            <span className="text-muted-foreground">{detail}</span>
+          </>
+        ) : null}
+      </p>
+    </div>
+  );
+}
+
+export function CncDetalheKpis({ cnc }: CncDetalheKpisProps) {
+  const anomalias = calcularResumoAnomalias(cnc.itens);
+  const temObservacao = Boolean(cnc.observacao?.trim());
+
+  return (
+    <div className="flex flex-nowrap gap-1.5 overflow-x-auto sm:gap-2">
+      <KpiItem
         label="Anomalias"
         value={String(anomalias.total)}
-        footer={
-          anomalias.total > 0 ? (
-            <p className="text-[11px] text-muted-foreground">
-              {anomalias.divergencias} divergência
-              {anomalias.divergencias !== 1 ? 's' : ''} · {anomalias.avarias}{' '}
-              avaria{anomalias.avarias !== 1 ? 's' : ''}
-            </p>
-          ) : undefined
+        detail={
+          anomalias.total > 0
+            ? `${anomalias.divergencias} div. · ${anomalias.avarias} avar.`
+            : undefined
         }
+        icon={Package}
+        accent="primary"
       />
 
-      <EnderecoKpiCard
-        icon={
-          <ClipboardCheck
-            className="size-4 shrink-0 text-secondary"
-            aria-hidden
-          />
+      <KpiItem
+        label="Observação"
+        value={temObservacao ? 'Registrada' : 'Pendente'}
+        detail={
+          temObservacao
+            ? undefined
+            : 'Aguardando'
         }
-        label="Tratativas"
-        value={
-          tratativas.total > 0
-            ? `${tratativas.concluidas}/${tratativas.total}`
-            : '0'
-        }
-        progressPercent={
-          tratativas.total > 0 ? tratativas.percentual : undefined
-        }
-        progressClassName="bg-secondary"
-        footer={
-          tratativas.pendentes > 0 ? (
-            <p className="text-[11px] text-amber-600 dark:text-amber-400">
-              {tratativas.pendentes} pendente
-              {tratativas.pendentes !== 1 ? 's' : ''}
-            </p>
-          ) : tratativas.total > 0 ? (
-            <p className="text-[11px] text-tertiary">Todas concluídas</p>
-          ) : undefined
-        }
+        icon={MessageSquareText}
+        accent={temObservacao ? 'default' : 'amber'}
       />
 
-      <EnderecoKpiCard
-        icon={
-          <AlertTriangle
-            className="size-4 shrink-0 text-amber-500"
-            aria-hidden
-          />
-        }
+      <KpiItem
         label="Responsável"
         value={CNC_RESPONSAVEL_LABELS[cnc.responsavel]}
-        variant={
-          cnc.responsavel === 'indeterminado' ? 'critical' : 'default'
+        icon={AlertTriangle}
+        accent={
+          cnc.responsavel === 'indeterminado' ? 'destructive' : 'default'
         }
       />
 
-      <EnderecoKpiCard
-        icon={<Banknote className="size-4 shrink-0 text-tertiary" aria-hidden />}
-        label="Valor de débito"
+      <KpiItem
+        label="Débito"
         value={formatCncCurrency(cnc.valorDebito)}
-        variant={cnc.valorDebito ? 'tertiary' : 'default'}
+        icon={Banknote}
+        accent={cnc.valorDebito ? 'tertiary' : 'default'}
       />
     </div>
   );

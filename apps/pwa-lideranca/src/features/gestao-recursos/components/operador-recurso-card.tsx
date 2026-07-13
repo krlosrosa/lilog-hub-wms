@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@lilog/ui';
-import { AlertTriangle, ChevronDown, Coffee } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Coffee, Loader2, UserMinus } from 'lucide-react';
 import { useState } from 'react';
 
 import { hapticLight } from '@/lib/haptics';
@@ -19,6 +19,19 @@ function getInitials(name: string): string {
     return parts[0]!.slice(0, 2).toUpperCase();
   }
   return `${parts[0]![0] ?? ''}${parts[parts.length - 1]![0] ?? ''}`.toUpperCase();
+}
+
+function ApoioBadge({ operator }: { operator: Operator }) {
+  if (operator.tipoVinculo !== 'apoio') {
+    return null;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-tertiary-container px-2 py-0.5 text-[10px] font-semibold uppercase text-on-tertiary-container">
+      Apoio
+      {operator.equipeOrigemNome ? ` · ${operator.equipeOrigemNome}` : ''}
+    </span>
+  );
 }
 
 function StatusBadge({ operator }: { operator: Operator }) {
@@ -86,9 +99,15 @@ function StatusBadge({ operator }: { operator: Operator }) {
 
 type OperadorRecursoCardProps = {
   operator: Operator;
+  onEncerrarApoio?: (sessaoFuncionarioId: string) => Promise<void>;
+  encerrandoApoioId?: string | null;
 };
 
-export function OperadorRecursoCard({ operator }: OperadorRecursoCardProps) {
+export function OperadorRecursoCard({
+  operator,
+  onEncerrarApoio,
+  encerrandoApoioId,
+}: OperadorRecursoCardProps) {
   const [expanded, setExpanded] = useState(false);
   const hasTasks = Boolean(operator.tasks?.length);
   const isUrgent =
@@ -96,6 +115,11 @@ export function OperadorRecursoCard({ operator }: OperadorRecursoCardProps) {
       !operator.emPausa &&
       (operator.pausaAtrasoMinutos ?? 0) > 0) ||
     Boolean(operator.emPausa && operator.isPauseOverPlanned);
+  const podeEncerrarApoio =
+    operator.tipoVinculo === 'apoio' &&
+    operator.status !== 'atuando' &&
+    Boolean(onEncerrarApoio);
+  const isEncerrando = encerrandoApoioId === operator.id;
 
   return (
     <article
@@ -129,6 +153,7 @@ export function OperadorRecursoCard({ operator }: OperadorRecursoCardProps) {
               <p className="truncate text-label-md font-semibold text-on-surface">
                 {operator.name}
               </p>
+              <ApoioBadge operator={operator} />
               <StatusBadge operator={operator} />
             </div>
             <p className="truncate text-[11px] text-on-surface-variant">
@@ -152,7 +177,14 @@ export function OperadorRecursoCard({ operator }: OperadorRecursoCardProps) {
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-x-3 text-[10px] text-on-surface-variant">
-                  {operator.startTime ? <span>Início {operator.startTime}</span> : null}
+                  {operator.startTime ? (
+                    <span>
+                      Início {operator.startTime}
+                      {operator.startElapsed
+                        ? ` · ${operator.startElapsed}`
+                        : null}
+                    </span>
+                  ) : null}
                   {operator.expectedEnd ? (
                     <span
                       className={cn(
@@ -190,6 +222,34 @@ export function OperadorRecursoCard({ operator }: OperadorRecursoCardProps) {
         </div>
       </button>
 
+      {podeEncerrarApoio ? (
+        <div className="border-t border-outline-variant/60 px-3 py-2">
+          <button
+            type="button"
+            disabled={isEncerrando}
+            onClick={() => {
+              void onEncerrarApoio?.(operator.id);
+            }}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-label-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-high active:bg-surface-container disabled:opacity-50"
+          >
+            {isEncerrando ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <UserMinus className="size-4" aria-hidden />
+            )}
+            Encerrar apoio
+          </button>
+        </div>
+      ) : null}
+
+      {operator.tipoVinculo === 'apoio' && operator.status === 'atuando' ? (
+        <div className="border-t border-outline-variant/60 px-3 py-2">
+          <p className="text-center text-[11px] text-on-surface-variant">
+            Finalize ou cancele a demanda antes de encerrar o apoio
+          </p>
+        </div>
+      ) : null}
+
       {hasTasks && expanded ? (
         <div className="border-t border-outline-variant/60 bg-surface-container/30 px-3 py-2.5">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-secondary">
@@ -217,7 +277,12 @@ export function OperadorRecursoCard({ operator }: OperadorRecursoCardProps) {
                   </span>
                 </div>
                 <div className="mt-1 flex flex-wrap gap-x-3 text-[10px] text-on-surface-variant">
-                  {task.startTime ? <span>Início {task.startTime}</span> : null}
+                  {task.startTime ? (
+                    <span>
+                      Início {task.startTime}
+                      {task.startElapsed ? ` · ${task.startElapsed}` : null}
+                    </span>
+                  ) : null}
                   {task.expectedEndTime ? (
                     <span className={cn(task.isLate && 'font-semibold text-error')}>
                       Término {task.expectedEndTime}

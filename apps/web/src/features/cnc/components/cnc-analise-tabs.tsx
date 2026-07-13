@@ -3,7 +3,6 @@
 import { cn } from '@lilog/ui';
 import {
   AlertTriangle,
-  ClipboardList,
   ClipboardCheck,
   History,
   Info,
@@ -17,7 +16,6 @@ import {
 export type CncAnaliseAba =
   | 'anomalias'
   | 'checklist'
-  | 'tratativas'
   | 'resumo'
   | 'historico';
 
@@ -25,11 +23,10 @@ const ABAS: {
   id: CncAnaliseAba;
   label: string;
   icon: typeof AlertTriangle;
-  badgeKey?: 'anomalias' | 'tratativas' | 'checklist';
+  badgeKey?: 'anomalias' | 'checklist';
 }[] = [
   { id: 'anomalias', label: 'Anomalias', icon: AlertTriangle, badgeKey: 'anomalias' },
   { id: 'checklist', label: 'Checklist', icon: ClipboardCheck, badgeKey: 'checklist' },
-  { id: 'tratativas', label: 'Tratativas', icon: ClipboardList, badgeKey: 'tratativas' },
   { id: 'resumo', label: 'Resumo', icon: Info },
   { id: 'historico', label: 'Histórico', icon: History },
 ];
@@ -37,7 +34,7 @@ const ABAS: {
 type CncAnaliseTabsProps = {
   abaAtiva: CncAnaliseAba;
   onChange: (aba: CncAnaliseAba) => void;
-  badges?: Partial<Record<'anomalias' | 'tratativas' | 'checklist', number>>;
+  badges?: Partial<Record<'anomalias' | 'checklist', number>>;
   className?: string;
 };
 

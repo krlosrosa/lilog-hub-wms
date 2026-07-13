@@ -34,6 +34,7 @@ export const RECEBIMENTO_CADASTRO_DEFAULT_VALUES: RecebimentoCadastroFormValues 
     origemDados: 'manual',
     horarioPrevisto: '',
     observacao: '',
+    quantidadePaletesEsperada: undefined,
     itens: [{ ...EMPTY_ITEM_PRE_RECEBIMENTO }],
     notasFiscais: [],
   };

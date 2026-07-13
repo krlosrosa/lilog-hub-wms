@@ -1,19 +1,23 @@
 import type { ProdutoApi } from '@/features/produto/types/produto.api';
 import type {
   ChecklistRecebimentoApi,
+  ImpedimentoDetalheApi,
   PreRecebimentoApi,
   PreRecebimentoSituacaoApi,
   RecebimentoApi,
+  TemperaturaProdutoItemApi,
 } from '@/features/recebimento/types/recebimento.api';
 import type {
   ConferenciaItem,
   ConferenciaStatus,
   FotoEvidencia,
+  ImpedimentoDetalhe,
   InspecaoTermica,
   LoteDetalheItem,
   RecebimentoDetalhe,
 } from '@/features/recebimento/types/recebimento-detalhe.schema';
 import type { RecebimentoStatus } from '@/features/recebimento/types/recebimento-lista.schema';
+import { resolveTipoImpedimentoLabel } from '@/features/recebimento/lib/impedimento-labels';
 
 function mapSituacaoToStatus(
   situacao: PreRecebimentoSituacaoApi,
@@ -28,6 +32,13 @@ function formatDataInicio(iso: string, unidade: string): string {
   }).format(new Date(iso));
 
   return `${formatted} · ${unidade}`;
+}
+
+function formatDateTime(iso: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(iso));
 }
 
 function toBaseUnits(qty: number, uom: string, fator: number): number {
@@ -127,6 +138,7 @@ function groupEsperadosPorProduto(
 
 function groupRecebidosPorProduto(
   itensRecebidos: NonNullable<RecebimentoApi['itens']>,
+  produtoMap: Map<string, ProdutoApi>,
 ): {
   qtdFisicaPorProduto: Map<string, number>;
   lotesRecebidosPorProduto: Map<string, string[]>;
@@ -137,19 +149,23 @@ function groupRecebidosPorProduto(
   const recebidoPorLote = new Map<string, Map<string, number>>();
 
   for (const recebido of itensRecebidos) {
+    const unidadesPorCaixa =
+      produtoMap.get(recebido.produtoId)?.unidadesPorCaixa ?? 1;
+    const qtdBaseUN = toBaseUnits(
+      recebido.quantidadeRecebida,
+      recebido.unidadeMedida,
+      unidadesPorCaixa,
+    );
+
     qtdFisicaPorProduto.set(
       recebido.produtoId,
-      (qtdFisicaPorProduto.get(recebido.produtoId) ?? 0) +
-        recebido.quantidadeRecebida,
+      (qtdFisicaPorProduto.get(recebido.produtoId) ?? 0) + qtdBaseUN,
     );
 
     const loteKey = toLoteKey(recebido.loteRecebido);
     const porLote =
       recebidoPorLote.get(recebido.produtoId) ?? new Map<string, number>();
-    porLote.set(
-      loteKey,
-      (porLote.get(loteKey) ?? 0) + recebido.quantidadeRecebida,
-    );
+    porLote.set(loteKey, (porLote.get(loteKey) ?? 0) + qtdBaseUN);
     recebidoPorLote.set(recebido.produtoId, porLote);
 
     if (!recebido.loteRecebido) {
@@ -224,15 +240,18 @@ function buildLotesDetalheFromEsperado(input: {
 
 function buildLotesDetalheFromRecebido(
   recebidos: NonNullable<RecebimentoApi['itens']>,
+  unidadesPorCaixa: number,
 ): LoteDetalheItem[] {
   const porLote = new Map<string, number>();
 
   for (const recebido of recebidos) {
     const loteKey = toLoteKey(recebido.loteRecebido);
-    porLote.set(
-      loteKey,
-      (porLote.get(loteKey) ?? 0) + recebido.quantidadeRecebida,
+    const qtdBaseUN = toBaseUnits(
+      recebido.quantidadeRecebida,
+      recebido.unidadeMedida,
+      unidadesPorCaixa,
     );
+    porLote.set(loteKey, (porLote.get(loteKey) ?? 0) + qtdBaseUN);
   }
 
   if (porLote.size === 0) {
@@ -244,6 +263,60 @@ function buildLotesDetalheFromRecebido(
     qtdEsperada: 0,
     qtdRecebida,
   }));
+}
+
+function buildPesoPorProduto(input: {
+  produtoId: string;
+  itensEsperados: NonNullable<PreRecebimentoApi['itens']>;
+  itensRecebidos: NonNullable<RecebimentoApi['itens']>;
+  produto: ProdutoApi | undefined;
+}): Pick<ConferenciaItem, 'pesoVariavel' | 'pesoXml' | 'pesoFisico'> {
+  const { produtoId, itensEsperados, itensRecebidos, produto } = input;
+  const pesoVariavel = produto?.tipo === 'PVAR';
+
+  let pesoXml = 0;
+  let hasPesoXml = false;
+
+  for (const esperado of itensEsperados) {
+    if (esperado.produtoId !== produtoId) {
+      continue;
+    }
+
+    const pesoLinha =
+      esperado.pesoEsperado ??
+      (pesoVariavel && produto?.pesoBrutoUnidade
+        ? toBaseUnits(
+            esperado.quantidadeEsperada,
+            esperado.unidadeMedida,
+            esperado.unidadesPorCaixa ?? 1,
+          ) * Number(produto.pesoBrutoUnidade)
+        : null);
+
+    if (pesoLinha !== null) {
+      pesoXml += pesoLinha;
+      hasPesoXml = true;
+    }
+  }
+
+  let pesoFisico = 0;
+  let hasPesoFisico = false;
+
+  for (const recebido of itensRecebidos) {
+    if (recebido.produtoId !== produtoId) {
+      continue;
+    }
+
+    if (recebido.pesoRecebido !== null && recebido.pesoRecebido !== undefined) {
+      pesoFisico += recebido.pesoRecebido;
+      hasPesoFisico = true;
+    }
+  }
+
+  return {
+    pesoVariavel,
+    pesoXml: hasPesoXml ? pesoXml : null,
+    pesoFisico: hasPesoFisico ? pesoFisico : null,
+  };
 }
 
 function buildConferencia(
@@ -258,7 +331,7 @@ function buildConferencia(
   );
   const esperadoPorProduto = groupEsperadosPorProduto(itensEsperados);
   const { qtdFisicaPorProduto, lotesRecebidosPorProduto, recebidoPorLote } =
-    groupRecebidosPorProduto(itensRecebidos);
+    groupRecebidosPorProduto(itensRecebidos, produtoMap);
 
   const expectedRows: ConferenciaItem[] = [
     ...esperadoPorProduto.entries(),
@@ -274,6 +347,12 @@ function buildConferencia(
       linhas: grupo.linhas,
       recebidoPorLote: recebidoPorLote.get(produtoId),
     });
+    const peso = buildPesoPorProduto({
+      produtoId,
+      itensEsperados,
+      itensRecebidos,
+      produto,
+    });
 
     return {
       id: grupo.firstId,
@@ -284,9 +363,11 @@ function buildConferencia(
       ean: produto?.ean ?? '—',
       qtdXml,
       qtdFisica,
+      ...peso,
       status: buildConferenciaStatus(qtdXml, qtdFisica, Boolean(recebimento)),
       avarias: [],
       lotesDetalhe,
+      unidadesPorCaixa: produto?.unidadesPorCaixa ?? null,
     };
   });
 
@@ -304,14 +385,30 @@ function buildConferencia(
   const orphanRows: ConferenciaItem[] = [...orphanPorProduto.entries()].map(
     ([produtoId, recebidos]) => {
       const produto = produtoMap.get(produtoId);
+      const unidadesPorCaixa = produto?.unidadesPorCaixa ?? 1;
       const qtdFisica = recebidos.reduce(
-        (acc, row) => acc + row.quantidadeRecebida,
+        (acc, row) =>
+          acc +
+          toBaseUnits(
+            row.quantidadeRecebida,
+            row.unidadeMedida,
+            unidadesPorCaixa,
+          ),
         0,
       );
       const lotes = recebidos
         .map((row) => row.loteRecebido)
         .filter((lote): lote is string => Boolean(lote));
-      const lotesDetalhe = buildLotesDetalheFromRecebido(recebidos);
+      const lotesDetalhe = buildLotesDetalheFromRecebido(
+        recebidos,
+        unidadesPorCaixa,
+      );
+      const peso = buildPesoPorProduto({
+        produtoId,
+        itensEsperados,
+        itensRecebidos,
+        produto,
+      });
 
       return {
         id: recebidos[0]!.id,
@@ -322,9 +419,11 @@ function buildConferencia(
         ean: produto?.ean ?? '—',
         qtdXml: 0,
         qtdFisica,
+        ...peso,
         status: buildConferenciaStatus(0, qtdFisica, Boolean(recebimento)),
         avarias: [],
         lotesDetalhe,
+        unidadesPorCaixa: produto?.unidadesPorCaixa ?? null,
       };
     },
   );
@@ -340,14 +439,46 @@ const CONDITION_LABELS: Record<keyof ChecklistRecebimentoApi['conditions'], stri
     vedacao: 'Vedação das portas',
   };
 
+function resolveTemperaturasProduto(
+  temperaturasProduto: TemperaturaProdutoItemApi[] | undefined,
+  checklistTempProduto: number | null,
+) {
+  const byEtapa = new Map(
+    (temperaturasProduto ?? []).map((item) => [item.etapa, item.temperatura]),
+  );
+
+  const inicio = byEtapa.get('inicio') ?? null;
+  const meio = byEtapa.get('meio') ?? null;
+  const fim = byEtapa.get('fim') ?? null;
+  const leituras = [inicio, meio, fim].filter(
+    (value): value is number => value != null && !Number.isNaN(value),
+  );
+
+  const media =
+    leituras.length > 0
+      ? leituras.reduce((sum, value) => sum + value, 0) / leituras.length
+      : checklistTempProduto;
+
+  return {
+    tempProdutoInicio: inicio,
+    tempProdutoMeio: meio,
+    tempProdutoFim: fim,
+    tempProduto: media,
+  };
+}
+
 export function mapChecklistToInspecao(
   checklist: ChecklistRecebimentoApi | null,
   divergenciasCount: number,
+  temperaturasProduto?: TemperaturaProdutoItemApi[],
 ): InspecaoTermica {
   if (!checklist) {
     return {
       tempBau: null,
       tempProduto: null,
+      tempProdutoInicio: null,
+      tempProdutoMeio: null,
+      tempProdutoFim: null,
       checklistPreenchido: false,
       anomalias: divergenciasCount,
       anomaliasDescricao:
@@ -356,6 +487,11 @@ export function mapChecklistToInspecao(
           : 'Checklist ainda não preenchido',
     };
   }
+
+  const temperaturas = resolveTemperaturasProduto(
+    temperaturasProduto,
+    checklist.tempProduto,
+  );
 
   const failedConditions = (
     Object.keys(CONDITION_LABELS) as Array<
@@ -373,7 +509,10 @@ export function mapChecklistToInspecao(
 
   return {
     tempBau: checklist.tempBau,
-    tempProduto: checklist.tempProduto,
+    tempProduto: temperaturas.tempProduto,
+    tempProdutoInicio: temperaturas.tempProdutoInicio,
+    tempProdutoMeio: temperaturas.tempProdutoMeio,
+    tempProdutoFim: temperaturas.tempProdutoFim,
     lacre: checklist.lacre,
     observacoes: checklist.observacoes,
     conditions: checklist.conditions,
@@ -386,21 +525,48 @@ export function mapChecklistToInspecao(
   };
 }
 
+function mapImpedimentoDetalhe(
+  impedimento: ImpedimentoDetalheApi | null | undefined,
+  fotos: FotoEvidencia[] = [],
+): ImpedimentoDetalhe | null {
+  if (!impedimento) {
+    return null;
+  }
+
+  return {
+    id: impedimento.id,
+    tipo: impedimento.tipo,
+    tipoLabel: resolveTipoImpedimentoLabel(impedimento.tipo),
+    descricao: impedimento.descricao,
+    photoCount: Math.max(impedimento.photoCount, fotos.length),
+    registradoPorNome: impedimento.registradoPorNome,
+    registradoPorMatricula: impedimento.registradoPorMatricula,
+    registradoEm: formatDateTime(impedimento.registradoEm),
+    fotos,
+  };
+}
+
 export function mapRecebimentoDetalhe(input: {
   preRecebimento: PreRecebimentoApi;
   recebimento: RecebimentoApi | null;
   produtoMap: Map<string, ProdutoApi>;
   checklist?: ChecklistRecebimentoApi | null;
+  temperaturasProduto?: TemperaturaProdutoItemApi[];
   fotos?: FotoEvidencia[];
   fotoTotalInformado?: number;
+  impedimento?: ImpedimentoDetalheApi | null;
+  fotosImpedimento?: FotoEvidencia[];
 }): RecebimentoDetalhe {
   const {
     preRecebimento,
     recebimento,
     produtoMap,
     checklist = null,
+    temperaturasProduto = [],
     fotos = [],
     fotoTotalInformado = 0,
+    impedimento = null,
+    fotosImpedimento = [],
   } = input;
   const divergenciasCount = recebimento?.divergencias?.length ?? 0;
   const dataReferencia =
@@ -422,7 +588,11 @@ export function mapRecebimentoDetalhe(input: {
     transportador: preRecebimento.transportadoraNome ?? '—',
     documentacaoOk: Boolean(preRecebimento.dataChegada),
     status: mapSituacaoToStatus(preRecebimento.situacao),
-    inspecao: mapChecklistToInspecao(checklist, divergenciasCount),
+    inspecao: mapChecklistToInspecao(
+      checklist,
+      divergenciasCount,
+      temperaturasProduto,
+    ),
     fotos,
     fotoTotalInformado: fotoTotalInformado || checklist?.photoCount || fotos.length,
     conferencia: buildConferencia(preRecebimento, recebimento, produtoMap),
@@ -435,5 +605,18 @@ export function mapRecebimentoDetalhe(input: {
       (recebimento?.modoUnitizacao as RecebimentoDetalhe['modoUnitizacao']) ??
       null,
     temPaletesBipados,
+    conferenteId: recebimento?.responsavelId ?? null,
+    conferenteNome: recebimento?.conferenteNome ?? null,
+    conferenteMatricula: recebimento?.conferenteMatricula ?? null,
+    conferenciaIniciadaEm: recebimento?.dataInicio
+      ? formatDateTime(recebimento.dataInicio)
+      : null,
+    conferenciaFinalizadaEm: recebimento?.dataFim
+      ? formatDateTime(recebimento.dataFim)
+      : null,
+    quantidadePaletesEsperada: preRecebimento.quantidadePaletesEsperada ?? null,
+    numeroTermoPalete: preRecebimento.numeroTermoPalete ?? null,
+    quantidadePaletes: recebimento?.quantidadePaletes ?? null,
+    impedimento: mapImpedimentoDetalhe(impedimento, fotosImpedimento),
   };
 }

@@ -69,7 +69,7 @@ export function LoginView() {
             LILOG - Liderança
           </h1>
           <p className="mt-2 text-body-sm text-on-surface-variant">
-            Acesso exclusivo para gestores e supervisores
+            Painel operacional do turno
           </p>
         </header>
 

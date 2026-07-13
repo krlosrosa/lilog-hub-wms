@@ -11,9 +11,9 @@ import { saveAvariasForDemand, loadAvariasForDemand } from '@/lib/offline/avaria
 import { usePhotoCapture } from '@/lib/offline/hooks/use-photo-capture';
 
 import {
-  AVARIA_CAUSA_OPTIONS,
   AVARIA_NATUREZA_OPTIONS,
   AVARIA_TIPO_OPTIONS,
+  getAvariaCausaOptions,
 } from '../lib/avaria-labels';
 import {
   createAvariaId,
@@ -112,6 +112,27 @@ export function useAvaria(demandId: string) {
     resolver: zodResolver(avariaFormSchema),
     defaultValues: DEFAULT_VALUES,
   });
+
+  const naturezaSelecionada = form.watch('natureza');
+  const causaSelecionada = form.watch('causa');
+
+  const causaOptions = useMemo(
+    () => getAvariaCausaOptions(naturezaSelecionada ?? ''),
+    [naturezaSelecionada],
+  );
+
+  useEffect(() => {
+    form.setValue('tipo', '', { shouldValidate: true });
+    form.setValue('causa', '', { shouldValidate: true });
+  }, [naturezaSelecionada, form]);
+
+  useEffect(() => {
+    if (!causaSelecionada) return;
+    const causaValida = causaOptions.some((option) => option.value === causaSelecionada);
+    if (!causaValida) {
+      form.setValue('causa', '', { shouldValidate: true });
+    }
+  }, [causaOptions, causaSelecionada, form]);
 
   useEffect(() => {
     form.clearErrors();
@@ -411,7 +432,8 @@ export function useAvaria(demandId: string) {
       minPhotos: MIN_PHOTOS,
       tipoOptions: AVARIA_TIPO_OPTIONS,
       naturezaOptions: AVARIA_NATUREZA_OPTIONS,
-      causaOptions: AVARIA_CAUSA_OPTIONS,
+      causaOptions,
+      naturezaSelecionada: naturezaSelecionada ?? '',
       replicarParaTodosConferidos,
       itensConferidosCount: itensConferidos.length,
       podeReplicar,

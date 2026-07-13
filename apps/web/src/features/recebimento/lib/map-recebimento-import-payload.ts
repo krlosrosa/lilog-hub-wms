@@ -59,6 +59,7 @@ export function buildCreatePreRecebimentoPayloadFromDemanda(
     numeroOcr: cabecalho.numeroOcr?.trim() || undefined,
     numeroTransporte: cabecalho.numeroTransporte?.trim() || undefined,
     origemDados: 'xlsx',
+    origem: cabecalho.centroOrigem?.trim() || '3201',
     horarioPrevisto: new Date(cabecalho.horarioPrevisto).toISOString(),
     notasFiscais: mapNotasFiscais(demanda.notasFiscais),
     itens: demanda.itens.map((item) => ({
@@ -89,6 +90,7 @@ export function buildCreatePreRecebimentoPayloadFromForm(
     origemDados: data.origemDados,
     horarioPrevisto: new Date(data.horarioPrevisto).toISOString(),
     observacao: data.observacao?.trim() || undefined,
+    quantidadePaletesEsperada: data.quantidadePaletesEsperada,
     notasFiscais: mapNotasFiscais(data.notasFiscais),
     itens: data.itens.map((item) => ({
       produtoId: item.produtoId,

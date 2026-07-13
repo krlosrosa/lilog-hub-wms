@@ -7,6 +7,7 @@ import type {
   UpdateSessaoFuncionarioPresencaInput,
 } from '../../../domain/model/sessao-operacao/sessao-operacao.model.js';
 import type {
+  AdicionarFuncionarioApoioInput,
   ISessaoOperacaoRepository,
   ListEquipesFilter,
   ListEscalasFilter,
@@ -45,6 +46,10 @@ import {
   encerrarSessaoTrabalhoDb,
 } from './update-sessao-trabalho-status.drizzle.js';
 import { updateSessaoFuncionarioPresencaDb } from './update-sessao-funcionario.drizzle.js';
+import { adicionarFuncionarioApoioDb } from './adicionar-funcionario-apoio.drizzle.js';
+import { encerrarFuncionarioApoioDb } from './encerrar-funcionario-apoio.drizzle.js';
+import { listFuncionariosApoioCandidatosDb } from './list-funcionarios-apoio-candidatos.drizzle.js';
+import { findSessaoTitularAbertaPorFuncionarioDb } from './find-sessao-titular-aberta-por-funcionario.drizzle.js';
 
 @Injectable()
 export class SessaoOperacaoService implements ISessaoOperacaoRepository {
@@ -202,5 +207,43 @@ export class SessaoOperacaoService implements ISessaoOperacaoRepository {
 
   countPausasAbertasBySessaoId(sessaoId: string) {
     return countPausasAbertasBySessaoIdDb(this.db, sessaoId);
+  }
+
+  adicionarFuncionarioApoio(input: AdicionarFuncionarioApoioInput) {
+    return adicionarFuncionarioApoioDb(this.db, input);
+  }
+
+  encerrarFuncionarioApoio(
+    sessaoId: string,
+    sessaoFuncionarioId: string,
+    userId: number,
+  ) {
+    return encerrarFuncionarioApoioDb(
+      this.db,
+      sessaoId,
+      sessaoFuncionarioId,
+      userId,
+    );
+  }
+
+  listFuncionariosApoioCandidatos(unidadeId: string, sessaoDestinoId: string) {
+    return listFuncionariosApoioCandidatosDb(
+      this.db,
+      unidadeId,
+      sessaoDestinoId,
+    );
+  }
+
+  findSessaoTitularAbertaPorFuncionario(
+    unidadeId: string,
+    funcionarioId: number,
+    excludeSessaoId?: string,
+  ) {
+    return findSessaoTitularAbertaPorFuncionarioDb(
+      this.db,
+      unidadeId,
+      funcionarioId,
+      excludeSessaoId,
+    );
   }
 }

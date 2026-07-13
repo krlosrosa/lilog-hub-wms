@@ -84,6 +84,7 @@ export const ParametrosPausaSchema = z.object({
 
 export const QuantidadeModoSchema = z.enum(['caixa', 'unidade', 'ambos']);
 export const LoteModoSchema = z.enum(['lote', 'fabricacao', 'ambos']);
+export const DisplayUnidadePadraoSchema = z.enum(['CX', 'UN']);
 
 export const CondicaoChecklistItemSchema = z.object({
   id: z.string().min(1).max(50),
@@ -114,6 +115,9 @@ export const ParametrosRecebimentoConferenciaSchema = z.object({
   controlaPalete: z.boolean().default(false),
   solicitarPesoPvar: z.boolean().default(true),
   exigirEtiquetaPesoVariavel: z.boolean().default(false),
+  displayUnidadePadrao: DisplayUnidadePadraoSchema.default('UN'),
+  displayDecimaisCaixa: z.number().int().min(0).max(4).default(2),
+  displayDecimaisUnidade: z.number().int().min(0).max(3).default(0),
   condicoesChecklist: z
     .array(CondicaoChecklistItemSchema)
     .min(1)

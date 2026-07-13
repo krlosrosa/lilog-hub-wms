@@ -1,4 +1,7 @@
-import { parseFabricacaoFromLote } from './parse-fabricacao-from-lote';
+import {
+  canParseFabricacaoFromLote,
+  parseFabricacaoFromLote,
+} from '@lilog/contracts';
 
 export type Gs1BarcodeParseResult = {
   gtin: string | null;
@@ -332,8 +335,8 @@ export function resolveLoteFieldInput(raw: string): LoteFieldResolveResult {
     };
   }
 
-  const digits = trimmed.replace(/\D/g, '');
-  if (digits.length > 10) {
+  if (canParseFabricacaoFromLote(trimmed)) {
+    const digits = trimmed.replace(/\D/g, '');
     const fabricacao = parseFabricacaoFromLote(digits);
     return {
       lote: digits,
@@ -342,7 +345,7 @@ export function resolveLoteFieldInput(raw: string): LoteFieldResolveResult {
     };
   }
 
-  return { lote: digits, validade: null, parsedFromGs1: false };
+  return { lote: trimmed, validade: null, parsedFromGs1: false };
 }
 
 export function parseGs1Barcode(input: string): Gs1BarcodeParseResult {

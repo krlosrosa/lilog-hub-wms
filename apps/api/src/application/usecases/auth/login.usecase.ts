@@ -57,6 +57,12 @@ export class LoginUseCase {
       throw new UnauthorizedException('Usuário pendente de ativação');
     }
 
+    if (user.role === 'operator' && user.funcionarioId == null) {
+      throw new UnauthorizedException(
+        'Conta operador sem funcionário vinculado. Contate o administrador.',
+      );
+    }
+
     const token = this.jwtService.sign({
       sub: String(user.id),
       email: user.email,

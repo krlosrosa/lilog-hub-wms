@@ -13,6 +13,7 @@ type SessaoRow = {
   status: 'planejada' | 'aberta' | 'encerrada' | 'cancelada';
   escalaNome: string;
   equipeNome: string;
+  equipeArea: string | null;
   horaInicioPlanejada: string;
   horaFimPlanejada: string;
   cruzaMeiaNoite: boolean;
@@ -41,6 +42,7 @@ export function mapSessaoRow(row: SessaoRow): SessaoRecord {
     status: row.status,
     escalaNome: row.escalaNome,
     equipeNome: row.equipeNome,
+    equipeArea: row.equipeArea,
     horaInicioPlanejada: formatHorario(row.horaInicioPlanejada),
     horaFimPlanejada: formatHorario(row.horaFimPlanejada),
     cruzaMeiaNoite: row.cruzaMeiaNoite,

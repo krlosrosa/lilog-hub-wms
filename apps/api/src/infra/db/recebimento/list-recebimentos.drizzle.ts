@@ -25,7 +25,8 @@ export async function listRecebimentosDb(
     if (
       filter.situacao === 'agendado' ||
       filter.situacao === 'aguardando' ||
-      filter.situacao === 'liberado_para_conferencia'
+      filter.situacao === 'liberado_para_conferencia' ||
+      filter.situacao === 'impedido'
     ) {
       conditions.push(eq(preRecebimentos.situacao, filter.situacao));
     } else {

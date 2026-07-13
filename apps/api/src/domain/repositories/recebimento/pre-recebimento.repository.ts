@@ -47,8 +47,11 @@ export type PreRecebimentoRecord = {
   numeroOcr: string | null;
   numeroTransporte: string | null;
   origemDados: OrigemDadosPreRecebimento;
+  origem: string | null;
   horarioPrevisto: Date;
   observacao: string | null;
+  quantidadePaletesEsperada: number | null;
+  numeroTermoPalete: string | null;
   situacao: PreRecebimentoSituacao;
   dataChegada: Date | null;
   docaId: string | null;
@@ -158,8 +161,11 @@ export type PreRecebimentoDetalheRecord = {
     numeroOcr: string | null;
     numeroTransporte: string | null;
     origemDados: string;
+    origem: string | null;
     horarioPrevisto: string;
     observacao: string | null;
+    quantidadePaletesEsperada: number | null;
+    numeroTermoPalete: string | null;
     situacao: string;
     dataChegada: string | null;
     docaId: string | null;
@@ -172,9 +178,12 @@ export type PreRecebimentoDetalheRecord = {
     preRecebimentoId: string;
     docaId: string | null;
     responsavelId: number;
+    conferenteNome: string | null;
+    conferenteMatricula: string | null;
     dataInicio: string;
     dataFim: string | null;
     situacao: string;
+    quantidadePaletes: number | null;
     modoUnitizacao: string;
     createdAt: string;
     updatedAt: string;

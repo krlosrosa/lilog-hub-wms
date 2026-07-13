@@ -18,8 +18,7 @@ export type EncerrarCncUseCaseInput = {
   responsavel?: CncResponsavel;
   responsavelId?: string | null;
   valorDebito?: number | null;
-  acaoImediata?: string | null;
-  acaoCorretiva?: string | null;
+  observacao?: string | null;
 };
 
 @Injectable()
@@ -43,33 +42,13 @@ export class EncerrarCncUseCase {
       );
     }
 
-    const quantidadeTratativas = await this.cncRepository.countTratativas(
-      input.cncId,
-    );
-
-    if (quantidadeTratativas === 0) {
-      throw new BadRequestException(
-        'É necessário registrar ao menos uma tratativa antes de encerrar a CNC',
-      );
-    }
-
-    const tratativasPendentes =
-      await this.cncRepository.countTratativasPendentes(input.cncId);
-
-    if (tratativasPendentes > 0) {
-      throw new BadRequestException(
-        'Todas as tratativas devem estar concluídas antes de encerrar a CNC',
-      );
-    }
-
     const updated = await this.cncRepository.encerrar(input.cncId, {
       encerradoPorUserId: input.encerradoPorUserId,
       encerradoEm: new Date(),
       responsavel: input.responsavel,
       responsavelId: input.responsavelId,
       valorDebito: input.valorDebito,
-      acaoImediata: input.acaoImediata,
-      acaoCorretiva: input.acaoCorretiva,
+      observacao: input.observacao,
     });
 
     if (!updated) {

@@ -21,12 +21,18 @@ import { createPortal } from 'react-dom';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { logPhotoPreviewLoadFailed } from '@/lib/images/photo-debug-log';
 
+import { useAuth } from '@/features/auth/lib/auth-context';
+
 import { AvariaSelectField } from '../components/avaria-select-field';
 import {
   useChecklist,
   type ChecklistPhotoSlotState,
   type ChecklistRequiredPhotoSlotId,
 } from '../hooks/use-checklist';
+import {
+  formatConferenteLabel,
+  resolveConferenteInfo,
+} from '../lib/resolve-conferente-info';
 
 interface ChecklistViewProps {
   demandId: string;
@@ -288,6 +294,7 @@ function ChecklistSuccessOverlay({
 }
 
 export function ChecklistView({ demandId }: ChecklistViewProps) {
+  const { user } = useAuth();
   const { state, actions } = useChecklist(demandId);
   const {
     demand,
@@ -320,6 +327,10 @@ export function ChecklistView({ demandId }: ChecklistViewProps) {
     slot.capture();
   };
 
+  const conferenteLabel = formatConferenteLabel(
+    resolveConferenteInfo(demandId, demand, user),
+  );
+
   return (
     <div className="page-enter flex flex-col">
       {actions.photoHiddenInputs.lacre}
@@ -347,6 +358,11 @@ export function ChecklistView({ demandId }: ChecklistViewProps) {
             ) : (
               <p className="truncate text-label-sm text-on-surface-variant">{demandId}</p>
             )}
+            {conferenteLabel ? (
+              <p className="truncate text-label-sm text-on-surface-variant">
+                Conferente: {conferenteLabel}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -442,38 +458,22 @@ export function ChecklistView({ demandId }: ChecklistViewProps) {
           <div className="mb-4 flex items-center gap-2 border-b border-outline-variant pb-3">
             <Thermometer className="h-5 w-5 text-secondary" aria-hidden />
             <h2 className="text-label-md font-semibold uppercase tracking-wider text-on-surface-variant">
-              Temperatura
+              Temperatura do baú
             </h2>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-label-md text-on-surface-variant" htmlFor="temp-bau">
-                Baú (°C)
-              </label>
-              <input
-                id="temp-bau"
-                type="number"
-                step="0.1"
-                inputMode="decimal"
-                placeholder="0.0"
-                {...actions.register('tempBau')}
-                className="numeric-input h-12 w-full rounded-lg border border-outline-variant bg-surface-bright px-4 text-center font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-label-md text-on-surface-variant" htmlFor="temp-prod">
-                Produto (°C)
-              </label>
-              <input
-                id="temp-prod"
-                type="number"
-                step="0.1"
-                inputMode="decimal"
-                placeholder="0.0"
-                {...actions.register('tempProd')}
-                className="numeric-input h-12 w-full rounded-lg border border-outline-variant bg-surface-bright px-4 text-center font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary"
-              />
-            </div>
+          <div className="space-y-1.5">
+            <label className="text-label-md text-on-surface-variant" htmlFor="temp-bau">
+              Baú (°C)
+            </label>
+            <input
+              id="temp-bau"
+              type="number"
+              step="0.1"
+              inputMode="decimal"
+              placeholder="0.0"
+              {...actions.register('tempBau')}
+              className="numeric-input h-12 w-full rounded-lg border border-outline-variant bg-surface-bright px-4 text-center font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary"
+            />
           </div>
         </section>
 

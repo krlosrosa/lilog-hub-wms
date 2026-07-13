@@ -42,6 +42,11 @@ export const sessaoPausaTipoEnum = pgEnum('sessao_pausa_tipo_type', [
   'outros',
 ]);
 
+export const sessaoVinculoTipoEnum = pgEnum('sessao_vinculo_tipo_type', [
+  'titular',
+  'apoio',
+]);
+
 export const equipes = sessaoOperacaoPgSchema.table(
   'equipes',
   {
@@ -187,6 +192,21 @@ export const sessaoFuncionarios = sessaoOperacaoPgSchema.table(
       { onDelete: 'set null' },
     ),
     observacao: text('observacao'),
+    tipoVinculo: sessaoVinculoTipoEnum('tipo_vinculo')
+      .notNull()
+      .default('titular'),
+    equipeOrigemId: uuid('equipe_origem_id').references(() => equipes.id, {
+      onDelete: 'set null',
+    }),
+    sessaoOrigemId: uuid('sessao_origem_id').references(() => sessoesTrabalho.id, {
+      onDelete: 'set null',
+    }),
+    apoioInicio: timestamp('apoio_inicio', { withTimezone: true }),
+    apoioFim: timestamp('apoio_fim', { withTimezone: true }),
+    apoioRegistradoPorUserId: integer('apoio_registrado_por_user_id').references(
+      () => users.id,
+      { onDelete: 'set null' },
+    ),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -199,6 +219,11 @@ export const sessaoFuncionarios = sessaoOperacaoPgSchema.table(
       table.sessaoId,
       table.funcionarioId,
     ),
+    index('sessao_funcionarios_apoio_ativo_idx')
+      .on(table.sessaoId)
+      .where(
+        sql`${table.tipoVinculo} = 'apoio' and ${table.apoioFim} is null`,
+      ),
   ],
 );
 

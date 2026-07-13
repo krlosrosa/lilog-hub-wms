@@ -27,6 +27,7 @@ const UpdateUserBodySchema = z
     role: UserRoleSchema.optional(),
     status: UserStatusSchema.optional(),
     funcionarioId: z.number().int().positive().nullable().optional(),
+    unidadesIds: z.array(z.string().min(1)).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Informe ao menos um campo para atualização',

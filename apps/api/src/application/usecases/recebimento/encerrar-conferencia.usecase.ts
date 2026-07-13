@@ -6,10 +6,20 @@ import {
 } from '@nestjs/common';
 
 import { RECEBIMENTO_EVENT } from '../../../domain/model/recebimento/recebimento.events.js';
+import { TemperaturaProdutoEtapaSchema } from '../../../domain/model/recebimento/recebimento.model.js';
 import {
   PRE_RECEBIMENTO_REPOSITORY,
   type IPreRecebimentoRepository,
 } from '../../../domain/repositories/recebimento/pre-recebimento.repository.js';
+import {
+  CONFERENCIA_REPOSITORY,
+  type IConferenciaRepository,
+} from '../../../domain/repositories/recebimento/conferencia.repository.js';
+import {
+  PRODUTO_REPOSITORY,
+  type IProdutoRepository,
+  type ProdutoRecord,
+} from '../../../domain/repositories/produto/produto.repository.js';
 import {
   RECEBIMENTO_REPOSITORY,
   type IRecebimentoRepository,
@@ -20,6 +30,7 @@ import { RecebimentoEventPublisher } from '../../services/recebimento-event.publ
 export type EncerrarConferenciaUseCaseInput = {
   recebimentoId: string;
   userId: number | null;
+  quantidadePaletes?: number;
 };
 
 @Injectable()
@@ -29,10 +40,18 @@ export class EncerrarConferenciaUseCase {
     private readonly recebimentoRepository: IRecebimentoRepository,
     @Inject(PRE_RECEBIMENTO_REPOSITORY)
     private readonly preRecebimentoRepository: IPreRecebimentoRepository,
+    @Inject(CONFERENCIA_REPOSITORY)
+    private readonly conferenciaRepository: IConferenciaRepository,
+    @Inject(PRODUTO_REPOSITORY)
+    private readonly produtoRepository: IProdutoRepository,
     private readonly recebimentoEventPublisher: RecebimentoEventPublisher,
   ) {}
 
-  async execute({ recebimentoId, userId }: EncerrarConferenciaUseCaseInput) {
+  async execute({
+    recebimentoId,
+    userId,
+    quantidadePaletes,
+  }: EncerrarConferenciaUseCaseInput) {
     const recebimento = await this.recebimentoRepository.findById(recebimentoId);
 
     if (!recebimento) {
@@ -62,11 +81,52 @@ export class EncerrarConferenciaUseCase {
       );
     }
 
+    const temperaturas =
+      await this.conferenciaRepository.listTemperaturasProduto(recebimentoId);
+    const etapasPreenchidas = new Set(temperaturas.map((item) => item.etapa));
+    const etapasObrigatorias = TemperaturaProdutoEtapaSchema.options;
+    const faltando = etapasObrigatorias.filter(
+      (etapa) => !etapasPreenchidas.has(etapa),
+    );
+
+    if (faltando.length > 0) {
+      throw new BadRequestException(
+        'Informe as temperaturas de início, meio e fim do baú antes de encerrar a conferência.',
+      );
+    }
+
+    if (
+      quantidadePaletes !== undefined &&
+      (!Number.isInteger(quantidadePaletes) || quantidadePaletes <= 0)
+    ) {
+      throw new BadRequestException(
+        'Informe a quantidade de paletes recebidos (número inteiro maior que zero)',
+      );
+    }
+
     await this.recebimentoRepository.clearDivergencias(recebimentoId);
+
+    const produtoIds = new Set([
+      ...preRecebimento.itens.map((item) => item.produtoId),
+      ...itensRecebidos.map((item) => item.produtoId),
+    ]);
+
+    const produtos = new Map<string, ProdutoRecord>(
+      (
+        await Promise.all(
+          [...produtoIds].map(async (produtoId) => {
+            const produto =
+              await this.produtoRepository.findByProdutoId(produtoId);
+            return produto ? ([produtoId, produto] as const) : null;
+          }),
+        )
+      ).filter((entry): entry is readonly [string, ProdutoRecord] => entry !== null),
+    );
 
     const divergenciasCalculadas = calcularDivergencias(
       preRecebimento.itens,
       itensRecebidos,
+      produtos,
     );
 
     for (const divergencia of divergenciasCalculadas) {
@@ -95,6 +155,7 @@ export class EncerrarConferenciaUseCase {
       recebimentoId,
       novaSituacao,
       dataFim,
+      quantidadePaletes,
     );
 
     await this.preRecebimentoRepository.updateSituacao(

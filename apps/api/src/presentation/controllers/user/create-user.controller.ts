@@ -27,6 +27,7 @@ const CreateUserBodySchema = z.object({
   role: UserRoleSchema.default('operator'),
   status: UserStatusSchema.default('pendente'),
   funcionarioId: z.number().int().positive(),
+  unidadesIds: z.array(z.string().min(1)).optional(),
 });
 
 class CreateUserBodyDto extends createZodDto(CreateUserBodySchema) {}

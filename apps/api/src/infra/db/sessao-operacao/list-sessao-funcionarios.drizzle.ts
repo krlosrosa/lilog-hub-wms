@@ -1,8 +1,9 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, or, sql } from 'drizzle-orm';
 
 import type { SessaoFuncionarioRecord } from '../../../domain/repositories/sessao-operacao/sessao-operacao.repository.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import {
+  equipes,
   funcionarios,
   sessaoFuncionarios,
 } from '../providers/drizzle/config/migrations/schema.js';
@@ -17,6 +18,11 @@ function mapRow(row: {
   checkIn: Date | null;
   checkOut: Date | null;
   observacao: string | null;
+  tipoVinculo: SessaoFuncionarioRecord['tipoVinculo'];
+  equipeOrigemId: string | null;
+  equipeOrigemNome: string | null;
+  apoioInicio: Date | null;
+  apoioFim: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }): SessaoFuncionarioRecord {
@@ -30,6 +36,11 @@ function mapRow(row: {
     checkIn: row.checkIn,
     checkOut: row.checkOut,
     observacao: row.observacao,
+    tipoVinculo: row.tipoVinculo,
+    equipeOrigemId: row.equipeOrigemId,
+    equipeOrigemNome: row.equipeOrigemNome,
+    apoioInicio: row.apoioInicio,
+    apoioFim: row.apoioFim,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -50,6 +61,11 @@ export async function listSessaoFuncionariosDb(
       checkIn: sessaoFuncionarios.checkIn,
       checkOut: sessaoFuncionarios.checkOut,
       observacao: sessaoFuncionarios.observacao,
+      tipoVinculo: sessaoFuncionarios.tipoVinculo,
+      equipeOrigemId: sessaoFuncionarios.equipeOrigemId,
+      equipeOrigemNome: equipes.nome,
+      apoioInicio: sessaoFuncionarios.apoioInicio,
+      apoioFim: sessaoFuncionarios.apoioFim,
       createdAt: sessaoFuncionarios.createdAt,
       updatedAt: sessaoFuncionarios.updatedAt,
     })
@@ -58,7 +74,19 @@ export async function listSessaoFuncionariosDb(
       funcionarios,
       eq(sessaoFuncionarios.funcionarioId, funcionarios.id),
     )
-    .where(eq(sessaoFuncionarios.sessaoId, sessaoId))
+    .leftJoin(equipes, eq(sessaoFuncionarios.equipeOrigemId, equipes.id))
+    .where(
+      and(
+        eq(sessaoFuncionarios.sessaoId, sessaoId),
+        or(
+          eq(sessaoFuncionarios.tipoVinculo, 'titular'),
+          and(
+            eq(sessaoFuncionarios.tipoVinculo, 'apoio'),
+            isNull(sessaoFuncionarios.apoioFim),
+          ),
+        ),
+      ),
+    )
     .orderBy(funcionarios.nome);
 
   return rows.map(mapRow);

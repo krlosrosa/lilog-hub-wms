@@ -52,6 +52,38 @@ export function extractDockCodigo(dock: string | null | undefined): string | nul
   return trimmed;
 }
 
+function formatDockShortLabel(label: string): string {
+  const codigo = label.split(' — ')[0]?.trim();
+  return codigo || label;
+}
+
+export function resolveDockDisplayLabel(
+  dockRef: string | null | undefined,
+  options: DockOption[],
+): string {
+  if (!dockRef?.trim()) return '—';
+
+  const trimmed = dockRef.trim();
+
+  const byValue = options.find((option) => option.value === trimmed);
+  if (byValue) return formatDockShortLabel(byValue.label);
+
+  const byLabel = options.find((option) => option.label === trimmed);
+  if (byLabel) return formatDockShortLabel(byLabel.label);
+
+  const resolvedValue = findDockOptionValue(trimmed, options);
+  if (resolvedValue) {
+    const option = options.find((item) => item.value === resolvedValue);
+    if (option) return formatDockShortLabel(option.label);
+  }
+
+  if (UUID_PATTERN.test(trimmed)) {
+    return '—';
+  }
+
+  return trimmed.replace(/^doca\s+/i, '').trim() || trimmed;
+}
+
 export function findDockOptionValue(
   dockRef: string | null | undefined,
   options: DockOption[],

@@ -85,9 +85,9 @@ export function ChecklistResumoCard({
           }
         }}
         disabled={isLoading}
-        className="flex w-full items-center gap-2.5 px-3 py-3 text-left touch-manipulation disabled:cursor-default"
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left touch-manipulation disabled:cursor-default"
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary-container text-on-secondary-container">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-secondary-container text-on-secondary-container">
           {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           ) : (
@@ -95,10 +95,10 @@ export function ChecklistResumoCard({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-label-md font-semibold text-on-surface">
+          <p className="text-label-sm font-semibold text-on-surface">
             Checklist de entrada
           </p>
-          <p className="truncate text-label-sm text-on-surface-variant">{subtitle}</p>
+          <p className="truncate text-[11px] text-on-surface-variant">{subtitle}</p>
         </div>
         <ChevronDown
           className={cn(
@@ -111,7 +111,7 @@ export function ChecklistResumoCard({
 
       {open && !isLoading && checklist ? (
         <div className="space-y-3 border-t border-outline-variant/60 px-3 py-3">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2">
             <div className="rounded-lg bg-surface-container px-3 py-2">
               <div className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-wide text-on-surface-variant">
                 <Thermometer className="h-3 w-3" aria-hidden />
@@ -119,15 +119,6 @@ export function ChecklistResumoCard({
               </div>
               <p className="font-mono text-label-md font-semibold text-on-surface">
                 {formatTemperature(checklist.tempBau)}
-              </p>
-            </div>
-            <div className="rounded-lg bg-surface-container px-3 py-2">
-              <div className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-wide text-on-surface-variant">
-                <Thermometer className="h-3 w-3" aria-hidden />
-                Produto
-              </div>
-              <p className="font-mono text-label-md font-semibold text-on-surface">
-                {formatTemperature(checklist.tempProduto)}
               </p>
             </div>
           </div>

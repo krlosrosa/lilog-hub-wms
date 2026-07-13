@@ -2,9 +2,18 @@ import { LEADERSHIP_MODULES } from '../config/modules';
 import { FeaturedModuleCard, ModuleCard } from '../components/module-cards';
 import { WelcomeHero } from '../components/welcome-hero';
 
+const SECTION_LABELS = {
+  turno: 'Turno',
+  operacional: 'Áreas operacionais',
+  futuro: 'Em breve',
+} as const;
+
 export function HomeView() {
-  const featured = LEADERSHIP_MODULES.filter((m) => m.featured);
-  const gridModules = LEADERSHIP_MODULES.filter((m) => !m.featured);
+  const turnoModules = LEADERSHIP_MODULES.filter((m) => m.section === 'turno');
+  const operacionalModules = LEADERSHIP_MODULES.filter(
+    (m) => m.section === 'operacional',
+  );
+  const futuroModules = LEADERSHIP_MODULES.filter((m) => m.section === 'futuro');
 
   return (
     <div className="page-enter flex flex-col pb-4">
@@ -12,26 +21,40 @@ export function HomeView() {
         <WelcomeHero />
       </div>
 
-      <section className="mt-6 space-y-3 px-margin-mobile" aria-label="Módulos em destaque">
+      <section className="mt-6 space-y-3 px-margin-mobile" aria-label={SECTION_LABELS.turno}>
         <h2 className="text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">
-          Em destaque
+          {SECTION_LABELS.turno}
         </h2>
-        {featured.map((module) => (
+        {turnoModules.map((module) => (
           <FeaturedModuleCard key={module.id} module={module} />
         ))}
       </section>
 
       <section
-        className="mt-6 grid grid-cols-2 gap-3 px-margin-mobile"
-        aria-label="Todos os módulos"
+        className="mt-6 space-y-3 px-margin-mobile"
+        aria-label={SECTION_LABELS.operacional}
       >
-        <h2 className="col-span-2 text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">
-          Todos os módulos
+        <h2 className="text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">
+          {SECTION_LABELS.operacional}
         </h2>
-        {gridModules.map((module) => (
-          <ModuleCard key={module.id} module={module} />
+        {operacionalModules.map((module) => (
+          <FeaturedModuleCard key={module.id} module={module} />
         ))}
       </section>
+
+      {futuroModules.length > 0 ? (
+        <section
+          className="mt-6 grid grid-cols-2 gap-3 px-margin-mobile"
+          aria-label={SECTION_LABELS.futuro}
+        >
+          <h2 className="col-span-2 text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">
+            {SECTION_LABELS.futuro}
+          </h2>
+          {futuroModules.map((module) => (
+            <ModuleCard key={module.id} module={module} />
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -26,6 +26,9 @@ export type OperadorDemandaApi = {
   dock: string | null;
   skuCount: number;
   horarioPrevisto: string;
+  conferenteId?: number | null;
+  conferente?: string | null;
+  conferenteMatricula?: string | null;
 };
 
 export type ConferenciaItemBlindApi = {
@@ -70,6 +73,9 @@ export type ConferenciaContextApi = {
   recebimentoSituacao: string | null;
   dock: string | null;
   checklistPreenchido: boolean;
+  conferenteId?: number | null;
+  conferente?: string | null;
+  conferenteMatricula?: string | null;
   modoUnitizacao: string;
   exigePaleteConferencia: boolean;
   itens: ConferenciaItemBlindApi[];
@@ -85,10 +91,27 @@ export type ResumoConferidoProdutoApi = {
   hasDivergencia: boolean;
 };
 
+export type TemperaturaProdutoEtapa = 'inicio' | 'meio' | 'fim';
+
+export type TemperaturaProdutoItemApi = {
+  etapa: TemperaturaProdutoEtapa;
+  temperatura: number;
+  medidoEm: string;
+};
+
+export type TemperaturasProdutoApi = {
+  recebimentoId: string;
+  items: TemperaturaProdutoItemApi[];
+};
+
+export type UpsertTemperaturaProdutoPayload = {
+  etapa: TemperaturaProdutoEtapa;
+  temperatura: number;
+};
+
 export type SaveChecklistPayload = {
   lacre?: string;
   tempBau?: number;
-  tempProduto?: number;
   conditions: {
     limpeza: boolean;
     odor: boolean;

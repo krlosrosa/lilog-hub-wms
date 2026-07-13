@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import Link from 'next/link';
 
@@ -9,50 +9,89 @@ import { ArrowRight, Loader2 } from 'lucide-react';
 
 import { SidebarMain } from '@/components/layout/sidebar';
 
+import { useUnidadeContext } from '@/contexts/unidade-context';
 import { CncAnaliseTabs, type CncAnaliseAba } from '@/features/cnc/components/cnc-analise-tabs';
 import { CncAnaliseWorkflow } from '@/features/cnc/components/cnc-analise-workflow';
 import { CncAnomaliasPanel } from '@/features/cnc/components/cnc-anomalias-panel';
 import { CncChecklistPanel } from '@/features/cnc/components/cnc-checklist-panel';
 import { CncDetalheHeader } from '@/features/cnc/components/cnc-detalhe-header';
 import { CncDetalheKpis } from '@/features/cnc/components/cnc-detalhe-kpis';
+import { CncRegistroAnaliseSheet, type CncRegistroAnaliseSheetMode } from '@/features/cnc/components/cnc-registro-analise-sheet';
+import { CncPrintDocument } from '@/features/cnc/components/cnc-print-document';
 import { CncEventosTimeline } from '@/features/cnc/components/cnc-eventos-timeline';
-import { ModalAdicionarTratativa } from '@/features/cnc/components/modal-adicionar-tratativa';
 import { ModalCancelarCnc } from '@/features/cnc/components/modal-cancelar-cnc';
 import { ModalEncerrarCnc } from '@/features/cnc/components/modal-encerrar-cnc';
-import { ModalIniciarAnalise } from '@/features/cnc/components/modal-iniciar-analise';
 import { CncResumoPanel } from '@/features/cnc/components/cnc-resumo-panel';
-import { CncTratativasPanel } from '@/features/cnc/components/cnc-tratativas-panel';
 import { useCncDetalhe } from '@/features/cnc/hooks/use-cnc-detalhe';
+import { useCncPrint } from '@/features/cnc/hooks/use-cnc-print';
 import { useCncRecebimentoContext } from '@/features/cnc/hooks/use-cnc-recebimento-context';
-import { useCncTratativas } from '@/features/cnc/hooks/use-cnc-tratativas';
-import { calcularProgressoTratativas } from '@/features/cnc/lib/cnc-detalhe-utils';
+import {
+  resolverOpcoesImpressao,
+  type CncImpressaoOpcoes,
+} from '@/features/cnc/types/cnc-impressao.schema';
 
 type CncDetalheViewProps = {
   cncId: string;
 };
 
 export function CncDetalheView({ cncId }: CncDetalheViewProps) {
+  const { unidadeSelecionada } = useUnidadeContext();
   const {
     cnc,
     isLoading,
     notFound,
     processandoAcao,
+    atualizarCnc,
     recarregar,
     actions,
   } = useCncDetalhe(cncId);
 
-  const tratativas = useCncTratativas(cncId, recarregar);
   const recebimentoContext = useCncRecebimentoContext(cnc);
 
+  const fotoUrlsImpressao = useMemo(() => {
+    const urls = recebimentoContext.fotosChecklist.map((foto) => foto.url);
+
+    for (const fotos of recebimentoContext.fotosPorReferencia.values()) {
+      for (const foto of fotos) {
+        urls.push(foto.url);
+      }
+    }
+
+    return urls;
+  }, [
+    recebimentoContext.fotosChecklist,
+    recebimentoContext.fotosPorReferencia,
+  ]);
+
+  const { imprimir, imprimindo, dadosRecebimento, opcoesImpressao } = useCncPrint(
+    cnc,
+    fotoUrlsImpressao,
+  );
+
   const [abaAtiva, setAbaAtiva] = useState<CncAnaliseAba>('anomalias');
-  const [modalIniciar, setModalIniciar] = useState(false);
+  const [registroSheetOpen, setRegistroSheetOpen] = useState(false);
+  const [registroSheetMode, setRegistroSheetMode] =
+    useState<CncRegistroAnaliseSheetMode>('editar');
   const [modalEncerrar, setModalEncerrar] = useState(false);
   const [modalCancelar, setModalCancelar] = useState(false);
-  const [modalTratativa, setModalTratativa] = useState(false);
+  const [opcoesImpressaoAtuais, setOpcoesImpressaoAtuais] =
+    useState<CncImpressaoOpcoes | null>(null);
+
+  const handleOpcoesChange = useCallback((opcoes: CncImpressaoOpcoes) => {
+    setOpcoesImpressaoAtuais(opcoes);
+  }, []);
+
+  const abrirRegistroSheet = useCallback(
+    (mode: CncRegistroAnaliseSheetMode = 'editar') => {
+      setRegistroSheetMode(mode);
+      setRegistroSheetOpen(true);
+    },
+    [],
+  );
 
   const handleIniciarAnalise = useCallback(async () => {
     await actions.iniciarAnalise();
-    setModalIniciar(false);
+    setRegistroSheetOpen(false);
     setAbaAtiva('anomalias');
   }, [actions]);
 
@@ -72,18 +111,17 @@ export function CncDetalheView({ cncId }: CncDetalheViewProps) {
     [actions],
   );
 
-  const handleAdicionarTratativa = useCallback(
-    async (body: Parameters<typeof tratativas.adicionar>[0]) => {
-      try {
-        await tratativas.adicionar(body);
-        setModalTratativa(false);
-        setAbaAtiva('tratativas');
-      } catch {
-        // toast handled in hook
-      }
-    },
-    [tratativas],
-  );
+  const handleImprimir = useCallback(() => {
+    const opcoes =
+      opcoesImpressaoAtuais ??
+      (cnc ? resolverOpcoesImpressao(cnc.opcoesImpressao) : null);
+
+    if (!opcoes) {
+      return;
+    }
+
+    void imprimir(opcoes);
+  }, [cnc, imprimir, opcoesImpressaoAtuais]);
 
   if (isLoading) {
     return (
@@ -123,19 +161,19 @@ export function CncDetalheView({ cncId }: CncDetalheViewProps) {
 
   const podeIniciarAnalise = cnc.situacao === 'pendente';
   const podeGerenciar = cnc.situacao === 'em_analise';
-  const progressoTratativas = calcularProgressoTratativas(cnc);
+  const podeEditar = podeGerenciar || cnc.situacao === 'pendente';
 
   return (
-    <SidebarMain>
-      {modalIniciar ? (
-        <ModalIniciarAnalise
-          open={modalIniciar}
-          cnc={cnc}
-          processando={processandoAcao}
-          onOpenChange={setModalIniciar}
-          onConfirm={() => void handleIniciarAnalise()}
-        />
-      ) : null}
+    <SidebarMain className="flex min-h-dvh flex-col">
+      <CncPrintDocument
+        cnc={cnc}
+        dadosRecebimento={dadosRecebimento}
+        opcoesImpressao={opcoesImpressao}
+        unidadeNome={unidadeSelecionada?.nome ?? cnc.unidadeId}
+        inspecao={recebimentoContext.inspecao}
+        fotosChecklist={recebimentoContext.fotosChecklist}
+        fotosPorReferencia={recebimentoContext.fotosPorReferencia}
+      />
 
       {modalEncerrar ? (
         <ModalEncerrarCnc
@@ -157,49 +195,52 @@ export function CncDetalheView({ cncId }: CncDetalheViewProps) {
         />
       ) : null}
 
-      {modalTratativa ? (
-        <ModalAdicionarTratativa
-          open={modalTratativa}
-          cnc={cnc}
-          processando={tratativas.processando}
-          onOpenChange={setModalTratativa}
-          onConfirm={(body) => void handleAdicionarTratativa(body)}
-        />
-      ) : null}
+      <CncRegistroAnaliseSheet
+        open={registroSheetOpen}
+        mode={registroSheetMode}
+        cnc={cnc}
+        podeEditar={podeEditar}
+        processando={processandoAcao}
+        onOpenChange={setRegistroSheetOpen}
+        onSalvo={atualizarCnc}
+        onOpcoesChange={handleOpcoesChange}
+        onConfirmarIniciar={() => void handleIniciarAnalise()}
+      />
 
-      <main className="px-margin-mobile py-4 pb-24 md:px-margin-desktop md:py-6 md:pb-10">
-        <div className="mx-auto flex max-w-container flex-col gap-6">
-          <CncDetalheHeader
-            cnc={cnc}
-            podeIniciarAnalise={podeIniciarAnalise}
-            podeGerenciar={podeGerenciar}
-            processandoAcao={processandoAcao}
-            onIniciarAnalise={() => setModalIniciar(true)}
-            onEncerrar={() => setModalEncerrar(true)}
-            onCancelar={() => setModalCancelar(true)}
-          />
+      <CncDetalheHeader
+        cnc={cnc}
+        podeIniciarAnalise={podeIniciarAnalise}
+        podeGerenciar={podeGerenciar}
+        processandoAcao={processandoAcao}
+        imprimindo={imprimindo}
+        onIniciarAnalise={() => abrirRegistroSheet('iniciar')}
+        onEncerrar={() => setModalEncerrar(true)}
+        onCancelar={() => setModalCancelar(true)}
+        onImprimir={handleImprimir}
+        onAbrirRegistro={() => abrirRegistroSheet('editar')}
+      />
 
+      <main className="flex-1 px-margin-mobile py-4 pb-24 md:px-margin-desktop md:py-5 md:pb-10">
+        <div className="mx-auto max-w-container space-y-4">
           {podeIniciarAnalise ? (
-            <div className="flex flex-col gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                  Análise pendente
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-amber-800/90 dark:text-amber-200/90">
-                  Inicie a análise para investigar as {cnc.itens.length}{' '}
-                  anomalia{cnc.itens.length !== 1 ? 's' : ''} identificada
-                  {cnc.itens.length !== 1 ? 's' : ''} e registrar tratativas.
-                </p>
-              </div>
+            <div className="flex flex-col gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-amber-900 dark:text-amber-100">
+                <span className="font-semibold">Análise pendente</span>
+                <span className="text-amber-800/90 dark:text-amber-200/90">
+                  {' '}
+                  — {cnc.itens.length} anomalia
+                  {cnc.itens.length !== 1 ? 's' : ''} aguardando investigação.
+                </span>
+              </p>
               <Button
                 type="button"
                 size="sm"
-                className="shrink-0 gap-1.5"
+                className="h-7 shrink-0 gap-1 px-2.5 text-xs"
                 disabled={processandoAcao}
-                onClick={() => setModalIniciar(true)}
+                onClick={() => abrirRegistroSheet('iniciar')}
               >
                 Iniciar análise
-                <ArrowRight className="size-3.5" aria-hidden />
+                <ArrowRight className="size-3" aria-hidden />
               </Button>
             </div>
           ) : null}
@@ -208,13 +249,12 @@ export function CncDetalheView({ cncId }: CncDetalheViewProps) {
 
           <CncAnaliseWorkflow cnc={cnc} />
 
-          <div className="flex flex-col gap-4">
+          <div className="space-y-3">
             <CncAnaliseTabs
               abaAtiva={abaAtiva}
               onChange={setAbaAtiva}
               badges={{
                 anomalias: cnc.itens.length,
-                tratativas: progressoTratativas.pendentes || undefined,
                 checklist:
                   recebimentoContext.fotosChecklist.length > 0
                     ? recebimentoContext.fotosChecklist.length
@@ -229,51 +269,34 @@ export function CncDetalheView({ cncId }: CncDetalheViewProps) {
                   ? 'Anomalias'
                   : abaAtiva === 'checklist'
                     ? 'Checklist'
-                    : abaAtiva === 'tratativas'
-                      ? 'Tratativas'
-                      : abaAtiva === 'resumo'
-                        ? 'Resumo'
-                        : 'Histórico'
+                    : abaAtiva === 'resumo'
+                      ? 'Resumo'
+                      : 'Histórico'
               }
-              className="min-h-[320px]"
+              className="min-h-[200px]"
             >
               {abaAtiva === 'anomalias' ? (
                 <CncAnomaliasPanel
                   cnc={cnc}
+                  embedded
                   fotosPorReferencia={recebimentoContext.fotosPorReferencia}
+                  podeGerenciar={podeGerenciar}
+                  onItemSalvo={recarregar}
                 />
               ) : null}
               {abaAtiva === 'checklist' ? (
-                <CncChecklistPanel context={recebimentoContext} />
-              ) : null}
-              {abaAtiva === 'tratativas' ? (
-                <CncTratativasPanel
-                  cnc={cnc}
-                  podeGerenciar={podeGerenciar}
-                  processando={tratativas.processando}
-                  onAdicionar={() => setModalTratativa(true)}
-                  onConcluir={(id) => void tratativas.concluir(id)}
-                />
+                <CncChecklistPanel context={recebimentoContext} embedded />
               ) : null}
               {abaAtiva === 'resumo' ? (
                 <CncResumoPanel
                   cnc={cnc}
+                  embedded
                   inspecao={recebimentoContext.inspecao}
                   fotosChecklistCount={recebimentoContext.fotosChecklist.length}
                 />
               ) : null}
               {abaAtiva === 'historico' ? (
-                <div className="space-y-4">
-                  <div>
-                    <h2 className="text-sm font-semibold text-foreground">
-                      Histórico de eventos
-                    </h2>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Linha do tempo completa das movimentações desta CNC.
-                    </p>
-                  </div>
-                  <CncEventosTimeline eventos={cnc.eventos} />
-                </div>
+                <CncEventosTimeline eventos={cnc.eventos} itens={cnc.itens} />
               ) : null}
             </div>
           </div>

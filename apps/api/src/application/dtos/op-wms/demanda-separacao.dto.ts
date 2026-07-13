@@ -118,6 +118,9 @@ export const RecursosSessaoFuncionarioDtoSchema = z.object({
     .nullable(),
   alertaPausa: AlertaPausaDtoSchema.nullable(),
   proximaPausa: ProximaPausaDtoSchema.nullable(),
+  tipoVinculo: z.enum(['titular', 'apoio']),
+  equipeOrigemNome: z.string().nullable(),
+  apoioInicio: z.iso.datetime().nullable(),
 });
 
 export const RecursosSessaoKpiDtoSchema = z.object({

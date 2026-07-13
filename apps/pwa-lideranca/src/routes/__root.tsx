@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/react';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { canAccessLeadershipApp, useAuth } from '@/features/auth';
+import { useAuth } from '@/features/auth';
 import { AppBar, isAppBarHidden } from '@/components/layout/app-bar';
 
 export const Route = createRootRoute({
@@ -36,7 +36,6 @@ function RootLayout() {
   const [animationClass, setAnimationClass] = useState('page-enter');
   const hideAppBar = isAppBarHidden(pathname);
   const isLoginRoute = pathname === '/login';
-  const isAcessoNegadoRoute = pathname === '/acesso-negado';
 
   useEffect(() => {
     if (isLoading) {
@@ -49,23 +48,9 @@ function RootLayout() {
     }
 
     if (user && isLoginRoute) {
-      if (canAccessLeadershipApp(user.role)) {
-        void navigate({ to: '/', replace: true });
-      } else {
-        void navigate({ to: '/acesso-negado', replace: true });
-      }
-      return;
-    }
-
-    if (user && !canAccessLeadershipApp(user.role) && !isAcessoNegadoRoute) {
-      void navigate({ to: '/acesso-negado', replace: true });
-      return;
-    }
-
-    if (user && canAccessLeadershipApp(user.role) && isAcessoNegadoRoute) {
       void navigate({ to: '/', replace: true });
     }
-  }, [user, isLoading, isLoginRoute, isAcessoNegadoRoute, navigate]);
+  }, [user, isLoading, isLoginRoute, navigate]);
 
   useEffect(() => {
     if (prevPathname.current !== pathname) {
@@ -100,7 +85,7 @@ function RootLayout() {
 
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-background text-on-background">
-      {!hideAppBar && !isAcessoNegadoRoute && <AppBar />}
+      {!hideAppBar && <AppBar />}
       <main
         className={`${animationClass} scroll-native min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[calc(env(safe-area-inset-bottom,0px)+16px)]`}
       >

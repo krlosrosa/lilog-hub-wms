@@ -18,6 +18,7 @@ import {
 } from './find-user.drizzle.js';
 import { listUserAccessibleUnidadesDb } from './list-user-accessible-unidades.drizzle.js';
 import { listUsersDb } from './list-users.drizzle.js';
+import { syncUserUnidadesDb } from './sync-user-unidades.drizzle.js';
 import {
   blockUserDb,
   blockUsersByFuncionarioIdDb,
@@ -69,5 +70,9 @@ export class UserService implements IUserRepository {
 
   listAccessibleUnidades(userId: number) {
     return listUserAccessibleUnidadesDb(this.db, userId);
+  }
+
+  syncUserUnidades(userId: number, unidadeIds: string[]) {
+    return syncUserUnidadesDb(this.db, userId, unidadeIds);
   }
 }

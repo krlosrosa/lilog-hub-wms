@@ -210,6 +210,7 @@ export function useUsuariosCadastro() {
           email: data.email.trim(),
           role: mapPerfilToRole(data.perfil),
           funcionarioId,
+          unidadesIds: data.unidades.map((unidade) => unidade.id),
           ...(data.senha?.trim() ? { password: data.senha.trim() } : {}),
         });
         toast.success('Usuário atualizado!');
@@ -222,6 +223,7 @@ export function useUsuariosCadastro() {
           role: mapPerfilToRole(data.perfil),
           status: 'pendente',
           funcionarioId,
+          unidadesIds: data.unidades.map((unidade) => unidade.id),
         });
         toast.success('Perfil de usuário salvo!', {
           description: `Use o ID ${data.loginId} para fazer login`,

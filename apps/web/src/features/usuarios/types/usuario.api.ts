@@ -31,6 +31,7 @@ export type CreateUserPayload = {
   role: UserRoleApi;
   status?: UserStatusApi;
   funcionarioId: number;
+  unidadesIds?: string[];
 };
 
 export type UpdateUserPayload = {
@@ -40,4 +41,5 @@ export type UpdateUserPayload = {
   role?: UserRoleApi;
   status?: UserStatusApi;
   funcionarioId?: number | null;
+  unidadesIds?: string[];
 };

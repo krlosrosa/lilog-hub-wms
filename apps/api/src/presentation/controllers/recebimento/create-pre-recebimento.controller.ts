@@ -47,8 +47,10 @@ const CreatePreRecebimentoBodySchema = z.object({
   numeroOcr: z.string().max(100).optional(),
   numeroTransporte: z.string().max(100).optional(),
   origemDados: z.enum(['manual', 'xlsx', 'xml', 'ocr']).default('manual'),
+  origem: z.string().max(50).default('3201').optional(),
   horarioPrevisto: z.iso.datetime(),
   observacao: z.string().optional(),
+  quantidadePaletesEsperada: z.number().int().nonnegative().optional(),
   itens: z.array(CreatePreRecebimentoItemBodySchema).min(1),
   notasFiscais: z.array(CreateNotaFiscalPreRecebimentoBodySchema).optional(),
 });

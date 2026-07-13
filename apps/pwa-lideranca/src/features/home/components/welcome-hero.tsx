@@ -70,7 +70,7 @@ function WelcomeHero() {
             {greeting}, {user?.name?.split(' ')[0] ?? 'Líder'}
           </h1>
           <p className="mt-1 text-body-sm text-on-primary-container/80">
-            Painel de gestão operacional
+            Sala de comando do turno
           </p>
         </div>
         <span
@@ -93,7 +93,7 @@ function WelcomeHero() {
       <div className="relative z-10 mt-4 flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2.5">
         <Crown className="h-4 w-4 shrink-0 text-on-secondary-container" aria-hidden />
         <p className="text-body-sm text-on-primary-container/85">
-          Perfil de liderança · {user?.role === 'admin' ? 'Administrador' : 'Gerente'}
+          Sala de comando · {turno}
         </p>
       </div>
     </section>

@@ -55,6 +55,7 @@ export const FILTROS_STATUS_RECEBIMENTO: readonly RecebimentoStatus[] = [
   'aguardando',
   'liberado_para_conferencia',
   'em_conferencia',
+  'impedido',
   'conferido',
   'finalizado',
 ] as const;

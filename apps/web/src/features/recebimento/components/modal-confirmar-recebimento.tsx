@@ -12,6 +12,7 @@ import {
 } from '@lilog/ui';
 import { AlertTriangle, DoorOpen, Loader2 } from 'lucide-react';
 
+import { useDisplayConfig } from '@/features/config-operacional/hooks/use-display-config';
 import { MOCK_DOCAS } from '@/features/recebimento/mocks/recebimentos-mock-data';
 import type { RecebimentoDetalhe } from '@/features/recebimento/types/recebimento-detalhe.schema';
 
@@ -64,8 +65,11 @@ function calcularTotalItens(recebimento: RecebimentoDetalhe): number {
   return recebimento.conferencia.reduce((acc, item) => acc + item.qtdFisica, 0);
 }
 
-function formatarUnidades(total: number): string {
-  return `${new Intl.NumberFormat('pt-BR').format(total)} unidades`;
+function formatarTotalConferido(
+  total: number,
+  formatQtd: (qtd: number | null, upc?: number | null) => string,
+): string {
+  return formatQtd(total);
 }
 
 export function ModalConfirmarRecebimento({
@@ -76,6 +80,7 @@ export function ModalConfirmarRecebimento({
   isSubmitting = false,
 }: ModalConfirmarRecebimentoProps) {
   const [liberarPortaria, setLiberarPortaria] = useState(false);
+  const { formatQtd } = useDisplayConfig();
 
   useEffect(() => {
     if (!open) {
@@ -88,7 +93,7 @@ export function ModalConfirmarRecebimento({
     const { numDivergencias, inspecao } = recebimento;
 
     return {
-      totalItens: formatarUnidades(totalItens),
+      totalItens: formatarTotalConferido(totalItens, formatQtd),
       divergencias:
         numDivergencias === 0
           ? '0 (Validadas)'
@@ -96,14 +101,30 @@ export function ModalConfirmarRecebimento({
       divergenciasOk: numDivergencias === 0,
       avarias: `${inspecao.anomalias} (Registrada${inspecao.anomalias !== 1 ? 's' : ''})`,
       temperatura:
-        inspecao.tempProduto != null
-          ? `OK (${inspecao.tempProduto.toFixed(1)}°C)`
-          : inspecao.checklistPreenchido
-            ? 'Sem leitura de produto'
-            : 'Checklist pendente',
+        inspecao.tempProdutoInicio != null ||
+        inspecao.tempProdutoMeio != null ||
+        inspecao.tempProdutoFim != null
+          ? [
+              inspecao.tempProdutoInicio != null
+                ? `Ini ${inspecao.tempProdutoInicio.toFixed(1)}°C`
+                : null,
+              inspecao.tempProdutoMeio != null
+                ? `Meio ${inspecao.tempProdutoMeio.toFixed(1)}°C`
+                : null,
+              inspecao.tempProdutoFim != null
+                ? `Fim ${inspecao.tempProdutoFim.toFixed(1)}°C`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : inspecao.tempProduto != null
+            ? `OK (${inspecao.tempProduto.toFixed(1)}°C)`
+            : inspecao.checklistPreenchido
+              ? 'Sem leitura de produto'
+              : 'Checklist pendente',
       doca: resolverDocaLabel(recebimento.placa),
     };
-  }, [recebimento]);
+  }, [formatQtd, recebimento]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {

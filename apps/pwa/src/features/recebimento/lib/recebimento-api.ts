@@ -19,6 +19,9 @@ import type {
   ChecklistRecebimentoApi,
   DocumentoApi,
   SaveChecklistPayload,
+  TemperaturaProdutoItemApi,
+  TemperaturasProdutoApi,
+  UpsertTemperaturaProdutoPayload,
 } from '../types/recebimento.api';
 
 export async function fetchOperadorDemandas(
@@ -59,7 +62,7 @@ export async function searchProduto(term: string): Promise<ProdutoApi | null> {
       item.sku.toLowerCase() === normalized ||
       item.ean?.toLowerCase() === normalized,
   );
-  return exact ?? items[0] ?? null;
+  return exact ?? null;
 }
 
 export async function fetchAllProdutos(): Promise<ProdutoApi[]> {
@@ -195,6 +198,28 @@ export async function fetchChecklist(
 ): Promise<ChecklistRecebimentoApi> {
   return request<ChecklistRecebimentoApi>(
     `/recebimentos/${encodeURIComponent(recebimentoId)}/checklist`,
+  );
+}
+
+export async function fetchTemperaturasProduto(
+  recebimentoId: string,
+): Promise<TemperaturasProdutoApi> {
+  return request<TemperaturasProdutoApi>(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/temperaturas-produto`,
+  );
+}
+
+export async function upsertTemperaturaProduto(
+  recebimentoId: string,
+  payload: UpsertTemperaturaProdutoPayload,
+) {
+  return request<TemperaturaProdutoItemApi>(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/temperaturas-produto`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
   );
 }
 

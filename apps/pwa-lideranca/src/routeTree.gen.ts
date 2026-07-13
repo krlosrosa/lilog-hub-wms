@@ -10,22 +10,25 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as AcessoNegadoRouteImport } from './routes/acesso-negado'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SessaoPresencaIndexRouteImport } from './routes/sessao-presenca/index'
+import { Route as RecebimentoIndexRouteImport } from './routes/recebimento/index'
 import { Route as IndicadoresIndexRouteImport } from './routes/indicadores/index'
+import { Route as ExpedicaoIndexRouteImport } from './routes/expedicao/index'
 import { Route as SessaoPresencaNovaRouteImport } from './routes/sessao-presenca/nova'
 import { Route as SessaoPresencaSessaoIdRouteImport } from './routes/sessao-presenca/$sessaoId'
+import { Route as RecebimentoGestaoRecursosIndexRouteImport } from './routes/recebimento/gestao-recursos/index'
 import { Route as OpWmsGestaoRecursosIndexRouteImport } from './routes/op-wms/gestao-recursos/index'
+import { Route as ExpedicaoTorreIndexRouteImport } from './routes/expedicao/torre/index'
+import { Route as ExpedicaoGestaoRecursosIndexRouteImport } from './routes/expedicao/gestao-recursos/index'
+import { Route as DevolucaoGestaoRecursosIndexRouteImport } from './routes/devolucao/gestao-recursos/index'
+import { Route as ExpedicaoGestaoRecursosSeparacaoRouteImport } from './routes/expedicao/gestao-recursos/separacao'
+import { Route as ExpedicaoGestaoRecursosConferenciaRouteImport } from './routes/expedicao/gestao-recursos/conferencia'
+import { Route as ExpedicaoGestaoRecursosCarregamentoRouteImport } from './routes/expedicao/gestao-recursos/carregamento'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AcessoNegadoRoute = AcessoNegadoRouteImport.update({
-  id: '/acesso-negado',
-  path: '/acesso-negado',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -38,9 +41,19 @@ const SessaoPresencaIndexRoute = SessaoPresencaIndexRouteImport.update({
   path: '/sessao-presenca/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecebimentoIndexRoute = RecebimentoIndexRouteImport.update({
+  id: '/recebimento/',
+  path: '/recebimento/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndicadoresIndexRoute = IndicadoresIndexRouteImport.update({
   id: '/indicadores/',
   path: '/indicadores/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpedicaoIndexRoute = ExpedicaoIndexRouteImport.update({
+  id: '/expedicao/',
+  path: '/expedicao/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SessaoPresencaNovaRoute = SessaoPresencaNovaRouteImport.update({
@@ -53,86 +66,183 @@ const SessaoPresencaSessaoIdRoute = SessaoPresencaSessaoIdRouteImport.update({
   path: '/sessao-presenca/$sessaoId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecebimentoGestaoRecursosIndexRoute =
+  RecebimentoGestaoRecursosIndexRouteImport.update({
+    id: '/recebimento/gestao-recursos/',
+    path: '/recebimento/gestao-recursos/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const OpWmsGestaoRecursosIndexRoute =
   OpWmsGestaoRecursosIndexRouteImport.update({
     id: '/op-wms/gestao-recursos/',
     path: '/op-wms/gestao-recursos/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ExpedicaoTorreIndexRoute = ExpedicaoTorreIndexRouteImport.update({
+  id: '/expedicao/torre/',
+  path: '/expedicao/torre/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpedicaoGestaoRecursosIndexRoute =
+  ExpedicaoGestaoRecursosIndexRouteImport.update({
+    id: '/expedicao/gestao-recursos/',
+    path: '/expedicao/gestao-recursos/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DevolucaoGestaoRecursosIndexRoute =
+  DevolucaoGestaoRecursosIndexRouteImport.update({
+    id: '/devolucao/gestao-recursos/',
+    path: '/devolucao/gestao-recursos/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ExpedicaoGestaoRecursosSeparacaoRoute =
+  ExpedicaoGestaoRecursosSeparacaoRouteImport.update({
+    id: '/expedicao/gestao-recursos/separacao',
+    path: '/expedicao/gestao-recursos/separacao',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ExpedicaoGestaoRecursosConferenciaRoute =
+  ExpedicaoGestaoRecursosConferenciaRouteImport.update({
+    id: '/expedicao/gestao-recursos/conferencia',
+    path: '/expedicao/gestao-recursos/conferencia',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ExpedicaoGestaoRecursosCarregamentoRoute =
+  ExpedicaoGestaoRecursosCarregamentoRouteImport.update({
+    id: '/expedicao/gestao-recursos/carregamento',
+    path: '/expedicao/gestao-recursos/carregamento',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/acesso-negado': typeof AcessoNegadoRoute
   '/login': typeof LoginRoute
   '/sessao-presenca/$sessaoId': typeof SessaoPresencaSessaoIdRoute
   '/sessao-presenca/nova': typeof SessaoPresencaNovaRoute
+  '/expedicao/': typeof ExpedicaoIndexRoute
   '/indicadores/': typeof IndicadoresIndexRoute
+  '/recebimento/': typeof RecebimentoIndexRoute
   '/sessao-presenca/': typeof SessaoPresencaIndexRoute
+  '/expedicao/gestao-recursos/carregamento': typeof ExpedicaoGestaoRecursosCarregamentoRoute
+  '/expedicao/gestao-recursos/conferencia': typeof ExpedicaoGestaoRecursosConferenciaRoute
+  '/expedicao/gestao-recursos/separacao': typeof ExpedicaoGestaoRecursosSeparacaoRoute
+  '/devolucao/gestao-recursos/': typeof DevolucaoGestaoRecursosIndexRoute
+  '/expedicao/gestao-recursos/': typeof ExpedicaoGestaoRecursosIndexRoute
+  '/expedicao/torre/': typeof ExpedicaoTorreIndexRoute
   '/op-wms/gestao-recursos/': typeof OpWmsGestaoRecursosIndexRoute
+  '/recebimento/gestao-recursos/': typeof RecebimentoGestaoRecursosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/acesso-negado': typeof AcessoNegadoRoute
   '/login': typeof LoginRoute
   '/sessao-presenca/$sessaoId': typeof SessaoPresencaSessaoIdRoute
   '/sessao-presenca/nova': typeof SessaoPresencaNovaRoute
+  '/expedicao': typeof ExpedicaoIndexRoute
   '/indicadores': typeof IndicadoresIndexRoute
+  '/recebimento': typeof RecebimentoIndexRoute
   '/sessao-presenca': typeof SessaoPresencaIndexRoute
+  '/expedicao/gestao-recursos/carregamento': typeof ExpedicaoGestaoRecursosCarregamentoRoute
+  '/expedicao/gestao-recursos/conferencia': typeof ExpedicaoGestaoRecursosConferenciaRoute
+  '/expedicao/gestao-recursos/separacao': typeof ExpedicaoGestaoRecursosSeparacaoRoute
+  '/devolucao/gestao-recursos': typeof DevolucaoGestaoRecursosIndexRoute
+  '/expedicao/gestao-recursos': typeof ExpedicaoGestaoRecursosIndexRoute
+  '/expedicao/torre': typeof ExpedicaoTorreIndexRoute
   '/op-wms/gestao-recursos': typeof OpWmsGestaoRecursosIndexRoute
+  '/recebimento/gestao-recursos': typeof RecebimentoGestaoRecursosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/acesso-negado': typeof AcessoNegadoRoute
   '/login': typeof LoginRoute
   '/sessao-presenca/$sessaoId': typeof SessaoPresencaSessaoIdRoute
   '/sessao-presenca/nova': typeof SessaoPresencaNovaRoute
+  '/expedicao/': typeof ExpedicaoIndexRoute
   '/indicadores/': typeof IndicadoresIndexRoute
+  '/recebimento/': typeof RecebimentoIndexRoute
   '/sessao-presenca/': typeof SessaoPresencaIndexRoute
+  '/expedicao/gestao-recursos/carregamento': typeof ExpedicaoGestaoRecursosCarregamentoRoute
+  '/expedicao/gestao-recursos/conferencia': typeof ExpedicaoGestaoRecursosConferenciaRoute
+  '/expedicao/gestao-recursos/separacao': typeof ExpedicaoGestaoRecursosSeparacaoRoute
+  '/devolucao/gestao-recursos/': typeof DevolucaoGestaoRecursosIndexRoute
+  '/expedicao/gestao-recursos/': typeof ExpedicaoGestaoRecursosIndexRoute
+  '/expedicao/torre/': typeof ExpedicaoTorreIndexRoute
   '/op-wms/gestao-recursos/': typeof OpWmsGestaoRecursosIndexRoute
+  '/recebimento/gestao-recursos/': typeof RecebimentoGestaoRecursosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/acesso-negado'
     | '/login'
     | '/sessao-presenca/$sessaoId'
     | '/sessao-presenca/nova'
+    | '/expedicao/'
     | '/indicadores/'
+    | '/recebimento/'
     | '/sessao-presenca/'
+    | '/expedicao/gestao-recursos/carregamento'
+    | '/expedicao/gestao-recursos/conferencia'
+    | '/expedicao/gestao-recursos/separacao'
+    | '/devolucao/gestao-recursos/'
+    | '/expedicao/gestao-recursos/'
+    | '/expedicao/torre/'
     | '/op-wms/gestao-recursos/'
+    | '/recebimento/gestao-recursos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/acesso-negado'
     | '/login'
     | '/sessao-presenca/$sessaoId'
     | '/sessao-presenca/nova'
+    | '/expedicao'
     | '/indicadores'
+    | '/recebimento'
     | '/sessao-presenca'
+    | '/expedicao/gestao-recursos/carregamento'
+    | '/expedicao/gestao-recursos/conferencia'
+    | '/expedicao/gestao-recursos/separacao'
+    | '/devolucao/gestao-recursos'
+    | '/expedicao/gestao-recursos'
+    | '/expedicao/torre'
     | '/op-wms/gestao-recursos'
+    | '/recebimento/gestao-recursos'
   id:
     | '__root__'
     | '/'
-    | '/acesso-negado'
     | '/login'
     | '/sessao-presenca/$sessaoId'
     | '/sessao-presenca/nova'
+    | '/expedicao/'
     | '/indicadores/'
+    | '/recebimento/'
     | '/sessao-presenca/'
+    | '/expedicao/gestao-recursos/carregamento'
+    | '/expedicao/gestao-recursos/conferencia'
+    | '/expedicao/gestao-recursos/separacao'
+    | '/devolucao/gestao-recursos/'
+    | '/expedicao/gestao-recursos/'
+    | '/expedicao/torre/'
     | '/op-wms/gestao-recursos/'
+    | '/recebimento/gestao-recursos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AcessoNegadoRoute: typeof AcessoNegadoRoute
   LoginRoute: typeof LoginRoute
   SessaoPresencaSessaoIdRoute: typeof SessaoPresencaSessaoIdRoute
   SessaoPresencaNovaRoute: typeof SessaoPresencaNovaRoute
+  ExpedicaoIndexRoute: typeof ExpedicaoIndexRoute
   IndicadoresIndexRoute: typeof IndicadoresIndexRoute
+  RecebimentoIndexRoute: typeof RecebimentoIndexRoute
   SessaoPresencaIndexRoute: typeof SessaoPresencaIndexRoute
+  ExpedicaoGestaoRecursosCarregamentoRoute: typeof ExpedicaoGestaoRecursosCarregamentoRoute
+  ExpedicaoGestaoRecursosConferenciaRoute: typeof ExpedicaoGestaoRecursosConferenciaRoute
+  ExpedicaoGestaoRecursosSeparacaoRoute: typeof ExpedicaoGestaoRecursosSeparacaoRoute
+  DevolucaoGestaoRecursosIndexRoute: typeof DevolucaoGestaoRecursosIndexRoute
+  ExpedicaoGestaoRecursosIndexRoute: typeof ExpedicaoGestaoRecursosIndexRoute
+  ExpedicaoTorreIndexRoute: typeof ExpedicaoTorreIndexRoute
   OpWmsGestaoRecursosIndexRoute: typeof OpWmsGestaoRecursosIndexRoute
+  RecebimentoGestaoRecursosIndexRoute: typeof RecebimentoGestaoRecursosIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -142,13 +252,6 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/acesso-negado': {
-      id: '/acesso-negado'
-      path: '/acesso-negado'
-      fullPath: '/acesso-negado'
-      preLoaderRoute: typeof AcessoNegadoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -165,11 +268,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessaoPresencaIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/recebimento/': {
+      id: '/recebimento/'
+      path: '/recebimento'
+      fullPath: '/recebimento/'
+      preLoaderRoute: typeof RecebimentoIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/indicadores/': {
       id: '/indicadores/'
       path: '/indicadores'
       fullPath: '/indicadores/'
       preLoaderRoute: typeof IndicadoresIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expedicao/': {
+      id: '/expedicao/'
+      path: '/expedicao'
+      fullPath: '/expedicao/'
+      preLoaderRoute: typeof ExpedicaoIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sessao-presenca/nova': {
@@ -186,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessaoPresencaSessaoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/recebimento/gestao-recursos/': {
+      id: '/recebimento/gestao-recursos/'
+      path: '/recebimento/gestao-recursos'
+      fullPath: '/recebimento/gestao-recursos/'
+      preLoaderRoute: typeof RecebimentoGestaoRecursosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/op-wms/gestao-recursos/': {
       id: '/op-wms/gestao-recursos/'
       path: '/op-wms/gestao-recursos'
@@ -193,18 +317,70 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OpWmsGestaoRecursosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/expedicao/torre/': {
+      id: '/expedicao/torre/'
+      path: '/expedicao/torre'
+      fullPath: '/expedicao/torre/'
+      preLoaderRoute: typeof ExpedicaoTorreIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expedicao/gestao-recursos/': {
+      id: '/expedicao/gestao-recursos/'
+      path: '/expedicao/gestao-recursos'
+      fullPath: '/expedicao/gestao-recursos/'
+      preLoaderRoute: typeof ExpedicaoGestaoRecursosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/devolucao/gestao-recursos/': {
+      id: '/devolucao/gestao-recursos/'
+      path: '/devolucao/gestao-recursos'
+      fullPath: '/devolucao/gestao-recursos/'
+      preLoaderRoute: typeof DevolucaoGestaoRecursosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expedicao/gestao-recursos/separacao': {
+      id: '/expedicao/gestao-recursos/separacao'
+      path: '/expedicao/gestao-recursos/separacao'
+      fullPath: '/expedicao/gestao-recursos/separacao'
+      preLoaderRoute: typeof ExpedicaoGestaoRecursosSeparacaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expedicao/gestao-recursos/conferencia': {
+      id: '/expedicao/gestao-recursos/conferencia'
+      path: '/expedicao/gestao-recursos/conferencia'
+      fullPath: '/expedicao/gestao-recursos/conferencia'
+      preLoaderRoute: typeof ExpedicaoGestaoRecursosConferenciaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expedicao/gestao-recursos/carregamento': {
+      id: '/expedicao/gestao-recursos/carregamento'
+      path: '/expedicao/gestao-recursos/carregamento'
+      fullPath: '/expedicao/gestao-recursos/carregamento'
+      preLoaderRoute: typeof ExpedicaoGestaoRecursosCarregamentoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AcessoNegadoRoute: AcessoNegadoRoute,
   LoginRoute: LoginRoute,
   SessaoPresencaSessaoIdRoute: SessaoPresencaSessaoIdRoute,
   SessaoPresencaNovaRoute: SessaoPresencaNovaRoute,
+  ExpedicaoIndexRoute: ExpedicaoIndexRoute,
   IndicadoresIndexRoute: IndicadoresIndexRoute,
+  RecebimentoIndexRoute: RecebimentoIndexRoute,
   SessaoPresencaIndexRoute: SessaoPresencaIndexRoute,
+  ExpedicaoGestaoRecursosCarregamentoRoute:
+    ExpedicaoGestaoRecursosCarregamentoRoute,
+  ExpedicaoGestaoRecursosConferenciaRoute:
+    ExpedicaoGestaoRecursosConferenciaRoute,
+  ExpedicaoGestaoRecursosSeparacaoRoute: ExpedicaoGestaoRecursosSeparacaoRoute,
+  DevolucaoGestaoRecursosIndexRoute: DevolucaoGestaoRecursosIndexRoute,
+  ExpedicaoGestaoRecursosIndexRoute: ExpedicaoGestaoRecursosIndexRoute,
+  ExpedicaoTorreIndexRoute: ExpedicaoTorreIndexRoute,
   OpWmsGestaoRecursosIndexRoute: OpWmsGestaoRecursosIndexRoute,
+  RecebimentoGestaoRecursosIndexRoute: RecebimentoGestaoRecursosIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

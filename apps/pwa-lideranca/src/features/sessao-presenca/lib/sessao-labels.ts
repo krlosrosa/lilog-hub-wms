@@ -47,6 +47,20 @@ export function formatDataReferencia(value: string): string {
   return `${day}/${month}/${year}`;
 }
 
+export function formatIntervaloDataReferencia(
+  inicio: string,
+  fim: string,
+): string {
+  const inicioFormatado = formatDataReferencia(inicio);
+  const fimFormatado = formatDataReferencia(fim);
+
+  if (inicio === fim) {
+    return inicioFormatado;
+  }
+
+  return `${inicioFormatado} – ${fimFormatado}`;
+}
+
 export function formatDateTime(value: string | null): string {
   if (!value) return '—';
   return new Date(value).toLocaleString('pt-BR', {

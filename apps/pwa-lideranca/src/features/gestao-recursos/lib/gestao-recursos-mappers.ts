@@ -3,6 +3,7 @@ import {
   getReferenciaOciosidadeIso,
   isOperatorLate,
 } from '@/features/gestao-recursos/lib/demanda-previsao';
+import { withApoioFields } from '@/features/gestao-recursos/lib/apoio-fields';
 import {
   computeDevolucaoTimeline,
   getReferenciaOciosidadeDevolucaoIso,
@@ -30,7 +31,7 @@ import type {
 
 const IDLE_THRESHOLD_BASE = 30;
 
-function enrichProximaPausa(
+export function enrichProximaPausa(
   proxima: ProximaPausaApi | null | undefined,
   now: Date,
 ): ProximaPausaApi | null {
@@ -91,7 +92,7 @@ function mapProximaPausaToOperatorFields(proxima: ProximaPausaApi | null) {
   };
 }
 
-function withProximaPausa<T extends Operator>(
+export function withProximaPausa<T extends Operator>(
   operator: T,
   proxima: ProximaPausaApi | null,
 ): T {
@@ -162,7 +163,7 @@ function buildOperatorFromDemandas(
   };
 }
 
-function buildPauseFields(
+export function buildPauseFields(
   pausaInicio: string,
   pausaTipo: SessaoPausaTipoApi,
   now: Date,
@@ -281,14 +282,17 @@ export function mapApiRecursosToOperators(
           d.status === 'concluida',
       );
 
-      return buildOperadorEmPausa(
-        operatorId,
-        funcionario.nome,
-        sector,
-        funcionario.pausaAtiva.inicio,
-        funcionario.pausaAtiva.tipo,
-        demandasOperador,
-        now,
+      return withApoioFields(
+        buildOperadorEmPausa(
+          operatorId,
+          funcionario.nome,
+          sector,
+          funcionario.pausaAtiva.inicio,
+          funcionario.pausaAtiva.tipo,
+          demandasOperador,
+          now,
+        ),
+        funcionario,
       );
     }
 
@@ -305,28 +309,34 @@ export function mapApiRecursosToOperators(
     );
 
     if (demandasAtivas.length > 0) {
-      return withProximaPausa(
-        buildOperatorFromDemandas(
+      return withApoioFields(
+        withProximaPausa(
+          buildOperatorFromDemandas(
+            operatorId,
+            funcionario.nome,
+            sector,
+            demandasOperador,
+            now,
+          ),
+          proxima,
+        ),
+        funcionario,
+      );
+    }
+
+    return withApoioFields(
+      withProximaPausa(
+        buildOperadorOcioso(
           operatorId,
           funcionario.nome,
           sector,
+          funcionario.checkIn,
           demandasOperador,
           now,
         ),
         proxima,
-      );
-    }
-
-    return withProximaPausa(
-      buildOperadorOcioso(
-        operatorId,
-        funcionario.nome,
-        sector,
-        funcionario.checkIn,
-        demandasOperador,
-        now,
       ),
-      proxima,
+      funcionario,
     );
   });
 
@@ -514,40 +524,49 @@ export function mapRecursosDevolucaoToOperators(
     const alocacoes = alocacoesPorSessaoFuncionario.get(funcionario.id) ?? [];
 
     if (funcionario.pausaAtiva) {
-      return buildOperadorEmPausaDevolucao(
-        operatorId,
-        funcionario.nome,
-        sector,
-        funcionario.pausaAtiva.inicio,
-        funcionario.pausaAtiva.tipo,
-        alocacoes,
-        now,
+      return withApoioFields(
+        buildOperadorEmPausaDevolucao(
+          operatorId,
+          funcionario.nome,
+          sector,
+          funcionario.pausaAtiva.inicio,
+          funcionario.pausaAtiva.tipo,
+          alocacoes,
+          now,
+        ),
+        funcionario,
       );
     }
 
     if (alocacoes.length > 0) {
-      return withProximaPausa(
-        buildOperatorFromDevolucaoAlocacoes(
+      return withApoioFields(
+        withProximaPausa(
+          buildOperatorFromDevolucaoAlocacoes(
+            operatorId,
+            funcionario.nome,
+            sector,
+            alocacoes,
+            now,
+          ),
+          proxima,
+        ),
+        funcionario,
+      );
+    }
+
+    return withApoioFields(
+      withProximaPausa(
+        buildOperadorOciosoDevolucao(
           operatorId,
           funcionario.nome,
           sector,
+          funcionario.checkIn,
           alocacoes,
           now,
         ),
         proxima,
-      );
-    }
-
-    return withProximaPausa(
-      buildOperadorOciosoDevolucao(
-        operatorId,
-        funcionario.nome,
-        sector,
-        funcionario.checkIn,
-        alocacoes,
-        now,
       ),
-      proxima,
+      funcionario,
     );
   });
 

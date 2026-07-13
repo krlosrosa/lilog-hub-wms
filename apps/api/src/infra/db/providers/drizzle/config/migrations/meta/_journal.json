@@ -673,6 +673,104 @@
       "when": 1785710400000,
       "tag": "0112_vw_pre_recebimento_detalhe",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1785796800000,
+      "tag": "0113_cnc_opcoes_impressao",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1785883200000,
+      "tag": "0114_cnc_itens_shelf_life",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1785969600000,
+      "tag": "0115_recebimento_temperaturas_produto",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1786056000000,
+      "tag": "0116_sync_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1786142400000,
+      "tag": "0117_sync_operations_sequence_bigint",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1752278400000,
+      "tag": "0118_recebimento_alocacoes",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1752364800000,
+      "tag": "0119_pre_recebimento_origem",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1752451200000,
+      "tag": "0120_pre_recebimento_impedido",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1752537600000,
+      "tag": "0121_usuario_unidades",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1752624000000,
+      "tag": "0122_cnc_observacao",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1752710400000,
+      "tag": "0123_recebimento_quantidade_paletes",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1752796800000,
+      "tag": "0124_pre_recebimento_termo_palete",
+      "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1752883200000,
+      "tag": "0125_sessao_funcionario_apoio",
+      "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1752969600000,
+      "tag": "0126_vw_pre_recebimento_detalhe_termo_palete",
+      "breakpoints": true
     }
   ]
 }

@@ -8,7 +8,9 @@ import {
   Ban,
   ClipboardList,
   FileDown,
+  Building2,
   LayoutGrid,
+  Layers,
   Loader2,
   MapPin,
   MoreVertical,
@@ -19,6 +21,7 @@ import {
   TrendingUp,
   Unlock,
   Upload,
+  Warehouse,
 } from 'lucide-react';
 
 import {
@@ -151,6 +154,12 @@ export function EnderecosGestaoView() {
                   )}
                 />
               </div>
+              <Button asChild size="sm" variant="outline" className="gap-1.5">
+                <Link href="/enderecos/cadastro-lote">
+                  <Layers className="size-3.5" aria-hidden />
+                  Cadastro em Lote
+                </Link>
+              </Button>
               <Button asChild size="sm" className="gap-1.5">
                 <Link href="/enderecos/novo">
                   <Plus className="size-3.5" aria-hidden />
@@ -179,6 +188,18 @@ export function EnderecosGestaoView() {
                 <Link href="/enderecos/impressao-etiqueta">
                   <Printer className="size-3.5" aria-hidden />
                   Etiquetas
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild className="gap-1.5">
+                <Link href="/enderecos/galpoes">
+                  <Warehouse className="size-3.5" aria-hidden />
+                  Galpões
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild className="gap-1.5">
+                <Link href="/enderecos/mapa-cd">
+                  <Building2 className="size-3.5" aria-hidden />
+                  Mapa CD
                 </Link>
               </Button>
               <Button variant="outline" size="sm" asChild className="gap-1.5">

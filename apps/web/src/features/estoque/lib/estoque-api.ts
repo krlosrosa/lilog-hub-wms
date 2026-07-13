@@ -323,6 +323,12 @@ export function listSaldosEndereco(params: ListSaldosEnderecoParams) {
     searchParams.set('enderecoId', params.enderecoId);
   }
 
+  if (params.enderecoIds?.length) {
+    for (const enderecoId of params.enderecoIds) {
+      searchParams.append('enderecoIds', enderecoId);
+    }
+  }
+
   if (params.produtoId) {
     searchParams.set('produtoId', params.produtoId);
   }

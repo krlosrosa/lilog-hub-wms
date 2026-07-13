@@ -29,7 +29,9 @@ import {
 import { SidebarMain } from '@/components/layout/sidebar';
 
 import { ConferenciaTable } from '@/features/recebimento/components/conferencia-table';
+import { ConferenteCard } from '@/features/recebimento/components/conferente-card';
 import { FotosEvidencias } from '@/features/recebimento/components/fotos-evidencia';
+import { ImpedimentoCard } from '@/features/recebimento/components/impedimento-card';
 import { InspecaoCard } from '@/features/recebimento/components/inspecao-card';
 import { ModalConfirmarRecebimento } from '@/features/recebimento/components/modal-confirmar-recebimento';
 import { ModalImportarOfflinePwa } from '@/features/recebimento/components/modal-importar-offline-pwa';
@@ -57,6 +59,7 @@ export function RecebimentoDetalheView({
     openLiberarConferencia,
     closeLiberarConferencia,
     confirmarLiberarConferencia,
+    confirmarRetomarConferencia,
     isRecepcionarOpen,
     openRecepcionar,
     closeRecepcionar,
@@ -121,6 +124,7 @@ export function RecebimentoDetalheView({
   const r = recebimento;
   const podeRecepcionar = r.status === 'agendado';
   const podeLiberar = r.status === 'aguardando';
+  const podeRetomar = r.status === 'impedido';
   const podeFinalizar = r.status === 'conferido';
   const podeReimprimirEtiquetas =
     r.status === 'finalizado' &&
@@ -131,6 +135,7 @@ export function RecebimentoDetalheView({
   const podeReabrir = canReabrirRecebimento(r.status);
   const podeExcluir = r.status !== 'finalizado' && r.status !== 'cancelado';
   const podeGerarLinkRastreio = r.status !== 'cancelado';
+  const temConferencia = Boolean(r.recebimentoId);
 
   return (
     <SidebarMain className="flex min-h-dvh flex-col">
@@ -234,6 +239,24 @@ export function RecebimentoDetalheView({
                   <span className="sm:hidden">Liberar</span>
                 </Button>
               ) : null}
+              {podeRetomar ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 border-orange-500/30 px-2.5 text-xs text-orange-700 hover:bg-orange-500/10 dark:text-orange-300"
+                  disabled={isSubmitting}
+                  onClick={() => void confirmarRetomarConferencia()}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <RotateCcw className="size-3.5" aria-hidden />
+                  )}
+                  <span className="hidden sm:inline">Retomar conferência</span>
+                  <span className="sm:hidden">Retomar</span>
+                </Button>
+              ) : null}
               {podeReabrir ? (
                 <Button
                   type="button"
@@ -321,9 +344,23 @@ export function RecebimentoDetalheView({
                 documentacaoOk={r.documentacaoOk}
                 transportadora={r.transportador}
                 placa={r.placa}
+                quantidadePaletesEsperada={r.quantidadePaletesEsperada ?? null}
+                numeroTermoPalete={r.numeroTermoPalete ?? null}
               />
             </div>
-            <div className="lg:col-span-8">
+            {temConferencia ? (
+              <div className="lg:col-span-4">
+                <ConferenteCard
+                  conferenteMatricula={r.conferenteMatricula ?? null}
+                  conferenteNome={r.conferenteNome ?? null}
+                  iniciadaEm={r.conferenciaIniciadaEm ?? null}
+                  finalizadaEm={r.conferenciaFinalizadaEm ?? null}
+                  quantidadePaletesEsperada={r.quantidadePaletesEsperada ?? null}
+                  quantidadePaletes={r.quantidadePaletes ?? null}
+                />
+              </div>
+            ) : null}
+            <div className={temConferencia ? 'lg:col-span-4' : 'lg:col-span-8'}>
               <InspecaoCard inspecao={r.inspecao} />
             </div>
           </section>
@@ -340,6 +377,10 @@ export function RecebimentoDetalheView({
           />
 
           <FotosEvidencias fotos={r.fotos} totalInformado={r.fotoTotalInformado} />
+
+          {r.impedimento ? (
+            <ImpedimentoCard impedimento={r.impedimento} />
+          ) : null}
         </div>
       </main>
 

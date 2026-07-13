@@ -66,7 +66,6 @@ const DEFAULT_VALUES: ChecklistForm = {
   dock: '',
   lacre: '',
   tempBau: undefined,
-  tempProd: undefined,
   conditions: {},
   observacoes: '',
 };

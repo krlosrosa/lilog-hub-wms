@@ -32,6 +32,10 @@ function mapSituacaoToStatus(situacao: string): DemandStatus {
     return 'em_conferencia';
   }
 
+  if (situacao === 'impedido') {
+    return 'impedido';
+  }
+
   if (situacao === 'conferido') {
     return 'conferido';
   }
@@ -54,6 +58,10 @@ function mapSituacaoToStatusLabel(situacao: string): string {
 
   if (situacao === 'em_conferencia') {
     return 'Em conferência';
+  }
+
+  if (situacao === 'impedido') {
+    return 'Impedido';
   }
 
   if (situacao === 'conferido') {
@@ -105,5 +113,9 @@ export function mapOperadorDemandaToDemand(item: OperadorDemandaApi): Demand {
     recebimentoId: item.recebimentoId ?? undefined,
     unidadeId: item.unidadeId,
     preRecebimentoSituacao: item.situacao,
+    placa: item.placa,
+    conferenteId: item.conferenteId ?? undefined,
+    conferente: item.conferente ?? undefined,
+    conferenteMatricula: item.conferenteMatricula ?? undefined,
   };
 }

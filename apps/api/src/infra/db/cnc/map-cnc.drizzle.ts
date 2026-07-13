@@ -10,6 +10,7 @@ import type {
   CreateCncTratativaInput,
   EncerrarCncInput,
   IniciarAnaliseCncInput,
+  UpdateCncItemInput,
 } from '../../../domain/repositories/cnc/cnc.repository.js';
 import type {
   cncEventos,
@@ -49,8 +50,7 @@ export function mapCncRow(row: CncRow): CncRecord {
     responsavel: row.responsavel,
     responsavelId: row.responsavelId,
     descricao: row.descricao,
-    acaoImediata: row.acaoImediata,
-    acaoCorretiva: row.acaoCorretiva,
+    observacao: row.observacao,
     situacao: row.situacao,
     solicitanteId: row.solicitanteId,
     analistaId: row.analistaId,
@@ -58,6 +58,7 @@ export function mapCncRow(row: CncRow): CncRecord {
     encerradoEm: row.encerradoEm,
     encerradoPorUserId: row.encerradoPorUserId,
     valorDebito: toNumber(row.valorDebito),
+    opcoesImpressao: row.opcoesImpressao ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -88,6 +89,7 @@ export function mapCncItemRow(row: CncItemRow): CncItemRecord {
     naturezaAvaria: row.naturezaAvaria,
     causaAvaria: row.causaAvaria,
     tipoAvaria: row.tipoAvaria,
+    shelfLifeDias: row.shelfLifeDias,
     descricaoDetalhe: row.descricaoDetalhe,
     responsavelSugerido: row.responsavelSugerido,
     createdAt: row.createdAt,
@@ -182,9 +184,47 @@ export function toCncItemInsertValues(
     naturezaAvaria: item.naturezaAvaria ?? null,
     causaAvaria: item.causaAvaria ?? null,
     tipoAvaria: item.tipoAvaria ?? null,
+    shelfLifeDias: item.shelfLifeDias ?? null,
     descricaoDetalhe: item.descricaoDetalhe ?? null,
     responsavelSugerido: item.responsavelSugerido as CncItemRow['responsavelSugerido'],
   };
+}
+
+export function toCncItemUpdateValues(data: UpdateCncItemInput) {
+  const values: Partial<typeof cncItens.$inferInsert> = {};
+
+  if (data.quantidadeEsperada !== undefined) {
+    values.quantidadeEsperada =
+      data.quantidadeEsperada !== null
+        ? String(data.quantidadeEsperada)
+        : null;
+  }
+
+  if (data.quantidadeRecebida !== undefined) {
+    values.quantidadeRecebida =
+      data.quantidadeRecebida !== null
+        ? String(data.quantidadeRecebida)
+        : null;
+  }
+
+  if (data.quantidadeDivergente !== undefined) {
+    values.quantidadeDivergente =
+      data.quantidadeDivergente !== null
+        ? String(data.quantidadeDivergente)
+        : null;
+  }
+
+  if (data.pesoEsperado !== undefined) {
+    values.pesoEsperado =
+      data.pesoEsperado !== null ? String(data.pesoEsperado) : null;
+  }
+
+  if (data.pesoRecebido !== undefined) {
+    values.pesoRecebido =
+      data.pesoRecebido !== null ? String(data.pesoRecebido) : null;
+  }
+
+  return values;
 }
 
 export function toIniciarAnaliseUpdateValues(data: IniciarAnaliseCncInput) {
@@ -217,12 +257,8 @@ export function toEncerrarCncUpdateValues(data: EncerrarCncInput) {
       data.valorDebito !== null ? String(data.valorDebito) : null;
   }
 
-  if (data.acaoImediata !== undefined) {
-    values.acaoImediata = data.acaoImediata;
-  }
-
-  if (data.acaoCorretiva !== undefined) {
-    values.acaoCorretiva = data.acaoCorretiva;
+  if (data.observacao !== undefined) {
+    values.observacao = data.observacao;
   }
 
   return values;

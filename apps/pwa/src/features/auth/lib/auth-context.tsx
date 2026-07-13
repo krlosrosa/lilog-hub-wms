@@ -24,6 +24,11 @@ import { ApiClientError } from '@/lib/offline/api-client';
 
 import { router } from '@/router';
 
+import {
+  clearRecebimentoV2UserSessionCache,
+  refreshRecebimentoV2UserSession,
+} from '@/features/recebimento-v2/services/refresh-user-session.service';
+
 
 
 import { getMeApi, loginApi, logoutApi } from '../api';
@@ -334,6 +339,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async (input: LoginInput) => {
 
+      const previousUserId = user?.id ?? readCachedUser()?.id ?? null;
+
       sessionGenerationRef.current += 1;
 
 
@@ -370,11 +377,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
 
-      applyUser(normalizeAuthUser(me));
+      const normalized = normalizeAuthUser(me);
+
+      if (previousUserId !== normalized.id) {
+
+        await refreshRecebimentoV2UserSession(normalized);
+
+      }
+
+      applyUser(normalized);
 
     },
 
-    [applyUser],
+    [applyUser, user],
 
   );
 
@@ -395,6 +410,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear local session even if API logout fails (offline / expired cookie).
 
     } finally {
+
+      await clearRecebimentoV2UserSessionCache();
 
       clearSession(setUser);
 

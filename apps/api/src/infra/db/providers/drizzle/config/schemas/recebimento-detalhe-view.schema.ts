@@ -83,10 +83,13 @@ export const vwPreRecebimentoDetalhe = recebimentoPgSchema
     numeroOcr: varchar('numero_ocr', { length: 100 }),
     numeroTransporte: varchar('numero_transporte', { length: 100 }),
     origemDados: varchar('origem_dados', { length: 30 }).notNull(),
+    origem: varchar('origem', { length: 50 }),
     horarioPrevisto: timestamp('horario_previsto', {
       withTimezone: true,
     }).notNull(),
     observacao: text('observacao'),
+    quantidadePaletesEsperada: integer('quantidade_paletes_esperada'),
+    numeroTermoPalete: varchar('numero_termo_palete', { length: 100 }),
     preRecebimentoSituacao: preRecebimentoSituacaoEnum(
       'pre_recebimento_situacao',
     ).notNull(),
@@ -108,6 +111,7 @@ export const vwPreRecebimentoDetalhe = recebimentoPgSchema
     dataFim: timestamp('data_fim', { withTimezone: true }),
     responsavelId: integer('responsavel_id'),
     recebimentoDocaId: uuid('recebimento_doca_id'),
+    quantidadePaletes: integer('quantidade_paletes'),
     recebimentoCreatedAt: timestamp('recebimento_created_at', {
       withTimezone: true,
     }),

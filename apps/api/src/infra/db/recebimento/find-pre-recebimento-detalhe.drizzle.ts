@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 
 import type { PreRecebimentoDetalheRecord } from '../../../domain/repositories/recebimento/pre-recebimento.repository.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
+import { funcionarios } from '../providers/drizzle/config/schemas/auth.schema.js';
 import {
   vwPreRecebimentoDetalhe,
   type VwPreRecebimentoDetalheRow,
@@ -73,9 +74,12 @@ function mapRecebimento(
     preRecebimentoId: row.preRecebimentoId,
     docaId: row.recebimentoDocaId,
     responsavelId: row.responsavelId,
+    conferenteNome: null,
+    conferenteMatricula: null,
     dataInicio: toIso(row.recebimentoDataInicio)!,
     dataFim: toIso(row.dataFim),
     situacao: row.recebimentoSituacao ?? 'em_conferencia',
+    quantidadePaletes: row.quantidadePaletes ?? null,
     modoUnitizacao:
       row.modoUnitizacao ?? 'gerar_etiqueta_na_armazenagem',
     createdAt: toIso(row.recebimentoCreatedAt) ?? toIso(row.recebimentoDataInicio)!,
@@ -100,8 +104,11 @@ export function mapPreRecebimentoDetalheRow(
       numeroOcr: row.numeroOcr,
       numeroTransporte: row.numeroTransporte,
       origemDados: row.origemDados,
+      origem: row.origem,
       horarioPrevisto: toIso(row.horarioPrevisto)!,
       observacao: row.observacao,
+      quantidadePaletesEsperada: row.quantidadePaletesEsperada ?? null,
+      numeroTermoPalete: row.numeroTermoPalete ?? null,
       situacao: row.preRecebimentoSituacao,
       dataChegada: toIso(row.dataChegada),
       docaId: row.preRecebimentoDocaId,
@@ -134,5 +141,18 @@ export async function findPreRecebimentoDetalheDb(
     return null;
   }
 
-  return mapPreRecebimentoDetalheRow(row);
+  const detalhe = mapPreRecebimentoDetalheRow(row);
+
+  if (detalhe.recebimento?.responsavelId) {
+    const [funcionario] = await db
+      .select({ nome: funcionarios.nome, matricula: funcionarios.matricula })
+      .from(funcionarios)
+      .where(eq(funcionarios.id, detalhe.recebimento.responsavelId))
+      .limit(1);
+
+    detalhe.recebimento.conferenteNome = funcionario?.nome ?? null;
+    detalhe.recebimento.conferenteMatricula = funcionario?.matricula ?? null;
+  }
+
+  return detalhe;
 }

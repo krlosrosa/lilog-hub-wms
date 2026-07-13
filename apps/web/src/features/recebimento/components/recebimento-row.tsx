@@ -56,6 +56,7 @@ type RecebimentoRowProps = {
   detailHref?: string;
   onSelecionar?: (r: RecebimentoListaItem) => void;
   selecionado?: boolean;
+  selecionavel?: boolean;
   onEditar?: (r: RecebimentoListaItem) => void;
   onVisualizar?: (r: RecebimentoListaItem) => void;
   onExcluir?: (r: RecebimentoListaItem) => void;
@@ -66,13 +67,19 @@ export function RecebimentoRow({
   detailHref,
   onSelecionar,
   selecionado,
+  selecionavel = false,
   onEditar,
   onVisualizar,
   onExcluir,
 }: RecebimentoRowProps) {
   const { horario, isAtrasado, status } = recebimento;
   const ehFinalizado = status === 'finalizado' || status === 'cancelado';
-  const linhaDestaque = status === 'em_conferencia' ? 'bg-primary-container/30' : '';
+  const linhaDestaque =
+    status === 'em_conferencia'
+      ? 'bg-primary-container/30'
+      : status === 'impedido'
+        ? 'bg-orange-500/10'
+        : '';
   const baixaOpacidade = ehFinalizado ? 'opacity-70' : '';
 
   const textoHorarioClasses = cn(
@@ -81,6 +88,7 @@ export function RecebimentoRow({
       isAtrasado &&
       'text-destructive',
     status === 'em_conferencia' && 'text-primary',
+    status === 'impedido' && 'text-orange-600 dark:text-orange-400',
     !(
       (status === 'agendado' || status === 'liberado_para_conferencia') &&
       isAtrasado
@@ -94,7 +102,11 @@ export function RecebimentoRow({
     <tr
       tabIndex={0}
       role="row"
-      onClick={() => onSelecionar?.(recebimento)}
+      onClick={() => {
+        if (selecionavel) {
+          onSelecionar?.(recebimento);
+        }
+      }}
       className={cn(
         compactTableRowClassName,
         linhaDestaque,
@@ -102,19 +114,34 @@ export function RecebimentoRow({
         selecionado && !linhaDestaque && 'bg-primary-container/25',
       )}
     >
+      <td className={cn(compactTableCellClassName, 'w-8')}>
+        {selecionavel ? (
+          <input
+            type="checkbox"
+            checked={selecionado}
+            aria-label={`Selecionar recebimento ${recebimento.placa}`}
+            onChange={() => onSelecionar?.(recebimento)}
+            onClick={(event: React.MouseEvent<HTMLInputElement>) => {
+              event.stopPropagation();
+            }}
+            className="size-3.5 rounded border-outline-variant text-primary focus:ring-primary"
+          />
+        ) : null}
+      </td>
+
       <td className={compactTableCellClassName}>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <div
-            className="flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-highest text-muted-foreground"
+            className="flex size-6 shrink-0 items-center justify-center rounded-md bg-surface-highest text-muted-foreground"
             aria-hidden
           >
-            <Truck className="size-3.5" />
+            <Truck className="size-3" />
           </div>
           <div className="min-w-0">
             {detailHref ? (
               <Link
                 href={detailHref}
-                className="block text-[11px] font-semibold text-foreground underline-offset-2 hover:text-primary hover:underline"
+                className="block truncate font-mono text-[11px] font-semibold uppercase tracking-wide text-foreground underline-offset-2 hover:text-primary hover:underline"
                 onClick={(e) => {
                   e.stopPropagation();
                 }}
@@ -122,7 +149,7 @@ export function RecebimentoRow({
                 {recebimento.placa}
               </Link>
             ) : (
-              <p className="text-[11px] font-semibold text-foreground">
+              <p className="truncate font-mono text-[11px] font-semibold uppercase tracking-wide text-foreground">
                 {recebimento.placa}
               </p>
             )}
@@ -130,7 +157,7 @@ export function RecebimentoRow({
         </div>
       </td>
 
-      <td className={cn(compactTableCellClassName, 'font-mono text-[10px] text-foreground')}>
+      <td className={cn(compactTableCellClassName, 'hidden max-w-[120px] truncate font-mono text-[10px] text-muted-foreground sm:table-cell')}>
         {recebimento.transportador}
       </td>
 
@@ -170,7 +197,7 @@ export function RecebimentoRow({
       </td>
 
       <td className={cn(compactTableCellClassName, 'text-right')}>
-        <div className="flex justify-end gap-0.5">
+        <div className="flex justify-end gap-px">
           {!ehFinalizado ? (
             <>
               {detailHref ? (
@@ -178,7 +205,7 @@ export function RecebimentoRow({
                   variant="ghost"
                   size="icon"
                   aria-label={`Abrir recebimento ${recebimento.placa}`}
-                  className="size-7 rounded-md text-muted-foreground hover:bg-surface-highest hover:text-primary"
+                  className="size-6 rounded-md text-muted-foreground hover:bg-surface-highest hover:text-primary"
                   asChild
                 >
                   <Link
@@ -187,7 +214,7 @@ export function RecebimentoRow({
                       e.stopPropagation();
                     }}
                   >
-                    <Pencil className="size-3.5" />
+                    <Pencil className="size-3" />
                   </Link>
                 </Button>
               ) : (
@@ -196,13 +223,13 @@ export function RecebimentoRow({
                   variant="ghost"
                   size="icon"
                   aria-label={`Editar recebimento ${recebimento.placa}`}
-                  className="size-7 rounded-md text-muted-foreground hover:bg-surface-highest hover:text-primary"
+                  className="size-6 rounded-md text-muted-foreground hover:bg-surface-highest hover:text-primary"
                   onClick={(e) => {
                     e.stopPropagation();
                     onEditar?.(recebimento);
                   }}
                 >
-                  <Pencil className="size-3.5" />
+                  <Pencil className="size-3" />
                 </Button>
               )}
               <Button
@@ -210,13 +237,13 @@ export function RecebimentoRow({
                 variant="ghost"
                 size="icon"
                 aria-label={`Excluir recebimento ${recebimento.placa}`}
-                className="size-7 rounded-md text-muted-foreground hover:bg-surface-highest hover:text-destructive"
+                className="size-6 rounded-md text-muted-foreground hover:bg-surface-highest hover:text-destructive"
                 onClick={(e) => {
                   e.stopPropagation();
                   onExcluir?.(recebimento);
                 }}
               >
-                <Trash2 className="size-3.5" aria-hidden />
+                <Trash2 className="size-3" aria-hidden />
               </Button>
             </>
           ) : detailHref ? (
@@ -224,7 +251,7 @@ export function RecebimentoRow({
               variant="ghost"
               size="icon"
               aria-label={`Ver detalhes ${recebimento.placa}`}
-              className="size-7 rounded-md text-muted-foreground hover:bg-surface-highest hover:text-primary"
+              className="size-6 rounded-md text-muted-foreground hover:bg-surface-highest hover:text-primary"
               asChild
             >
               <Link
@@ -233,7 +260,7 @@ export function RecebimentoRow({
                   e.stopPropagation();
                 }}
               >
-                <Eye className="size-3.5" />
+                <Eye className="size-3" />
               </Link>
             </Button>
           ) : (
@@ -242,13 +269,13 @@ export function RecebimentoRow({
               variant="ghost"
               size="icon"
               aria-label={`Ver recebimento ${recebimento.placa}`}
-              className="size-7 rounded-md text-muted-foreground hover:bg-surface-highest hover:text-primary"
+              className="size-6 rounded-md text-muted-foreground hover:bg-surface-highest hover:text-primary"
               onClick={(e) => {
                 e.stopPropagation();
                 onVisualizar?.(recebimento);
               }}
             >
-              <Eye className="size-3.5" />
+              <Eye className="size-3" />
             </Button>
           )}
         </div>

@@ -9,6 +9,7 @@ import {
   type DrizzleClient,
 } from '../providers/drizzle/drizzle.provider.js';
 import { createRecebimentoAvariasDb } from './create-recebimento-avarias.drizzle.js';
+import { deleteRecebimentoAvariaDb } from './delete-recebimento-avaria.drizzle.js';
 import { deleteRecebimentoAvariasDb } from './delete-recebimento-avarias.drizzle.js';
 import { listRecebimentoAvariasDb } from './list-recebimento-avarias.drizzle.js';
 
@@ -28,5 +29,9 @@ export class RecebimentoAvariaService implements IRecebimentoAvariaRepository {
 
   deleteByRecebimento(recebimentoId: string) {
     return deleteRecebimentoAvariasDb(this.db, recebimentoId);
+  }
+
+  deleteById(recebimentoId: string, avariaId: string) {
+    return deleteRecebimentoAvariaDb(this.db, recebimentoId, avariaId);
   }
 }

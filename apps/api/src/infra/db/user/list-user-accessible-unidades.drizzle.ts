@@ -5,9 +5,47 @@ import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import {
   funcionarios,
   unidades,
+  usuarioUnidades,
 } from '../providers/drizzle/config/migrations/schema.js';
 
 import { findUserByIdDb } from './find-user.drizzle.js';
+
+async function resolveUnidadeIdsForUser(
+  db: DrizzleClient,
+  userId: number,
+  user: NonNullable<Awaited<ReturnType<typeof findUserByIdDb>>>,
+): Promise<string[]> {
+  const explicitRows = await db
+    .select({ unidadeId: usuarioUnidades.unidadeId })
+    .from(usuarioUnidades)
+    .where(eq(usuarioUnidades.userId, userId));
+
+  if (explicitRows.length > 0) {
+    return [...new Set(explicitRows.map((row) => row.unidadeId))];
+  }
+
+  const unidadeIds = new Set<string>();
+
+  if (user.unidadeId) {
+    unidadeIds.add(user.unidadeId);
+  }
+
+  const funcionarioRows = await db
+    .select({ unidadeId: funcionarios.unidadeId })
+    .from(funcionarios)
+    .where(
+      and(
+        eq(funcionarios.situacao, 'ativo'),
+        sql`lower(${funcionarios.email}) = ${user.email.toLowerCase()}`,
+      ),
+    );
+
+  for (const row of funcionarioRows) {
+    unidadeIds.add(row.unidadeId);
+  }
+
+  return [...unidadeIds];
+}
 
 export async function listUserAccessibleUnidadesDb(
   db: DrizzleClient,
@@ -33,27 +71,9 @@ export async function listUserAccessibleUnidadesDb(
     return rows;
   }
 
-  const unidadeIds = new Set<string>();
+  const unidadeIds = await resolveUnidadeIdsForUser(db, userId, user);
 
-  if (user.unidadeId) {
-    unidadeIds.add(user.unidadeId);
-  }
-
-  const funcionarioRows = await db
-    .select({ unidadeId: funcionarios.unidadeId })
-    .from(funcionarios)
-    .where(
-      and(
-        eq(funcionarios.situacao, 'ativo'),
-        sql`lower(${funcionarios.email}) = ${user.email.toLowerCase()}`,
-      ),
-    );
-
-  for (const row of funcionarioRows) {
-    unidadeIds.add(row.unidadeId);
-  }
-
-  if (unidadeIds.size === 0) {
+  if (unidadeIds.length === 0) {
     return [];
   }
 
@@ -65,7 +85,7 @@ export async function listUserAccessibleUnidadesDb(
       cluster: unidades.cluster,
     })
     .from(unidades)
-    .where(inArray(unidades.id, [...unidadeIds]))
+    .where(inArray(unidades.id, unidadeIds))
     .orderBy(unidades.nome);
 
   return rows;

@@ -13,6 +13,7 @@ import {
   compactTableHeadRowClassName,
   compactTableRowClassName,
 } from '@/components/ui/compact-table-classes';
+import { useDisplayConfig } from '@/features/config-operacional/hooks/use-display-config';
 import type { RecebimentoXlsxDemanda } from '@/features/recebimento/lib/parse-recebimento-xlsx';
 import { itemProdutoSemCadastro } from '@/features/recebimento/lib/validar-produtos-importacao';
 import type { ItemPreRecebimentoFormValues } from '@/features/recebimento/types/recebimento-cadastro.schema';
@@ -59,6 +60,7 @@ export function ImportacaoPreviewTable({
   produtosSemCadastro = [],
   onEditarDemanda,
 }: ImportacaoPreviewTableProps) {
+  const { formatQtdValue } = useDisplayConfig();
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
   const produtosSemCadastroSet = useMemo(
     () => new Set(produtosSemCadastro),
@@ -275,9 +277,14 @@ export function ImportacaoPreviewTable({
                                     ) : null}
                                   </td>
                                   <td className="px-2 py-1.5 text-right tabular-nums">
-                                    {formatoInt.format(item.quantidadeEsperada)}
+                                    {formatQtdValue(
+                                      item.quantidadeEsperada,
+                                      item.unidadeMedida,
+                                    )}
                                   </td>
-                                  <td className="px-2 py-1.5">{item.unidadeMedida}</td>
+                                  <td className="px-2 py-1.5 text-muted-foreground">
+                                    {item.unidadeMedida}
+                                  </td>
                                   <td className="hidden px-2 py-1.5 sm:table-cell">
                                     {item.loteEsperado?.trim() || '—'}
                                   </td>

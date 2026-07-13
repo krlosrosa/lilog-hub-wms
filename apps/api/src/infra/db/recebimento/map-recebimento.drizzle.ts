@@ -60,8 +60,11 @@ export function mapPreRecebimentoRow(row: PreRecebimentoRow): PreRecebimentoReco
     numeroOcr: row.numeroOcr,
     numeroTransporte: row.numeroTransporte,
     origemDados: row.origemDados as PreRecebimentoRecord['origemDados'],
+    origem: row.origem,
     horarioPrevisto: row.horarioPrevisto,
     observacao: row.observacao,
+    quantidadePaletesEsperada: row.quantidadePaletesEsperada,
+    numeroTermoPalete: row.numeroTermoPalete ?? null,
     situacao: row.situacao,
     dataChegada: row.dataChegada,
     docaId: row.docaId,
@@ -118,6 +121,7 @@ export function mapRecebimentoRow(row: RecebimentoRow): RecebimentoRecord {
     dataInicio: row.dataInicio,
     dataFim: row.dataFim,
     situacao: row.situacao,
+    quantidadePaletes: row.quantidadePaletes,
     modoUnitizacao: row.modoUnitizacao,
     userId: row.userId,
     createdAt: row.createdAt,
@@ -184,8 +188,10 @@ export function toPreRecebimentoInsertValues(
     numeroOcr: data.numeroOcr?.trim() || null,
     numeroTransporte: data.numeroTransporte?.trim() || null,
     origemDados: data.origemDados ?? 'manual',
+    origem: data.origem?.trim() || '3201',
     horarioPrevisto: data.horarioPrevisto,
     observacao: data.observacao ?? null,
+    quantidadePaletesEsperada: data.quantidadePaletesEsperada ?? null,
     situacao: 'agendado' as PreRecebimentoRow['situacao'],
     userId,
   };
@@ -252,12 +258,20 @@ export function toPreRecebimentoUpdateValues(data: UpdatePreRecebimentoInput) {
     values.origemDados = data.origemDados;
   }
 
+  if (data.origem !== undefined) {
+    values.origem = data.origem?.trim() || null;
+  }
+
   if (data.horarioPrevisto !== undefined) {
     values.horarioPrevisto = data.horarioPrevisto;
   }
 
   if (data.observacao !== undefined) {
     values.observacao = data.observacao;
+  }
+
+  if (data.quantidadePaletesEsperada !== undefined) {
+    values.quantidadePaletesEsperada = data.quantidadePaletesEsperada;
   }
 
   return values;

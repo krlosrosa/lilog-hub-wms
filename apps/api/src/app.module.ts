@@ -65,6 +65,8 @@ import { ArmazemLayoutModule } from './infra/modules/armazem-layout.module.js';
 
 import { PortalModule } from './infra/modules/portal.module.js';
 
+import { SyncModule } from './infra/modules/sync.module.js';
+
 import { DrizzleModule } from './infra/db/providers/drizzle/drizzle.module.js';
 
 import { EmailModule } from './infra/modules/email.module.js';
@@ -147,6 +149,8 @@ import { EmailModule } from './infra/modules/email.module.js';
     ArmazemLayoutModule,
 
     PortalModule,
+
+    SyncModule,
 
   ],
 

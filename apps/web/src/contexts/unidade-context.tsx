@@ -11,7 +11,10 @@ import {
 } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
+import { useAuthContext } from '@/contexts/auth-context';
+import { listMyUnidades } from '@/features/filiais/lib/unidade-api';
 import type { ClusterValue } from '@/features/filiais/types/filial.schema';
+import { ApiClientError } from '@/lib/api';
 import { setActiveUnidadeId } from '@/lib/api';
 
 const STORAGE_KEY = 'lilog:unidade';
@@ -32,10 +35,14 @@ export type UnidadeSelecionada = {
 };
 
 type UnidadeContextValue = {
+  unidades: UnidadeSelecionada[];
   unidadeSelecionada: UnidadeSelecionada | null;
   isResolved: boolean;
+  isLoading: boolean;
+  error: string | null;
   setUnidade: (unidade: UnidadeSelecionada) => void;
   clearUnidade: () => void;
+  refreshUnidades: () => Promise<void>;
 };
 
 const UnidadeContext = createContext<UnidadeContextValue | null>(null);
@@ -89,31 +96,116 @@ function persistUnidade(unidade: UnidadeSelecionada | null) {
   setActiveUnidadeId(null);
 }
 
+function resolveInitialUnidade(
+  unidades: UnidadeSelecionada[],
+): UnidadeSelecionada | null {
+  if (unidades.length === 0) {
+    return null;
+  }
+
+  const stored = readStoredUnidade();
+  if (stored && unidades.some((item) => item.id === stored.id)) {
+    return unidades.find((item) => item.id === stored.id) ?? stored;
+  }
+
+  return unidades[0] ?? null;
+}
+
 export function UnidadeProvider({ children }: { children: ReactNode }) {
-  const [unidadeSelecionada, setUnidadeSelecionada] =
+  const { user, isLoading: isAuthLoading } = useAuthContext();
+  const [unidades, setUnidades] = useState<UnidadeSelecionada[]>([]);
+  const [unidadeSelecionada, setUnidadeSelecionadaState] =
     useState<UnidadeSelecionada | null>(null);
   const [isResolved, setIsResolved] = useState(false);
-
-  useEffect(() => {
-    const stored = readStoredUnidade();
-    setUnidadeSelecionada(stored);
-    setActiveUnidadeId(stored?.id ?? null);
-    setIsResolved(true);
-  }, []);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const setUnidade = useCallback((unidade: UnidadeSelecionada) => {
     persistUnidade(unidade);
-    setUnidadeSelecionada(unidade);
+    setUnidadeSelecionadaState(unidade);
   }, []);
 
   const clearUnidade = useCallback(() => {
     persistUnidade(null);
-    setUnidadeSelecionada(null);
+    setUnidadeSelecionadaState(null);
   }, []);
 
+  const refreshUnidades = useCallback(async () => {
+    if (!user) {
+      setUnidades([]);
+      setUnidadeSelecionadaState(null);
+      persistUnidade(null);
+      setError(null);
+      setIsLoading(false);
+      setIsResolved(true);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await listMyUnidades();
+      const items = (response.items ?? []).map((unidade) => ({
+        id: unidade.id,
+        nome: unidade.nome,
+        nomeFilial: unidade.nomeFilial,
+        cluster: unidade.cluster,
+      }));
+
+      setUnidades(items);
+
+      const resolved = resolveInitialUnidade(items);
+      setUnidadeSelecionadaState(resolved);
+      persistUnidade(resolved);
+    } catch (err) {
+      const message =
+        err instanceof ApiClientError
+          ? err.message
+          : 'Não foi possível carregar suas unidades';
+
+      setError(message);
+      setUnidades([]);
+
+      const fallback = readStoredUnidade();
+      setUnidadeSelecionadaState(fallback);
+      persistUnidade(fallback);
+    } finally {
+      setIsLoading(false);
+      setIsResolved(true);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (isAuthLoading) {
+      return;
+    }
+
+    void refreshUnidades();
+  }, [isAuthLoading, refreshUnidades, user?.id]);
+
   const value = useMemo(
-    () => ({ unidadeSelecionada, isResolved, setUnidade, clearUnidade }),
-    [unidadeSelecionada, isResolved, setUnidade, clearUnidade],
+    () => ({
+      unidades,
+      unidadeSelecionada,
+      isResolved: isAuthLoading ? false : isResolved,
+      isLoading: isAuthLoading || isLoading,
+      error,
+      setUnidade,
+      clearUnidade,
+      refreshUnidades,
+    }),
+    [
+      unidades,
+      unidadeSelecionada,
+      isAuthLoading,
+      isResolved,
+      isLoading,
+      error,
+      setUnidade,
+      clearUnidade,
+      refreshUnidades,
+    ],
   );
 
   return (
@@ -124,25 +216,39 @@ export function UnidadeProvider({ children }: { children: ReactNode }) {
 }
 
 export function UnidadeGuard({ children }: { children: ReactNode }) {
-  const { unidadeSelecionada, isResolved } = useUnidadeContext();
+  const {
+    unidades,
+    unidadeSelecionada,
+    isResolved,
+    isLoading,
+    error,
+  } = useUnidadeContext();
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isResolved) {
+    if (!isResolved || isLoading) {
       return;
     }
 
     if (
+      unidades.length > 1 &&
       !unidadeSelecionada &&
       pathname !== SELECIONAR_UNIDADE_PATH &&
       !isUnidadeOptionalPath(pathname)
     ) {
       router.replace(SELECIONAR_UNIDADE_PATH);
     }
-  }, [isResolved, unidadeSelecionada, pathname, router]);
+  }, [
+    isResolved,
+    isLoading,
+    unidades.length,
+    unidadeSelecionada,
+    pathname,
+    router,
+  ]);
 
-  if (!isResolved) {
+  if (!isResolved || isLoading) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
         <span className="text-sm text-muted-foreground">Carregando unidade...</span>
@@ -150,7 +256,24 @@ export function UnidadeGuard({ children }: { children: ReactNode }) {
     );
   }
 
+  if (unidades.length === 0 && !isUnidadeOptionalPath(pathname)) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background p-6">
+        <div className="max-w-md rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
+          <p className="text-sm font-medium text-destructive">
+            Sem acesso a unidades
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {error ??
+              'Seu usuário não possui unidades atribuídas. Contate o administrador.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (
+    unidades.length > 1 &&
     !unidadeSelecionada &&
     pathname !== SELECIONAR_UNIDADE_PATH &&
     !isUnidadeOptionalPath(pathname)

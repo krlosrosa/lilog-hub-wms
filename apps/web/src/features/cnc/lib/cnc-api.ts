@@ -8,6 +8,7 @@ import type {
   CncTratativa,
   CncTratativaTipo,
 } from '@/features/cnc/types/cnc.schema';
+import type { CncImpressaoOpcoes } from '@/features/cnc/types/cnc-impressao.schema';
 
 export type CncApiResponse = {
   id: string;
@@ -18,8 +19,7 @@ export type CncApiResponse = {
   responsavel: CncResponsavel;
   responsavelId: string | null;
   descricao: string | null;
-  acaoImediata: string | null;
-  acaoCorretiva: string | null;
+  observacao: string | null;
   situacao: CncSituacao;
   solicitanteId: number;
   analistaId: number | null;
@@ -27,6 +27,7 @@ export type CncApiResponse = {
   encerradoEm: string | null;
   encerradoPorUserId: number | null;
   valorDebito: number | null;
+  opcoesImpressao?: CncImpressaoOpcoes | null;
   itens?: CncDetalhe['itens'];
   tratativas?: CncTratativa[];
   eventos?: CncDetalhe['eventos'];
@@ -47,6 +48,55 @@ export type ListarCncsFilters = {
   situacao?: CncSituacao;
   origemId?: string;
 };
+
+export type ListarCncItensFilters = {
+  page?: number;
+  limit?: number;
+  dataInicio: string;
+  dataFim: string;
+  situacao?: CncSituacao;
+  tipo?: CncDetalhe['itens'][number]['tipo'];
+};
+
+export type ListarCncItensResponse = {
+  items: Array<
+    CncDetalhe['itens'][number] & {
+      cncNumero: string;
+      cncSituacao: CncSituacao;
+    }
+  >;
+  total: number;
+  page: number;
+  limit: number;
+};
+
+export function listarCncItens(
+  unidadeId: string,
+  filters: ListarCncItensFilters,
+) {
+  const params = new URLSearchParams({ unidadeId });
+
+  if (filters.page) {
+    params.set('page', String(filters.page));
+  }
+
+  if (filters.limit) {
+    params.set('limit', String(filters.limit));
+  }
+
+  params.set('dataInicio', filters.dataInicio);
+  params.set('dataFim', filters.dataFim);
+
+  if (filters.situacao) {
+    params.set('situacao', filters.situacao);
+  }
+
+  if (filters.tipo) {
+    params.set('tipo', filters.tipo);
+  }
+
+  return apiRequest<ListarCncItensResponse>(`/cncs/itens?${params.toString()}`);
+}
 
 export function listarCncs(unidadeId: string, filters?: ListarCncsFilters) {
   const params = new URLSearchParams({ unidadeId });
@@ -84,8 +134,7 @@ export type EncerrarCncBody = {
   responsavel?: CncResponsavel;
   responsavelId?: string | null;
   valorDebito?: number | null;
-  acaoImediata?: string | null;
-  acaoCorretiva?: string | null;
+  observacao?: string | null;
 };
 
 export function encerrarCnc(cncId: string, body: EncerrarCncBody) {
@@ -137,6 +186,61 @@ export function concluirTratativa(cncId: string, tratativaId: string) {
   );
 }
 
+export type UpdateObservacaoCncBody = {
+  observacao: string | null;
+};
+
+export function atualizarObservacaoCnc(
+  cncId: string,
+  body: UpdateObservacaoCncBody,
+) {
+  return apiRequest<CncApiResponse>(`/cncs/${cncId}/observacao`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export function atualizarOpcoesImpressaoCnc(
+  cncId: string,
+  body: CncImpressaoOpcoes,
+) {
+  return apiRequest<CncApiResponse>(`/cncs/${cncId}/opcoes-impressao`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export type UpdateCncItemBody = {
+  quantidadeEsperada?: number | null;
+  quantidadeRecebida?: number | null;
+  quantidadeDivergente?: number | null;
+  pesoEsperado?: number | null;
+  pesoRecebido?: number | null;
+};
+
+export function atualizarItemCnc(
+  cncId: string,
+  itemId: string,
+  body: UpdateCncItemBody,
+) {
+  return apiRequest<CncDetalhe['itens'][number]>(
+    `/cncs/${cncId}/itens/${itemId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function removerItemCnc(cncId: string, itemId: string) {
+  return apiRequest<CncDetalhe['itens'][number]>(
+    `/cncs/${cncId}/itens/${itemId}`,
+    {
+      method: 'DELETE',
+    },
+  );
+}
+
 export function mapCncApiToListItem(cnc: CncApiResponse): CncListItem {
   return {
     id: cnc.id,
@@ -157,13 +261,13 @@ export function mapCncApiToListItem(cnc: CncApiResponse): CncListItem {
 export function mapCncApiToDetalhe(cnc: CncApiResponse): CncDetalhe {
   return {
     ...mapCncApiToListItem(cnc),
-    acaoImediata: cnc.acaoImediata,
-    acaoCorretiva: cnc.acaoCorretiva,
+    observacao: cnc.observacao,
     solicitanteId: cnc.solicitanteId,
     analistaId: cnc.analistaId,
     iniciadoEm: cnc.iniciadoEm,
     encerradoEm: cnc.encerradoEm,
     encerradoPorUserId: cnc.encerradoPorUserId,
+    opcoesImpressao: cnc.opcoesImpressao ?? null,
     itens: cnc.itens ?? [],
     tratativas: cnc.tratativas ?? [],
     eventos: cnc.eventos ?? [],

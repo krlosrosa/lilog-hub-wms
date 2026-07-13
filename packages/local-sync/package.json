@@ -1,0 +1,30 @@
+{
+  "name": "@lilog/local-sync",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "type-check": "tsc --noEmit -p tsconfig.build.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lilog/contracts": "workspace:*"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@lilog/typescript-config": "workspace:*",
+    "typescript": "~5.8.3",
+    "vitest": "^3.2.6",
+    "zod": "^4.4.3"
+  }
+}

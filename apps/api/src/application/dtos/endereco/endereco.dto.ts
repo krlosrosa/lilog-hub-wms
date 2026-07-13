@@ -112,3 +112,41 @@ export const ImportEnderecosResponseSchema = z.object({
 export class ImportEnderecosResponseDto extends createZodDto(
   ImportEnderecosResponseSchema,
 ) {}
+
+export const MapaCdNivelSchema = z.object({
+  id: z.uuid(),
+  nivel: z.string(),
+  tipo: EnderecoTipoSchema,
+  status: EnderecoStatusSchema,
+  ocupacaoPercent: z.number(),
+  cargaMaxKg: z.string(),
+  enderecoMascarado: z.string(),
+});
+
+export const MapaCdPosicaoSchema = z.object({
+  posicao: z.string(),
+  niveis: z.array(MapaCdNivelSchema),
+});
+
+export const MapaCdRuaSchema = z.object({
+  rua: z.string(),
+  posicoes: z.array(MapaCdPosicaoSchema),
+});
+
+export const MapaCdZonaSchema = z.object({
+  zona: z.string(),
+  ruas: z.array(MapaCdRuaSchema),
+});
+
+export const GetMapaCdResponseSchema = z.object({
+  zonas: z.array(MapaCdZonaSchema),
+  kpi: z.object({
+    total: z.number().int(),
+    disponiveis: z.number().int(),
+    ocupados: z.number().int(),
+    bloqueados: z.number().int(),
+    ocupacaoMediaPercent: z.number(),
+  }),
+});
+
+export class GetMapaCdResponseDto extends createZodDto(GetMapaCdResponseSchema) {}

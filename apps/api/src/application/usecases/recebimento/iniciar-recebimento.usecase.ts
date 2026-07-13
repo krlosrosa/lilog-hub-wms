@@ -26,6 +26,10 @@ import {
   type IDocaRepository,
 } from '../../../domain/repositories/doca/doca.repository.js';
 import {
+  RECEBIMENTO_ALOCACAO_REPOSITORY,
+  type IRecebimentoAlocacaoRepository,
+} from '../../../domain/repositories/recebimento/recebimento-alocacao.repository.js';
+import {
   FUNCIONARIO_REPOSITORY,
   type IFuncionarioRepository,
 } from '../../../domain/repositories/funcionario/funcionario.repository.js';
@@ -63,6 +67,8 @@ export class IniciarRecebimentoUseCase {
     private readonly unidadeRepository: IUnidadeRepository,
     @Inject(CONFIGURACAO_OPERACIONAL_REPOSITORY)
     private readonly configuracaoOperacionalRepository: IConfiguracaoOperacionalRepository,
+    @Inject(RECEBIMENTO_ALOCACAO_REPOSITORY)
+    private readonly recebimentoAlocacaoRepository: IRecebimentoAlocacaoRepository,
     private readonly recebimentoEventPublisher: RecebimentoEventPublisher,
   ) {}
 
@@ -78,12 +84,6 @@ export class IniciarRecebimentoUseCase {
       );
     }
 
-    if (preRecebimento.situacao !== 'liberado_para_conferencia') {
-      throw new BadRequestException(
-        'Recebimento só pode ser iniciado após liberação para conferência',
-      );
-    }
-
     const existingRecebimento =
       await this.recebimentoRepository.findByPreRecebimentoId(
         parsed.preRecebimentoId,
@@ -91,6 +91,27 @@ export class IniciarRecebimentoUseCase {
 
     if (existingRecebimento) {
       throw new ConflictException('Recebimento já iniciado para esta carga');
+    }
+
+    const canIniciarRecebimento =
+      preRecebimento.situacao === 'liberado_para_conferencia' ||
+      preRecebimento.situacao === 'em_conferencia';
+
+    if (!canIniciarRecebimento) {
+      throw new BadRequestException(
+        'Recebimento só pode ser iniciado após liberação para conferência',
+      );
+    }
+
+    const alocacaoAtiva =
+      await this.recebimentoAlocacaoRepository.findAtivaByPreRecebimentoId(
+        parsed.preRecebimentoId,
+      );
+
+    if (alocacaoAtiva && alocacaoAtiva.funcionarioId !== parsed.responsavelId) {
+      throw new ConflictException(
+        'Esta demanda foi atribuída a outro conferente pelo líder. Solicite reatribuição.',
+      );
     }
 
     const responsavel = await this.funcionarioRepository.findById(
@@ -151,10 +172,18 @@ export class IniciarRecebimentoUseCase {
       modoUnitizacao,
     );
 
-    await this.preRecebimentoRepository.updateSituacao(
-      parsed.preRecebimentoId,
-      'em_conferencia',
-    );
+    if (preRecebimento.situacao === 'liberado_para_conferencia') {
+      await this.preRecebimentoRepository.updateSituacao(
+        parsed.preRecebimentoId,
+        'em_conferencia',
+      );
+    }
+
+    if (alocacaoAtiva) {
+      await this.recebimentoAlocacaoRepository.marcarIniciada(
+        parsed.preRecebimentoId,
+      );
+    }
 
     await this.recebimentoEventPublisher.publish({
       type: RECEBIMENTO_EVENT.RECEBIMENTO_INICIADO,

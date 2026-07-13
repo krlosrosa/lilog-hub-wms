@@ -552,9 +552,44 @@ describe('EncerrarConferenciaUseCase', () => {
     const publish = vi.fn().mockResolvedValue(undefined);
     const eventPublisher = { publish } as unknown as RecebimentoEventPublisher;
 
+    const produtoRepository: Partial<IProdutoRepository> = {
+      findByProdutoId: vi.fn().mockResolvedValue({
+        produtoId: 'prod-1',
+        sku: 'SKU-001',
+        descricao: 'Produto teste',
+        empresa: 'lilog',
+        categoria: 'seco',
+        grupo: null,
+        tipo: 'PPAD',
+        ean: null,
+        dum: null,
+        shelfLife: null,
+        pesoBrutoUnidade: '1',
+        pesoBrutoCaixa: null,
+        pesoBrutoPalete: null,
+        pesoLiquidoUnidade: null,
+        pesoLiquidoCaixa: null,
+        pesoLiquidoPalete: null,
+        unidadesPorCaixa: 1,
+        caixasPorPalete: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    };
+
+    const conferenciaRepository: Partial<IConferenciaRepository> = {
+      listTemperaturasProduto: vi.fn().mockResolvedValue([
+        { etapa: 'inicio', temperatura: -18, medidoEm: new Date() },
+        { etapa: 'meio', temperatura: -17.5, medidoEm: new Date() },
+        { etapa: 'fim', temperatura: -18.2, medidoEm: new Date() },
+      ]),
+    };
+
     const useCase = new EncerrarConferenciaUseCase(
       recebimentoRepository as IRecebimentoRepository,
       preRecebimentoRepository as IPreRecebimentoRepository,
+      conferenciaRepository as IConferenciaRepository,
+      produtoRepository as IProdutoRepository,
       eventPublisher,
     );
     const result = await useCase.execute({ recebimentoId: 'rec-1', userId: 1 });
@@ -565,8 +600,61 @@ describe('EncerrarConferenciaUseCase', () => {
       'rec-1',
       'conferido',
       expect.any(Date),
+      undefined,
     );
     expect(result?.situacao).toBe('conferido');
+  });
+
+  it('rejects encerramento when temperaturas do baú are incomplete', async () => {
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        preRecebimentoId: 'pre-1',
+        situacao: 'em_conferencia',
+        responsavelId: 10,
+      }),
+      findItemsByRecebimento: vi.fn().mockResolvedValue([
+        {
+          id: 'item-1',
+          produtoId: 'prod-1',
+          quantidadeRecebida: 8,
+          unidadeMedida: 'UN',
+          loteRecebido: null,
+          pesoRecebido: null,
+          validade: null,
+          numeroSerie: null,
+          recebimentoId: 'rec-1',
+          createdAt: new Date(),
+        },
+      ]),
+    };
+
+    const preRecebimentoRepository: Partial<IPreRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'pre-1',
+        unidadeId: 'ITB',
+        transportadoraNome: 'transp-1',
+        itens: [],
+      }),
+    };
+
+    const conferenciaRepository: Partial<IConferenciaRepository> = {
+      listTemperaturasProduto: vi.fn().mockResolvedValue([
+        { etapa: 'inicio', temperatura: -18, medidoEm: new Date() },
+      ]),
+    };
+
+    const useCase = new EncerrarConferenciaUseCase(
+      recebimentoRepository as IRecebimentoRepository,
+      preRecebimentoRepository as IPreRecebimentoRepository,
+      conferenciaRepository as IConferenciaRepository,
+      {} as IProdutoRepository,
+      { publish: vi.fn() } as unknown as RecebimentoEventPublisher,
+    );
+
+    await expect(
+      useCase.execute({ recebimentoId: 'rec-1', userId: 1 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
 
@@ -802,6 +890,10 @@ describe('FinalizarRecebimentoUseCase', () => {
       findByProdutoId: vi.fn().mockResolvedValue({ produtoId: 'prod-1' }),
     };
 
+    const configuracaoOperacionalRepository = {
+      list: vi.fn().mockResolvedValue([]),
+    };
+
     const useCase = new FinalizarRecebimentoUseCase(
       recebimentoRepository as IRecebimentoRepository,
       preRecebimentoRepository as IPreRecebimentoRepository,
@@ -809,6 +901,7 @@ describe('FinalizarRecebimentoUseCase', () => {
       produtoRepository as IProdutoRepository,
       armazenagemRepository as never,
       enderecoRepository as never,
+      configuracaoOperacionalRepository as never,
       eventPublisher,
       cncEventPublisher,
       recebimentoSaldoEventPublisher,

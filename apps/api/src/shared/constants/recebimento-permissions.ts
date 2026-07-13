@@ -7,6 +7,7 @@ export const RECEBIMENTO_PERMISSION = {
   CONFERIR: 'recebimento.conferir',
   FINALIZAR: 'recebimento.finalizar',
   HISTORICO_VISUALIZAR: 'recebimento.historico.visualizar',
+  GERENCIAR: 'recebimento.gerenciar',
 } as const;
 
 export type RecebimentoPermission =

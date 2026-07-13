@@ -7,6 +7,7 @@ import type {
   CreateDivergenciaInput,
   ItemRecebimentoRecord,
 } from '../repositories/recebimento/recebimento.repository.js';
+import type { ProdutoRecord } from '../repositories/produto/produto.repository.js';
 import { toBaseUnits } from './unidade-medida.js';
 
 export type DivergenciaCalculada = Omit<CreateDivergenciaInput, 'recebimentoId'>;
@@ -38,15 +39,36 @@ function aggregateQuantidadeByProduto(
   return map;
 }
 
+function resolvePesoEsperadoEfetivo(
+  esperado: ItemPreRecebimentoRecord,
+  esperadoUN: number,
+  produto: ProdutoRecord | undefined,
+): number | null {
+  if (esperado.pesoEsperado !== null) {
+    return esperado.pesoEsperado;
+  }
+
+  const isPvar = produto?.tipo === 'PVAR';
+
+  if (isPvar && produto?.pesoBrutoUnidade) {
+    return esperadoUN * Number(produto.pesoBrutoUnidade);
+  }
+
+  return null;
+}
+
 export function calcularDivergencias(
   itensEsperados: ItemPreRecebimentoRecord[],
   itensRecebidos: ItemRecebimentoRecord[],
+  produtos: Map<string, ProdutoRecord> = new Map(),
 ): DivergenciaCalculada[] {
   const divergencias: DivergenciaCalculada[] = [];
   const recebidosPorProduto = aggregateQuantidadeByProduto(itensRecebidos);
   const esperadosIds = new Set(itensEsperados.map((item) => item.produtoId));
 
   for (const esperado of itensEsperados) {
+    const produto = produtos.get(esperado.produtoId);
+    const isPvar = produto?.tipo === 'PVAR';
     const recebido = recebidosPorProduto.get(esperado.produtoId);
 
     if (!recebido) {
@@ -106,16 +128,26 @@ export function calcularDivergencias(
     }
 
     if (
-      esperado.pesoEsperado !== null &&
-      recebido.pesoRecebido !== null &&
-      Math.abs(esperado.pesoEsperado - recebido.pesoRecebido) >
-        PESO_DIVERGENCIA_TOLERANCIA
+      isPvar &&
+      recebido.pesoRecebido !== null
     ) {
-      divergencias.push({
-        produtoId: esperado.produtoId,
-        tipoDivergencia: 'divergencia_peso',
-        descricao: `Peso esperado ${esperado.pesoEsperado}, recebido ${recebido.pesoRecebido}`,
-      });
+      const pesoEsperadoEfetivo = resolvePesoEsperadoEfetivo(
+        esperado,
+        esperadoUN,
+        produto,
+      );
+
+      if (
+        pesoEsperadoEfetivo !== null &&
+        Math.abs(pesoEsperadoEfetivo - recebido.pesoRecebido) >
+          PESO_DIVERGENCIA_TOLERANCIA
+      ) {
+        divergencias.push({
+          produtoId: esperado.produtoId,
+          tipoDivergencia: 'divergencia_peso',
+          descricao: `Peso esperado ${pesoEsperadoEfetivo}, recebido ${recebido.pesoRecebido}`,
+        });
+      }
     }
 
     if (
@@ -134,10 +166,17 @@ export function calcularDivergencias(
   for (const [produtoId] of recebidosPorProduto) {
     if (!esperadosIds.has(produtoId)) {
       const recebido = recebidosPorProduto.get(produtoId)!;
+      const unidadesPorCaixa =
+        produtos.get(produtoId)?.unidadesPorCaixa ?? 1;
+
       divergencias.push({
         produtoId,
         tipoDivergencia: 'produto_nao_esperado',
-        quantidadeRecebida: recebido.quantidadeRecebida,
+        quantidadeRecebida: toBaseUnits(
+          recebido.quantidadeRecebida,
+          recebido.unidadeMedida,
+          unidadesPorCaixa,
+        ),
         descricao: 'SKU não informado no pré-recebimento',
       });
     }

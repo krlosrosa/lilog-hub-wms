@@ -1,11 +1,16 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import Link from 'next/link';
 
 import { Button, cn } from '@lilog/ui';
 import {
   ArrowLeft,
   ChevronRight,
+  ClipboardPen,
+  Loader2,
+  Printer,
   ShieldAlert,
   XCircle,
 } from 'lucide-react';
@@ -23,138 +28,168 @@ type CncDetalheHeaderProps = {
   podeIniciarAnalise: boolean;
   podeGerenciar: boolean;
   processandoAcao: boolean;
+  imprimindo: boolean;
   onIniciarAnalise: () => void;
   onEncerrar: () => void;
   onCancelar: () => void;
+  onImprimir: () => void;
+  onAbrirRegistro: () => void;
 };
+
+function MetaChip({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-md bg-surface-low/80 px-2 py-0.5 text-[11px] text-muted-foreground ring-1 ring-outline-variant">
+      {children}
+    </span>
+  );
+}
 
 export function CncDetalheHeader({
   cnc,
   podeIniciarAnalise,
   podeGerenciar,
   processandoAcao,
+  imprimindo,
   onIniciarAnalise,
   onEncerrar,
   onCancelar,
+  onImprimir,
+  onAbrirRegistro,
 }: CncDetalheHeaderProps) {
   const finalizada =
     cnc.situacao === 'encerrada' || cnc.situacao === 'cancelada';
 
   return (
-    <header className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav
-          aria-label="Breadcrumb"
-          className="flex items-center gap-1 text-xs text-muted-foreground"
-        >
-          <Link
-            href="/cnc"
-            className="inline-flex items-center gap-1.5 transition-colors hover:text-primary"
+    <header className="sticky top-0 z-30 shrink-0 border-b border-outline-variant/60 bg-glass-bg/95 px-margin-mobile py-2.5 backdrop-blur-glass md:px-margin-desktop">
+      <div className="mx-auto flex max-w-container flex-col gap-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <nav
+            aria-label="Breadcrumb"
+            className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground"
           >
-            <ArrowLeft className="size-3.5" aria-hidden />
-            Não Conformidades
-          </Link>
-          <ChevronRight className="size-3.5 shrink-0" aria-hidden />
-          <span className="font-medium text-foreground">{cnc.numero}</span>
-        </nav>
+            <Link
+              href="/cnc"
+              className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+            >
+              <ArrowLeft className="size-3" aria-hidden />
+              <span className="hidden sm:inline">Não Conformidades</span>
+              <span className="sm:hidden">CNCs</span>
+            </Link>
+            <ChevronRight className="size-3 shrink-0" aria-hidden />
+            <span className="truncate font-medium text-foreground">
+              {cnc.numero}
+            </span>
+          </nav>
 
-        <div className="flex flex-wrap gap-2">
-          {podeIniciarAnalise ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             <Button
               type="button"
+              variant="outline"
               size="sm"
-              className="h-8 gap-1.5"
-              disabled={processandoAcao}
-              onClick={onIniciarAnalise}
+              className="h-7 gap-1.5 border-outline-variant px-2.5 text-xs"
+              onClick={onAbrirRegistro}
             >
-              Iniciar análise
+              <ClipboardPen className="size-3.5" aria-hidden />
+              <span className="hidden sm:inline">Registro</span>
             </Button>
-          ) : null}
 
-          {podeGerenciar ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 border-destructive/30 text-destructive hover:bg-destructive/10"
-                disabled={processandoAcao}
-                onClick={onCancelar}
-              >
-                <XCircle className="size-3.5" aria-hidden />
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 gap-1.5"
-                disabled={processandoAcao}
-                onClick={onEncerrar}
-              >
-                Encerrar CNC
-              </Button>
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <div
-            className={cn(
-              'flex size-12 shrink-0 items-center justify-center rounded-xl border shadow-inner-glow',
-              finalizada
-                ? 'border-outline-variant bg-surface-low'
-                : 'border-primary/30 bg-primary/10',
-            )}
-          >
-            <ShieldAlert
-              className={cn(
-                'size-5',
-                finalizada ? 'text-muted-foreground' : 'text-primary',
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 border-outline-variant px-2.5 text-xs"
+              disabled={imprimindo}
+              onClick={onImprimir}
+            >
+              {imprimindo ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Printer className="size-3.5" aria-hidden />
               )}
-              aria-hidden
-            />
-          </div>
+              <span className="hidden sm:inline">Imprimir</span>
+            </Button>
 
-          <div className="min-w-0 space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-headline-md font-bold tracking-tight text-foreground md:text-headline-lg">
-                {cnc.numero}
-              </h1>
-              <span className="inline-flex items-center rounded-full border border-outline-variant bg-surface-low px-2.5 py-0.5">
-                <CncStatusBadge situacao={cnc.situacao} compact />
-              </span>
+            {podeIniciarAnalise ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-7 gap-1.5 px-2.5 text-xs shadow-sm"
+                disabled={processandoAcao}
+                onClick={onIniciarAnalise}
+              >
+                Iniciar análise
+              </Button>
+            ) : null}
+
+            {podeGerenciar ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 border-destructive/30 px-2.5 text-xs text-destructive hover:bg-destructive/10"
+                  disabled={processandoAcao}
+                  onClick={onCancelar}
+                >
+                  <XCircle className="size-3.5" aria-hidden />
+                  <span className="hidden sm:inline">Cancelar</span>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 gap-1.5 px-2.5 text-xs shadow-sm"
+                  disabled={processandoAcao}
+                  onClick={onEncerrar}
+                >
+                  Encerrar
+                </Button>
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <div
+              className={cn(
+                'flex size-8 shrink-0 items-center justify-center rounded-lg border',
+                finalizada
+                  ? 'border-outline-variant bg-surface-low'
+                  : 'border-primary/30 bg-primary/10',
+              )}
+            >
+              <ShieldAlert
+                className={cn(
+                  'size-3.5',
+                  finalizada ? 'text-muted-foreground' : 'text-primary',
+                )}
+                aria-hidden
+              />
             </div>
 
-            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              {cnc.descricao ??
-                'Análise de anomalias identificadas no recebimento — revise cada item, defina tratativas e encerre com responsável e débito.'}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <h1 className="truncate text-sm font-semibold text-foreground md:text-base">
+                  {cnc.numero}
+                </h1>
+                <span className="inline-flex items-center rounded-full border border-outline-variant bg-surface-low px-1.5 py-0">
+                  <CncStatusBadge situacao={cnc.situacao} compact />
+                </span>
+              </div>
+
+              <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                <MetaChip>{CNC_ORIGEM_LABELS[cnc.origem]}</MetaChip>
+                <MetaChip>{CNC_RESPONSAVEL_LABELS[cnc.responsavel]}</MetaChip>
+                <MetaChip>Aberta {formatCncDate(cnc.createdAt)}</MetaChip>
+              </div>
+            </div>
+          </div>
+
+          {cnc.descricao ? (
+            <p className="hidden max-w-md truncate text-[11px] text-muted-foreground lg:block">
+              {cnc.descricao}
             </p>
-
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span>
-                Origem:{' '}
-                <span className="font-medium text-foreground">
-                  {CNC_ORIGEM_LABELS[cnc.origem]}
-                </span>
-              </span>
-              <span aria-hidden>·</span>
-              <span>
-                Responsável:{' '}
-                <span className="font-medium text-foreground">
-                  {CNC_RESPONSAVEL_LABELS[cnc.responsavel]}
-                </span>
-              </span>
-              <span aria-hidden>·</span>
-              <span>
-                Aberta em{' '}
-                <span className="font-medium text-foreground">
-                  {formatCncDate(cnc.createdAt)}
-                </span>
-              </span>
-            </div>
-          </div>
+          ) : null}
         </div>
       </div>
     </header>

@@ -13,16 +13,22 @@ import {
   PackageCheck,
   PackageSearch,
   Plus,
-  QrCode,
   Search,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 
+import { useAuth } from '@/features/auth/lib/auth-context';
+
 import { AdicionarProdutoSheet } from '../components/adicionar-produto-sheet';
+import { TemperaturaProdutoModalButton } from '../components/temperatura-produto-etapas-card';
 import type { PaleteConferidoResumo } from '../lib/build-paletes-conferidos-resumo';
+import {
+  formatConferenteLabel,
+  resolveConferenteInfo,
+} from '../lib/resolve-conferente-info';
 import { SKU_ITEM_FILTERS, useListaItens } from '../hooks/use-lista-itens';
 import type { SkuItem, SkuItemFilter } from '../types/recebimento.schema';
 
@@ -150,10 +156,12 @@ function FilterChip({
 function ConferenciaResumoCard({
   cargaId,
   dock,
+  conferenteLabel,
   progress,
 }: {
   cargaId: string;
   dock: string;
+  conferenteLabel?: string | null;
   progress: { counted: number; total: number; pending: number; percent: number };
 }) {
   const stats: { label: string; value: number; highlight?: boolean }[] = [
@@ -177,6 +185,11 @@ function ConferenciaResumoCard({
             {cargaId}
           </p>
           <p className="truncate text-[10px] text-on-primary-container/70">Doca {dock}</p>
+          {conferenteLabel ? (
+            <p className="truncate text-[10px] text-on-primary-container/70">
+              Conferente: {conferenteLabel}
+            </p>
+          ) : null}
         </div>
 
         <div className="shrink-0 text-right">
@@ -410,6 +423,7 @@ function getFilterLabel(activeFilter: SkuItemFilter | null): string {
 }
 
 export function ListaItensView({ demandId }: ListaItensViewProps) {
+  const { user } = useAuth();
   const { state, actions } = useListaItens(demandId);
   const {
     demand,
@@ -421,6 +435,7 @@ export function ListaItensView({ demandId }: ListaItensViewProps) {
     isEmpty,
     cargaId,
     dock,
+    conferenteLabel,
     sheetOpen,
     skuInput,
     skuPreview,
@@ -431,6 +446,11 @@ export function ListaItensView({ demandId }: ListaItensViewProps) {
     paletesPorSku,
     exigePaleteConferencia,
   } = state;
+
+  const headerConferenteLabel = useMemo(
+    () => conferenteLabel ?? formatConferenteLabel(resolveConferenteInfo(demandId, demand, user)),
+    [conferenteLabel, demand, demandId, user],
+  );
 
   return (
     <div className="page-enter flex flex-col">
@@ -452,17 +472,13 @@ export function ListaItensView({ demandId }: ListaItensViewProps) {
             <p className="truncate font-mono text-label-sm text-on-surface-variant">
               {demand ? `${demand.supplier} · ${demand.dock}` : demandId}
             </p>
+            {headerConferenteLabel ? (
+              <p className="truncate text-label-sm text-on-surface-variant">
+                Conferente: {headerConferenteLabel}
+              </p>
+            ) : null}
           </div>
-          <Link
-            to="/recebimento/$id/"
-            params={{ id: demandId }}
-            search={{ init: String(Date.now()) }}
-            aria-label="Continuar conferência"
-            onClick={() => hapticLight()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-on-secondary transition-transform active:scale-90 touch-manipulation"
-          >
-            <QrCode className="h-5 w-5" aria-hidden />
-          </Link>
+          <TemperaturaProdutoModalButton demandId={demandId} />
         </div>
 
         <div className="space-y-2.5 px-margin-mobile pb-3">
@@ -502,7 +518,12 @@ export function ListaItensView({ demandId }: ListaItensViewProps) {
       </div>
 
       <section className="flex flex-col gap-2 px-margin-mobile pb-[calc(88px+env(safe-area-inset-bottom,0px))] pt-3">
-        <ConferenciaResumoCard cargaId={cargaId} dock={dock} progress={progress} />
+        <ConferenciaResumoCard
+          cargaId={cargaId}
+          dock={dock}
+          conferenteLabel={headerConferenteLabel}
+          progress={progress}
+        />
 
         {!isEmpty && (
           <div className="flex items-center justify-between gap-2">

@@ -15,6 +15,8 @@ import { RemovePesagemRecebimentoUseCase } from '../../application/usecases/rece
 import { RemoverPaleteConferenciaRecebimentoUseCase } from '../../application/usecases/recebimento/remover-palete-conferencia-recebimento.usecase.js';
 import { CreateChecklistRecebimentoUseCase } from '../../application/usecases/recebimento/create-checklist-recebimento.usecase.js';
 import { GetChecklistRecebimentoUseCase } from '../../application/usecases/recebimento/get-checklist-recebimento.usecase.js';
+import { ListTemperaturasProdutoRecebimentoUseCase } from '../../application/usecases/recebimento/list-temperaturas-produto-recebimento.usecase.js';
+import { UpsertTemperaturaProdutoRecebimentoUseCase } from '../../application/usecases/recebimento/upsert-temperatura-produto-recebimento.usecase.js';
 import { CreatePreRecebimentoUseCase } from '../../application/usecases/recebimento/create-pre-recebimento.usecase.js';
 import { EncerrarConferenciaUseCase } from '../../application/usecases/recebimento/encerrar-conferencia.usecase.js';
 import { ReabrirConferenciaUseCase } from '../../application/usecases/recebimento/reabrir-conferencia.usecase.js';
@@ -30,6 +32,7 @@ import { ListOperadorDemandasUseCase } from '../../application/usecases/recebime
 import { ListRecebimentoAvariasUseCase } from '../../application/usecases/recebimento/list-recebimento-avarias.usecase.js';
 import { RegistrarAvariaUseCase } from '../../application/usecases/recebimento/registrar-avaria.usecase.js';
 import { RemoverAvariasRecebimentoUseCase } from '../../application/usecases/recebimento/remover-avarias-recebimento.usecase.js';
+import { RemoverAvariaRecebimentoUseCase } from '../../application/usecases/recebimento/remover-avaria-recebimento.usecase.js';
 import { GetRecebimentoByPreRecebimentoUseCase } from '../../application/usecases/recebimento/get-recebimento-by-pre-recebimento.usecase.js';
 import { GetRecebimentoUseCase } from '../../application/usecases/recebimento/get-recebimento.usecase.js';
 import { IniciarRecebimentoUseCase } from '../../application/usecases/recebimento/iniciar-recebimento.usecase.js';
@@ -41,14 +44,25 @@ import {
   GetRastreioStatusUseCase,
 } from '../../application/usecases/recebimento/gerar-link-rastreio.usecase.js';
 import { ImportOfflineRecebimentoUseCase } from '../../application/usecases/recebimento/import-offline-recebimento.usecase.js';
+import { CriarAlocacaoRecebimentoUseCase } from '../../application/usecases/recebimento/criar-alocacao-recebimento.usecase.js';
+import { CancelarAlocacaoRecebimentoUseCase } from '../../application/usecases/recebimento/cancelar-alocacao-recebimento.usecase.js';
+import { GetRecursosRecebimentoSessaoUseCase } from '../../application/usecases/recebimento/get-recursos-recebimento-sessao.usecase.js';
+import { GetRecebimentoPainelSnapshotUseCase } from '../../application/usecases/recebimento/get-recebimento-painel-snapshot.usecase.js';
+import { GerarMovimentacaoRecebimentoUseCase } from '../../application/usecases/recebimento/gerar-movimentacao-recebimento.usecase.js';
+import { RegistrarImpedimentoRecebimentoUseCase } from '../../application/usecases/recebimento/registrar-impedimento-recebimento.usecase.js';
+import { RetomarConferenciaImpedidaUseCase } from '../../application/usecases/recebimento/retomar-conferencia-impedida.usecase.js';
 import { OFFLINE_IMPORT_LOG_REPOSITORY } from '../../domain/repositories/offline-import/offline-import-log.repository.js';
 import { CONFERENCIA_REPOSITORY } from '../../domain/repositories/recebimento/conferencia.repository.js';
 import { PRE_RECEBIMENTO_REPOSITORY } from '../../domain/repositories/recebimento/pre-recebimento.repository.js';
 import { RECEBIMENTO_AVARIA_REPOSITORY } from '../../domain/repositories/recebimento/recebimento-avaria.repository.js';
 import { RECEBIMENTO_REPOSITORY } from '../../domain/repositories/recebimento/recebimento.repository.js';
+import { RECEBIMENTO_ALOCACAO_REPOSITORY } from '../../domain/repositories/recebimento/recebimento-alocacao.repository.js';
+import { RECEBIMENTO_PAINEL_REPOSITORY } from '../../domain/repositories/recebimento/recebimento-painel.repository.js';
+import { IMPEDIMENTO_REPOSITORY } from '../../domain/repositories/recebimento/impedimento.repository.js';
 
 import { CancelPreRecebimentoController } from '../../presentation/controllers/recebimento/cancel-pre-recebimento.controller.js';
 import { LiberarConferenciaController } from '../../presentation/controllers/recebimento/liberar-conferencia.controller.js';
+import { RetomarConferenciaImpedidaController } from '../../presentation/controllers/recebimento/retomar-conferencia-impedida.controller.js';
 import { RecepcionarCarroController } from '../../presentation/controllers/recebimento/recepcionar-carro.controller.js';
 import { ConferirItemController } from '../../presentation/controllers/recebimento/conferir-item.controller.js';
 import { RemoverConferenciaItemController } from '../../presentation/controllers/recebimento/remover-conferencia-item.controller.js';
@@ -57,6 +71,8 @@ import { RemovePesagemRecebimentoController } from '../../presentation/controlle
 import { RemoverPaleteConferenciaRecebimentoController } from '../../presentation/controllers/recebimento/remover-palete-conferencia-recebimento.controller.js';
 import { CreateChecklistRecebimentoController } from '../../presentation/controllers/recebimento/create-checklist-recebimento.controller.js';
 import { GetChecklistRecebimentoController } from '../../presentation/controllers/recebimento/get-checklist-recebimento.controller.js';
+import { ListTemperaturasProdutoRecebimentoController } from '../../presentation/controllers/recebimento/list-temperaturas-produto-recebimento.controller.js';
+import { UpsertTemperaturaProdutoRecebimentoController } from '../../presentation/controllers/recebimento/upsert-temperatura-produto-recebimento.controller.js';
 import { CreatePreRecebimentoController } from '../../presentation/controllers/recebimento/create-pre-recebimento.controller.js';
 import { EncerrarConferenciaController } from '../../presentation/controllers/recebimento/encerrar-conferencia.controller.js';
 import { ReabrirConferenciaController } from '../../presentation/controllers/recebimento/reabrir-conferencia.controller.js';
@@ -72,6 +88,7 @@ import { ListOperadorDemandasController } from '../../presentation/controllers/r
 import { ListRecebimentoAvariasController } from '../../presentation/controllers/recebimento/list-recebimento-avarias.controller.js';
 import { RegistrarAvariaController } from '../../presentation/controllers/recebimento/registrar-avaria.controller.js';
 import { RemoverAvariasRecebimentoController } from '../../presentation/controllers/recebimento/remover-avarias-recebimento.controller.js';
+import { RemoverAvariaRecebimentoController } from '../../presentation/controllers/recebimento/remover-avaria-recebimento.controller.js';
 import { GetRecebimentoByPreRecebimentoController } from '../../presentation/controllers/recebimento/get-recebimento-by-pre-recebimento.controller.js';
 import { GetRecebimentoController } from '../../presentation/controllers/recebimento/get-recebimento.controller.js';
 import { IniciarRecebimentoController } from '../../presentation/controllers/recebimento/iniciar-recebimento.controller.js';
@@ -81,6 +98,11 @@ import { UpdatePreRecebimentoController } from '../../presentation/controllers/r
 import { GerarLinkRastreioController } from '../../presentation/controllers/recebimento/gerar-link-rastreio.controller.js';
 import { GetRastreioStatusController } from '../../presentation/controllers/recebimento/get-rastreio-status.controller.js';
 import { ImportOfflineRecebimentoController } from '../../presentation/controllers/recebimento/import-offline-recebimento.controller.js';
+import { CriarAlocacaoRecebimentoController } from '../../presentation/controllers/recebimento/criar-alocacao-recebimento.controller.js';
+import { CancelarAlocacaoRecebimentoController } from '../../presentation/controllers/recebimento/cancelar-alocacao-recebimento.controller.js';
+import { GetRecursosRecebimentoSessaoController } from '../../presentation/controllers/recebimento/get-recursos-recebimento-sessao.controller.js';
+import { GetRecebimentoPainelSnapshotController } from '../../presentation/controllers/recebimento/get-recebimento-painel-snapshot.controller.js';
+import { GerarMovimentacaoRecebimentoController } from '../../presentation/controllers/recebimento/gerar-movimentacao-recebimento.controller.js';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard.js';
 import { GerarPdfDeHtmlService } from '../pdf/gerar-pdf-de-html.service.js';
 import { OfflineImportLogService } from '../db/offline-import/offline-import-log.service.js';
@@ -88,6 +110,9 @@ import { ConferenciaService } from '../db/recebimento/conferencia.service.js';
 import { PreRecebimentoService } from '../db/recebimento/pre-recebimento.service.js';
 import { RecebimentoAvariaService } from '../db/recebimento/recebimento-avaria.service.js';
 import { RecebimentoService } from '../db/recebimento/recebimento.service.js';
+import { RecebimentoAlocacaoService } from '../db/recebimento/recebimento-alocacao.service.js';
+import { RecebimentoPainelService } from '../db/recebimento/recebimento-painel.service.js';
+import { ImpedimentoService } from '../db/recebimento/impedimento.service.js';
 import { AuditLogModule } from './audit-log.module.js';
 import { AuthModule } from './auth.module.js';
 import { CncModule } from './cnc.module.js';
@@ -102,6 +127,7 @@ import { RecebimentoQueueModule } from './recebimento-queue.module.js';
 import { RegraProcessoModule } from './regra-processo.module.js';
 import { UnidadeModule } from './unidade.module.js';
 import { UserModule } from './user.module.js';
+import { SessaoOperacaoModule } from './sessao-operacao.module.js';
 
 @Module({
   imports: [
@@ -119,6 +145,7 @@ import { UserModule } from './user.module.js';
     RegraProcessoModule,
     OperacionalModule,
     UserModule,
+    SessaoOperacaoModule,
   ],
   controllers: [
     ListOperadorDemandasController,
@@ -133,6 +160,7 @@ import { UserModule } from './user.module.js';
     UpdatePreRecebimentoController,
     CancelPreRecebimentoController,
     LiberarConferenciaController,
+    RetomarConferenciaImpedidaController,
     RecepcionarCarroController,
     IniciarRecebimentoController,
     ConferirItemController,
@@ -142,6 +170,8 @@ import { UserModule } from './user.module.js';
     RemoverPaleteConferenciaRecebimentoController,
     CreateChecklistRecebimentoController,
     GetChecklistRecebimentoController,
+    ListTemperaturasProdutoRecebimentoController,
+    UpsertTemperaturaProdutoRecebimentoController,
     EncerrarConferenciaController,
     ReabrirConferenciaController,
     FinalizarRecebimentoController,
@@ -152,9 +182,35 @@ import { UserModule } from './user.module.js';
     GetRecebimentoController,
     RegistrarAvariaController,
     RemoverAvariasRecebimentoController,
+    RemoverAvariaRecebimentoController,
     GerarLinkRastreioController,
     GetRastreioStatusController,
     ImportOfflineRecebimentoController,
+    CriarAlocacaoRecebimentoController,
+    CancelarAlocacaoRecebimentoController,
+    GetRecursosRecebimentoSessaoController,
+    GetRecebimentoPainelSnapshotController,
+    GerarMovimentacaoRecebimentoController,
+  ],
+  exports: [
+    IniciarRecebimentoUseCase,
+    CreateChecklistRecebimentoUseCase,
+    UpsertTemperaturaProdutoRecebimentoUseCase,
+    ConferirItemUseCase,
+    RemoverConferenciaItemUseCase,
+    RemoverLinhaConferenciaRecebimentoUseCase,
+    RemoverPaleteConferenciaRecebimentoUseCase,
+    RemovePesagemRecebimentoUseCase,
+    RegistrarAvariaUseCase,
+    RemoverAvariasRecebimentoUseCase,
+    RemoverAvariaRecebimentoUseCase,
+    EncerrarConferenciaUseCase,
+    RegistrarImpedimentoRecebimentoUseCase,
+    RetomarConferenciaImpedidaUseCase,
+    PRE_RECEBIMENTO_REPOSITORY,
+    RECEBIMENTO_REPOSITORY,
+    CONFERENCIA_REPOSITORY,
+    RECEBIMENTO_AVARIA_REPOSITORY,
   ],
   providers: [
     CreatePreRecebimentoUseCase,
@@ -170,6 +226,8 @@ import { UserModule } from './user.module.js';
     RemoverPaleteConferenciaRecebimentoUseCase,
     CreateChecklistRecebimentoUseCase,
     GetChecklistRecebimentoUseCase,
+    ListTemperaturasProdutoRecebimentoUseCase,
+    UpsertTemperaturaProdutoRecebimentoUseCase,
     EncerrarConferenciaUseCase,
     ReabrirConferenciaUseCase,
     FinalizarRecebimentoUseCase,
@@ -191,10 +249,18 @@ import { UserModule } from './user.module.js';
     GetConferenciaContextUseCase,
     RegistrarAvariaUseCase,
     RemoverAvariasRecebimentoUseCase,
+    RemoverAvariaRecebimentoUseCase,
     ListRecebimentoAvariasUseCase,
     GerarLinkRastreioUseCase,
     GetRastreioStatusUseCase,
     ImportOfflineRecebimentoUseCase,
+    CriarAlocacaoRecebimentoUseCase,
+    CancelarAlocacaoRecebimentoUseCase,
+    GetRecursosRecebimentoSessaoUseCase,
+    GetRecebimentoPainelSnapshotUseCase,
+    GerarMovimentacaoRecebimentoUseCase,
+    RegistrarImpedimentoRecebimentoUseCase,
+    RetomarConferenciaImpedidaUseCase,
     RecebimentoEventPublisher,
     GerarPdfDeHtmlService,
     PermissionsGuard,
@@ -217,6 +283,18 @@ import { UserModule } from './user.module.js';
     {
       provide: OFFLINE_IMPORT_LOG_REPOSITORY,
       useClass: OfflineImportLogService,
+    },
+    {
+      provide: RECEBIMENTO_ALOCACAO_REPOSITORY,
+      useClass: RecebimentoAlocacaoService,
+    },
+    {
+      provide: RECEBIMENTO_PAINEL_REPOSITORY,
+      useClass: RecebimentoPainelService,
+    },
+    {
+      provide: IMPEDIMENTO_REPOSITORY,
+      useClass: ImpedimentoService,
     },
   ],
 })

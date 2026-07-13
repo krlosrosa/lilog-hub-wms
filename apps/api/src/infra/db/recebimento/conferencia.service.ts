@@ -8,11 +8,16 @@ import {
   DRIZZLE_PROVIDER,
   type DrizzleClient,
 } from '../providers/drizzle/drizzle.provider.js';
-import type { CreateChecklistRecebimentoInput } from '../../../domain/model/recebimento/recebimento.model.js';
+import type {
+  CreateChecklistRecebimentoInput,
+  UpsertTemperaturaProdutoRecebimentoInput,
+} from '../../../domain/model/recebimento/recebimento.model.js';
 import { createChecklistRecebimentoDb } from './create-checklist-recebimento.drizzle.js';
 import { findChecklistRecebimentoDb } from './find-checklist-recebimento.drizzle.js';
 import { getConferenciaContextDb } from './get-conferencia-context.drizzle.js';
 import { listOperadorDemandasDb } from './list-operador-demandas.drizzle.js';
+import { listTemperaturasProdutoRecebimentoDb } from './list-temperaturas-produto-recebimento.drizzle.js';
+import { upsertTemperaturaProdutoRecebimentoDb } from './upsert-temperatura-produto-recebimento.drizzle.js';
 
 @Injectable()
 export class ConferenciaService implements IConferenciaRepository {
@@ -37,5 +42,22 @@ export class ConferenciaService implements IConferenciaRepository {
     data: CreateChecklistRecebimentoInput,
   ) {
     return createChecklistRecebimentoDb(this.db, recebimentoId, data);
+  }
+
+  listTemperaturasProduto(recebimentoId: string) {
+    return listTemperaturasProdutoRecebimentoDb(this.db, recebimentoId);
+  }
+
+  upsertTemperaturaProduto(
+    recebimentoId: string,
+    data: UpsertTemperaturaProdutoRecebimentoInput,
+    operatorId: number | null,
+  ) {
+    return upsertTemperaturaProdutoRecebimentoDb(
+      this.db,
+      recebimentoId,
+      data,
+      operatorId,
+    );
   }
 }

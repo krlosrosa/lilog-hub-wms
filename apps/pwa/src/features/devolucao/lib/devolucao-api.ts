@@ -110,7 +110,7 @@ export async function searchProduto(term: string): Promise<ProdutoApi | null> {
       item.sku.toLowerCase() === normalized ||
       item.ean?.toLowerCase() === normalized,
   );
-  return exact ?? items[0] ?? null;
+  return exact ?? null;
 }
 
 export function buscarDemandaDevolucao(demandaId: string, unidadeId: string) {

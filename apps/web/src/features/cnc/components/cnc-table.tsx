@@ -3,8 +3,17 @@
 import { useRouter } from 'next/navigation';
 
 import { cn } from '@lilog/ui';
-import { MoreVertical } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
+import {
+  compactTableBodyClassName,
+  compactTableCellClassName,
+  compactTableClassName,
+  compactTableEmptyCellClassName,
+  compactTableHeadCellClassName,
+  compactTableHeadRowClassName,
+  compactTableRowClassName,
+} from '@/components/ui/compact-table-classes';
 import { CncStatusBadge } from '@/features/cnc/components/cnc-status-badge';
 import type { CncListItem } from '@/features/cnc/types/cnc.schema';
 import {
@@ -13,13 +22,13 @@ import {
 } from '@/features/cnc/types/cnc.schema';
 
 const TABLE_HEADERS = [
-  { label: 'Número', className: 'min-w-[120px]' },
-  { label: 'Responsável', className: 'min-w-[100px]' },
+  { label: 'Número', className: 'min-w-[108px]' },
+  { label: 'Responsável', className: 'min-w-[88px]' },
   { label: 'Origem', className: 'hidden md:table-cell' },
-  { label: 'Valor Débito', className: 'w-24 text-right hidden sm:table-cell' },
-  { label: 'Situação', className: 'min-w-[90px]' },
-  { label: 'Abertura', className: 'w-24 text-right' },
-  { label: '', className: 'w-8 text-center' },
+  { label: 'Débito', className: 'w-20 text-right hidden sm:table-cell' },
+  { label: 'Situação', className: 'min-w-[80px]' },
+  { label: 'Abertura', className: 'w-[72px] text-right' },
+  { label: '', className: 'w-6' },
 ] as const;
 
 type CncTableProps = {
@@ -42,74 +51,98 @@ function formatValor(valor: number | null) {
   return valor.toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
+    maximumFractionDigits: 0,
   });
 }
 
 export function CncTable({ items }: CncTableProps) {
   const router = useRouter();
 
+  const navigate = (id: string) => router.push(`/cnc/${id}`);
+
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-left text-xs">
+      <table className={compactTableClassName}>
         <thead>
-          <tr className="sticky top-0 bg-surface-highest/50 backdrop-blur-md">
+          <tr className={compactTableHeadRowClassName}>
             {TABLE_HEADERS.map((header, index) => (
               <th
                 key={header.label || `col-${index}`}
-                className={cn(
-                  'border-b border-outline-variant px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground',
-                  header.className,
-                )}
+                className={compactTableHeadCellClassName(header.className)}
               >
                 {header.label}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-outline-variant/30">
+        <tbody className={compactTableBodyClassName}>
           {items.length ? (
             items.map((item) => (
               <tr
                 key={item.id}
-                className="group cursor-pointer transition-colors hover:bg-surface-highest/50"
-                onClick={() => router.push(`/cnc/${item.id}`)}
+                className={cn(
+                  compactTableRowClassName,
+                  'cursor-pointer',
+                )}
+                onClick={() => navigate(item.id)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    router.push(`/cnc/${item.id}`);
+                    navigate(item.id);
                   }
                 }}
                 tabIndex={0}
                 role="link"
                 aria-label={`Ver detalhes de ${item.numero}`}
               >
-                <td className="px-2 py-1.5 font-mono text-[11px] font-semibold text-foreground">
+                <td
+                  className={cn(
+                    compactTableCellClassName,
+                    'font-mono text-[11px] font-semibold text-primary',
+                  )}
+                >
                   {item.numero}
                 </td>
-                <td className="max-w-[140px] truncate px-2 py-1.5 font-medium text-foreground">
+                <td
+                  className={cn(
+                    compactTableCellClassName,
+                    'max-w-[120px] truncate font-medium text-foreground',
+                  )}
+                >
                   {CNC_RESPONSAVEL_LABELS[item.responsavel]}
                 </td>
-                <td className="hidden px-2 py-1.5 text-[11px] text-muted-foreground md:table-cell">
+                <td
+                  className={cn(
+                    compactTableCellClassName,
+                    'hidden text-[11px] text-muted-foreground md:table-cell',
+                  )}
+                >
                   {CNC_ORIGEM_LABELS[item.origem]}
                 </td>
-                <td className="hidden px-2 py-1.5 text-right tabular-nums font-semibold text-foreground sm:table-cell">
+                <td
+                  className={cn(
+                    compactTableCellClassName,
+                    'hidden text-right tabular-nums font-medium text-foreground sm:table-cell',
+                  )}
+                >
                   {formatValor(item.valorDebito)}
                 </td>
-                <td className="px-2 py-1.5">
+                <td className={compactTableCellClassName}>
                   <CncStatusBadge situacao={item.situacao} compact />
                 </td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-[11px] text-muted-foreground">
+                <td
+                  className={cn(
+                    compactTableCellClassName,
+                    'text-right tabular-nums text-[11px] text-muted-foreground',
+                  )}
+                >
                   {formatDate(item.createdAt)}
                 </td>
-                <td className="px-2 py-1.5 text-center">
-                  <button
-                    type="button"
-                    className="text-muted-foreground opacity-0 transition-all group-hover:opacity-100 hover:text-primary"
-                    aria-label={`Mais ações para ${item.numero}`}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <MoreVertical className="mx-auto size-3.5" aria-hidden />
-                  </button>
+                <td className={cn(compactTableCellClassName, 'text-right')}>
+                  <ChevronRight
+                    className="ml-auto size-3.5 text-muted-foreground/40 transition-colors group-hover:text-primary"
+                    aria-hidden
+                  />
                 </td>
               </tr>
             ))
@@ -117,7 +150,7 @@ export function CncTable({ items }: CncTableProps) {
             <tr>
               <td
                 colSpan={TABLE_HEADERS.length}
-                className="px-2 py-12 text-center text-xs text-muted-foreground"
+                className={compactTableEmptyCellClassName}
               >
                 Nenhuma não conformidade encontrada para os filtros aplicados.
               </td>

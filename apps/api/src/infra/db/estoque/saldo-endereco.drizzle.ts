@@ -22,12 +22,10 @@ export async function listSaldosEnderecoDb(
     conditions.push(eq(saldosEndereco.depositoId, filter.depositoId));
   }
 
-  if (filter.enderecoId) {
-    conditions.push(eq(saldosEndereco.enderecoId, filter.enderecoId));
-  }
-
   if (filter.enderecoIds && filter.enderecoIds.length > 0) {
     conditions.push(inArray(saldosEndereco.enderecoId, filter.enderecoIds));
+  } else if (filter.enderecoId) {
+    conditions.push(eq(saldosEndereco.enderecoId, filter.enderecoId));
   }
 
   if (filter.produtoId) {

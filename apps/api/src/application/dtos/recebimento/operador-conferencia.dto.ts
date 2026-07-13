@@ -52,6 +52,16 @@ export const OperadorDemandaSchema = z.object({
 
   horarioPrevisto: z.iso.datetime(),
 
+  conferenteId: z.number().int().nullable().optional(),
+
+  conferente: z.string().nullable().optional(),
+
+  conferenteMatricula: z.string().nullable().optional(),
+
+  atribuidoAMim: z.boolean().optional(),
+
+  alocacaoFuncionarioId: z.number().int().nullable().optional(),
+
 });
 
 
@@ -133,6 +143,9 @@ export const ConferenciaContextResponseSchema = z.object({
   recebimentoSituacao: RecebimentoSituacaoSchema.nullable(),
   dock: z.string().nullable(),
   checklistPreenchido: z.boolean(),
+  conferenteId: z.number().int().nullable().optional(),
+  conferente: z.string().nullable().optional(),
+  conferenteMatricula: z.string().nullable().optional(),
   modoUnitizacao: ModoUnitizacaoSchema.or(z.string()),
   exigePaleteConferencia: z.boolean(),
   itens: z.array(ConferenciaItemBlindSchema),

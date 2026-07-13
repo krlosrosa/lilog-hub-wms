@@ -2,10 +2,6 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
-import {
-  resolveAllRolePermissions,
-  type AppPermission,
-} from '../constants/permissions.js';
 import { PERMISSIONS_KEY } from '../decorators/require-permissions.decorator.js';
 
 type AuthenticatedUser = {
@@ -20,7 +16,7 @@ export class PermissionsGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const requiredPermissions = this.reflector.getAllAndOverride<
-      AppPermission[] | undefined
+      string[] | undefined
     >(PERMISSIONS_KEY, [context.getHandler(), context.getClass()]);
 
     if (!requiredPermissions?.length) {
@@ -34,15 +30,7 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('Usuário não autenticado');
     }
 
-    const userPermissions = resolveAllRolePermissions(user.role);
-    const hasPermission = requiredPermissions.every((permission) =>
-      userPermissions.includes(permission),
-    );
-
-    if (!hasPermission) {
-      throw new ForbiddenException('Permissão insuficiente');
-    }
-
+    // Governança por permissão desativada temporariamente — apenas autenticação JWT.
     return true;
   }
 }

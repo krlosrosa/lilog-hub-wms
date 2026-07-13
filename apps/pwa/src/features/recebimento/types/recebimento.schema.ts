@@ -5,6 +5,7 @@ export const demandStatusSchema = z.enum([
   'aguardando',
   'liberado_para_conferencia',
   'em_conferencia',
+  'impedido',
   'conferido',
   'finalizado',
 ]);
@@ -35,6 +36,10 @@ export const demandSchema = z.object({
   unidadeId: z.string().optional(),
   preRecebimentoSituacao: z.string().optional(),
   pendingOfflineSync: z.boolean().optional(),
+  placa: z.string().nullable().optional(),
+  conferenteId: z.number().int().nullable().optional(),
+  conferente: z.string().nullable().optional(),
+  conferenteMatricula: z.string().nullable().optional(),
 });
 
 export type Demand = z.infer<typeof demandSchema>;
@@ -63,7 +68,6 @@ export const checklistSchema = z.object({
   dock: z.string().min(1, 'Selecione a doca'),
   lacre: z.string().min(1, 'Informe o número do lacre'),
   tempBau: z.coerce.number().optional(),
-  tempProd: z.coerce.number().optional(),
   conditions: checklistConditionsSchema,
   observacoes: z.string().optional(),
 });
@@ -184,9 +188,10 @@ export function buildDetalheItemSchema({
       ? z.string().optional()
       : z.string().min(1, 'Informe a fabricação');
 
-  const idPaleteField = controlaPalete
-    ? z.string().min(1, 'Informe o ID do palete')
-    : z.string().optional();
+  const idPaleteField =
+    controlaPalete && !pesoVariavel
+      ? z.string().min(1, 'Informe o ID do palete')
+      : z.string().optional();
 
   const etiquetaField =
     pesoVariavel && exigirEtiquetaPesoVariavel
@@ -242,32 +247,24 @@ export const loteConferidoSchema = z.object({
 
 export type LoteConferido = z.infer<typeof loteConferidoSchema>;
 
-export const avariaTipoSchema = z.enum([
-  'fisica',
-  'embalagem',
-  'qualidade',
-  'documental',
-]);
+export const avariaCodigoSchema = z.string().min(1);
 
+/** @deprecated Use avariaCodigoSchema — valores são códigos numéricos do checklist (ex: "1", "93") */
+export const avariaTipoSchema = avariaCodigoSchema;
+
+/** @deprecated Use avariaCodigoSchema */
 export type AvariaTipo = z.infer<typeof avariaTipoSchema>;
 
-export const avariaNaturezaSchema = z.enum([
-  'parcial',
-  'total',
-  'superficial',
-  'irreversivel',
-]);
+/** @deprecated Use avariaCodigoSchema */
+export const avariaNaturezaSchema = avariaCodigoSchema;
 
+/** @deprecated Use avariaCodigoSchema */
 export type AvariaNatureza = z.infer<typeof avariaNaturezaSchema>;
 
-export const avariaCausaSchema = z.enum([
-  'transporte',
-  'manuseio',
-  'armazenamento',
-  'fornecedor',
-  'indeterminada',
-]);
+/** @deprecated Use avariaCodigoSchema */
+export const avariaCausaSchema = avariaCodigoSchema;
 
+/** @deprecated Use avariaCodigoSchema */
 export type AvariaCausa = z.infer<typeof avariaCausaSchema>;
 
 const avariaQuantidadeInt = z.coerce
@@ -287,23 +284,35 @@ export function buildAvariaSchema(quantidadeModo: QuantidadeModo) {
   });
 
   if (quantidadeModo === 'caixa') {
-    return base.refine((data) => data.quantidadeCaixa > 0, {
-      message: 'Informe a quantidade avariada em caixas',
-      path: ['quantidadeCaixa'],
-    });
+    return base.refine(
+      (data) => data.replicarParaTodosConferidos === true || data.quantidadeCaixa > 0,
+      {
+        message: 'Informe a quantidade avariada em caixas',
+        path: ['quantidadeCaixa'],
+      },
+    );
   }
 
   if (quantidadeModo === 'unidade') {
-    return base.refine((data) => data.quantidadeUnidade > 0, {
-      message: 'Informe a quantidade avariada em unidades',
-      path: ['quantidadeUnidade'],
-    });
+    return base.refine(
+      (data) => data.replicarParaTodosConferidos === true || data.quantidadeUnidade > 0,
+      {
+        message: 'Informe a quantidade avariada em unidades',
+        path: ['quantidadeUnidade'],
+      },
+    );
   }
 
-  return base.refine((data) => data.quantidadeCaixa > 0 || data.quantidadeUnidade > 0, {
-    message: 'Informe caixa e/ou unidade avariada',
-    path: ['quantidadeCaixa'],
-  });
+  return base.refine(
+    (data) =>
+      data.replicarParaTodosConferidos === true ||
+      data.quantidadeCaixa > 0 ||
+      data.quantidadeUnidade > 0,
+    {
+      message: 'Informe caixa e/ou unidade avariada',
+      path: ['quantidadeCaixa'],
+    },
+  );
 }
 
 /** @deprecated Use buildAvariaSchema() */

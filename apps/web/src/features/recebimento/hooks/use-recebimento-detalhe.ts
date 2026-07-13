@@ -16,8 +16,10 @@ import {
   getPreRecebimentoDetalhe,
   liberarConferencia,
   recepcionarCarro,
+  retomarConferenciaImpedida,
   listAvariaDocumentos,
   listChecklistDocumentos,
+  listImpedimentoDocumentos,
   reabrirConferencia,
   reimprimirEtiquetasRecebimento,
 } from '@/features/recebimento/lib/recebimento-api';
@@ -26,7 +28,7 @@ import {
   enrichConferenciaComAvarias,
 } from '@/features/recebimento/lib/enrich-conferencia-avarias';
 import { mapRecebimentoDetalhe } from '@/features/recebimento/lib/map-recebimento-detalhe';
-import type { RecebimentoDetalhe } from '@/features/recebimento/types/recebimento-detalhe.schema';
+import type { RecebimentoDetalhe, FotoEvidencia } from '@/features/recebimento/types/recebimento-detalhe.schema';
 import type {
   PreRecebimentoDetalheProdutoApi,
   RecepcionarCarroPayload,
@@ -84,8 +86,10 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
         preRecebimento,
         recebimento: recebimentoAtivo,
         checklist,
+        temperaturasProduto = [],
         avarias,
         produtos,
+        impedimento,
       } = detalhe;
 
       const produtoMap = buildProdutoMapFromDetalhe(produtos);
@@ -98,6 +102,22 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
       let fotosAvaria: Awaited<
         ReturnType<typeof mapRecebimentoDetalhe>
       >['fotosAvaria'] = [];
+
+      let fotosImpedimento: FotoEvidencia[] = [];
+
+      if (impedimento) {
+        const documentosImpedimento = await listImpedimentoDocumentos(
+          preRecebimento.id,
+        );
+
+        fotosImpedimento = await Promise.all(
+          documentosImpedimento.map(async (documento, index) => ({
+            id: documento.id,
+            legenda: `Evidência ${index + 1}`,
+            url: await getDocumentDownloadUrl(documento.id),
+          })),
+        );
+      }
 
       if (recebimentoAtivo) {
         const [documentosChecklist, documentosAvaria] = await Promise.all([
@@ -144,8 +164,11 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
           recebimento: recebimentoAtivo,
           produtoMap,
           checklist,
+          temperaturasProduto,
           fotos,
           fotoTotalInformado,
+          impedimento,
+          fotosImpedimento,
         });
 
         setRecebimento({
@@ -165,8 +188,11 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
         recebimento: recebimentoAtivo,
         produtoMap,
         checklist,
+        temperaturasProduto,
         fotos,
         fotoTotalInformado,
+        impedimento,
+        fotosImpedimento,
       });
 
       setRecebimento({
@@ -316,6 +342,31 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
     },
     [carregar, recebimento],
   );
+
+  const confirmarRetomarConferencia = useCallback(async () => {
+    if (!recebimento) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await retomarConferenciaImpedida(recebimento.id);
+      toast.success('Conferência retomada', {
+        description: recebimento.placa,
+      });
+      await carregar();
+    } catch (error) {
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Não foi possível retomar a conferência';
+
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [carregar, recebimento]);
 
   const openFinalizar = useCallback(() => {
     setIsFinalizarOpen(true);
@@ -505,6 +556,7 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
     openLiberarConferencia,
     closeLiberarConferencia,
     confirmarLiberarConferencia,
+    confirmarRetomarConferencia,
     isRecepcionarOpen,
     openRecepcionar,
     closeRecepcionar,

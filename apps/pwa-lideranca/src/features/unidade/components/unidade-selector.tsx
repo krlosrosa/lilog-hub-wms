@@ -134,7 +134,7 @@ export function UnidadeSelector({ compact = false }: { compact?: boolean }) {
               Trocar unidade
             </SheetTitle>
             <SheetDescription className="text-body-sm text-on-surface-variant">
-              Mostrando apenas unidades às quais você tem acesso.
+              Escolha a unidade para operar o turno.
             </SheetDescription>
           </SheetHeader>
 

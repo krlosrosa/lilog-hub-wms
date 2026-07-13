@@ -213,6 +213,12 @@ export const sidebarConfig: NavGroup[] = [
         icon: PackageCheck,
         href: '/recebimento',
       },
+      {
+        id: 'recebimento-painel',
+        label: 'Painel do Dia',
+        icon: Monitor,
+        href: '/recebimento/painel',
+      },
     ],
   },
   {

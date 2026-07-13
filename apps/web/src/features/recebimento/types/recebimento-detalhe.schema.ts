@@ -49,9 +49,13 @@ export const conferenciaItemSchema = z.object({
   ean: z.string(),
   qtdXml: z.number(),
   qtdFisica: z.number(),
+  pesoVariavel: z.boolean().default(false),
+  pesoXml: z.number().nullable().default(null),
+  pesoFisico: z.number().nullable().default(null),
   status: conferenciaStatusSchema,
   avarias: z.array(conferenciaAvariaSchema),
   lotesDetalhe: z.array(loteDetalheItemSchema).default([]),
+  unidadesPorCaixa: z.number().int().nullable().optional(),
 });
 
 export type ConferenciaItem = z.infer<typeof conferenciaItemSchema>;
@@ -66,6 +70,9 @@ export const checklistConditionsSchema = z.object({
 export const inspecaoTermicaSchema = z.object({
   tempBau: z.number().nullable(),
   tempProduto: z.number().nullable(),
+  tempProdutoInicio: z.number().nullable().optional(),
+  tempProdutoMeio: z.number().nullable().optional(),
+  tempProdutoFim: z.number().nullable().optional(),
   lacre: z.string().nullable().optional(),
   observacoes: z.string().nullable().optional(),
   conditions: checklistConditionsSchema.optional(),
@@ -76,6 +83,19 @@ export const inspecaoTermicaSchema = z.object({
 
 export type InspecaoTermica = z.infer<typeof inspecaoTermicaSchema>;
 
+export const impedimentoDetalheSchema = z.object({
+  id: z.string().uuid(),
+  tipo: z.string(),
+  tipoLabel: z.string(),
+  descricao: z.string(),
+  photoCount: z.number().int().nonnegative(),
+  registradoPorNome: z.string().nullable(),
+  registradoPorMatricula: z.string().nullable(),
+  registradoEm: z.string(),
+  fotos: z.array(fotoEvidenciaSchema).default([]),
+});
+
+export type ImpedimentoDetalhe = z.infer<typeof impedimentoDetalheSchema>;
 
 export const recebimentoDetalheSchema = z.object({
   id: z.string(),
@@ -103,6 +123,17 @@ export const recebimentoDetalheSchema = z.object({
     .optional(),
   /** True quando itens conferidos já possuem palete bipado no PWA. */
   temPaletesBipados: z.boolean().optional(),
+  conferenteId: z.number().int().nullable().optional(),
+  conferenteNome: z.string().nullable().optional(),
+  conferenteMatricula: z.string().nullable().optional(),
+  /** Data/hora formatada do início da conferência (recebimento.dataInicio). */
+  conferenciaIniciadaEm: z.string().nullable().optional(),
+  /** Data/hora formatada do fim da conferência (recebimento.dataFim). */
+  conferenciaFinalizadaEm: z.string().nullable().optional(),
+  quantidadePaletesEsperada: z.number().int().nonnegative().nullable().optional(),
+  numeroTermoPalete: z.string().nullable().optional(),
+  quantidadePaletes: z.number().int().nonnegative().nullable().optional(),
+  impedimento: impedimentoDetalheSchema.nullable().optional(),
 });
 
 export type RecebimentoDetalhe = z.infer<typeof recebimentoDetalheSchema>;

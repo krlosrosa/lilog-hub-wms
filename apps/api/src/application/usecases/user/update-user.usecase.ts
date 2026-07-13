@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -18,6 +19,7 @@ import {
 
 export type UpdateUserUseCaseInput = UpdateUserInput & {
   password?: string;
+  unidadesIds?: string[];
 };
 
 @Injectable()
@@ -36,10 +38,11 @@ export class UpdateUserUseCase {
       throw new NotFoundException(`Usuário ${id} não encontrado`);
     }
 
-    const data: UpdateUserInput = { ...input };
+    const { unidadesIds, password, ...updateFields } = input;
+    const data: UpdateUserInput = { ...updateFields };
 
-    if (input.password) {
-      data.passwordHash = await bcrypt.hash(input.password, 10);
+    if (password) {
+      data.passwordHash = await bcrypt.hash(password, 10);
     }
 
     if (input.email && input.email !== existing.email) {
@@ -60,6 +63,30 @@ export class UpdateUserUseCase {
           `Funcionário ${input.funcionarioId} não encontrado`,
         );
       }
+
+      if (unidadesIds && unidadesIds.length > 0) {
+        const normalizedUnidadesIds = [
+          ...new Set(unidadesIds.map((id) => id.trim()).filter(Boolean)),
+        ];
+
+        if (!normalizedUnidadesIds.includes(funcionario.unidadeId)) {
+          throw new BadRequestException(
+            'O funcionário deve pertencer a uma das unidades selecionadas',
+          );
+        }
+      }
+    }
+
+    const nextRole = input.role ?? existing.role;
+    const nextFuncionarioId =
+      input.funcionarioId !== undefined
+        ? input.funcionarioId
+        : existing.funcionarioId;
+
+    if (nextRole === 'operator' && nextFuncionarioId == null) {
+      throw new BadRequestException(
+        'Usuário operador deve ter um funcionário vinculado',
+      );
     }
 
     if (input.status === 'ativo' || input.funcionarioId) {
@@ -81,6 +108,18 @@ export class UpdateUserUseCase {
 
     if (!updated) {
       throw new NotFoundException(`Usuário ${id} não encontrado`);
+    }
+
+    if (unidadesIds !== undefined) {
+      const normalizedUnidadesIds = [
+        ...new Set(unidadesIds.map((unidadeId) => unidadeId.trim()).filter(Boolean)),
+      ];
+
+      if (normalizedUnidadesIds.length === 0) {
+        throw new BadRequestException('Informe ao menos uma unidade');
+      }
+
+      await this.userRepository.syncUserUnidades(id, normalizedUnidadesIds);
     }
 
     return updated;

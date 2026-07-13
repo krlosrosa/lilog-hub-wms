@@ -20,6 +20,9 @@ import { ListSessaoFuncionariosUseCase } from '../../application/usecases/sessao
 import { ListSessoesUseCase } from '../../application/usecases/sessao-operacao/list-sessoes.usecase.js';
 import { RemoveEscalaFuncionarioUseCase } from '../../application/usecases/sessao-operacao/remove-escala-funcionario.usecase.js';
 import { UpdateSessaoFuncionarioPresencaUseCase } from '../../application/usecases/sessao-operacao/update-sessao-funcionario-presenca.usecase.js';
+import { AdicionarFuncionarioApoioUseCase } from '../../application/usecases/sessao-operacao/adicionar-funcionario-apoio.usecase.js';
+import { EncerrarFuncionarioApoioUseCase } from '../../application/usecases/sessao-operacao/encerrar-funcionario-apoio.usecase.js';
+import { ListFuncionariosApoioCandidatosUseCase } from '../../application/usecases/sessao-operacao/list-funcionarios-apoio-candidatos.usecase.js';
 import { SESSAO_OPERACAO_REPOSITORY } from '../../domain/repositories/sessao-operacao/sessao-operacao.repository.js';
 import { AbrirSessaoController } from '../../presentation/controllers/sessao-operacao/abrir-sessao.controller.js';
 import { AddEquipeFuncionarioController } from '../../presentation/controllers/sessao-operacao/add-equipe-funcionario.controller.js';
@@ -41,6 +44,11 @@ import { ListSessaoFuncionariosController } from '../../presentation/controllers
 import { ListSessoesController } from '../../presentation/controllers/sessao-operacao/list-sessoes.controller.js';
 import { RemoveEscalaFuncionarioController } from '../../presentation/controllers/sessao-operacao/remove-escala-funcionario.controller.js';
 import { UpdateSessaoFuncionarioPresencaController } from '../../presentation/controllers/sessao-operacao/update-sessao-funcionario-presenca.controller.js';
+import {
+  AdicionarFuncionarioApoioController,
+  EncerrarFuncionarioApoioController,
+  ListFuncionariosApoioCandidatosController,
+} from '../../presentation/controllers/sessao-operacao/funcionario-apoio.controller.js';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard.js';
 import { SessaoOperacaoService } from '../db/sessao-operacao/sessao-operacao.service.js';
 import { AuthModule } from './auth.module.js';
@@ -69,6 +77,9 @@ import { FuncionarioModule } from './funcionario.module.js';
     EncerrarSessaoController,
     CancelarSessaoController,
     RemoveEscalaFuncionarioController,
+    AdicionarFuncionarioApoioController,
+    EncerrarFuncionarioApoioController,
+    ListFuncionariosApoioCandidatosController,
   ],
   providers: [
     ListEscalasUseCase,
@@ -91,6 +102,9 @@ import { FuncionarioModule } from './funcionario.module.js';
     EncerrarSessaoUseCase,
     CancelarSessaoUseCase,
     RemoveEscalaFuncionarioUseCase,
+    AdicionarFuncionarioApoioUseCase,
+    EncerrarFuncionarioApoioUseCase,
+    ListFuncionariosApoioCandidatosUseCase,
     PermissionsGuard,
     {
       provide: SESSAO_OPERACAO_REPOSITORY,

@@ -6,20 +6,25 @@ import {
 } from '@/features/gestao-recursos/api/gestao-recursos-api';
 import { useSessaoAtivaPwa } from '@/features/gestao-recursos/hooks/use-sessao-ativa-pwa';
 import {
+  filtrarOperadoresPorProcesso,
+  filtrarResponsePorProcesso,
+  marcarEquipeCarregamentoComoAtuando,
+} from '@/features/gestao-recursos/lib/filtrar-por-processo';
+import {
   compareOperadoresEmPausa,
   mapApiRecursosToOperators,
   mapRecursosDevolucaoToOperators,
-  mergeOperadoresRecursos,
   recomputeKpisFromOperators,
   sortOperadoresParaLider,
 } from '@/features/gestao-recursos/lib/gestao-recursos-mappers';
 import type {
+  GestaoRecursosProcessoApi,
+  MapaGrupoProcessoApi,
   RecursosDevolucaoSessaoApiResponse,
   RecursosSessaoApiResponse,
 } from '@/features/gestao-recursos/types/gestao-recursos.api';
 import type {
   GestaoRecursosFilter,
-  GestaoRecursosProcessoFilter,
   KpiCard,
   Operator,
 } from '@/features/gestao-recursos/types/gestao-recursos.schema';
@@ -66,11 +71,6 @@ const EMPTY_KPIS: KpiCard[] = [
   },
 ];
 
-type CachedRecursosResponses = {
-  operacional: RecursosSessaoApiResponse;
-  devolucao: RecursosDevolucaoSessaoApiResponse;
-};
-
 function filtrarPorBusca(operators: Operator[], query: string): Operator[] {
   const termo = query.trim().toLowerCase();
 
@@ -78,12 +78,14 @@ function filtrarPorBusca(operators: Operator[], query: string): Operator[] {
     return operators;
   }
 
-  return operators.filter(
-    (operator) =>
+  return operators.filter((operator) => {
+    const mission = operator.currentMission?.toLowerCase() ?? '';
+    return (
       operator.name.toLowerCase().includes(termo) ||
       operator.sector.toLowerCase().includes(termo) ||
-      operator.currentMission?.toLowerCase().includes(termo),
-  );
+      mission.includes(termo)
+    );
+  });
 }
 
 function filtrarPorStatus(
@@ -110,12 +112,6 @@ function ordenarPorFiltro(
   operators: Operator[],
   filter: GestaoRecursosFilter,
 ): Operator[] {
-  if (filter === 'precisa_pausa') {
-    return [...operators].sort(
-      (a, b) => (b.pausaAtrasoMinutos ?? 0) - (a.pausaAtrasoMinutos ?? 0),
-    );
-  }
-
   if (filter === 'em_pausa') {
     return [...operators].sort(compareOperadoresEmPausa);
   }
@@ -129,74 +125,117 @@ function ordenarPorFiltro(
   );
 }
 
-function resolveOperatorsFromResponses(
-  responses: CachedRecursosResponses,
-  processoFilter: GestaoRecursosProcessoFilter,
+function isMapaGrupoProcesso(
+  processo: GestaoRecursosProcessoApi,
+): processo is MapaGrupoProcessoApi {
+  return processo !== 'devolucao';
+}
+
+function mapOperacionalPorProcesso(
+  response: RecursosSessaoApiResponse,
+  processo: MapaGrupoProcessoApi,
   now: Date,
+  totalFuncionarios: number,
 ): { operators: Operator[]; kpis: KpiCard[] } {
-  const operacional = mapApiRecursosToOperators(responses.operacional, now);
-  const devolucao = mapRecursosDevolucaoToOperators(responses.devolucao, now);
-  const totalFuncionarios = Math.max(
-    responses.operacional.funcionarios.length,
-    responses.devolucao.funcionarios.length,
-  );
-
-  if (processoFilter === 'operacional') {
-    return operacional;
-  }
-
-  if (processoFilter === 'devolucao') {
-    return devolucao;
-  }
-
-  const mergedOperators = mergeOperadoresRecursos(
-    operacional.operators,
-    devolucao.operators,
-  );
+  const filteredResponse = filtrarResponsePorProcesso(response, processo);
+  const { operators: mapped } = mapApiRecursosToOperators(filteredResponse, now);
+  const operatorsBase = filtrarOperadoresPorProcesso(mapped, processo);
+  const operators =
+    processo === 'carregamento'
+      ? marcarEquipeCarregamentoComoAtuando(
+          operatorsBase,
+          filteredResponse.demandas,
+        )
+      : operatorsBase;
 
   return {
-    operators: mergedOperators,
-    kpis: recomputeKpisFromOperators(mergedOperators, totalFuncionarios),
+    operators,
+    kpis: recomputeKpisFromOperators(operators, totalFuncionarios),
   };
 }
 
-export function useGestaoRecursosPwa() {
-  const sessaoState = useSessaoAtivaPwa();
+const EQUIPE_AREA_BY_PROCESSO: Partial<
+  Record<GestaoRecursosProcessoApi, string>
+> = {
+  separacao: 'expedição',
+  conferencia: 'expedição',
+  carregamento: 'expedição',
+  devolucao: 'devolução',
+};
+
+const STORAGE_KEY_BY_PROCESSO: Partial<
+  Record<GestaoRecursosProcessoApi, string>
+> = {
+  separacao: 'pwa-lideranca:gestao-recursos:expedicao:sessao-ativa',
+  conferencia: 'pwa-lideranca:gestao-recursos:expedicao:sessao-ativa',
+  carregamento: 'pwa-lideranca:gestao-recursos:expedicao:sessao-ativa',
+  devolucao: 'pwa-lideranca:gestao-recursos:devolucao:sessao-ativa',
+};
+
+export function useGestaoRecursosPwa(options: {
+  processo: GestaoRecursosProcessoApi;
+}) {
+  const { processo } = options;
+  const sessaoState = useSessaoAtivaPwa({
+    equipeArea: EQUIPE_AREA_BY_PROCESSO[processo],
+    storageKey: STORAGE_KEY_BY_PROCESSO[processo],
+  });
   const { sessaoAtiva, semUnidade, semSessaoAberta } = sessaoState;
 
   const [operators, setOperators] = useState<Operator[]>([]);
   const [kpis, setKpis] = useState<KpiCard[]>(EMPTY_KPIS);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<GestaoRecursosFilter>('all');
-  const [processoFilter, setProcessoFilter] =
-    useState<GestaoRecursosProcessoFilter>('todos');
   const [isLoadingRecursos, setIsLoadingRecursos] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
-  const [lastApiResponses, setLastApiResponses] =
-    useState<CachedRecursosResponses | null>(null);
+  const [lastOperacionalResponse, setLastOperacionalResponse] =
+    useState<RecursosSessaoApiResponse | null>(null);
+  const [lastDevolucaoResponse, setLastDevolucaoResponse] =
+    useState<RecursosDevolucaoSessaoApiResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const applyApiResponses = useCallback(
+  const applyCachedResponse = useCallback(
     (
-      responses: CachedRecursosResponses,
-      processo: GestaoRecursosProcessoFilter,
+      operacional: RecursosSessaoApiResponse | null,
+      devolucao: RecursosDevolucaoSessaoApiResponse | null,
       now = new Date(),
     ) => {
-      const { operators: mapped, kpis: mappedKpis } =
-        resolveOperatorsFromResponses(responses, processo, now);
-      setOperators(mapped);
-      setKpis(mappedKpis);
+      if (processo === 'devolucao') {
+        if (!devolucao) {
+          return;
+        }
+
+        const mapped = mapRecursosDevolucaoToOperators(devolucao, now);
+        setOperators(mapped.operators);
+        setKpis(mapped.kpis);
+        setLastUpdatedAt(now);
+        return;
+      }
+
+      if (!operacional) {
+        return;
+      }
+
+      const mapped = mapOperacionalPorProcesso(
+        operacional,
+        processo,
+        now,
+        sessaoAtiva?.totalFuncionarios ?? operacional.funcionarios.length,
+      );
+      setOperators(mapped.operators);
+      setKpis(mapped.kpis);
       setLastUpdatedAt(now);
     },
-    [],
+    [processo, sessaoAtiva?.totalFuncionarios],
   );
 
   const loadRecursosFromApi = useCallback(async () => {
     if (!sessaoAtiva) {
       setOperators([]);
       setKpis(EMPTY_KPIS);
-      setLastApiResponses(null);
+      setLastOperacionalResponse(null);
+      setLastDevolucaoResponse(null);
       setLoadError(null);
       return;
     }
@@ -205,15 +244,19 @@ export function useGestaoRecursosPwa() {
     setLoadError(null);
 
     try {
-      const [operacional, devolucao] = await Promise.all([
-        getRecursosSessao(sessaoAtiva.id),
-        getRecursosDevolucaoSessao(sessaoAtiva.id),
-      ]);
+      if (processo === 'devolucao') {
+        const devolucao = await getRecursosDevolucaoSessao(sessaoAtiva.id);
+        setLastDevolucaoResponse(devolucao);
+        setLastOperacionalResponse(null);
+        return;
+      }
 
-      const responses: CachedRecursosResponses = { operacional, devolucao };
-      setLastApiResponses(responses);
+      const operacional = await getRecursosSessao(sessaoAtiva.id);
+      setLastOperacionalResponse(operacional);
+      setLastDevolucaoResponse(null);
     } catch (error) {
-      setLastApiResponses(null);
+      setLastOperacionalResponse(null);
+      setLastDevolucaoResponse(null);
       setOperators([]);
       setKpis(EMPTY_KPIS);
       setLoadError(
@@ -224,7 +267,7 @@ export function useGestaoRecursosPwa() {
     } finally {
       setIsLoadingRecursos(false);
     }
-  }, [sessaoAtiva]);
+  }, [processo, sessaoAtiva]);
 
   const triggerRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -253,24 +296,32 @@ export function useGestaoRecursosPwa() {
   }, [sessaoAtiva, loadRecursosFromApi]);
 
   useEffect(() => {
-    if (!lastApiResponses) {
-      return;
-    }
-
-    applyApiResponses(lastApiResponses, processoFilter, new Date());
-  }, [lastApiResponses, processoFilter, applyApiResponses]);
+    applyCachedResponse(lastOperacionalResponse, lastDevolucaoResponse, new Date());
+  }, [
+    lastOperacionalResponse,
+    lastDevolucaoResponse,
+    applyCachedResponse,
+  ]);
 
   useEffect(() => {
-    if (!lastApiResponses) {
+    if (!lastOperacionalResponse && !lastDevolucaoResponse) {
       return;
     }
 
     const interval = setInterval(() => {
-      applyApiResponses(lastApiResponses, processoFilter, new Date());
+      applyCachedResponse(
+        lastOperacionalResponse,
+        lastDevolucaoResponse,
+        new Date(),
+      );
     }, LIVE_TICK_MS);
 
     return () => clearInterval(interval);
-  }, [lastApiResponses, processoFilter, applyApiResponses]);
+  }, [
+    lastOperacionalResponse,
+    lastDevolucaoResponse,
+    applyCachedResponse,
+  ]);
 
   const counts = useMemo(
     () => ({
@@ -309,6 +360,14 @@ export function useGestaoRecursosPwa() {
 
   return {
     ...sessaoState,
+    processo,
+    processoLabel: isMapaGrupoProcesso(processo)
+      ? processo === 'separacao'
+        ? 'Separação'
+        : processo === 'conferencia'
+          ? 'Conferência'
+          : 'Carregamento'
+      : 'Devolução',
     operators,
     kpis,
     counts,
@@ -316,7 +375,6 @@ export function useGestaoRecursosPwa() {
     filteredOperators,
     searchQuery,
     filter,
-    processoFilter,
     isLoading,
     isRefreshing,
     canShowPainel,
@@ -324,7 +382,6 @@ export function useGestaoRecursosPwa() {
     loadError,
     setSearchQuery,
     setFilter,
-    setProcessoFilter,
     triggerRefresh,
   };
 }

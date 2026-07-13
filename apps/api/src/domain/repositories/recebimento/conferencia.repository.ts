@@ -2,6 +2,7 @@ import type {
   CreateChecklistRecebimentoInput,
   PreRecebimentoSituacao,
   RecebimentoSituacao,
+  UpsertTemperaturaProdutoRecebimentoInput,
 } from '../../model/recebimento/recebimento.model.js';
 
 
@@ -47,6 +48,14 @@ export type OperadorDemandaRecord = {
   skuCount: number;
 
   horarioPrevisto: Date;
+
+  conferenteId: number | null;
+
+  conferente: string | null;
+
+  conferenteMatricula: string | null;
+
+  alocacaoFuncionarioId: number | null;
 
 };
 
@@ -109,6 +118,17 @@ export type ChecklistRecebimentoRecord = {
   createdAt: Date;
 };
 
+export type TemperaturaProdutoRecebimentoRecord = {
+  id: string;
+  recebimentoId: string;
+  etapa: 'inicio' | 'meio' | 'fim';
+  temperatura: number;
+  medidoEm: Date;
+  operatorId: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type ResumoConferidoProdutoRecord = {
   produtoId: string;
   qtdContabil: number;
@@ -127,6 +147,9 @@ export type ConferenciaContextRecord = {
   recebimentoSituacao: RecebimentoSituacao | null;
   dock: string | null;
   checklistPreenchido: boolean;
+  conferenteId: number | null;
+  conferente: string | null;
+  conferenteMatricula: string | null;
   modoUnitizacao: string;
   itens: ConferenciaItemBlindRecord[];
   conferidos: ConferenciaConferidoRecord[];
@@ -138,6 +161,9 @@ export type ConferenciaContextRecord = {
 export type ListOperadorDemandasFilter = {
 
   unidadeId: string;
+
+  /** funcionarioId do usuário logado — filtra em_conferencia ao conferente */
+  responsavelId?: number;
 
 };
 
@@ -160,6 +186,16 @@ export interface IConferenciaRepository {
     recebimentoId: string,
     data: CreateChecklistRecebimentoInput,
   ): Promise<ChecklistRecebimentoRecord>;
+
+  listTemperaturasProduto(
+    recebimentoId: string,
+  ): Promise<TemperaturaProdutoRecebimentoRecord[]>;
+
+  upsertTemperaturaProduto(
+    recebimentoId: string,
+    data: UpsertTemperaturaProdutoRecebimentoInput,
+    operatorId: number | null,
+  ): Promise<TemperaturaProdutoRecebimentoRecord>;
 }
 
 

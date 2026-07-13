@@ -52,6 +52,7 @@ export type ParametrosPausaApi = {
 
 export type QuantidadeModoApi = 'caixa' | 'unidade' | 'ambos';
 export type LoteModoApi = 'lote' | 'fabricacao' | 'ambos';
+export type DisplayUnidadePadraoApi = 'CX' | 'UN';
 
 export type CondicaoChecklistItem = {
   id: string;
@@ -86,6 +87,9 @@ export type ParametrosRecebimentoConferenciaApi = {
   controlaPalete: boolean;
   solicitarPesoPvar: boolean;
   exigirEtiquetaPesoVariavel: boolean;
+  displayUnidadePadrao: DisplayUnidadePadraoApi;
+  displayDecimaisCaixa: number;
+  displayDecimaisUnidade: number;
   condicoesChecklist: CondicaoChecklistItem[];
 };
 
@@ -96,6 +100,9 @@ export const DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA: ParametrosRecebimentoCo
     controlaPalete: false,
     solicitarPesoPvar: true,
     exigirEtiquetaPesoVariavel: false,
+    displayUnidadePadrao: 'UN',
+    displayDecimaisCaixa: 2,
+    displayDecimaisUnidade: 0,
     condicoesChecklist: DEFAULT_CONDICOES_CHECKLIST,
   };
 

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, lte, sql } from 'drizzle-orm';
 
 import type { ListSessoesFilter } from '../../../domain/repositories/sessao-operacao/sessao-operacao.repository.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
@@ -20,7 +20,19 @@ export async function listSessoesTrabalhoDb(
     conditions.push(eq(sessoesTrabalho.status, filter.status));
   }
 
-  if (filter.dataReferencia) {
+  if (filter.dataReferenciaInicio && filter.dataReferenciaFim) {
+    const inicio =
+      filter.dataReferenciaInicio <= filter.dataReferenciaFim
+        ? filter.dataReferenciaInicio
+        : filter.dataReferenciaFim;
+    const fim =
+      filter.dataReferenciaInicio <= filter.dataReferenciaFim
+        ? filter.dataReferenciaFim
+        : filter.dataReferenciaInicio;
+
+    conditions.push(gte(sessoesTrabalho.dataReferencia, inicio));
+    conditions.push(lte(sessoesTrabalho.dataReferencia, fim));
+  } else if (filter.dataReferencia) {
     conditions.push(eq(sessoesTrabalho.dataReferencia, filter.dataReferencia));
   }
 
@@ -50,6 +62,7 @@ export async function listSessoesTrabalhoDb(
       updatedAt: sessoesTrabalho.updatedAt,
       escalaNome: escalasTrabalho.nome,
       equipeNome: equipes.nome,
+      equipeArea: equipes.area,
       horaInicioPlanejada: escalasTrabalho.horaInicioPlanejada,
       horaFimPlanejada: escalasTrabalho.horaFimPlanejada,
       cruzaMeiaNoite: escalasTrabalho.cruzaMeiaNoite,

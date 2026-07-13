@@ -10,6 +10,7 @@ import type {
   ListEnderecosApiResponse,
   UpdateEnderecoPayload,
 } from '@/features/enderecos/types/endereco.api';
+import type { GetMapaCdResponse } from '@/features/enderecos/types/mapa-cd.schema';
 import type {
   EnderecoKpi,
   EnderecoListaItem,
@@ -205,6 +206,21 @@ export function importEnderecos(file: File): Promise<ImportEnderecosResponse> {
     method: 'POST',
     body: formData,
   });
+}
+
+export function criarEnderecosLote(items: CreateEnderecoPayload[]) {
+  return apiRequest<ImportEnderecosResponse>('/enderecos/lote', {
+    method: 'POST',
+    body: JSON.stringify({ items }),
+  });
+}
+
+export function getMapaCd(unidadeId?: string) {
+  const path = unidadeId
+    ? `/enderecos/mapa-cd?unidadeId=${encodeURIComponent(unidadeId)}`
+    : '/enderecos/mapa-cd';
+
+  return apiRequest<GetMapaCdResponse>(path);
 }
 
 export { downloadEnderecoTemplate } from '@/features/enderecos/lib/endereco-import-template';

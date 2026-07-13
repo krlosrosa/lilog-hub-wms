@@ -1,3 +1,4 @@
+import { normalizarPlacaVeiculo } from '@lilog/contracts';
 import { eq } from 'drizzle-orm';
 
 import type { RecepcionarCarroInput } from '../../../domain/model/recebimento/recebimento.model.js';
@@ -5,11 +6,6 @@ import type { PreRecebimentoRecord } from '../../../domain/repositories/recebime
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import { preRecebimentos } from '../providers/drizzle/config/migrations/schema.js';
 import { mapPreRecebimentoRow } from './map-recebimento.drizzle.js';
-
-function normalizePlaca(placa?: string): string | undefined {
-  const trimmed = placa?.trim();
-  return trimmed ? trimmed.toUpperCase() : undefined;
-}
 
 export async function recepcionarCarroPreRecebimentoDb(
   db: DrizzleClient,
@@ -19,20 +15,18 @@ export async function recepcionarCarroPreRecebimentoDb(
   const dataChegada = data.dataChegada
     ? new Date(data.dataChegada)
     : new Date();
-  const placa = normalizePlaca(data.placa);
 
   const values: Partial<typeof preRecebimentos.$inferInsert> = {
     situacao: 'aguardando',
     dataChegada,
-    motoristaNome: data.motoristaNome?.trim() || null,
+    motoristaNome: data.motoristaNome.trim(),
     motoristaTelefone: data.motoristaTelefone?.trim() || null,
+    placa: normalizarPlacaVeiculo(data.placa),
     grauPrioridade: data.grauPrioridade ?? null,
+    quantidadePaletesEsperada: data.quantidadePaletesEsperada ?? null,
+    numeroTermoPalete: data.numeroTermoPalete?.trim() || null,
     updatedAt: new Date(),
   };
-
-  if (placa !== undefined) {
-    values.placa = placa;
-  }
 
   const [updated] = await db
     .update(preRecebimentos)

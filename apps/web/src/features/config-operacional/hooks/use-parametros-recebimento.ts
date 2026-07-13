@@ -35,6 +35,9 @@ const parametrosRecebimentoFormSchema = z.object({
   controlaPalete: z.boolean(),
   solicitarPesoPvar: z.boolean(),
   exigirEtiquetaPesoVariavel: z.boolean(),
+  displayUnidadePadrao: z.enum(['CX', 'UN']),
+  displayDecimaisCaixa: z.number().int().min(0).max(4),
+  displayDecimaisUnidade: z.number().int().min(0).max(3),
   condicoesChecklist: z
     .array(condicaoChecklistItemSchema)
     .min(1, 'Adicione ao menos uma condição')
@@ -91,6 +94,10 @@ export function useParametrosRecebimento() {
             solicitarPesoPvar: parametros.solicitarPesoPvar ?? true,
             exigirEtiquetaPesoVariavel:
               parametros.exigirEtiquetaPesoVariavel ?? false,
+            displayUnidadePadrao:
+              parametros.displayUnidadePadrao ?? 'UN',
+            displayDecimaisCaixa: parametros.displayDecimaisCaixa ?? 2,
+            displayDecimaisUnidade: parametros.displayDecimaisUnidade ?? 0,
             condicoesChecklist:
               parametros.condicoesChecklist?.length > 0
                 ? parametros.condicoesChecklist
@@ -135,6 +142,9 @@ export function useParametrosRecebimento() {
             controlaPalete: values.controlaPalete,
             solicitarPesoPvar: values.solicitarPesoPvar,
             exigirEtiquetaPesoVariavel: values.exigirEtiquetaPesoVariavel,
+            displayUnidadePadrao: values.displayUnidadePadrao,
+            displayDecimaisCaixa: values.displayDecimaisCaixa,
+            displayDecimaisUnidade: values.displayDecimaisUnidade,
             condicoesChecklist: values.condicoesChecklist.map((item) => ({
               id: item.id.trim(),
               label: item.label.trim(),

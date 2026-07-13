@@ -13,7 +13,7 @@ const produto: ProdutoRecord = {
   tipo: 'revenda',
   ean: null,
   dum: null,
-  shelfLife: null,
+  shelfLife: 90,
   pesoBrutoUnidade: null,
   pesoBrutoCaixa: null,
   pesoBrutoPalete: null,
@@ -80,6 +80,9 @@ describe('montarItensCncRecebimento', () => {
       subtipoOcorrencia: 'falta',
       sku: 'SKU-001',
       quantidadeDivergente: 12,
+      unidadeMedida: 'UN',
+      causaAvaria: '88',
+      shelfLifeDias: 90,
       loteEsperado: 'LOTE-A',
       loteRecebido: 'LOTE-A',
       responsavelSugerido: 'fornecedor',
@@ -113,9 +116,44 @@ describe('montarItensCncRecebimento', () => {
     expect(itens[0]).toMatchObject({
       tipo: 'avaria',
       subtipoOcorrencia: 'avaria',
-      quantidadeDivergente: 24,
+      quantidadeDivergente: 48,
+      unidadeMedida: 'UN',
+      shelfLifeDias: 90,
       naturezaAvaria: 'transporte',
       responsavelSugerido: 'transportadora',
+    });
+  });
+
+  it('deve normalizar avaria registrada apenas em caixas para unidades', () => {
+    const itens = montarItensCncRecebimento({
+      divergencias: [],
+      avarias: [
+        {
+          id: 'av-2',
+          recebimentoId: 'rec-1',
+          produtoId: 'prod-1',
+          tipo: 'embalagem',
+          natureza: 'transporte',
+          causa: 'impacto',
+          quantidadeCaixas: 2,
+          quantidadeUnidades: 0,
+          photoCount: 1,
+          replicado: false,
+          operatorId: 1,
+          createdAt: new Date(),
+        },
+      ],
+      itensEsperados: [],
+      itensRecebidos: [],
+      produtos: new Map([['prod-1', produto]]),
+    });
+
+    expect(itens[0]).toMatchObject({
+      tipo: 'avaria',
+      quantidadeDivergente: 24,
+      unidadeMedida: 'UN',
+      quantidadeCaixas: 2,
+      quantidadeUnidades: 0,
     });
   });
 
@@ -231,6 +269,131 @@ describe('montarItensCncRecebimento', () => {
       tipo: 'divergencia',
       subtipoOcorrencia: 'falta',
       quantidadeDivergente: 12,
+    });
+  });
+
+  it('deve montar item CNC para divergencia de peso', () => {
+    const pvarProduto: ProdutoRecord = {
+      ...produto,
+      produtoId: 'prod-pvar',
+      tipo: 'PVAR',
+      pesoBrutoUnidade: '1',
+    };
+
+    const itens = montarItensCncRecebimento({
+      divergencias: [
+        {
+          id: 'div-peso',
+          recebimentoId: 'rec-1',
+          produtoId: 'prod-pvar',
+          tipoDivergencia: 'divergencia_peso',
+          quantidadeEsperada: null,
+          quantidadeRecebida: null,
+          descricao: 'Peso esperado 10, recebido 8',
+          createdAt: new Date(),
+        },
+      ],
+      avarias: [],
+      itensEsperados: [
+        {
+          id: 'pre-item-pvar',
+          preRecebimentoId: 'pre-1',
+          produtoId: 'prod-pvar',
+          quantidadeEsperada: 10,
+          unidadeMedida: 'UN',
+          unidadesPorCaixa: 1,
+          loteEsperado: null,
+          pesoEsperado: 10,
+          validadeEsperada: null,
+          createdAt: new Date(),
+        },
+      ],
+      itensRecebidos: [
+        {
+          id: 'item-pvar',
+          recebimentoId: 'rec-1',
+          unidadeId: 'ITB',
+          produtoId: 'prod-pvar',
+          quantidadeRecebida: 10,
+          unidadeMedida: 'UN',
+          loteRecebido: null,
+          pesoRecebido: 8,
+          validade: null,
+          numeroSerie: null,
+          unitizadorId: null,
+          createdAt: new Date(),
+        },
+      ],
+      produtos: new Map([['prod-pvar', pvarProduto]]),
+    });
+
+    expect(itens).toHaveLength(1);
+    expect(itens[0]).toMatchObject({
+      tipo: 'divergencia',
+      subtipoOcorrencia: 'peso_divergente',
+      pesoEsperado: 10,
+      pesoRecebido: 8,
+      quantidadeDivergente: null,
+    });
+  });
+
+  it('deve converter quantidades para CX quando displayConfig preferir caixa', () => {
+    const itens = montarItensCncRecebimento({
+      divergencias: [
+        {
+          id: 'div-1',
+          recebimentoId: 'rec-1',
+          produtoId: 'prod-1',
+          tipoDivergencia: 'quantidade_menor',
+          quantidadeEsperada: 1260,
+          quantidadeRecebida: 48,
+          descricao: 'Quantidade recebida abaixo da prevista',
+          createdAt: new Date(),
+        },
+      ],
+      avarias: [],
+      itensEsperados: [
+        {
+          id: 'pre-item-1',
+          preRecebimentoId: 'pre-1',
+          produtoId: 'prod-1',
+          quantidadeEsperada: 105,
+          unidadeMedida: 'CX',
+          unidadesPorCaixa: 12,
+          loteEsperado: 'LOTE-A',
+          pesoEsperado: null,
+          validadeEsperada: null,
+          createdAt: new Date(),
+        },
+      ],
+      itensRecebidos: [
+        {
+          id: 'item-1',
+          recebimentoId: 'rec-1',
+          produtoId: 'prod-1',
+          quantidadeRecebida: 4,
+          unidadeMedida: 'CX',
+          loteRecebido: 'LOTE-A',
+          pesoRecebido: null,
+          validade: null,
+          numeroSerie: null,
+          unitizadorId: null,
+          createdAt: new Date(),
+        },
+      ],
+      produtos: new Map([['prod-1', produto]]),
+      displayConfig: {
+        unidadePadrao: 'CX',
+        decimaisCaixa: 2,
+        decimaisUnidade: 0,
+      },
+    });
+
+    expect(itens[0]).toMatchObject({
+      quantidadeEsperada: 105,
+      quantidadeRecebida: 4,
+      quantidadeDivergente: 101,
+      unidadeMedida: 'CX',
     });
   });
 });

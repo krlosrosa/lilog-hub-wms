@@ -11,12 +11,24 @@ import type {
 } from '@/features/filiais/types/unidade.api';
 import type { FiltroCluster } from '@/features/filiais/types/filial-lista.schema';
 import type { FilialListaItem } from '@/features/filiais/types/filial-lista.schema';
+import type { ClusterValue } from '@/features/filiais/types/filial.schema';
 
 type ListUnidadesParams = {
   page?: number;
   limit?: number;
   cluster?: FiltroCluster;
   search?: string;
+};
+
+export type UserUnidadeApi = {
+  id: string;
+  nome: string;
+  nomeFilial: string;
+  cluster: ClusterValue;
+};
+
+export type ListMyUnidadesApiResponse = {
+  items: UserUnidadeApi[];
 };
 
 export function mapUnidadeToListaItem(unidade: UnidadeApi): FilialListaItem {
@@ -27,6 +39,20 @@ export function mapUnidadeToListaItem(unidade: UnidadeApi): FilialListaItem {
     cluster: unidade.cluster,
     centrosCount: unidade.centros.length,
   };
+}
+
+export function mapMyUnidadeToListaItem(unidade: UserUnidadeApi): FilialListaItem {
+  return {
+    id: unidade.id,
+    nome: unidade.nome,
+    nomeFilial: unidade.nomeFilial,
+    cluster: unidade.cluster,
+    centrosCount: 0,
+  };
+}
+
+export async function listMyUnidades(): Promise<ListMyUnidadesApiResponse> {
+  return apiRequest<ListMyUnidadesApiResponse>('/auth/me/unidades');
 }
 
 export async function listUnidades(

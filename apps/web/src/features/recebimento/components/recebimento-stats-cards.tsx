@@ -11,6 +11,8 @@ import {
 
 import { cn } from '@lilog/ui';
 
+import { useDisplayConfig } from '@/features/config-operacional/hooks/use-display-config';
+
 type RecebimentoStatsCardsProps = {
   hoje: number;
   volumeEsperado: number;
@@ -19,21 +21,75 @@ type RecebimentoStatsCardsProps = {
   atrasos: number;
 };
 
-function StatCardShell({
-  children,
+function MetricCell({
+  icon: Icon,
+  label,
+  value,
+  hint,
   variant = 'default',
+  progress,
 }: {
-  children: ReactNode;
+  icon: typeof CalendarRange;
+  label: string;
+  value: ReactNode;
+  hint?: ReactNode;
   variant?: 'default' | 'critical';
+  progress?: number;
 }) {
   return (
     <div
       className={cn(
-        'flex flex-col justify-between rounded-lg border border-outline-variant bg-glass-bg p-3 shadow-inner-glow backdrop-blur-glass transition-colors hover:border-primary/25',
-        variant === 'critical' && 'border-destructive/30 hover:border-destructive/45',
+        'flex min-w-0 flex-1 flex-col gap-1 px-3 py-2.5 sm:px-4 sm:py-3',
+        variant === 'critical' && 'bg-destructive/[0.03]',
       )}
     >
-      {children}
+      <div className="flex items-center gap-1.5">
+        <Icon
+          className={cn(
+            'size-3.5 shrink-0',
+            variant === 'critical' ? 'text-destructive' : 'text-muted-foreground',
+          )}
+          aria-hidden
+        />
+        <p
+          className={cn(
+            'truncate text-[10px] font-semibold uppercase tracking-wide',
+            variant === 'critical' ? 'text-destructive/90' : 'text-muted-foreground',
+          )}
+        >
+          {label}
+        </p>
+      </div>
+      <div className="flex min-w-0 items-baseline gap-1.5">
+        <span
+          className={cn(
+            'text-lg font-bold tabular-nums leading-none sm:text-xl',
+            variant === 'critical'
+              ? 'text-destructive'
+              : label === 'Hoje'
+                ? 'text-primary'
+                : 'text-foreground',
+          )}
+        >
+          {value}
+        </span>
+        {hint ? (
+          <span className="truncate text-[10px] text-muted-foreground">{hint}</span>
+        ) : null}
+      </div>
+      {progress !== undefined ? (
+        <div className="h-1 w-full overflow-hidden rounded-full bg-surface-highest">
+          <div
+            className="h-full rounded-full bg-secondary transition-all duration-500"
+            style={{ width: `${progress}%` }}
+            role="progressbar"
+            aria-valuenow={progress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Capacidade de docas"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -45,77 +101,41 @@ export function RecebimentoStatsCards({
   docasTotal,
   atrasos,
 }: RecebimentoStatsCardsProps) {
+  const { formatQtd } = useDisplayConfig();
   const formatNumber = new Intl.NumberFormat('pt-BR');
   const pctDocas =
     docasTotal > 0 ? Math.round((docasOcupadas / docasTotal) * 100) : 0;
 
   return (
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-      <StatCardShell>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-medium text-muted-foreground">
-            Recebimentos hoje
-          </span>
-          <CalendarRange className="size-3.5 text-primary" aria-hidden />
-        </div>
-        <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
-          {formatNumber.format(hoje)}
-          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-            total
-          </span>
-        </p>
-      </StatCardShell>
-
-      <StatCardShell>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-medium text-muted-foreground">
-            Volume esperado
-          </span>
-          <Package2 className="size-3.5 text-tertiary" aria-hidden />
-        </div>
-        <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
-          {formatNumber.format(volumeEsperado)}
-          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-            UN
-          </span>
-        </p>
-      </StatCardShell>
-
-      <StatCardShell>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-medium text-muted-foreground">
-            Docas ocupadas
-          </span>
-          <Warehouse className="size-3.5 text-secondary-foreground" aria-hidden />
-        </div>
-        <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
-          {docasOcupadas}/{docasTotal}
-          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-            {pctDocas}%
-          </span>
-        </p>
-        <div className="mt-1.5 h-0.5 w-full overflow-hidden rounded-full bg-surface-highest">
-          <div
-            className="h-full rounded-full bg-secondary transition-all"
-            style={{ width: `${pctDocas}%` }}
-          />
-        </div>
-      </StatCardShell>
-
-      <StatCardShell variant="critical">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-medium text-destructive/90">
-            Atrasos
-          </span>
-          <AlertTriangle className="size-3.5 text-destructive" aria-hidden />
-        </div>
-        <p className="mt-1 text-xl font-semibold tabular-nums text-destructive">
-          {formatNumber.format(atrasos)}
-          <span className="ml-1 text-[10px] font-normal text-destructive/80">
-            crítico
-          </span>
-        </p>
-      </StatCardShell>
+    <div className="overflow-hidden rounded-xl border border-outline-variant bg-glass-bg shadow-inner-glow backdrop-blur-glass">
+      <div className="grid grid-cols-2 divide-x divide-y divide-outline-variant/50 sm:grid-cols-4 sm:divide-y-0">
+        <MetricCell
+          icon={CalendarRange}
+          label="Hoje"
+          value={formatNumber.format(hoje)}
+          hint="agendados"
+        />
+        <MetricCell
+          icon={Package2}
+          label="Volume"
+          value={formatQtd(volumeEsperado)}
+          hint="unidades"
+        />
+        <MetricCell
+          icon={Warehouse}
+          label="Docas"
+          value={`${docasOcupadas}/${docasTotal}`}
+          hint={`${pctDocas}%`}
+          progress={pctDocas}
+        />
+        <MetricCell
+          icon={AlertTriangle}
+          label="Atrasos"
+          value={formatNumber.format(atrasos)}
+          hint={atrasos === 1 ? 'crítico' : 'críticos'}
+          variant="critical"
+        />
+      </div>
     </div>
   );
 }

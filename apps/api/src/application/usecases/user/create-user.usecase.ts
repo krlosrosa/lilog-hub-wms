@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -18,6 +19,7 @@ import {
 
 export type CreateUserUseCaseInput = Omit<CreateUserInput, 'passwordHash'> & {
   password: string;
+  unidadesIds?: string[];
 };
 
 @Injectable()
@@ -62,9 +64,17 @@ export class CreateUserUseCase {
       );
     }
 
+    const unidadesIds = this.resolveUnidadesIds(input.unidadesIds, funcionario.unidadeId);
+
+    if (!unidadesIds.includes(funcionario.unidadeId)) {
+      throw new BadRequestException(
+        'O funcionário deve pertencer a uma das unidades selecionadas',
+      );
+    }
+
     const passwordHash = await bcrypt.hash(input.password, 10);
 
-    return this.userRepository.create({
+    const user = await this.userRepository.create({
       id: input.id,
       name: input.name,
       email: input.email,
@@ -73,5 +83,20 @@ export class CreateUserUseCase {
       status: input.status,
       funcionarioId: input.funcionarioId,
     });
+
+    await this.userRepository.syncUserUnidades(user.id, unidadesIds);
+
+    return user;
+  }
+
+  private resolveUnidadesIds(
+    unidadesIds: string[] | undefined,
+    funcionarioUnidadeId: string,
+  ): string[] {
+    if (unidadesIds && unidadesIds.length > 0) {
+      return [...new Set(unidadesIds.map((id) => id.trim()).filter(Boolean))];
+    }
+
+    return [funcionarioUnidadeId];
   }
 }

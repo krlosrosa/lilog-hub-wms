@@ -86,6 +86,7 @@ export type SessaoRecord = {
   status: 'planejada' | 'aberta' | 'encerrada' | 'cancelada';
   escalaNome: string;
   equipeNome: string;
+  equipeArea: string | null;
   horaInicioPlanejada: string;
   horaFimPlanejada: string;
   cruzaMeiaNoite: boolean;
@@ -106,6 +107,11 @@ export type SessaoFuncionarioRecord = {
   checkIn: Date | null;
   checkOut: Date | null;
   observacao: string | null;
+  tipoVinculo: 'titular' | 'apoio';
+  equipeOrigemId: string | null;
+  equipeOrigemNome: string | null;
+  apoioInicio: Date | null;
+  apoioFim: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -140,6 +146,8 @@ export type ListSessoesFilter = {
   limit: number;
   status?: 'planejada' | 'aberta' | 'encerrada' | 'cancelada';
   dataReferencia?: string;
+  dataReferenciaInicio?: string;
+  dataReferenciaFim?: string;
 };
 
 export type ListSessoesResult = {
@@ -147,6 +155,32 @@ export type ListSessoesResult = {
   total: number;
   page: number;
   limit: number;
+};
+
+export type AdicionarFuncionarioApoioInput = {
+  sessaoId: string;
+  funcionarioId: number;
+  equipeOrigemId: string | null;
+  sessaoOrigemId: string | null;
+  userId: number;
+};
+
+export type FuncionarioApoioCandidatoRecord = {
+  funcionarioId: number;
+  matricula: string;
+  nome: string;
+  cargo: string;
+  sessaoOrigemId: string;
+  equipeOrigemId: string;
+  equipeOrigemNome: string;
+  equipeOrigemArea: string | null;
+  statusPresenca: SessaoFuncionarioRecord['status'];
+};
+
+export type SessaoTitularAbertaPorFuncionarioRecord = {
+  sessaoId: string;
+  equipeId: string;
+  equipeNome: string;
 };
 
 export interface ISessaoOperacaoRepository {
@@ -205,4 +239,21 @@ export interface ISessaoOperacaoRepository {
     userId: number,
   ): Promise<SessaoFuncionarioPausaRecord>;
   countPausasAbertasBySessaoId(sessaoId: string): Promise<number>;
+  adicionarFuncionarioApoio(
+    input: AdicionarFuncionarioApoioInput,
+  ): Promise<SessaoFuncionarioRecord>;
+  encerrarFuncionarioApoio(
+    sessaoId: string,
+    sessaoFuncionarioId: string,
+    userId: number,
+  ): Promise<SessaoFuncionarioRecord>;
+  listFuncionariosApoioCandidatos(
+    unidadeId: string,
+    sessaoDestinoId: string,
+  ): Promise<FuncionarioApoioCandidatoRecord[]>;
+  findSessaoTitularAbertaPorFuncionario(
+    unidadeId: string,
+    funcionarioId: number,
+    excludeSessaoId?: string,
+  ): Promise<SessaoTitularAbertaPorFuncionarioRecord | null>;
 }

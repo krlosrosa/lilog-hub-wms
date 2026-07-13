@@ -11,6 +11,11 @@ import { CollapsiblePanelSection } from '@/features/expedicao-impressao-config/c
 import { SwitchToggle } from '@/features/expedicao-config-mapa/components/switch-toggle';
 import { useParametrosRecebimento } from '@/features/config-operacional/hooks/use-parametros-recebimento';
 
+const DISPLAY_UNIDADE_OPCOES = [
+  { value: 'CX', label: 'Caixa (CX)', description: 'Relatórios e telas web exibem quantidades em caixas' },
+  { value: 'UN', label: 'Unidade (UN)', description: 'Relatórios e telas web exibem quantidades em unidades' },
+] as const;
+
 const QUANTIDADE_OPCOES = [
   { value: 'caixa', label: 'Caixa', description: 'Conferência apenas em caixas' },
   {
@@ -264,6 +269,91 @@ export function ParametrosRecebimentoView() {
                   </div>
                 </CollapsiblePanelSection>
 
+                <CollapsiblePanelSection title="Exibição de quantidades (Web)" defaultExpanded>
+                  <div className="space-y-4 p-4">
+                    <p className="text-sm text-muted-foreground">
+                      Define como conferência, CNC e relatórios do portal web exibem
+                      quantidades. O armazenamento interno continua em unidade base (UN).
+                    </p>
+
+                    <Controller
+                      control={control}
+                      name="displayUnidadePadrao"
+                      render={({ field }) => (
+                        <div className="space-y-3">
+                          {DISPLAY_UNIDADE_OPCOES.map((opcao) => (
+                            <RadioOption
+                              key={opcao.value}
+                              name="displayUnidadePadrao"
+                              value={opcao.value}
+                              label={opcao.label}
+                              description={opcao.description}
+                              checked={field.value === opcao.value}
+                              onChange={() => field.onChange(opcao.value)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    />
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Controller
+                        control={control}
+                        name="displayDecimaisCaixa"
+                        render={({ field, fieldState }) => (
+                          <div>
+                            <label className="mb-1.5 block text-sm font-medium text-foreground">
+                              Casas decimais (CX)
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              max={4}
+                              value={field.value}
+                              onChange={(event) =>
+                                field.onChange(Number(event.target.value))
+                              }
+                              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                            />
+                            {fieldState.error ? (
+                              <p className="mt-1 text-xs text-destructive">
+                                {fieldState.error.message}
+                              </p>
+                            ) : null}
+                          </div>
+                        )}
+                      />
+
+                      <Controller
+                        control={control}
+                        name="displayDecimaisUnidade"
+                        render={({ field, fieldState }) => (
+                          <div>
+                            <label className="mb-1.5 block text-sm font-medium text-foreground">
+                              Casas decimais (UN)
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              max={3}
+                              value={field.value}
+                              onChange={(event) =>
+                                field.onChange(Number(event.target.value))
+                              }
+                              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                            />
+                            {fieldState.error ? (
+                              <p className="mt-1 text-xs text-destructive">
+                                {fieldState.error.message}
+                              </p>
+                            ) : null}
+                          </div>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </CollapsiblePanelSection>
+
                 <CollapsiblePanelSection title="Modo de rastreabilidade" defaultExpanded>
                   <div className="space-y-3 p-4">
                     <Controller
@@ -418,6 +508,19 @@ export function ParametrosRecebimentoView() {
                       <strong className="text-foreground">
                         {watched.condicoesChecklist?.length ?? 0} item(ns)
                       </strong>
+                    </li>
+                    <li>
+                      Exibição web:{' '}
+                      <strong className="text-foreground">
+                        {
+                          DISPLAY_UNIDADE_OPCOES.find(
+                            (o) => o.value === watched.displayUnidadePadrao,
+                          )?.label
+                        }
+                      </strong>
+                      {' · '}
+                      CX {watched.displayDecimaisCaixa} dec. / UN{' '}
+                      {watched.displayDecimaisUnidade} dec.
                     </li>
                   </ul>
                 </div>

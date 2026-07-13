@@ -1,9 +1,11 @@
+import type { UseFormReturn } from 'react-hook-form';
+
 import type {
   DetalheItemForm,
   LoteConferido,
   ParametrosRecebimentoConferencia,
 } from '../types/recebimento.schema';
-import { parseFabricacaoFromLote } from './parse-fabricacao-from-lote';
+import { parseFabricacaoFromLote } from '@lilog/contracts';
 
 export const EMPTY_DETALHE_ITEM_FORM: DetalheItemForm = {
   sku: '',
@@ -59,6 +61,83 @@ export function resolveMaintainedLoteContext(
 
   return { lote, validade };
 }
+
+export function resolveFirstFormError(
+  errors: Record<string, { message?: string } | undefined>,
+): string | null {
+  for (const field of [
+    'peso',
+    'lote',
+    'validade',
+    'etiqueta',
+    'recebidaCaixa',
+    'recebidaUnidade',
+    'sku',
+    'idPalete',
+  ]) {
+    const message = errors[field]?.message;
+    if (message) {
+      return message;
+    }
+  }
+
+  return null;
+}
+
+export function validatePvarBoxDraft(
+  values: Pick<DetalheItemForm, 'lote' | 'validade' | 'peso'>,
+  options: {
+    existingLotes: Pick<LoteConferido, 'lote' | 'validade'>[];
+    ignoreMaintainedLote: boolean;
+    controlaLote: boolean;
+    controlaValidade: boolean;
+    loteModo: ParametrosRecebimentoConferencia['loteModo'];
+  },
+): string | null {
+  const needsLote = options.loteModo === 'lote' || options.loteModo === 'ambos';
+  const needsFabricacao =
+    options.loteModo === 'fabricacao' || options.loteModo === 'ambos';
+  const maintained = resolveMaintainedLoteContext(values, options.existingLotes, {
+    ignoreExisting: options.ignoreMaintainedLote,
+  });
+
+  if (options.controlaLote && needsLote && !maintained.lote) {
+    return 'Informe o lote na primeira caixa';
+  }
+
+  if (options.controlaValidade && needsFabricacao && !maintained.validade) {
+    return 'Informe a fabricação na primeira caixa';
+  }
+
+  const peso = Number(values.peso || 0);
+  if (!values.peso?.trim() || Number.isNaN(peso) || peso <= 0) {
+    return 'Informe o peso da caixa';
+  }
+
+  return null;
+}
+
+export function syncMaintainedLoteFieldsForSubmit(
+  form: Pick<UseFormReturn<DetalheItemForm>, 'getValues' | 'setValue'>,
+  existingLotes: Pick<LoteConferido, 'lote' | 'validade'>[],
+  ignoreMaintainedLote: boolean,
+) {
+  if (ignoreMaintainedLote) {
+    return;
+  }
+
+  const values = form.getValues();
+  const maintained = resolveMaintainedLoteContext(values, existingLotes);
+
+  if (maintained.lote && !values.lote?.trim()) {
+    form.setValue('lote', maintained.lote, { shouldValidate: false });
+  }
+
+  if (maintained.validade && !values.validade?.trim()) {
+    form.setValue('validade', maintained.validade, { shouldValidate: false });
+  }
+}
+
 export function hasPendingLoteDraftValues(
   values: Pick<
     DetalheItemForm,

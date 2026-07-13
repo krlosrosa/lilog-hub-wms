@@ -2,7 +2,9 @@ import { and, desc, eq, gte, lte, sql, type SQL } from 'drizzle-orm';
 
 import type { ListPreRecebimentosFilter } from '../../../domain/repositories/recebimento/pre-recebimento.repository.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
-import { preRecebimentos } from '../providers/drizzle/config/migrations/schema.js';
+import {
+  preRecebimentos,
+} from '../providers/drizzle/config/schemas/recebimento.schema.js';
 import { mapPreRecebimentoRow } from './map-recebimento.drizzle.js';
 
 export async function listPreRecebimentosDb(
@@ -39,7 +41,9 @@ export async function listPreRecebimentosDb(
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   const rows = await db
-    .select()
+    .select({
+      preRecebimento: preRecebimentos,
+    })
     .from(preRecebimentos)
     .where(whereClause)
     .orderBy(desc(preRecebimentos.createdAt))
@@ -52,7 +56,7 @@ export async function listPreRecebimentosDb(
     .where(whereClause);
 
   return {
-    items: rows.map(mapPreRecebimentoRow),
+    items: rows.map(({ preRecebimento }) => mapPreRecebimentoRow(preRecebimento)),
     total: countResult[0]?.count ?? 0,
     page,
     limit,

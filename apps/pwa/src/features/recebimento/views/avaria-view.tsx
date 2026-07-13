@@ -147,6 +147,7 @@ export function AvariaView({ demandId }: AvariaViewProps) {
     tipoOptions,
     naturezaOptions,
     causaOptions,
+    naturezaSelecionada,
     replicarParaTodosConferidos,
     itensConferidosCount,
     podeReplicar,
@@ -319,15 +320,6 @@ export function AvariaView({ demandId }: AvariaViewProps) {
               />
             ) : null}
             <AvariaSelectField
-              id="tipo"
-              label="Tipo"
-              options={tipoOptions}
-              placeholder="Selecione o tipo"
-              error={errors.tipo?.message}
-              className="h-12 rounded-lg"
-              {...actions.register('tipo')}
-            />
-            <AvariaSelectField
               id="natureza"
               label="Natureza"
               options={naturezaOptions}
@@ -337,10 +329,29 @@ export function AvariaView({ demandId }: AvariaViewProps) {
               {...actions.register('natureza')}
             />
             <AvariaSelectField
+              id="tipo"
+              label="Tipo"
+              options={tipoOptions}
+              placeholder={
+                naturezaSelecionada
+                  ? 'Selecione o tipo'
+                  : 'Selecione a natureza primeiro'
+              }
+              disabled={!naturezaSelecionada}
+              error={errors.tipo?.message}
+              className="h-12 rounded-lg"
+              {...actions.register('tipo')}
+            />
+            <AvariaSelectField
               id="causa"
               label="Causa"
               options={causaOptions}
-              placeholder="Selecione a causa"
+              placeholder={
+                naturezaSelecionada
+                  ? 'Selecione a causa'
+                  : 'Selecione a natureza primeiro'
+              }
+              disabled={!naturezaSelecionada}
               error={errors.causa?.message}
               className="h-12 rounded-lg"
               {...actions.register('causa')}

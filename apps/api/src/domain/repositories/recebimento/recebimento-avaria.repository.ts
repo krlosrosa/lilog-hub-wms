@@ -42,4 +42,8 @@ export interface IRecebimentoAvariaRepository {
   deleteByRecebimento(
     recebimentoId: string,
   ): Promise<{ removedCount: number }>;
+  deleteById(
+    recebimentoId: string,
+    avariaId: string,
+  ): Promise<{ removed: boolean }>;
 }

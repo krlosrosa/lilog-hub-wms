@@ -3,16 +3,18 @@
 import { cn } from '@lilog/ui';
 
 import {
-  compactTableCellClassName,
-  compactTableClassName,
-  compactTableHeadCellClassName,
+  conferenciaTableCellClassName,
+  conferenciaTableClassName,
   compactTableHeadRowClassName,
+  conferenciaTableHeadCellClassName,
 } from '@/components/ui/compact-table-classes';
+import { useDisplayConfig } from '@/features/config-operacional/hooks/use-display-config';
 import type { LoteDetalheItem } from '@/features/recebimento/types/recebimento-detalhe.schema';
 
 type ConferenciaLoteExpandProps = {
   lotes: readonly LoteDetalheItem[];
   produto: string;
+  unidadesPorCaixa: number;
 };
 
 const HEADERS = [
@@ -29,23 +31,24 @@ function formatLoteDisplay(lote: string | null): string {
 export function ConferenciaLoteExpand({
   lotes,
   produto,
+  unidadesPorCaixa,
 }: ConferenciaLoteExpandProps) {
-  const formato = Intl.NumberFormat('pt-BR');
+  const { formatQtd, formatQtdSigned } = useDisplayConfig();
 
   return (
     <div className="space-y-2 py-1">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {produto} — detalhamento por lote
       </p>
 
       <div className="overflow-x-auto rounded-md border border-outline-variant/50 bg-background/60">
-        <table className={compactTableClassName}>
+        <table className={conferenciaTableClassName}>
           <thead>
             <tr className={compactTableHeadRowClassName}>
               {HEADERS.map((header) => (
                 <th
                   key={header.label}
-                  className={compactTableHeadCellClassName(header.className)}
+                  className={conferenciaTableHeadCellClassName(header.className)}
                   scope="col"
                 >
                   {header.label}
@@ -63,10 +66,10 @@ export function ConferenciaLoteExpand({
                   : divergencia < 0
                     ? 'text-destructive'
                     : 'text-secondary';
-              const textoDivergencia =
-                divergencia > 0
-                  ? `+${formato.format(divergencia)}`
-                  : formato.format(divergencia);
+              const textoDivergencia = formatQtdSigned(
+                divergencia,
+                unidadesPorCaixa,
+              );
 
               return (
                 <tr
@@ -81,31 +84,31 @@ export function ConferenciaLoteExpand({
                 >
                   <td
                     className={cn(
-                      compactTableCellClassName,
-                      'font-mono text-[10px] text-foreground',
+                      conferenciaTableCellClassName,
+                      'font-mono text-foreground',
                     )}
                   >
                     {formatLoteDisplay(lote.lote)}
                   </td>
                   <td
                     className={cn(
-                      compactTableCellClassName,
+                      conferenciaTableCellClassName,
                       'text-center tabular-nums text-foreground',
                     )}
                   >
-                    {formato.format(lote.qtdEsperada)}
+                    {formatQtd(lote.qtdEsperada, unidadesPorCaixa)}
                   </td>
                   <td
                     className={cn(
-                      compactTableCellClassName,
+                      conferenciaTableCellClassName,
                       'text-center tabular-nums text-foreground',
                     )}
                   >
-                    {formato.format(lote.qtdRecebida)}
+                    {formatQtd(lote.qtdRecebida, unidadesPorCaixa)}
                   </td>
                   <td
                     className={cn(
-                      compactTableCellClassName,
+                      conferenciaTableCellClassName,
                       'text-center font-semibold tabular-nums',
                       divergenciaClasse,
                     )}
