@@ -1,4 +1,8 @@
 import type { FuncionarioCargo } from '@lilog/contracts';
+import type {
+  UserRoleApi,
+  UserStatusApi,
+} from '@/features/usuarios/types/usuario.api';
 
 export type FuncionarioSituacaoApi =
   | 'ativo'
@@ -71,8 +75,8 @@ export type CreateFuncionarioApiResponse = {
     id: number;
     name: string;
     email: string;
-    role: string;
-    status: string;
+    role: UserRoleApi;
+    status: UserStatusApi;
     funcionarioId: number | null;
     createdAt: string;
   };
