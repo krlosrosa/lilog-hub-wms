@@ -124,7 +124,7 @@ export function LoginView() {
                 id="login-password"
                 type="password"
                 autoComplete="current-password"
-                placeholder="Digite sua senha"
+                placeholder="123456"
                 className={cn(inputClassName, 'pl-10')}
                 {...register('password')}
               />
