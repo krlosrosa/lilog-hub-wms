@@ -62,7 +62,7 @@ export function LoginView() {
                   type="text"
                   inputMode="numeric"
                   autoComplete="username"
-                  placeholder="Ex: 421931"
+                  placeholder="123456"
                   {...form.register('loginId')}
                   className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                 />
@@ -90,7 +90,7 @@ export function LoginView() {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  placeholder="123456"
+                  placeholder="••••••••"
                   {...form.register('password')}
                   className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                 />

@@ -43,10 +43,16 @@ export function LoginView() {
     hapticMedium();
 
     try {
-      await loginWithCredentials({
+      const loggedInUser = await loginWithCredentials({
         id: values.id,
         password: values.password,
       });
+
+      if (loggedInUser.mustChangePassword) {
+        await navigate({ to: '/alterar-senha', replace: true });
+        return;
+      }
+
       await navigate({ to: '/', replace: true });
     } catch (error) {
       if (error instanceof ApiClientError) {
@@ -98,7 +104,7 @@ export function LoginView() {
                 type="number"
                 inputMode="numeric"
                 autoComplete="username"
-                placeholder="Digite seu ID"
+                placeholder="123456"
                 className={cn(inputClassName, 'pl-10')}
                 {...register('id')}
               />
@@ -124,7 +130,7 @@ export function LoginView() {
                 id="login-password"
                 type="password"
                 autoComplete="current-password"
-                placeholder="123456"
+                placeholder="Digite sua senha"
                 className={cn(inputClassName, 'pl-10')}
                 {...register('password')}
               />

@@ -49,11 +49,13 @@ type AuthContextValue = {
 
   isLoading: boolean;
 
-  loginWithCredentials: (input: LoginInput) => Promise<void>;
+  loginWithCredentials: (input: LoginInput) => Promise<AuthUser>;
 
   logout: () => Promise<void>;
 
   refreshSession: () => Promise<AuthUser | null>;
+
+  completePasswordChange: () => void;
 
 };
 
@@ -68,6 +70,8 @@ export function normalizeAuthUser(value: AuthUser): AuthUser {
   return {
 
     ...value,
+
+    mustChangePassword: value.mustChangePassword ?? false,
 
     funcionarioId: value.funcionarioId ?? null,
 
@@ -357,7 +361,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (generation !== sessionGenerationRef.current) {
 
-        return;
+        throw new ApiClientError('Login interrompido. Tente novamente.');
 
       }
 
@@ -387,6 +391,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       applyUser(normalized);
 
+      return normalized;
+
     },
 
     [applyUser, user],
@@ -415,9 +421,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       clearSession(setUser);
 
-      void router.navigate({ to: '/login', replace: true });
+      await router.navigate({ to: '/login', replace: true });
 
     }
+
+  }, [router]);
+
+
+
+  const completePasswordChange = useCallback(() => {
+
+    setUser((current) => {
+
+      if (!current) {
+
+        return current;
+
+      }
+
+
+
+      const updated = { ...current, mustChangePassword: false };
+
+      persistUser(updated);
+
+      return updated;
+
+    });
 
   }, []);
 
@@ -437,9 +467,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       refreshSession,
 
+      completePasswordChange,
+
     }),
 
-    [user, isLoading, loginWithCredentials, logout, refreshSession],
+    [user, isLoading, loginWithCredentials, logout, refreshSession, completePasswordChange],
 
   );
 

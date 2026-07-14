@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AlterarSenhaRouteImport } from './routes/alterar-senha'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RecebimentoIndexRouteImport } from './routes/recebimento/index'
 import { Route as RecebimentoV2IndexRouteImport } from './routes/recebimento-v2/index'
@@ -79,6 +80,11 @@ import { Route as EstoqueContagemIdCegaAvariaRouteImport } from './routes/estoqu
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlterarSenhaRoute = AlterarSenhaRouteImport.update({
+  id: '/alterar-senha',
+  path: '/alterar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -432,6 +438,7 @@ const EstoqueContagemIdCegaAvariaRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/alterar-senha': typeof AlterarSenhaRoute
   '/login': typeof LoginRoute
   '/devolucao/$id': typeof DevolucaoIdRouteWithChildren
   '/passagem-bastao/resumo': typeof PassagemBastaoResumoRoute
@@ -500,6 +507,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/alterar-senha': typeof AlterarSenhaRoute
   '/login': typeof LoginRoute
   '/passagem-bastao/resumo': typeof PassagemBastaoResumoRoute
   '/rastreio/$token': typeof RastreioTokenRoute
@@ -559,6 +567,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/alterar-senha': typeof AlterarSenhaRoute
   '/login': typeof LoginRoute
   '/devolucao/$id': typeof DevolucaoIdRouteWithChildren
   '/passagem-bastao/resumo': typeof PassagemBastaoResumoRoute
@@ -629,6 +638,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/alterar-senha'
     | '/login'
     | '/devolucao/$id'
     | '/passagem-bastao/resumo'
@@ -697,6 +707,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/alterar-senha'
     | '/login'
     | '/passagem-bastao/resumo'
     | '/rastreio/$token'
@@ -755,6 +766,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/alterar-senha'
     | '/login'
     | '/devolucao/$id'
     | '/passagem-bastao/resumo'
@@ -824,6 +836,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AlterarSenhaRoute: typeof AlterarSenhaRoute
   LoginRoute: typeof LoginRoute
   DevolucaoIdRoute: typeof DevolucaoIdRouteWithChildren
   PassagemBastaoResumoRoute: typeof PassagemBastaoResumoRoute
@@ -862,6 +875,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alterar-senha': {
+      id: '/alterar-senha'
+      path: '/alterar-senha'
+      fullPath: '/alterar-senha'
+      preLoaderRoute: typeof AlterarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -1532,6 +1552,7 @@ const MovimentacaoRessuprimentoIdRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AlterarSenhaRoute: AlterarSenhaRoute,
   LoginRoute: LoginRoute,
   DevolucaoIdRoute: DevolucaoIdRouteWithChildren,
   PassagemBastaoResumoRoute: PassagemBastaoResumoRoute,

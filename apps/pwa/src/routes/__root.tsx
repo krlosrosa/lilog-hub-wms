@@ -36,6 +36,7 @@ function RootLayout() {
   const [animationClass, setAnimationClass] = useState('page-enter');
   const hideAppBar = isAppBarHidden(pathname);
   const isLoginRoute = pathname === '/login';
+  const isAlterarSenhaRoute = pathname === '/alterar-senha';
   const isPublicRoute =
     isLoginRoute ||
     pathname.startsWith('/manobra') ||
@@ -51,10 +52,15 @@ function RootLayout() {
       return;
     }
 
+    if (user?.mustChangePassword && !isAlterarSenhaRoute) {
+      void navigate({ to: '/alterar-senha', replace: true });
+      return;
+    }
+
     if (user && isLoginRoute) {
       void navigate({ to: '/', replace: true });
     }
-  }, [user, isLoading, isPublicRoute, isLoginRoute, navigate]);
+  }, [user, isLoading, isPublicRoute, isLoginRoute, isAlterarSenhaRoute, navigate]);
 
   useEffect(() => {
     if (prevPathname.current !== pathname) {
@@ -72,6 +78,14 @@ function RootLayout() {
   }
 
   if (!user && !isPublicRoute) {
+    return (
+      <div className="flex h-dvh items-center justify-center bg-background text-on-background">
+        <Loader2 className="h-8 w-8 animate-spin text-secondary" aria-label="Redirecionando" />
+      </div>
+    );
+  }
+
+  if (user?.mustChangePassword && !isAlterarSenhaRoute) {
     return (
       <div className="flex h-dvh items-center justify-center bg-background text-on-background">
         <Loader2 className="h-8 w-8 animate-spin text-secondary" aria-label="Redirecionando" />

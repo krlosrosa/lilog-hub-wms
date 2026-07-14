@@ -3,8 +3,15 @@ export type AuthUser = {
   name: string;
   email: string;
   role: string;
+  mustChangePassword: boolean;
   funcionarioId?: number | null;
   unidadeId: string | null;
+};
+
+export type ChangePasswordInput = {
+  currentPassword?: string;
+  newPassword: string;
+  confirmNewPassword: string;
 };
 
 export type LoginInput = {

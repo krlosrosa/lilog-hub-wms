@@ -15,7 +15,9 @@ import {
   invalidateSession,
   registerSessionInvalidationHandler,
 } from '@/lib/auth-session';
-import { apiRequest, ApiClientError } from '@/lib/api';
+import { apiRequest, ApiClientError, setActiveUnidadeId } from '@/lib/api';
+
+const UNIDADE_STORAGE_KEY = 'lilog:unidade';
 
 export type AuthUser = {
   id: number;
@@ -102,7 +104,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!(err instanceof ApiClientError)) throw err;
     } finally {
       setUser(null);
-      router.push('/login');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(UNIDADE_STORAGE_KEY);
+      }
+      setActiveUnidadeId(null);
+      router.replace('/login');
     }
   }, [router]);
 

@@ -27,7 +27,7 @@ const AlterarSenhaSchema = z
 type AlterarSenhaFormValues = z.infer<typeof AlterarSenhaSchema>;
 
 export function AlterarSenhaView() {
-  const { user, completePasswordChange } = useAuthContext();
+  const { user, completePasswordChange, logout } = useAuthContext();
   const router = useRouter();
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -209,6 +209,15 @@ export function AlterarSenhaView() {
               ) : null}
               {isSubmitting ? 'Salvando…' : 'Salvar nova senha'}
             </Button>
+
+            <button
+              type="button"
+              onClick={() => void logout()}
+              disabled={isSubmitting}
+              className="w-full text-center text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+            >
+              Sair e voltar ao login
+            </button>
           </form>
         </div>
       </div>

@@ -114,7 +114,7 @@ export function SidebarMobile({
             {onLogout ? (
               <button
                 type="button"
-                onClick={onLogout}
+                onClick={() => void onLogout?.()}
                 className="ml-auto rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface-high hover:text-foreground"
                 aria-label="Sair"
               >
