@@ -13,13 +13,13 @@ import {
   sectionIconClassName,
   sectionTitleClassName,
 } from '@/features/recebimento/components/form-field-classes';
-import type { RecebimentoCadastroFormValues } from '@/features/recebimento/types/recebimento-cadastro.schema';
+import type { RecebimentoCadastroFormInput } from '@/features/recebimento/types/recebimento-cadastro.schema';
 
 export function VeiculoFormCard() {
   const {
     register,
     formState: { errors },
-  } = useFormContext<RecebimentoCadastroFormValues>();
+  } = useFormContext<RecebimentoCadastroFormInput>();
 
   return (
     <section className={sectionCardClassName} aria-labelledby="titulo-veiculo-doc">

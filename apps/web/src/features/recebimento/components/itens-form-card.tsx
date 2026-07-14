@@ -19,7 +19,7 @@ import { listProdutos } from '@/features/produto/lib/produto-api';
 import type { ProdutoApi } from '@/features/produto/types/produto.api';
 import {
   EMPTY_ITEM_PRE_RECEBIMENTO,
-  type RecebimentoCadastroFormValues,
+  type RecebimentoCadastroFormInput,
 } from '@/features/recebimento/types/recebimento-cadastro.schema';
 
 const UNIDADE_MEDIDA_OPTIONS = ['UN', 'CX', 'KG', 'PLT'] as const;
@@ -34,7 +34,7 @@ function ProdutoSearchRow({ index }: ProdutoSearchRowProps) {
     setValue,
     watch,
     formState: { errors },
-  } = useFormContext<RecebimentoCadastroFormValues>();
+  } = useFormContext<RecebimentoCadastroFormInput>();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ProdutoApi[]>([]);
@@ -178,7 +178,7 @@ export function ItensFormCard() {
     control,
     register,
     formState: { errors },
-  } = useFormContext<RecebimentoCadastroFormValues>();
+  } = useFormContext<RecebimentoCadastroFormInput>();
 
   const { fields, append, remove } = useFieldArray({
     control,

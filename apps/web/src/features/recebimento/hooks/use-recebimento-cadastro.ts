@@ -21,11 +21,12 @@ import type { RecebimentoXlsxDemanda } from '@/features/recebimento/lib/parse-re
 import {
   EMPTY_ITEM_PRE_RECEBIMENTO,
   recebimentoCadastroFormSchema,
+  type RecebimentoCadastroFormInput,
   type RecebimentoCadastroFormValues,
 } from '@/features/recebimento/types/recebimento-cadastro.schema';
 import { ApiClientError } from '@/lib/api';
 
-export const RECEBIMENTO_CADASTRO_DEFAULT_VALUES: RecebimentoCadastroFormValues =
+export const RECEBIMENTO_CADASTRO_DEFAULT_VALUES: RecebimentoCadastroFormInput =
   {
     transportadoraNome: '',
     placa: '',
@@ -43,7 +44,11 @@ export function useRecebimentoCadastro() {
   const router = useRouter();
   const { unidadeSelecionada } = useUnidadeContext();
 
-  const form = useForm<RecebimentoCadastroFormValues>({
+  const form = useForm<
+    RecebimentoCadastroFormInput,
+    unknown,
+    RecebimentoCadastroFormValues
+  >({
     resolver: zodResolver(recebimentoCadastroFormSchema),
     defaultValues: RECEBIMENTO_CADASTRO_DEFAULT_VALUES,
     mode: 'onSubmit',

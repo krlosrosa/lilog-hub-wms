@@ -57,7 +57,10 @@ export const recebimentoCadastroFormSchema = z.object({
   notasFiscais: z.array(notaFiscalPreRecebimentoFormSchema).optional(),
 });
 
-export type RecebimentoCadastroFormValues = z.infer<
+export type RecebimentoCadastroFormInput = z.input<
+  typeof recebimentoCadastroFormSchema
+>;
+export type RecebimentoCadastroFormValues = z.output<
   typeof recebimentoCadastroFormSchema
 >;
 
