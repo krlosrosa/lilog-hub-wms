@@ -46,7 +46,7 @@ export type CreateFuncionarioPayload = {
   observacao?: string;
   criarUsuarioAdmin?: boolean;
   usuarioSenha?: string;
-  role?: 'admin' | 'manager' | 'operator';
+  role?: UserRoleApi;
   unidadesIds?: string[];
 };
 
