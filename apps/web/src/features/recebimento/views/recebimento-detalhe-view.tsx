@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   CheckCircle2,
+  FileDown,
   Loader2,
   QrCode,
   RotateCcw,
@@ -69,6 +70,7 @@ export function RecebimentoDetalheView({
     closeFinalizar,
     confirmarFinalizar,
     reimprimirEtiquetas,
+    downloadRelatorio,
     reabrirDemanda,
     isExcluirOpen,
     openExcluir,
@@ -126,6 +128,9 @@ export function RecebimentoDetalheView({
   const podeLiberar = r.status === 'aguardando';
   const podeRetomar = r.status === 'impedido';
   const podeFinalizar = r.status === 'conferido';
+  const podeDownloadConferidos =
+    (r.status === 'conferido' || r.status === 'finalizado') &&
+    Boolean(r.recebimentoId);
   const podeReimprimirEtiquetas =
     r.status === 'finalizado' &&
     Boolean(r.recebimentoId) &&
@@ -273,6 +278,24 @@ export function RecebimentoDetalheView({
                   )}
                   <span className="hidden sm:inline">Reabrir demanda</span>
                   <span className="sm:hidden">Reabrir</span>
+                </Button>
+              ) : null}
+              {podeDownloadConferidos ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 border-outline-variant px-2.5 text-xs"
+                  disabled={isSubmitting}
+                  onClick={() => void downloadRelatorio()}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <FileDown className="size-3.5" aria-hidden />
+                  )}
+                  <span className="hidden sm:inline">Baixar conferidos</span>
+                  <span className="sm:hidden">Conferidos</span>
                 </Button>
               ) : null}
               {podeReimprimirEtiquetas ? (
@@ -428,6 +451,8 @@ export function RecebimentoDetalheView({
         onClose={closeLinkRastreio}
         preRecebimentoId={r.id}
         placa={r.placa}
+        motoristaNome={r.motoristaNome}
+        motoristaTelefone={r.motoristaTelefone}
       />
 
       <ModalImportarOfflinePwa

@@ -88,6 +88,7 @@ async function findOrCreatePvarItem(
   unidadeId: string,
   data: ConferirItemInput,
   unitizadorId: string | null,
+  conferidoPorId: number | null,
 ): Promise<ItemRecebimentoRecord> {
   const existingRows = await db
     .select()
@@ -127,6 +128,7 @@ async function findOrCreatePvarItem(
       unidadeId,
       data,
       unitizadorId,
+      conferidoPorId,
     ),
     quantidadeRecebida: '0',
     pesoRecebido: null,
@@ -150,10 +152,11 @@ export async function addItemRecebimentoDb(
   recebimentoId: string,
   unidadeId: string,
   data: ConferirItemInput,
-  options?: { unitizadorId?: string | null; pesoVariavel?: boolean },
+  options?: { unitizadorId?: string | null; pesoVariavel?: boolean; conferidoPorId?: number | null },
 ): Promise<AddItemRecebimentoResult> {
   const unitizadorId = options?.unitizadorId ?? null;
   const pesoVariavel = options?.pesoVariavel ?? false;
+  const conferidoPorId = options?.conferidoPorId ?? null;
 
   if (pesoVariavel) {
     const itemBase = await findOrCreatePvarItem(
@@ -162,6 +165,7 @@ export async function addItemRecebimentoDb(
       unidadeId,
       data,
       unitizadorId,
+      conferidoPorId,
     );
 
     if (data.pesoRecebido === undefined) {
@@ -173,6 +177,7 @@ export async function addItemRecebimentoDb(
       unidadeId,
       pesoKg: data.pesoRecebido,
       etiquetaCodigo: data.etiquetaCodigo,
+      conferidoPorId,
     });
 
     const item = await syncItemTotalsFromPesagens(db, itemBase.id);
@@ -209,6 +214,7 @@ export async function addItemRecebimentoDb(
             ? String(data.pesoRecebido)
             : match.pesoRecebido,
         validade: data.validade ?? match.validade,
+        conferidoPorId: conferidoPorId ?? match.conferidoPorId,
       })
       .where(eq(itensRecebimento.id, match.id))
       .returning();
@@ -228,6 +234,7 @@ export async function addItemRecebimentoDb(
         unidadeId,
         data,
         unitizadorId,
+        conferidoPorId,
       ),
     )
     .returning();

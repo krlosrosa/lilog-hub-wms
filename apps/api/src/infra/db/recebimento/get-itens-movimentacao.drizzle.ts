@@ -4,6 +4,7 @@ import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import {
   itensPreRecebimento,
   itensRecebimento,
+  preRecebimentos,
   produtos,
   recebimentoAvarias,
   recebimentos,
@@ -22,6 +23,7 @@ export type MovimentacaoConferidoRecord = {
   quantidadeRecebida: number;
   unidadeMedida: string;
   pesoRecebido: number | null;
+  validade: Date | null;
 };
 
 export type MovimentacaoEsperadoRecord = {
@@ -30,6 +32,8 @@ export type MovimentacaoEsperadoRecord = {
   quantidadeEsperada: number;
   unidadeMedida: string;
   pesoEsperado: number | null;
+  loteEsperado: string | null;
+  validadeEsperada: Date | null;
 };
 
 export type MovimentacaoAvariaRecord = {
@@ -41,6 +45,7 @@ export type MovimentacaoAvariaRecord = {
 };
 
 export type MovimentacaoDataRecord = {
+  unidadeId: string;
   conferidos: MovimentacaoConferidoRecord[];
   esperados: MovimentacaoEsperadoRecord[];
   avarias: MovimentacaoAvariaRecord[];
@@ -60,8 +65,16 @@ export async function getItensMovimentacaoDb(
   preRecebimentoIds: string[],
 ): Promise<MovimentacaoDataRecord> {
   if (preRecebimentoIds.length === 0) {
-    return { conferidos: [], esperados: [], avarias: [] };
+    return { unidadeId: '', conferidos: [], esperados: [], avarias: [] };
   }
+
+  const preRecebimentoRows = await db
+    .select({ unidadeId: preRecebimentos.unidadeId })
+    .from(preRecebimentos)
+    .where(inArray(preRecebimentos.id, preRecebimentoIds))
+    .limit(1);
+
+  const unidadeId = preRecebimentoRows[0]?.unidadeId ?? '';
 
   const recebimentoRows = await db
     .select({
@@ -83,6 +96,8 @@ export async function getItensMovimentacaoDb(
       quantidadeEsperada: itensPreRecebimento.quantidadeEsperada,
       unidadeMedida: itensPreRecebimento.unidadeMedida,
       pesoEsperado: itensPreRecebimento.pesoEsperado,
+      loteEsperado: itensPreRecebimento.loteEsperado,
+      validadeEsperada: itensPreRecebimento.validadeEsperada,
     })
     .from(itensPreRecebimento)
     .where(inArray(itensPreRecebimento.preRecebimentoId, preRecebimentoIds));
@@ -94,10 +109,12 @@ export async function getItensMovimentacaoDb(
     unidadeMedida: row.unidadeMedida,
     pesoEsperado:
       row.pesoEsperado === null ? null : parseNumeric(row.pesoEsperado),
+    loteEsperado: row.loteEsperado,
+    validadeEsperada: row.validadeEsperada,
   }));
 
   if (recebimentoIds.length === 0) {
-    return { conferidos: [], esperados, avarias: [] };
+    return { unidadeId, conferidos: [], esperados, avarias: [] };
   }
 
   const conferidoRows = await db
@@ -113,6 +130,7 @@ export async function getItensMovimentacaoDb(
       quantidadeRecebida: itensRecebimento.quantidadeRecebida,
       unidadeMedida: itensRecebimento.unidadeMedida,
       pesoRecebido: itensRecebimento.pesoRecebido,
+      validade: itensRecebimento.validade,
     })
     .from(itensRecebimento)
     .innerJoin(produtos, eq(itensRecebimento.produtoId, produtos.produtoId))
@@ -143,6 +161,7 @@ export async function getItensMovimentacaoDb(
         unidadeMedida: row.unidadeMedida,
         pesoRecebido:
           row.pesoRecebido === null ? null : parseNumeric(row.pesoRecebido),
+        validade: row.validade,
       };
     })
     .filter((row): row is MovimentacaoConferidoRecord => row !== null);
@@ -166,5 +185,5 @@ export async function getItensMovimentacaoDb(
     quantidadeUnidades: row.quantidadeUnidades ?? 0,
   }));
 
-  return { conferidos, esperados, avarias };
+  return { unidadeId, conferidos, esperados, avarias };
 }

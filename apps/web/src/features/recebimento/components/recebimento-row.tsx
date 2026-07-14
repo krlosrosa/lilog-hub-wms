@@ -161,6 +161,14 @@ export function RecebimentoRow({
         {recebimento.transportador}
       </td>
 
+      <td className={cn(compactTableCellClassName, 'hidden max-w-[100px] truncate font-mono text-[10px] text-muted-foreground md:table-cell')}>
+        {recebimento.numeroTransporte ?? '—'}
+      </td>
+
+      <td className={cn(compactTableCellClassName, 'hidden max-w-[100px] truncate font-mono text-[10px] text-muted-foreground lg:table-cell')}>
+        {recebimento.numeroOcr ?? '—'}
+      </td>
+
       <td className={compactTableCellClassName}>
         <div className={textoHorarioClasses}>
           {(status === 'agendado' || status === 'liberado_para_conferencia') &&

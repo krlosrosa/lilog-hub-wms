@@ -26,6 +26,7 @@ export type CreatePesagemRecebimentoInput = {
   unidadeId: string;
   pesoKg: number;
   etiquetaCodigo?: string | null;
+  conferidoPorId?: number | null;
 };
 
 export async function createPesagemRecebimentoDb(
@@ -48,6 +49,7 @@ export async function createPesagemRecebimentoDb(
         sequenciaCaixa,
         etiquetaCodigo: data.etiquetaCodigo?.trim() || null,
         pesoKg: String(data.pesoKg),
+        conferidoPorId: data.conferidoPorId ?? null,
       })
       .returning();
 

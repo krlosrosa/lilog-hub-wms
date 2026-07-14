@@ -261,6 +261,15 @@ async function writePackageToDB(demandId: string, pkg: unknown): Promise<number>
   const p = pkg as {
     serverRevision?: number;
     revision?: number;
+    papelDoUsuario?: 'responsavel' | 'apoio' | null;
+    apoioAlocacaoId?: string;
+    capabilities?: {
+      canEditChecklist: boolean;
+      canRegistrarTemperatura: boolean;
+      canFinalizar: boolean;
+      canGerenciarPaletes: boolean;
+      canConferirItens: boolean;
+    };
     preRecebimento?: {
       id: string;
       unidadeId: string;
@@ -441,6 +450,11 @@ async function writePackageToDB(demandId: string, pkg: unknown): Promise<number>
         serverRevision,
         status: 'ready',
         ...(p.recebimento?.id ? { recebimentoId: p.recebimento.id } : {}),
+        ...(p.papelDoUsuario !== undefined
+          ? { papelDoUsuario: p.papelDoUsuario }
+          : {}),
+        ...(p.apoioAlocacaoId ? { apoioAlocacaoId: p.apoioAlocacaoId } : {}),
+        ...(p.capabilities ? { capabilities: p.capabilities } : {}),
         updatedAt: Date.now(),
       });
     },

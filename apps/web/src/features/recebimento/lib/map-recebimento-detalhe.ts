@@ -586,6 +586,8 @@ export function mapRecebimentoDetalhe(input: {
     unidade: preRecebimento.unidadeId,
     placa: preRecebimento.placa ?? 'Sem placa',
     transportador: preRecebimento.transportadoraNome ?? '—',
+    motoristaNome: preRecebimento.motoristaNome ?? null,
+    motoristaTelefone: preRecebimento.motoristaTelefone ?? null,
     documentacaoOk: Boolean(preRecebimento.dataChegada),
     status: mapSituacaoToStatus(preRecebimento.situacao),
     inspecao: mapChecklistToInspecao(

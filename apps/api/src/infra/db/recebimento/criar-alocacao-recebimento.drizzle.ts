@@ -14,6 +14,11 @@ import {
   sessoesTrabalho,
 } from '../providers/drizzle/config/migrations/schema.js';
 
+import {
+  ALOCACAO_RECEBIMENTO_RETURNING,
+  mapAlocacaoRecebimentoRow,
+} from './map-alocacao-recebimento.drizzle.js';
+
 export async function criarAlocacaoRecebimentoDb(
   db: DrizzleClient,
   input: CriarAlocacaoRecebimentoInput,
@@ -98,25 +103,16 @@ export async function criarAlocacaoRecebimentoDb(
       sessaoFuncionarioId: input.sessaoFuncionarioId,
       funcionarioId: input.funcionarioId,
       atribuidoPorUserId: input.atribuidoPorUserId,
+      papel: 'responsavel',
       status: 'atribuida',
     })
-    .returning({
-      id: recebimentoAlocacoes.id,
-      preRecebimentoId: recebimentoAlocacoes.preRecebimentoId,
-      sessaoId: recebimentoAlocacoes.sessaoId,
-      sessaoFuncionarioId: recebimentoAlocacoes.sessaoFuncionarioId,
-      funcionarioId: recebimentoAlocacoes.funcionarioId,
-      status: recebimentoAlocacoes.status,
-      atribuidoEm: recebimentoAlocacoes.atribuidoEm,
-      inicioEm: recebimentoAlocacoes.inicioEm,
-      canceladoEm: recebimentoAlocacoes.canceladoEm,
-    });
+    .returning(ALOCACAO_RECEBIMENTO_RETURNING);
 
   if (!created) {
     throw new Error('Falha ao criar alocação');
   }
 
-  return created;
+  return mapAlocacaoRecebimentoRow(created);
 }
 
 export async function findAlocacaoAtivaByPreRecebimentoIdDb(
@@ -124,27 +120,18 @@ export async function findAlocacaoAtivaByPreRecebimentoIdDb(
   preRecebimentoId: string,
 ): Promise<RecebimentoAlocacaoRecord | null> {
   const [row] = await db
-    .select({
-      id: recebimentoAlocacoes.id,
-      preRecebimentoId: recebimentoAlocacoes.preRecebimentoId,
-      sessaoId: recebimentoAlocacoes.sessaoId,
-      sessaoFuncionarioId: recebimentoAlocacoes.sessaoFuncionarioId,
-      funcionarioId: recebimentoAlocacoes.funcionarioId,
-      status: recebimentoAlocacoes.status,
-      atribuidoEm: recebimentoAlocacoes.atribuidoEm,
-      inicioEm: recebimentoAlocacoes.inicioEm,
-      canceladoEm: recebimentoAlocacoes.canceladoEm,
-    })
+    .select(ALOCACAO_RECEBIMENTO_RETURNING)
     .from(recebimentoAlocacoes)
     .where(
       and(
         eq(recebimentoAlocacoes.preRecebimentoId, preRecebimentoId),
+        eq(recebimentoAlocacoes.papel, 'responsavel'),
         eq(recebimentoAlocacoes.status, 'atribuida'),
       ),
     )
     .limit(1);
 
-  return row ?? null;
+  return row ? mapAlocacaoRecebimentoRow(row) : null;
 }
 
 export async function marcarAlocacaoIniciadaDb(
@@ -157,6 +144,7 @@ export async function marcarAlocacaoIniciadaDb(
     .where(
       and(
         eq(recebimentoAlocacoes.preRecebimentoId, preRecebimentoId),
+        eq(recebimentoAlocacoes.papel, 'responsavel'),
         eq(recebimentoAlocacoes.status, 'atribuida'),
       ),
     );
@@ -180,6 +168,7 @@ export async function criarAlocacaoIniciadaRetroativaDb(
     .where(
       and(
         eq(recebimentoAlocacoes.preRecebimentoId, input.preRecebimentoId),
+        eq(recebimentoAlocacoes.papel, 'responsavel'),
         inArray(recebimentoAlocacoes.status, ['atribuida', 'iniciada']),
       ),
     )
@@ -196,25 +185,16 @@ export async function criarAlocacaoIniciadaRetroativaDb(
       sessaoId: input.sessaoId,
       sessaoFuncionarioId: input.sessaoFuncionarioId,
       funcionarioId: input.funcionarioId,
+      papel: 'responsavel',
       status: 'iniciada',
       inicioEm: input.inicioEm,
       atribuidoEm: input.inicioEm,
     })
-    .returning({
-      id: recebimentoAlocacoes.id,
-      preRecebimentoId: recebimentoAlocacoes.preRecebimentoId,
-      sessaoId: recebimentoAlocacoes.sessaoId,
-      sessaoFuncionarioId: recebimentoAlocacoes.sessaoFuncionarioId,
-      funcionarioId: recebimentoAlocacoes.funcionarioId,
-      status: recebimentoAlocacoes.status,
-      atribuidoEm: recebimentoAlocacoes.atribuidoEm,
-      inicioEm: recebimentoAlocacoes.inicioEm,
-      canceladoEm: recebimentoAlocacoes.canceladoEm,
-    });
+    .returning(ALOCACAO_RECEBIMENTO_RETURNING);
 
   if (!created) {
     throw new Error('Falha ao criar alocação retroativa');
   }
 
-  return created;
+  return mapAlocacaoRecebimentoRow(created);
 }

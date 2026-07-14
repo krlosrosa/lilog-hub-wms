@@ -34,7 +34,10 @@ import { useForcePullV2 } from '../hooks/use-force-pull-v2';
 import { useImpedimentoV2 } from '../hooks/use-impedimento-v2';
 import { usePhotoCaptureV2 } from '../hooks/use-photo-capture-v2';
 import { useSyncStatusV2 } from '../hooks/use-sync-status-v2';
-import type { ChecklistFormV2 } from '../types/recebimento-v2.schema';
+import {
+  checklistRequiresObservacoes,
+  type ChecklistFormV2,
+} from '../types/recebimento-v2.schema';
 import { ImpedimentoV2Sheet } from './impedimento-v2-sheet';
 
 const DEFAULT_CONDITIONS = [
@@ -67,8 +70,59 @@ function resolveDockFormValue(
   );
 }
 
+function normalizeChecklistConditions(
+  conditions?: Record<string, boolean>,
+): Record<string, boolean> {
+  return Object.fromEntries(
+    DEFAULT_CONDITIONS.map((condition) => [condition.id, Boolean(conditions?.[condition.id])]),
+  );
+}
+
 function checklistOwnerId(demandId: string, slot: PhotoSlotId | 'extras') {
   return `checklist-${demandId}-${slot}`;
+}
+
+function ConditionToggleRow({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => {
+        hapticLight();
+        onChange(!checked);
+      }}
+      className={cn(
+        'flex w-full items-center justify-between gap-3 px-4 py-3 text-left touch-manipulation transition-colors active:bg-surface-container-low',
+        checked ? 'bg-surface' : 'bg-warning/5',
+      )}
+    >
+      <span className="text-body-md text-on-surface">{label}</span>
+      <div
+        className={cn(
+          'relative h-6 w-11 shrink-0 rounded-full transition-colors',
+          checked ? 'bg-secondary' : 'bg-outline-variant/60',
+        )}
+        aria-hidden
+      >
+        <span
+          className={cn(
+            'absolute top-0.5 h-5 w-5 rounded-full bg-surface shadow-sm transition-transform',
+            checked ? 'translate-x-[22px]' : 'translate-x-0.5',
+          )}
+        />
+      </div>
+    </button>
+  );
 }
 
 function PhotoThumb({
@@ -197,16 +251,31 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
     handleSubmit,
     reset,
     watch,
+    getValues,
+    setValue,
+    setError,
+    clearErrors,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<ChecklistFormV2>({
     defaultValues: {
       dock: '',
       lacre: '',
-      conditions: Object.fromEntries(DEFAULT_CONDITIONS.map((c) => [c.id, false])),
+      conditions: normalizeChecklistConditions(),
     },
   });
 
   const selectedDock = watch('dock');
+  const watchedConditions = watch('conditions');
+  const requiresObservacoes = checklistRequiresObservacoes(watchedConditions);
+
+  useEffect(() => {
+    if (!requiresObservacoes) {
+      clearErrors('observacoes');
+      return;
+    }
+    void trigger('observacoes');
+  }, [clearErrors, requiresObservacoes, trigger]);
 
   useEffect(() => {
     if (dockOptions.length === 0) return;
@@ -219,7 +288,7 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
         dock: dockValue,
         lacre: checklist.lacre ?? '',
         tempBau: checklist.tempBau,
-        conditions: checklist.conditions ?? {},
+        conditions: normalizeChecklistConditions(checklist.conditions),
         observacoes: checklist.observacoes,
       });
       return;
@@ -229,7 +298,7 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
       reset({
         dock: dockValue,
         lacre: '',
-        conditions: Object.fromEntries(DEFAULT_CONDITIONS.map((c) => [c.id, false])),
+        conditions: normalizeChecklistConditions(),
       });
     }
   }, [checklist, dockOptions, process?.dock, reset]);
@@ -302,6 +371,16 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
       return;
     }
 
+    const conditions = normalizeChecklistConditions(form.conditions);
+    if (checklistRequiresObservacoes(conditions) && !form.observacoes?.trim()) {
+      setError('observacoes', {
+        type: 'manual',
+        message: 'Informe observações para as condições não conformes',
+      });
+      toast.error('Informe observações para as condições não conformes');
+      return;
+    }
+
     const dockOption = dockOptions.find((d) => d.value === form.dock);
     const dockLabel = dockOption
       ? dockOption.label.split(' — ')[0]?.trim() || dockOption.label
@@ -310,7 +389,7 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
     try {
       hapticMedium();
       await saveChecklist(
-        form,
+        { ...form, conditions },
         form.dock,
         dockLabel,
         {
@@ -523,19 +602,20 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
 
         <div className="space-y-2">
           <p className="text-label-sm font-medium text-on-surface">Condições do veículo</p>
-          <div className="divide-y divide-outline-variant/50 rounded-lg border border-outline-variant bg-surface">
+          <div className="divide-y divide-outline-variant/50 overflow-hidden rounded-lg border border-outline-variant bg-surface">
             {DEFAULT_CONDITIONS.map((condition) => (
-              <label
+              <ConditionToggleRow
                 key={condition.id}
-                className="flex cursor-pointer items-center gap-3 px-4 py-3 touch-manipulation"
-              >
-                <input
-                  type="checkbox"
-                  {...register(`conditions.${condition.id}`)}
-                  className="h-4 w-4 accent-secondary"
-                />
-                <span className="text-body-md text-on-surface">{condition.label}</span>
-              </label>
+                label={condition.label}
+                checked={Boolean(watchedConditions?.[condition.id])}
+                onChange={(next) => {
+                  setValue(`conditions.${condition.id}`, next, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                  void trigger('observacoes');
+                }}
+              />
             ))}
           </div>
         </div>
@@ -543,14 +623,33 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
         <div className="space-y-1.5">
           <label className="text-label-sm font-medium text-on-surface" htmlFor="observacoes">
             Observações
+            {requiresObservacoes ? <span className="text-destructive"> *</span> : null}
           </label>
           <textarea
             id="observacoes"
-            {...register('observacoes')}
+            {...register('observacoes', {
+              validate: (value) => {
+                const conditions = getValues('conditions');
+                if (!checklistRequiresObservacoes(conditions)) return true;
+                return value?.trim()
+                  ? true
+                  : 'Informe observações para as condições não conformes';
+              },
+            })}
             rows={3}
-            placeholder="Observações adicionais..."
-            className="w-full resize-none rounded-lg border border-input bg-surface px-3 py-2.5 text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+            placeholder={
+              requiresObservacoes
+                ? 'Descreva as irregularidades encontradas...'
+                : 'Observações adicionais...'
+            }
+            className={cn(
+              'w-full resize-none rounded-lg border bg-surface px-3 py-2.5 text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20',
+              errors.observacoes ? 'border-destructive' : 'border-input',
+            )}
           />
+          {errors.observacoes ? (
+            <p className="text-label-sm text-destructive">{errors.observacoes.message}</p>
+          ) : null}
         </div>
 
         <Button

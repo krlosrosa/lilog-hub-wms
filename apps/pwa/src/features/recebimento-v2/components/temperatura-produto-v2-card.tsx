@@ -16,6 +16,7 @@ import {
   type TemperaturaEtapaStateV2,
   type TemperaturaEtapaV2,
 } from '../hooks/use-temperatura-produto-v2';
+import { useProcessCapabilitiesV2 } from '../hooks/use-process-capabilities-v2';
 import { TEMPERATURA_BAU_ETAPA_LABELS } from '../lib/temperatura-bau-v2';
 
 type TemperaturaFormValues = Record<TemperaturaEtapaV2, string>;
@@ -48,6 +49,8 @@ function parseTemperatura(raw: string): number | null {
 }
 
 export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string }) {
+  const { capabilities } = useProcessCapabilitiesV2(demandId);
+  const canRegistrar = capabilities.canRegistrarTemperatura;
   const [open, setOpen] = useState(false);
   const [savingEtapa, setSavingEtapa] = useState<TemperaturaEtapaV2 | null>(null);
   const isClosingRef = useRef(false);
@@ -87,6 +90,7 @@ export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string
   }, [collectPendingEntries, saveEtapas]);
 
   function openSheet() {
+    if (!canRegistrar) return;
     hapticLight();
     clearSaveError();
     setValues(buildFormFromEtapas(etapas));
@@ -156,15 +160,18 @@ export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string
       <button
         type="button"
         onClick={openSheet}
+        disabled={!canRegistrar}
         className={cn(
           'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label-sm font-medium touch-manipulation',
-          completo
+          !canRegistrar && 'cursor-not-allowed opacity-50',
+          canRegistrar && completo
             ? 'bg-secondary-container text-on-secondary-container'
-            : preenchidas > 0
+            : canRegistrar && preenchidas > 0
               ? 'bg-warning/15 text-warning'
               : 'bg-surface-container text-on-surface-variant',
         )}
         aria-label="Temperaturas do produto"
+        title={!canRegistrar ? 'Somente o responsável registra temperaturas' : undefined}
       >
         <Thermometer className="h-3.5 w-3.5" aria-hidden />
         Temp. {preenchidas}/3

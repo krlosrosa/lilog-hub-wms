@@ -180,6 +180,12 @@
     background-color: hsl(var(--accent-subtle));
   }
 
+  .dark .bg-secondary\/10,
+  .dark .bg-secondary\/15,
+  .dark .bg-secondary\/20 {
+    background-color: hsl(var(--secondary-container));
+  }
+
   .dark .bg-tertiary-container\/15,
   .dark .bg-tertiary-container\/20,
   .dark .bg-tertiary-container\/30 {

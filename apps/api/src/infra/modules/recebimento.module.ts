@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { RecebimentoEventPublisher } from '../../application/services/recebimento-event.publisher.js';
+import { RecebimentoParticipacaoService } from '../../application/services/recebimento/recebimento-participacao.service.js';
 import { MontarItensAguardandoArmazenagemRecebimentoService } from '../../application/services/recebimento/montar-itens-aguardando-armazenagem-recebimento.service.js';
 import { CarregarEtiquetasGeradasRecebimentoService } from '../../application/services/recebimento/carregar-etiquetas-geradas-recebimento.service.js';
 import { MontarPaletesArmazenagemService } from '../../application/services/armazenagem/montar-paletes-armazenagem.service.js';
@@ -46,9 +47,13 @@ import {
 import { ImportOfflineRecebimentoUseCase } from '../../application/usecases/recebimento/import-offline-recebimento.usecase.js';
 import { CriarAlocacaoRecebimentoUseCase } from '../../application/usecases/recebimento/criar-alocacao-recebimento.usecase.js';
 import { CancelarAlocacaoRecebimentoUseCase } from '../../application/usecases/recebimento/cancelar-alocacao-recebimento.usecase.js';
+import { AdicionarApoioRecebimentoUseCase } from '../../application/usecases/recebimento/adicionar-apoio-recebimento.usecase.js';
+import { RemoverApoioRecebimentoUseCase } from '../../application/usecases/recebimento/remover-apoio-recebimento.usecase.js';
+import { EncerrarApoioRecebimentoUseCase } from '../../application/usecases/recebimento/encerrar-apoio-recebimento.usecase.js';
 import { GetRecursosRecebimentoSessaoUseCase } from '../../application/usecases/recebimento/get-recursos-recebimento-sessao.usecase.js';
 import { GetRecebimentoPainelSnapshotUseCase } from '../../application/usecases/recebimento/get-recebimento-painel-snapshot.usecase.js';
 import { GerarMovimentacaoRecebimentoUseCase } from '../../application/usecases/recebimento/gerar-movimentacao-recebimento.usecase.js';
+import { GetRelatorioItensConferidosUseCase } from '../../application/usecases/recebimento/get-relatorio-itens-conferidos.usecase.js';
 import { RegistrarImpedimentoRecebimentoUseCase } from '../../application/usecases/recebimento/registrar-impedimento-recebimento.usecase.js';
 import { RetomarConferenciaImpedidaUseCase } from '../../application/usecases/recebimento/retomar-conferencia-impedida.usecase.js';
 import { OFFLINE_IMPORT_LOG_REPOSITORY } from '../../domain/repositories/offline-import/offline-import-log.repository.js';
@@ -100,9 +105,15 @@ import { GetRastreioStatusController } from '../../presentation/controllers/rece
 import { ImportOfflineRecebimentoController } from '../../presentation/controllers/recebimento/import-offline-recebimento.controller.js';
 import { CriarAlocacaoRecebimentoController } from '../../presentation/controllers/recebimento/criar-alocacao-recebimento.controller.js';
 import { CancelarAlocacaoRecebimentoController } from '../../presentation/controllers/recebimento/cancelar-alocacao-recebimento.controller.js';
+import {
+  AdicionarApoioRecebimentoController,
+  EncerrarApoioRecebimentoController,
+  RemoverApoioRecebimentoController,
+} from '../../presentation/controllers/recebimento/adicionar-apoio-recebimento.controller.js';
 import { GetRecursosRecebimentoSessaoController } from '../../presentation/controllers/recebimento/get-recursos-recebimento-sessao.controller.js';
 import { GetRecebimentoPainelSnapshotController } from '../../presentation/controllers/recebimento/get-recebimento-painel-snapshot.controller.js';
 import { GerarMovimentacaoRecebimentoController } from '../../presentation/controllers/recebimento/gerar-movimentacao-recebimento.controller.js';
+import { GetRelatorioItensConferidosController } from '../../presentation/controllers/recebimento/get-relatorio-itens-conferidos.controller.js';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard.js';
 import { GerarPdfDeHtmlService } from '../pdf/gerar-pdf-de-html.service.js';
 import { OfflineImportLogService } from '../db/offline-import/offline-import-log.service.js';
@@ -188,9 +199,13 @@ import { SessaoOperacaoModule } from './sessao-operacao.module.js';
     ImportOfflineRecebimentoController,
     CriarAlocacaoRecebimentoController,
     CancelarAlocacaoRecebimentoController,
+    AdicionarApoioRecebimentoController,
+    RemoverApoioRecebimentoController,
+    EncerrarApoioRecebimentoController,
     GetRecursosRecebimentoSessaoController,
     GetRecebimentoPainelSnapshotController,
     GerarMovimentacaoRecebimentoController,
+    GetRelatorioItensConferidosController,
   ],
   exports: [
     IniciarRecebimentoUseCase,
@@ -207,10 +222,12 @@ import { SessaoOperacaoModule } from './sessao-operacao.module.js';
     EncerrarConferenciaUseCase,
     RegistrarImpedimentoRecebimentoUseCase,
     RetomarConferenciaImpedidaUseCase,
+    RecebimentoParticipacaoService,
     PRE_RECEBIMENTO_REPOSITORY,
     RECEBIMENTO_REPOSITORY,
     CONFERENCIA_REPOSITORY,
     RECEBIMENTO_AVARIA_REPOSITORY,
+    RECEBIMENTO_ALOCACAO_REPOSITORY,
   ],
   providers: [
     CreatePreRecebimentoUseCase,
@@ -256,12 +273,17 @@ import { SessaoOperacaoModule } from './sessao-operacao.module.js';
     ImportOfflineRecebimentoUseCase,
     CriarAlocacaoRecebimentoUseCase,
     CancelarAlocacaoRecebimentoUseCase,
+    AdicionarApoioRecebimentoUseCase,
+    RemoverApoioRecebimentoUseCase,
+    EncerrarApoioRecebimentoUseCase,
     GetRecursosRecebimentoSessaoUseCase,
     GetRecebimentoPainelSnapshotUseCase,
     GerarMovimentacaoRecebimentoUseCase,
+    GetRelatorioItensConferidosUseCase,
     RegistrarImpedimentoRecebimentoUseCase,
     RetomarConferenciaImpedidaUseCase,
     RecebimentoEventPublisher,
+    RecebimentoParticipacaoService,
     GerarPdfDeHtmlService,
     PermissionsGuard,
     {

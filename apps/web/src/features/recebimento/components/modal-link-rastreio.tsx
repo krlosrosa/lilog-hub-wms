@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   Button,
@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@lilog/ui';
-import { Check, Copy, Loader2, RefreshCw } from 'lucide-react';
+import { Check, Copy, Loader2, MessageCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { QrCodePreview } from '@/features/peso-variavel/components/qr-code-preview';
@@ -23,19 +23,67 @@ type ModalLinkRastreioProps = {
   onClose: () => void;
   preRecebimentoId: string;
   placa: string;
+  motoristaNome?: string | null;
+  motoristaTelefone?: string | null;
 };
+
+function normalizeTelefoneWhatsApp(telefone: string | null | undefined): string | null {
+  if (!telefone) {
+    return null;
+  }
+
+  const digits = telefone.replace(/\D/g, '');
+
+  if (digits.length >= 12 && digits.startsWith('55')) {
+    return digits;
+  }
+
+  if (digits.length === 10 || digits.length === 11) {
+    return `55${digits}`;
+  }
+
+  if (digits.length >= 10) {
+    return digits;
+  }
+
+  return null;
+}
+
+function buildMensagemWhatsApp(input: {
+  motoristaNome?: string | null;
+  placa: string;
+  url: string;
+}): string {
+  const primeiroNome = input.motoristaNome?.trim().split(/\s+/)[0];
+  const saudacao = primeiroNome ? `Olá ${primeiroNome}!` : 'Olá!';
+
+  return `${saudacao} Aqui está o link para acompanhar o status do recebimento do veículo ${input.placa}: ${input.url}`;
+}
+
+function buildWhatsAppUrl(telefone: string, mensagem: string): string {
+  return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+}
 
 export function ModalLinkRastreio({
   open,
   onClose,
   preRecebimentoId,
   placa,
+  motoristaNome,
+  motoristaTelefone,
 }: ModalLinkRastreioProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const telefoneWhatsApp = useMemo(
+    () => normalizeTelefoneWhatsApp(motoristaTelefone),
+    [motoristaTelefone],
+  );
+
+  const podeEnviarWhatsApp = Boolean(url && telefoneWhatsApp);
 
   const carregarLink = useCallback(
     async (regenerar = false) => {
@@ -102,6 +150,16 @@ export function ModalLinkRastreio({
     }
   }, [url]);
 
+  const handleEnviarWhatsApp = useCallback(() => {
+    if (!url || !telefoneWhatsApp) {
+      return;
+    }
+
+    const mensagem = buildMensagemWhatsApp({ motoristaNome, placa, url });
+    const waUrl = buildWhatsAppUrl(telefoneWhatsApp, mensagem);
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+  }, [motoristaNome, placa, telefoneWhatsApp, url]);
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
@@ -152,7 +210,7 @@ export function ModalLinkRastreio({
               </>
             )}
           </Button>
-          <div className="flex w-full gap-2 sm:w-auto">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
             <Button
               type="button"
               variant="outline"
@@ -177,6 +235,20 @@ export function ModalLinkRastreio({
                   Copiar link
                 </>
               )}
+            </Button>
+            <Button
+              type="button"
+              disabled={!podeEnviarWhatsApp || isLoading}
+              title={
+                telefoneWhatsApp
+                  ? 'Abrir WhatsApp com o link de rastreio'
+                  : 'Telefone do motorista não informado'
+              }
+              className="bg-[#25D366] text-white hover:bg-[#20BD5A] disabled:bg-muted disabled:text-muted-foreground"
+              onClick={handleEnviarWhatsApp}
+            >
+              <MessageCircle className="size-4" aria-hidden />
+              Enviar WhatsApp
             </Button>
           </div>
         </DialogFooter>

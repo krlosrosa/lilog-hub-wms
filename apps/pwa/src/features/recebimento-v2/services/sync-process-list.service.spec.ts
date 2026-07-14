@@ -131,4 +131,38 @@ describe('syncProcessList', () => {
     expect(result.removedCount).toBe(0);
     expect(await recebimentoV2Db.processes.get(DEMAND_STALE)).toBeDefined();
   });
+
+  it('persiste capabilities de apoio derivadas do header quando ainda não baixou', async () => {
+    mockFetchProcesses.mockResolvedValue({
+      items: [
+        {
+          demandId: DEMAND_ACTIVE,
+          unidadeId: UNIDADE_ID,
+          situacao: 'em_conferencia',
+          preRecebimentoSituacao: 'em_conferencia',
+          serverRevision: 1,
+          updatedAt: new Date().toISOString(),
+          tombstone: false,
+          supplier: 'Transportadora',
+          souApoio: true,
+          papel: 'apoio',
+        },
+      ],
+      nextCursor: null,
+      hasMore: false,
+    });
+
+    await syncProcessList(UNIDADE_ID);
+
+    const process = await recebimentoV2Db.processes.get(DEMAND_ACTIVE);
+    expect(process?.souApoio).toBe(true);
+    expect(process?.papelDoUsuario).toBe('apoio');
+    expect(process?.capabilities).toEqual({
+      canEditChecklist: false,
+      canRegistrarTemperatura: false,
+      canFinalizar: false,
+      canGerenciarPaletes: true,
+      canConferirItens: true,
+    });
+  });
 });

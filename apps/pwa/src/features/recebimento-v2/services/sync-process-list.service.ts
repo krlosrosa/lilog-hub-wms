@@ -1,4 +1,5 @@
 import { fetchProcesses } from '../api/sync-api.js';
+import { deriveCapabilitiesFromProcessHeader } from '../lib/derive-process-capabilities.js';
 import { reconcileRemoteSituacao } from '../lib/reconcile-remote-situacao.js';
 import { recebimentoV2Db } from '../local-db/db.js';
 import type { DemandRecord, ProcessRecord } from '../local-db/schema.js';
@@ -48,6 +49,16 @@ function mapRemoteToProcess(
     placa: item.placa ?? existing?.placa,
     conferente: item.conferente ?? existing?.conferente,
     atribuidoAMim: item.atribuidoAMim === true,
+    souApoio: item.souApoio === true,
+    papelDoUsuario: item.papel ?? existing?.papelDoUsuario ?? null,
+    apoioAlocacaoId: item.apoioAlocacaoId ?? existing?.apoioAlocacaoId,
+    capabilities:
+      existing?.capabilities ??
+      deriveCapabilitiesFromProcessHeader({
+        papel: item.papel ?? existing?.papelDoUsuario ?? null,
+        souApoio: item.souApoio === true,
+        atribuidoAMim: item.atribuidoAMim === true,
+      }),
     downloadProgress: existing?.downloadProgress,
     downloadedAt: existing?.downloadedAt,
     lastSyncedAt: existing?.lastSyncedAt,

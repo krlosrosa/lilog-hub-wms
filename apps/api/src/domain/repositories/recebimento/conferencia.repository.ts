@@ -57,6 +57,10 @@ export type OperadorDemandaRecord = {
 
   alocacaoFuncionarioId: number | null;
 
+  souApoio?: boolean;
+
+  apoioAlocacaoId?: string | null;
+
 };
 
 

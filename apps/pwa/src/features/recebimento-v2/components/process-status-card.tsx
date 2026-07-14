@@ -17,6 +17,7 @@ import { useChecklistV2 } from '../hooks/use-checklist-v2';
 import { useDockDisplayLabelV2 } from '../hooks/use-dock-display-label-v2';
 import { recebimentoV2Db } from '../local-db/db';
 import type { ProcessRecord } from '../local-db/schema';
+import { useProcessCapabilitiesV2 } from '../hooks/use-process-capabilities-v2';
 
 interface ProcessStatusCardProps {
   process: ProcessRecord;
@@ -86,6 +87,7 @@ export function ProcessStatusCard({
   }, [process.id, process.status]);
 
   const dockLabel = useDockDisplayLabelV2(process.dock);
+  const { souApoio } = useProcessCapabilitiesV2(process.id);
 
   const placa = process.placa?.trim();
   const isPriority = isPriorityStatus(process.status);
@@ -113,7 +115,15 @@ export function ProcessStatusCard({
       ? 'Tentar novamente'
       : process.status === 'downloading'
         ? 'Retomar'
-        : 'Preparar';
+        : souApoio
+          ? 'Baixar para apoiar'
+          : 'Preparar';
+
+  const needsDownload =
+    process.status === 'notDownloaded' ||
+    process.status === 'downloading' ||
+    process.status === 'error';
+  const showApoioDownloadHint = souApoio && needsDownload;
 
   const cardClassName = cn(
     'group relative flex items-center gap-2.5 overflow-hidden rounded-lg border border-outline-variant bg-surface p-3 shadow-sm',
@@ -148,6 +158,11 @@ export function ProcessStatusCard({
             {process.atribuidoAMim ? (
               <span className="rounded-full bg-primary-container px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-on-primary-container">
                 Atribuída a você
+              </span>
+            ) : null}
+            {souApoio ? (
+              <span className="rounded-full bg-tertiary-container px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-on-tertiary-container">
+                Apoio
               </span>
             ) : null}
             <time
@@ -186,6 +201,12 @@ export function ProcessStatusCard({
 
         {listaSyncError ? (
           <p className="line-clamp-2 pt-0.5 text-[11px] text-destructive">{listaSyncError}</p>
+        ) : null}
+
+        {showApoioDownloadHint ? (
+          <p className="line-clamp-2 pt-0.5 text-[11px] text-on-surface-variant">
+            Baixe os dados da carga para conferir itens
+          </p>
         ) : null}
       </div>
 
@@ -229,7 +250,7 @@ export function ProcessStatusCard({
             hapticMedium();
             onPrepare(process.id);
           }}
-          className="h-9 flex-1 rounded-lg text-label-sm font-semibold touch-manipulation"
+          className="h-9 flex-1 rounded-lg bg-secondary text-label-sm font-semibold text-on-secondary touch-manipulation disabled:opacity-100 disabled:saturate-75"
         >
           <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
           {prepareLabel}

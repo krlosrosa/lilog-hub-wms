@@ -7,10 +7,12 @@ import type { KpiCard, Operator } from '@/features/gestao-recursos/types/gestao-
 import { mapRecursosRecebimentoToOperators } from '@/features/gestao-recursos-recebimento/lib/recebimento-recursos-mappers';
 
 import {
+  adicionarApoioRecebimento,
   cancelarAlocacaoRecebimento,
   criarAlocacaoRecebimento,
   getRecursosRecebimentoSessao,
   liberarImpedimentoRecebimento,
+  removerApoioRecebimento,
 } from '@/features/gestao-recursos-recebimento/api/recebimento-recursos-api';
 import type {
   DemandaRecebimentoRecursoApi,
@@ -84,6 +86,8 @@ export function useGestaoRecursosRecebimento() {
   const [atribuindoId, setAtribuindoId] = useState<string | null>(null);
   const [cancelandoId, setCancellandoId] = useState<string | null>(null);
   const [liberandoId, setLiberandoId] = useState<string | null>(null);
+  const [adicionandoApoioId, setAdicionandoApoioId] = useState<string | null>(null);
+  const [removendoApoioId, setRemovendoApoioId] = useState<string | null>(null);
 
   const lastResponseRef = useRef<RecursosRecebimentoSessaoApiResponse | null>(null);
 
@@ -207,6 +211,39 @@ export function useGestaoRecursosRecebimento() {
     [load],
   );
 
+  const handleAdicionarApoio = useCallback(
+    async (preRecebimentoId: string, sessaoFuncionarioId: string) => {
+      if (!sessaoAtiva || !unidadeId) return;
+
+      setAdicionandoApoioId(preRecebimentoId);
+      try {
+        await adicionarApoioRecebimento({
+          unidadeId,
+          preRecebimentoId,
+          sessaoId: sessaoAtiva.id,
+          sessaoFuncionarioId,
+        });
+        await load(true);
+      } finally {
+        setAdicionandoApoioId(null);
+      }
+    },
+    [sessaoAtiva, unidadeId, load],
+  );
+
+  const handleRemoverApoio = useCallback(
+    async (apoioId: string) => {
+      setRemovendoApoioId(apoioId);
+      try {
+        await removerApoioRecebimento(apoioId);
+        await load(true);
+      } finally {
+        setRemovendoApoioId(null);
+      }
+    },
+    [load],
+  );
+
   const canShowPainel =
     !semUnidade &&
     !semSessaoAberta &&
@@ -227,9 +264,13 @@ export function useGestaoRecursosRecebimento() {
     atribuindoId,
     cancelandoId,
     liberandoId,
+    adicionandoApoioId,
+    removendoApoioId,
     triggerRefresh,
     handleAtribuir,
     handleCancelarAlocacao,
     handleLiberarImpedimento,
+    handleAdicionarApoio,
+    handleRemoverApoio,
   };
 }

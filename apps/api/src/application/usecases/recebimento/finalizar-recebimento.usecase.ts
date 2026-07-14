@@ -66,6 +66,7 @@ import {
 } from '../../../domain/repositories/endereco/endereco.repository.js';
 import { CncEventPublisher } from '../../services/cnc-event.publisher.js';
 import { RecebimentoEventPublisher } from '../../services/recebimento-event.publisher.js';
+import { RecebimentoParticipacaoService } from '../../services/recebimento/recebimento-participacao.service.js';
 import { RecebimentoSaldoEventPublisher } from '../../services/recebimento-saldo-event.publisher.js';
 import { MontarItensAguardandoArmazenagemRecebimentoService } from '../../services/recebimento/montar-itens-aguardando-armazenagem-recebimento.service.js';
 import { MontarPaletesArmazenagemService } from '../../services/armazenagem/montar-paletes-armazenagem.service.js';
@@ -124,6 +125,7 @@ export class FinalizarRecebimentoUseCase {
     @Inject(CONFIGURACAO_OPERACIONAL_REPOSITORY)
     private readonly configuracaoOperacionalRepository: IConfiguracaoOperacionalRepository,
     private readonly recebimentoEventPublisher: RecebimentoEventPublisher,
+    private readonly recebimentoParticipacaoService: RecebimentoParticipacaoService,
     private readonly cncEventPublisher: CncEventPublisher,
     private readonly recebimentoSaldoEventPublisher: RecebimentoSaldoEventPublisher,
     private readonly montarItensAguardandoArmazenagemRecebimentoService: MontarItensAguardandoArmazenagemRecebimentoService,
@@ -137,6 +139,11 @@ export class FinalizarRecebimentoUseCase {
     paletes,
     paletesBipadosValidados,
   }: FinalizarRecebimentoUseCaseInput) {
+    await this.recebimentoParticipacaoService.assertResponsavelForRecebimento(
+      recebimentoId,
+      userId,
+    );
+
     const recebimento = await this.recebimentoRepository.findById(recebimentoId);
 
     if (!recebimento) {

@@ -18,6 +18,7 @@ import {
   RECEBIMENTO_REPOSITORY,
   type IRecebimentoRepository,
 } from '../../../domain/repositories/recebimento/recebimento.repository.js';
+import { RecebimentoParticipacaoService } from '../../services/recebimento/recebimento-participacao.service.js';
 import { RecebimentoEventPublisher } from '../../services/recebimento-event.publisher.js';
 
 export type RemoverPaleteConferenciaRecebimentoUseCaseInput = {
@@ -36,6 +37,7 @@ export class RemoverPaleteConferenciaRecebimentoUseCase {
     private readonly preRecebimentoRepository: IPreRecebimentoRepository,
     @Inject(ARMAZENAGEM_REPOSITORY)
     private readonly armazenagemRepository: IArmazenagemRepository,
+    private readonly recebimentoParticipacaoService: RecebimentoParticipacaoService,
     private readonly recebimentoEventPublisher: RecebimentoEventPublisher,
   ) {}
 
@@ -45,6 +47,11 @@ export class RemoverPaleteConferenciaRecebimentoUseCase {
     produtoId,
     userId,
   }: RemoverPaleteConferenciaRecebimentoUseCaseInput) {
+    await this.recebimentoParticipacaoService.assertResponsavelForRecebimento(
+      recebimentoId,
+      userId,
+    );
+
     const recebimento = await this.recebimentoRepository.findById(recebimentoId);
 
     if (!recebimento) {

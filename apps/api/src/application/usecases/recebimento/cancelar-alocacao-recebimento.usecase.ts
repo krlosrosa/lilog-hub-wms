@@ -28,10 +28,12 @@ export class CancelarAlocacaoRecebimentoUseCase {
         sessaoId: alocacao.sessaoId,
         sessaoFuncionarioId: alocacao.sessaoFuncionarioId,
         funcionarioId: alocacao.funcionarioId,
+        papel: alocacao.papel,
         status: alocacao.status,
         atribuidoEm: alocacao.atribuidoEm.toISOString(),
         inicioEm: alocacao.inicioEm?.toISOString() ?? null,
         canceladoEm: alocacao.canceladoEm?.toISOString() ?? null,
+        encerradoEm: alocacao.encerradoEm?.toISOString() ?? null,
       };
     } catch (error) {
       const message =

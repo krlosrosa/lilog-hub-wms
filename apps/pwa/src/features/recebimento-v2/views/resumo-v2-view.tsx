@@ -1,5 +1,13 @@
-import { Button, cn } from '@lilog/ui';
-import { Link } from '@tanstack/react-router';
+import {
+  Button,
+  cn,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@lilog/ui';
+import { Link, useNavigate } from '@tanstack/react-router';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertCircle,
@@ -11,8 +19,10 @@ import {
   ClipboardList,
   Clock,
   GitCompareArrows,
+  HandHelping,
   ListChecks,
   Loader2,
+  LogOut,
   Minus,
   Package,
   PackageCheck,
@@ -26,6 +36,7 @@ import { toast } from 'sonner';
 
 import { hapticMedium } from '@/lib/haptics';
 
+import { encerrarApoioRecebimento } from '../api/sync-api';
 import { ChecklistResumoV2Card } from '../components/checklist-resumo-v2-card';
 import { SyncStatusV2 } from '../components/sync-status-v2';
 import { TemperaturaProdutoV2ModalButton } from '../components/temperatura-produto-v2-card';
@@ -35,9 +46,11 @@ import { useDockDisplayLabelV2 } from '../hooks/use-dock-display-label-v2';
 import { useFinalizarV2 } from '../hooks/use-finalizar-v2';
 import { useForcePullV2 } from '../hooks/use-force-pull-v2';
 import { useProcessV2 } from '../hooks/use-process-v2';
+import { useProcessCapabilitiesV2 } from '../hooks/use-process-capabilities-v2';
 import { useSyncStatusV2 } from '../hooks/use-sync-status-v2';
 import { syncNowV2 } from '../services/auto-sync-v2.service';
 import { showSyncResultToast } from '../lib/sync-result-toast';
+import { recebimentoV2Db } from '../local-db/db';
 import { TEMPERATURAS_BAU_INCOMPLETAS_MSG } from '../lib/temperatura-bau-v2';
 import type { DamageRecord } from '../local-db/schema';
 import type { DivergenciaItem } from '../types/recebimento-v2.schema';
@@ -453,11 +466,180 @@ function ConfirmarLiberacaoModal({
   );
 }
 
+function ApoioEncerrarDock({
+  isEncerrando,
+  apoioDisponivel,
+  onRequestEncerrar,
+}: {
+  isEncerrando: boolean;
+  apoioDisponivel: boolean;
+  onRequestEncerrar: () => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
+      <div className="pointer-events-auto overflow-hidden rounded-2xl border border-tertiary/25 bg-surface/95 shadow-[0_8px_32px_rgba(11,28,48,0.16)] backdrop-blur-md supports-[backdrop-filter]:bg-surface/90">
+        <div className="flex items-center gap-3 border-b border-tertiary/15 bg-tertiary-container/30 px-4 py-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-tertiary-container text-on-tertiary-container">
+            <HandHelping className="h-5 w-5" aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-label-md font-semibold text-on-surface">Modo apoio</p>
+            <p className="text-label-sm text-on-surface-variant">
+              Você auxilia nesta conferência — o responsável finaliza a carga
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2.5 px-3 pb-3 pt-3">
+          {!apoioDisponivel ? (
+            <p className="rounded-lg bg-warning/10 px-3 py-2 text-label-sm text-warning">
+              Sincronize a demanda para habilitar o encerramento do apoio.
+            </p>
+          ) : (
+            <p className="px-1 text-center text-body-sm text-on-surface-variant">
+              Concluiu sua parte? Encerre o apoio para voltar ao painel de demandas.
+            </p>
+          )}
+
+          <Button
+            type="button"
+            onClick={onRequestEncerrar}
+            disabled={isEncerrando || !apoioDisponivel}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-tertiary text-label-md font-semibold text-on-tertiary touch-manipulation active:scale-[0.98] hover:bg-tertiary/90 disabled:opacity-60"
+          >
+            {isEncerrando ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                Encerrando apoio...
+              </>
+            ) : (
+              <>
+                <LogOut className="h-5 w-5" aria-hidden />
+                Encerrar meu apoio
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function ConfirmarEncerrarApoioModal({
+  open,
+  isEncerrando,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  isEncerrando: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !isEncerrando) onCancel();
+      }}
+    >
+      <SheetContent
+        side="bottom"
+        className="rounded-t-2xl border-outline-variant bg-surface px-margin-mobile pb-[calc(16px+env(safe-area-inset-bottom,0px))] pt-2"
+      >
+        <div
+          className="mx-auto mb-4 h-1 w-10 rounded-lg bg-outline-variant"
+          aria-hidden
+        />
+
+        <div className="mb-5 flex items-start gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-tertiary-container text-on-tertiary-container shadow-sm">
+            <HandHelping className="h-6 w-6" aria-hidden />
+          </div>
+          <SheetHeader className="space-y-1 p-0 text-left">
+            <SheetTitle className="text-headline-md text-on-surface">
+              Encerrar seu apoio?
+            </SheetTitle>
+            <SheetDescription className="text-body-sm text-on-surface-variant">
+              Você sai desta demanda e volta ao painel de recursos.
+            </SheetDescription>
+          </SheetHeader>
+        </div>
+
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <article className="rounded-xl border border-secondary/20 bg-secondary/5 px-3 py-3">
+            <CheckCircle2 className="mb-2 h-4 w-4 text-secondary" aria-hidden />
+            <p className="text-label-sm font-semibold text-on-surface">Registrado</p>
+            <p className="mt-0.5 text-[11px] leading-snug text-on-surface-variant">
+              Sua conferência fica salva no histórico
+            </p>
+          </article>
+          <article className="rounded-xl border border-tertiary/25 bg-tertiary-container/30 px-3 py-3">
+            <LogOut className="mb-2 h-4 w-4 text-tertiary" aria-hidden />
+            <p className="text-label-sm font-semibold text-on-surface">Disponível</p>
+            <p className="mt-0.5 text-[11px] leading-snug text-on-surface-variant">
+              Pronto para receber novas demandas
+            </p>
+          </article>
+        </div>
+
+        <p className="mb-5 flex items-start gap-2 rounded-xl border border-outline-variant/60 bg-surface-container/40 px-3.5 py-3 text-label-sm text-on-surface-variant">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-on-surface-variant" aria-hidden />
+          O responsável continua conduzindo a finalização desta carga.
+        </p>
+
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isEncerrando}
+            className="flex h-12 flex-1 items-center justify-center rounded-xl touch-manipulation active:scale-[0.98]"
+          >
+            Continuar apoiando
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              hapticMedium();
+              void onConfirm();
+            }}
+            disabled={isEncerrando}
+            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-tertiary text-on-tertiary touch-manipulation active:scale-[0.98] hover:bg-tertiary/90 disabled:opacity-60"
+          >
+            {isEncerrando ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                Encerrando...
+              </>
+            ) : (
+              <>
+                <LogOut className="h-5 w-5" aria-hidden />
+                Confirmar
+              </>
+            )}
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 interface ResumoV2ViewProps {
   demandId: string;
 }
 
 export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
+  const navigate = useNavigate();
   const {
     dock,
     divergencias,
@@ -475,12 +657,18 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
     temperaturasTotal,
   } = useFinalizarV2(demandId);
   const { process } = useProcessV2(demandId);
+  const { capabilities, souApoio } = useProcessCapabilitiesV2(demandId);
+  const canFinalizar = capabilities.canFinalizar;
   const { checklist, isLoading: isChecklistLoading } = useChecklistV2(demandId);
   const syncStatus = useSyncStatusV2(demandId);
   const { forcePull, isPulling, pullDisabled } = useForcePullV2(demandId);
   const { conflicts } = useConflictV2(demandId);
   const [isSyncing, setIsSyncing] = useState(false);
   const [quantidadePaletes, setQuantidadePaletes] = useState('');
+  const [showEncerrarApoioModal, setShowEncerrarApoioModal] = useState(false);
+  const [isEncerrandoApoio, setIsEncerrandoApoio] = useState(false);
+
+  const apoioAlocacaoId = process?.apoioAlocacaoId;
 
   const paletesValue = Number(quantidadePaletes);
   const paletesInvalid =
@@ -561,6 +749,28 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
     }
   }
 
+  async function handleEncerrarApoio() {
+    if (!apoioAlocacaoId) {
+      toast.error('Identificador do apoio indisponível. Sincronize a demanda e tente novamente.');
+      return;
+    }
+
+    hapticMedium();
+    setIsEncerrandoApoio(true);
+
+    try {
+      await encerrarApoioRecebimento(apoioAlocacaoId);
+      await recebimentoV2Db.processes.delete(demandId);
+      toast.success('Apoio encerrado com sucesso');
+      setShowEncerrarApoioModal(false);
+      await navigate({ to: '/recebimento-v2' });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao encerrar apoio');
+    } finally {
+      setIsEncerrandoApoio(false);
+    }
+  }
+
   const placa = process?.placa?.trim();
   const dockLabel = useDockDisplayLabelV2(checklist?.dock ?? process?.dock);
   const headerSubtitle = process
@@ -619,6 +829,16 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
           </div>
           <h2 className="mb-1 text-headline-md font-semibold text-on-surface">{hero.title}</h2>
           <p className="max-w-xs text-body-sm text-on-surface-variant">{hero.subtitle}</p>
+          {souApoio && !canFinalizar ? (
+            <div className="mt-4 flex w-full max-w-xs items-center gap-2.5 rounded-xl border border-tertiary/20 bg-tertiary-container/25 px-3.5 py-2.5 text-left">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-tertiary-container text-on-tertiary-container">
+                <HandHelping className="h-4 w-4" aria-hidden />
+              </div>
+              <p className="text-label-sm text-on-surface-variant">
+                Ao concluir sua parte, encerre o apoio no painel inferior.
+              </p>
+            </div>
+          ) : null}
         </section>
 
         <section className="rounded-2xl border border-outline-variant bg-surface p-4 shadow-sm">
@@ -744,7 +964,7 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
         ) : null}
       </div>
 
-      {!isCompleted ? (
+      {!isCompleted && canFinalizar ? (
         <TerminoBottomDock
           dock={dock}
           isFinalizing={isFinalizing}
@@ -757,12 +977,27 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
         />
       ) : null}
 
+      {!isCompleted && souApoio && !canFinalizar ? (
+        <ApoioEncerrarDock
+          isEncerrando={isEncerrandoApoio}
+          apoioDisponivel={Boolean(apoioAlocacaoId)}
+          onRequestEncerrar={() => setShowEncerrarApoioModal(true)}
+        />
+      ) : null}
+
       <ConfirmarLiberacaoModal
         open={showConfirmModal}
         dock={dock}
         isFinalizing={isFinalizing}
         onCancel={() => setShowConfirmModal(false)}
         onConfirm={() => void finalizar(paletesValue)}
+      />
+
+      <ConfirmarEncerrarApoioModal
+        open={showEncerrarApoioModal}
+        isEncerrando={isEncerrandoApoio}
+        onCancel={() => setShowEncerrarApoioModal(false)}
+        onConfirm={() => void handleEncerrarApoio()}
       />
     </div>
   );

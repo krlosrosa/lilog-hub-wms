@@ -19,6 +19,7 @@ type RecebimentoStatsCardsProps = {
   docasOcupadas: number;
   docasTotal: number;
   atrasos: number;
+  onAtrasadosClick?: () => void;
 };
 
 function MetricCell({
@@ -28,6 +29,7 @@ function MetricCell({
   hint,
   variant = 'default',
   progress,
+  onClick,
 }: {
   icon: typeof CalendarRange;
   label: string;
@@ -35,14 +37,10 @@ function MetricCell({
   hint?: ReactNode;
   variant?: 'default' | 'critical';
   progress?: number;
+  onClick?: () => void;
 }) {
-  return (
-    <div
-      className={cn(
-        'flex min-w-0 flex-1 flex-col gap-1 px-3 py-2.5 sm:px-4 sm:py-3',
-        variant === 'critical' && 'bg-destructive/[0.03]',
-      )}
-    >
+  const conteudo = (
+    <>
       <div className="flex items-center gap-1.5">
         <Icon
           className={cn(
@@ -90,8 +88,30 @@ function MetricCell({
           />
         </div>
       ) : null}
-    </div>
+    </>
   );
+
+  const classes = cn(
+    'flex min-w-0 flex-1 flex-col gap-1 px-3 py-2.5 text-left sm:px-4 sm:py-3',
+    variant === 'critical' && 'bg-destructive/[0.03]',
+    onClick &&
+      'cursor-pointer transition-colors hover:bg-surface-highest/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={classes}
+        onClick={onClick}
+        aria-label={`Filtrar atrasados: ${value}`}
+      >
+        {conteudo}
+      </button>
+    );
+  }
+
+  return <div className={classes}>{conteudo}</div>;
 }
 
 export function RecebimentoStatsCards({
@@ -100,6 +120,7 @@ export function RecebimentoStatsCards({
   docasOcupadas,
   docasTotal,
   atrasos,
+  onAtrasadosClick,
 }: RecebimentoStatsCardsProps) {
   const { formatQtd } = useDisplayConfig();
   const formatNumber = new Intl.NumberFormat('pt-BR');
@@ -134,6 +155,7 @@ export function RecebimentoStatsCards({
           value={formatNumber.format(atrasos)}
           hint={atrasos === 1 ? 'crítico' : 'críticos'}
           variant="critical"
+          onClick={atrasos > 0 ? onAtrasadosClick : undefined}
         />
       </div>
     </div>

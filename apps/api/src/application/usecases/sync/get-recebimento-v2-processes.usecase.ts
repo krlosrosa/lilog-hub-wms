@@ -35,6 +35,9 @@ type ProcessHeader = {
   placa?: string;
   conferente?: string;
   atribuidoAMim?: boolean;
+  souApoio?: boolean;
+  papel?: 'responsavel' | 'apoio' | null;
+  apoioAlocacaoId?: string;
 };
 
 type GetRecebimentoV2ProcessesResult = {
@@ -108,6 +111,13 @@ export class GetRecebimentoV2ProcessesUseCase {
           item.alocacaoFuncionarioId != null &&
           item.alocacaoFuncionarioId === responsavelId;
 
+        const souApoio = item.souApoio === true;
+        const papel = atribuidoAMim
+          ? ('responsavel' as const)
+          : souApoio
+            ? ('apoio' as const)
+            : null;
+
         return {
           demandId: item.preRecebimentoId,
           unidadeId: item.unidadeId,
@@ -122,6 +132,9 @@ export class GetRecebimentoV2ProcessesUseCase {
           placa: item.placa ?? undefined,
           conferente: item.conferente ?? undefined,
           atribuidoAMim: atribuidoAMim || undefined,
+          souApoio: souApoio || undefined,
+          papel: papel ?? undefined,
+          apoioAlocacaoId: item.apoioAlocacaoId ?? undefined,
         };
       }),
     );

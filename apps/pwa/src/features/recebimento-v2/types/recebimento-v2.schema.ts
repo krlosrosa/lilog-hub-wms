@@ -36,13 +36,36 @@ export interface BootstrapProgress {
 // Checklist form schemas (UI input)
 // ---------------------------------------------------------------------------
 
-export const checklistFormV2Schema = z.object({
-  dock: z.string().min(1, 'Selecione a doca'),
-  lacre: z.string().min(1, 'Informe o número do lacre'),
-  tempBau: z.coerce.number().optional(),
-  conditions: z.record(z.string(), z.boolean()),
-  observacoes: z.string().optional(),
-});
+export const CHECKLIST_CONDITION_KEYS = [
+  'limpeza',
+  'odor',
+  'estrutura',
+  'vedacao',
+] as const;
+
+export function checklistRequiresObservacoes(
+  conditions: Record<string, boolean> | undefined,
+): boolean {
+  return CHECKLIST_CONDITION_KEYS.some((key) => !conditions?.[key]);
+}
+
+export const checklistFormV2Schema = z
+  .object({
+    dock: z.string().min(1, 'Selecione a doca'),
+    lacre: z.string().min(1, 'Informe o número do lacre'),
+    tempBau: z.coerce.number().optional(),
+    conditions: z.record(z.string(), z.boolean()),
+    observacoes: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (checklistRequiresObservacoes(data.conditions) && !data.observacoes?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Informe observações para as condições não conformes',
+        path: ['observacoes'],
+      });
+    }
+  });
 
 export type ChecklistFormV2 = z.infer<typeof checklistFormV2Schema>;
 
@@ -181,6 +204,17 @@ export interface ProcessHeaderItem {
   placa?: string | null;
   conferente?: string | null;
   atribuidoAMim?: boolean;
+  souApoio?: boolean;
+  papel?: 'responsavel' | 'apoio' | null;
+  apoioAlocacaoId?: string;
+}
+
+export interface RecebimentoCapabilities {
+  canEditChecklist: boolean;
+  canRegistrarTemperatura: boolean;
+  canFinalizar: boolean;
+  canGerenciarPaletes: boolean;
+  canConferirItens: boolean;
 }
 
 export interface ProcessList {
@@ -217,6 +251,17 @@ export const recebimentoPackageSchema = z.object({
   })).optional(),
   avarias: z.unknown().optional(),
   generatedAt: z.string().optional(),
+  papelDoUsuario: z.enum(['responsavel', 'apoio']).nullable().optional(),
+  apoioAlocacaoId: z.string().uuid().optional(),
+  capabilities: z
+    .object({
+      canEditChecklist: z.boolean(),
+      canRegistrarTemperatura: z.boolean(),
+      canFinalizar: z.boolean(),
+      canGerenciarPaletes: z.boolean(),
+      canConferirItens: z.boolean(),
+    })
+    .optional(),
 });
 
 export type RecebimentoPackage = z.infer<typeof recebimentoPackageSchema>;

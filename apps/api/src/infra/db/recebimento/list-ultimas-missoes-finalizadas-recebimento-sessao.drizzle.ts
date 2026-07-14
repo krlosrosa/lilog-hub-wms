@@ -91,6 +91,28 @@ export async function listUltimasMissoesFinalizadasRecebimentoSessaoDb(
     )
     .groupBy(recebimentos.responsavelId);
 
+  const filtroInicioSessaoApoio = sessaoInicio
+    ? gte(recebimentoAlocacoes.encerradoEm, sessaoInicio)
+    : undefined;
+
+  const viaApoiosEncerrados = await db
+    .select({
+      funcionarioId: recebimentoAlocacoes.funcionarioId,
+      ultimaMissaoFinalizadaEm: max(recebimentoAlocacoes.encerradoEm),
+    })
+    .from(recebimentoAlocacoes)
+    .where(
+      and(
+        eq(recebimentoAlocacoes.sessaoId, sessaoId),
+        inArray(recebimentoAlocacoes.funcionarioId, funcionarioIds),
+        eq(recebimentoAlocacoes.papel, 'apoio'),
+        eq(recebimentoAlocacoes.status, 'encerrada'),
+        isNotNull(recebimentoAlocacoes.encerradoEm),
+        filtroInicioSessaoApoio,
+      ),
+    )
+    .groupBy(recebimentoAlocacoes.funcionarioId);
+
   const merged = mergeUltimasMissoes([
     ...viaAlocacao
       .filter((row) => row.ultimaMissaoFinalizadaEm != null)
@@ -99,6 +121,12 @@ export async function listUltimasMissoesFinalizadasRecebimentoSessaoDb(
         ultimaMissaoFinalizadaEm: row.ultimaMissaoFinalizadaEm!,
       })),
     ...viaResponsavelSemAlocacao
+      .filter((row) => row.ultimaMissaoFinalizadaEm != null)
+      .map((row) => ({
+        funcionarioId: row.funcionarioId,
+        ultimaMissaoFinalizadaEm: row.ultimaMissaoFinalizadaEm!,
+      })),
+    ...viaApoiosEncerrados
       .filter((row) => row.ultimaMissaoFinalizadaEm != null)
       .map((row) => ({
         funcionarioId: row.funcionarioId,

@@ -292,6 +292,24 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   const { results: searchResults, isSearching } = useProductSearchQuery(searchQuery);
   const { conferirItem, deletarConferencia, getConferenciasBySku } = useConferenciaV2(demandId);
 
+  const logDetalheItemDebug = (
+    stage: string,
+    extra: Record<string, unknown> = {},
+  ) => {
+    // eslint-disable-next-line no-console
+    console.log('DETALHE_ITEM_DEBUG', {
+      stage,
+      demandId,
+      skuParam: rawSku,
+      hasSelectedProduct: Boolean(selectedProduct),
+      parametrosConferencia,
+      paleteSheetOpen,
+      paleteSheetIntent,
+      timestamp: new Date().toISOString(),
+      ...extra,
+    });
+  };
+
   const produtoConfig = useMemo(
     () =>
       selectedProduct
@@ -605,7 +623,14 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
 
   const submitConference = useCallback(
     async (form: DetalheItemForm) => {
-      if (!selectedProduct || !produtoConfig) return;
+      if (!selectedProduct || !produtoConfig) {
+        logDetalheItemDebug('submitConference_missingProductOrConfig', {
+          hasSelectedProduct: Boolean(selectedProduct),
+          hasProdutoConfig: Boolean(produtoConfig),
+          form,
+        });
+        return;
+      }
 
       let formToSubmit = form;
 
@@ -630,9 +655,17 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
         }
       }
 
+      logDetalheItemDebug('submitConference_beforePaleteCheck', {
+        isPvar,
+        form: formToSubmit,
+      });
+
       if (parametrosConferencia.controlaPalete) {
         const activePalete = await getActivePaleteCodigo(demandId);
         if (!activePalete) {
+          logDetalheItemDebug('submitConference_missingPalete', {
+            form: formToSubmit,
+          });
           pendingConferenceRef.current = formToSubmit;
           setPaleteSheetIntent('conferencia-pendente');
           setPaleteSheetOpen(true);
@@ -641,6 +674,9 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
         }
       }
 
+      logDetalheItemDebug('submitConference_beforeExecute', {
+        form: formToSubmit,
+      });
       await executeConferencia(formToSubmit);
     },
     [
@@ -658,14 +694,24 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   const handleConferenciaError = useCallback((err: unknown) => {
     const message = err instanceof Error ? err.message : 'Erro ao conferir item';
     if (message === PALETE_OBRIGATORIO_MSG) {
+      logDetalheItemDebug('handleConferenciaError_paleteObrigatorio', {
+        errorMessage: message,
+      });
       setPaleteSheetIntent('conferencia-pendente');
       setPaleteSheetOpen(true);
       setSaveError(null);
       return;
     }
+    logDetalheItemDebug('handleConferenciaError_generic', {
+      errorMessage: message,
+      error:
+        err instanceof Error
+          ? { name: err.name, message: err.message, stack: err.stack }
+          : String(err),
+    });
     setSaveError(message);
     toast.error(message);
-  }, []);
+  }, [logDetalheItemDebug]);
 
   const handlePaleteConfirm = useCallback(
     async (codigo: string) => {
@@ -714,10 +760,14 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   const onInvalidSubmit = useCallback((fieldErrors: Record<string, { message?: string } | undefined>) => {
     const message = resolveFirstFormError(fieldErrors);
     if (message) {
+      logDetalheItemDebug('onInvalidSubmit', {
+        fieldErrors,
+        firstMessage: message,
+      });
       setSaveError(message);
       toast.error(message);
     }
-  }, []);
+  }, [logDetalheItemDebug]);
 
   const syncNonPvarLoteResolution = useCallback((): string | null => {
     if (isPvar) {
@@ -726,29 +776,43 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
 
     const { form: resolved, changed, error } = applyNonPvarLoteResolution(getValues());
     if (error) {
+      logDetalheItemDebug('syncNonPvarLoteResolution_error', {
+        error,
+        rawForm: getValues(),
+      });
       return error;
     }
 
     if (changed) {
+      logDetalheItemDebug('syncNonPvarLoteResolution_changed', {
+        before: getValues(),
+        resolved,
+      });
       setValue('lote', resolved.lote ?? '', { shouldDirty: true, shouldValidate: false });
       setValue('validade', resolved.validade ?? '', { shouldDirty: true, shouldValidate: false });
       clearErrors(['lote', 'validade']);
     }
 
     return null;
-  }, [clearErrors, getValues, isPvar, setValue]);
+  }, [clearErrors, getValues, isPvar, logDetalheItemDebug, setValue]);
 
   const triggerConferenciaSubmit = useCallback(() => {
     const resolutionError = syncNonPvarLoteResolution();
     if (resolutionError) {
+      logDetalheItemDebug('triggerConferenciaSubmit_resolutionError', {
+        resolutionError,
+      });
       setSaveError(resolutionError);
       toast.error(resolutionError);
       return;
     }
 
+    logDetalheItemDebug('triggerConferenciaSubmit_beforeHandleSubmit', {
+      form: getValues(),
+    });
     setSaveError(null);
     void handleSubmit(onSubmit, onInvalidSubmit)();
-  }, [handleSubmit, onInvalidSubmit, syncNonPvarLoteResolution]);
+  }, [getValues, handleSubmit, logDetalheItemDebug, onInvalidSubmit, syncNonPvarLoteResolution]);
 
   const handleFormSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -780,9 +844,22 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   );
 
   async function onSubmit(form: DetalheItemForm) {
-    if (!selectedProduct) return;
+    if (!selectedProduct) {
+      logDetalheItemDebug('onSubmit_noSelectedProduct', {
+        form,
+      });
+      return;
+    }
 
     try {
+      logDetalheItemDebug('onSubmit_start', {
+        form,
+        selectedProduct: {
+          produtoId: selectedProduct.produtoId,
+          sku: selectedProduct.sku,
+        },
+        isPvar,
+      });
       hapticMedium();
       if (isPvar) {
         syncMaintainedLoteFieldsForSubmit(
@@ -1453,7 +1530,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleAddCaixa}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation transition-transform active:scale-[0.98]"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation transition-transform active:scale-[0.98] disabled:opacity-100 disabled:saturate-75"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
@@ -1467,7 +1544,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                 type="button"
                 disabled={isSubmitting}
                 onClick={triggerConferenciaSubmit}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation transition-transform active:scale-[0.98]"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation transition-transform active:scale-[0.98] disabled:opacity-100 disabled:saturate-75"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-5 w-5 animate-spin" aria-hidden />

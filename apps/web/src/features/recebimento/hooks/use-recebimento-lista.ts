@@ -9,6 +9,7 @@ import {
   cancelPreRecebimento,
   listPreRecebimentos,
   mapPreRecebimentoToListaItem,
+  reagendarPreRecebimento,
 } from '@/features/recebimento/lib/recebimento-api';
 import { MOCK_DOCAS } from '@/features/recebimento/mocks/recebimentos-mock-data';
 import {
@@ -26,7 +27,8 @@ import type {
 } from '@/features/recebimento/types/recebimento-lista.schema';
 import { ApiClientError } from '@/lib/api';
 
-const PAGE_SIZE = 5;
+const DEFAULT_PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 const FETCH_LIMIT = 100;
 
 /** Minutos desde meia-noite para comparação de turno. */
@@ -84,6 +86,7 @@ export function useRecebimentoLista() {
     useState<RecebimentoFiltrosAvancados>(getDefaultRecebimentoFiltrosAvancados);
   const [busca, setBuscaState] = useState('');
   const [pagina, setPagina] = useState(1);
+  const [pageSize, setPageSizeState] = useState(DEFAULT_PAGE_SIZE);
 
   const carregar = useCallback(async () => {
     if (!unidadeId) {
@@ -156,6 +159,40 @@ export function useRecebimentoLista() {
     [carregar],
   );
 
+  const reagendarRecebimentos = useCallback(
+    async (ids: string[], horarioPrevisto: Date) => {
+      if (ids.length === 0) {
+        return;
+      }
+
+      setIsSubmitting(true);
+
+      try {
+        await Promise.all(
+          ids.map((id) => reagendarPreRecebimento(id, horarioPrevisto)),
+        );
+
+        toast.success(
+          ids.length === 1
+            ? 'Recebimento reagendado'
+            : `${ids.length} recebimentos reagendados`,
+        );
+        await carregar();
+      } catch (error) {
+        const message =
+          error instanceof ApiClientError
+            ? error.message
+            : 'Não foi possível reagendar os recebimentos';
+
+        toast.error(message);
+        throw error;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [carregar],
+  );
+
   const filtrosAvancadosAtivos = useMemo(
     () => countRecebimentoFiltrosAvancadosAtivos(filtrosAvancados),
     [filtrosAvancados],
@@ -183,17 +220,19 @@ export function useRecebimentoLista() {
           r.placa.toLowerCase().includes(term) ||
           r.transportador.toLowerCase().includes(term) ||
           r.horario.includes(term) ||
-          r.empresas.some((e) => e.toLowerCase().includes(term)),
+          r.empresas.some((e) => e.toLowerCase().includes(term)) ||
+          (r.numeroOcr?.toLowerCase().includes(term) ?? false) ||
+          (r.numeroTransporte?.toLowerCase().includes(term) ?? false),
       );
     }
 
     return items;
   }, [filtroTurno, busca, recebimentos, filtrosAvancados]);
 
-  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE));
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / pageSize));
   const paginaSegura = Math.min(pagina, totalPaginas);
-  const itemsInicio = (paginaSegura - 1) * PAGE_SIZE;
-  const itemsPagina = filtrados.slice(itemsInicio, itemsInicio + PAGE_SIZE);
+  const itemsInicio = (paginaSegura - 1) * pageSize;
+  const itemsPagina = filtrados.slice(itemsInicio, itemsInicio + pageSize);
 
   const stats = useMemo(() => {
     const recebimentosHoje = recebimentos.filter((r) =>
@@ -231,6 +270,11 @@ export function useRecebimentoLista() {
     setPagina(1);
   }, []);
 
+  const setPageSize = useCallback((size: number) => {
+    setPageSizeState(size);
+    setPagina(1);
+  }, []);
+
   return {
     isLoading,
     isSubmitting,
@@ -246,11 +290,16 @@ export function useRecebimentoLista() {
     setPagina,
     totalPaginas,
     itemsPagina,
+    itemsFiltrados: filtrados,
     itemsInicio,
     totalFiltrados: filtrados.length,
     stats,
-    pageSize: PAGE_SIZE,
+    pageSize,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+    setPageSize,
+    recebimentos,
     cancelarRecebimento,
+    reagendarRecebimentos,
     recarregar: carregar,
   };
 }

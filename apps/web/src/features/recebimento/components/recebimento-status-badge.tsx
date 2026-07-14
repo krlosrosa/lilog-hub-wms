@@ -46,7 +46,7 @@ export function RecebimentoStatusBadge({
     content = (
       <span
         className={cn(
-          'rounded-full bg-secondary/15 font-semibold text-secondary-foreground',
+          'rounded-full bg-secondary/15 font-semibold text-secondary dark:text-secondary-on-container',
           sizeClass,
         )}
       >

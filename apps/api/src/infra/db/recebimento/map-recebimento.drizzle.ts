@@ -298,6 +298,7 @@ export function toItemRecebimentoInsertValues(
   unidadeId: string,
   data: ConferirItemInput,
   unitizadorId?: string | null,
+  conferidoPorId?: number | null,
 ) {
   return {
     recebimentoId,
@@ -311,6 +312,7 @@ export function toItemRecebimentoInsertValues(
     validade: data.validade ?? null,
     numeroSerie: data.numeroSerie ?? null,
     unitizadorId: unitizadorId ?? null,
+    conferidoPorId: conferidoPorId ?? null,
   };
 }
 

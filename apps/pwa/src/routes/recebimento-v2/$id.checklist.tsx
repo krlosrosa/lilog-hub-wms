@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 import { z } from 'zod';
 
 import { isChecklistCompleteForDemand, isDemandImpedida } from '@/features/recebimento-v2/lib/is-checklist-complete';
+import { useProcessCapabilitiesV2 } from '@/features/recebimento-v2/hooks/use-process-capabilities-v2';
 import { ChecklistV2View } from '@/features/recebimento-v2/views/checklist-v2-view';
 
 const searchSchema = z.object({
@@ -10,6 +11,23 @@ const searchSchema = z.object({
     .optional()
     .transform((value) => value === true || value === '1' || value === 'true'),
 });
+
+function ChecklistPageContent({
+  demandId,
+  viewParam,
+}: {
+  demandId: string;
+  viewParam?: boolean;
+}) {
+  const { capabilities } = useProcessCapabilitiesV2(demandId);
+
+  return (
+    <ChecklistV2View
+      demandId={demandId}
+      viewOnly={viewParam === true || !capabilities.canEditChecklist}
+    />
+  );
+}
 
 export const Route = createFileRoute('/recebimento-v2/$id/checklist')({
   validateSearch: searchSchema,
@@ -31,6 +49,6 @@ export const Route = createFileRoute('/recebimento-v2/$id/checklist')({
   component: function ChecklistPage() {
     const { id } = Route.useParams();
     const { view } = Route.useSearch();
-    return <ChecklistV2View demandId={id} viewOnly={view} />;
+    return <ChecklistPageContent demandId={id} viewParam={view} />;
   },
 });

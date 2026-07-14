@@ -128,7 +128,10 @@ export function ModalGerarMovimentacao({
               : `${selectedIds.length} recebimentos selecionados`}
             . Informe manualmente o centro (4 dígitos) de cada empresa presente
             nos produtos. A planilha usará os itens conferidos, limitados à
-            quantidade contábil e abatendo avarias.
+            quantidade contábil e abatendo avarias. O lote de origem (pati) virá
+            do lote contábil do pré-recebimento; o lote de destino (gerl) será o
+            lote físico conferido. A geração é bloqueada se faltar lote contábil
+            em algum SKU.
           </DialogDescription>
         </DialogHeader>
 

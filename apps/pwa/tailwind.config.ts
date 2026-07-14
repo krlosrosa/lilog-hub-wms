@@ -80,6 +80,7 @@ export default {
         'on-surface-variant': 'hsl(var(--on-surface-variant))',
         'on-background': 'hsl(var(--on-background))',
         'on-primary-container': 'hsl(var(--on-primary-container))',
+        'on-secondary': 'hsl(var(--secondary-foreground))',
         'on-secondary-container': 'hsl(var(--on-secondary-container))',
         'on-tertiary-container': 'hsl(var(--on-tertiary-container))',
         'error-container': 'hsl(var(--error-container))',

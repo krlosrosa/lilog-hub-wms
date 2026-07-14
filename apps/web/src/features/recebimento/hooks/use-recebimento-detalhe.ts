@@ -11,6 +11,7 @@ import {
 } from '@/features/recebimento/lib/checklist-photo-label';
 import {
   cancelPreRecebimento,
+  downloadRelatorioConferidos,
   finalizarRecebimento,
   getDocumentDownloadUrl,
   getPreRecebimentoDetalhe,
@@ -413,6 +414,38 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
     }
   }, [recebimento]);
 
+  const downloadRelatorio = useCallback(async () => {
+    const recebimentoAtivoId = recebimento?.recebimentoId;
+
+    if (!recebimento || !recebimentoAtivoId) {
+      toast.error('Recebimento ainda não foi conferido no PWA');
+      return;
+    }
+
+    if (recebimento.status !== 'conferido' && recebimento.status !== 'finalizado') {
+      toast.error('Relatório disponível apenas para recebimentos conferidos ou finalizados');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await downloadRelatorioConferidos(recebimentoAtivoId);
+      toast.success('Relatório de conferidos baixado', {
+        description: recebimento.numero,
+      });
+    } catch (error) {
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Não foi possível baixar o relatório de conferidos';
+
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [recebimento]);
+
   const openExcluir = useCallback(() => {
     setIsExcluirOpen(true);
   }, []);
@@ -566,6 +599,7 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
     closeFinalizar,
     confirmarFinalizar,
     reimprimirEtiquetas,
+    downloadRelatorio,
     reabrirDemanda,
     isExcluirOpen,
     openExcluir,

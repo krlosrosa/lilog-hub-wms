@@ -11,6 +11,7 @@ import {
   Truck,
   Unlock,
   UserPlus,
+  Users,
   X,
 } from 'lucide-react';
 
@@ -89,14 +90,62 @@ const STATUS_ACCENT: Record<
   impedido: 'bg-orange-500',
 };
 
+const EMPRESA_STYLES: Record<string, string> = {
+  LDB: 'bg-blue-500/15 text-blue-700',
+  ITB: 'bg-emerald-500/15 text-emerald-700',
+  DPA: 'bg-violet-500/15 text-violet-700',
+};
+
+const CATEGORIA_STYLES: Record<string, string> = {
+  seco: 'bg-amber-500/15 text-amber-700',
+  refrigerado: 'bg-cyan-500/15 text-cyan-700',
+  queijo: 'bg-orange-500/15 text-orange-700',
+};
+
+const CATEGORIA_LABELS: Record<string, string> = {
+  seco: 'Seco',
+  refrigerado: 'Refrigerado',
+  queijo: 'Queijo',
+};
+
+function EmpresaBadge({ empresa }: { empresa: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase',
+        EMPRESA_STYLES[empresa] ?? 'bg-surface-container text-on-surface-variant',
+      )}
+    >
+      {empresa}
+    </span>
+  );
+}
+
+function CategoriaBadge({ categoria }: { categoria: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold',
+        CATEGORIA_STYLES[categoria] ?? 'bg-surface-container text-on-surface-variant',
+      )}
+    >
+      {CATEGORIA_LABELS[categoria] ?? categoria}
+    </span>
+  );
+}
+
 type DemandaRecebimentoCardProps = {
   demanda: DemandaRecebimentoRecursoApi;
   onAtribuir?: (preRecebimentoId: string) => void;
   onCancelar?: (alocacaoId: string) => void;
+  onAdicionarApoio?: (preRecebimentoId: string) => void;
+  onRemoverApoio?: (apoioId: string) => void;
   onLiberarImpedimento?: (preRecebimentoId: string) => void;
   onVerImpedimento?: (demanda: DemandaRecebimentoRecursoApi) => void;
   isAtribuindo?: boolean;
   isCancelando?: boolean;
+  isAdicionandoApoio?: boolean;
+  isRemovendoApoio?: boolean;
   isLiberando?: boolean;
 };
 
@@ -104,13 +153,17 @@ export function DemandaRecebimentoCard({
   demanda,
   onAtribuir,
   onCancelar,
+  onAdicionarApoio,
+  onRemoverApoio,
   onLiberarImpedimento,
   onVerImpedimento,
   isAtribuindo,
   isCancelando,
+  isAdicionandoApoio,
+  isRemovendoApoio,
   isLiberando,
 }: DemandaRecebimentoCardProps) {
-  const { statusDemanda, alocacao, conferente } = demanda;
+  const { statusDemanda, alocacao, conferente, apoios } = demanda;
   const isDisponivel = statusDemanda === 'disponivel';
   const isAtribuida = statusDemanda === 'atribuida';
   const isEmConferencia = statusDemanda === 'em_conferencia';
@@ -191,6 +244,17 @@ export function DemandaRecebimentoCard({
           </span>
         </div>
 
+        {demanda.empresas.length > 0 || demanda.categorias.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {demanda.empresas.map((empresa) => (
+              <EmpresaBadge key={empresa} empresa={empresa} />
+            ))}
+            {demanda.categorias.map((categoria) => (
+              <CategoriaBadge key={categoria} categoria={categoria} />
+            ))}
+          </div>
+        ) : null}
+
         {isImpedido ? (
           <div className="mt-3 space-y-2">
             <div className="flex items-start gap-2 rounded-lg border border-orange-500/20 bg-orange-500/10 px-2.5 py-2">
@@ -247,21 +311,60 @@ export function DemandaRecebimentoCard({
         ) : null}
 
         {isEmConferencia && conferenteNome ? (
-          <div className="mt-3 flex items-center gap-2 rounded-lg border border-secondary/15 bg-secondary-container/15 px-2.5 py-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary-container text-[11px] font-semibold text-on-secondary-container">
-              {getInitials(conferenteNome)}
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center gap-2 rounded-lg border border-secondary/15 bg-secondary-container/15 px-2.5 py-2">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary-container text-[11px] font-semibold text-on-secondary-container">
+                {getInitials(conferenteNome)}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-label-sm font-semibold text-on-surface">
+                  {conferenteNome}
+                </p>
+                <p className="text-[10px] text-on-surface-variant">
+                  Responsável
+                  {demanda.recebimentoDataInicio
+                    ? ` · ${formatRelativeTime(demanda.recebimentoDataInicio)}`
+                    : ''}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="truncate text-label-sm font-semibold text-on-surface">
-                {conferenteNome}
-              </p>
-              <p className="text-[10px] text-on-surface-variant">
-                Em conferência
-                {demanda.recebimentoDataInicio
-                  ? ` · ${formatRelativeTime(demanda.recebimentoDataInicio)}`
-                  : ''}
-              </p>
-            </div>
+
+            {apoios.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {apoios.map((apoio) => (
+                  <span
+                    key={apoio.id}
+                    className="inline-flex items-center gap-1 rounded-full bg-surface-container px-2 py-1 text-[10px] font-medium text-on-surface-variant"
+                  >
+                    <Users className="size-2.5 text-secondary" aria-hidden />
+                    {apoio.funcionarioNome}
+                    {onRemoverApoio ? (
+                      <button
+                        type="button"
+                        disabled={isRemovendoApoio}
+                        onClick={() => onRemoverApoio(apoio.id)}
+                        className="rounded-full p-0.5 hover:bg-surface-container-high disabled:opacity-50"
+                        aria-label={`Remover apoio ${apoio.funcionarioNome}`}
+                      >
+                        <X className="size-2.5" aria-hidden />
+                      </button>
+                    ) : null}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            {onAdicionarApoio ? (
+              <button
+                type="button"
+                disabled={isAdicionandoApoio}
+                onClick={() => onAdicionarApoio(demanda.preRecebimentoId)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-outline-variant bg-surface py-2 text-label-sm font-semibold text-on-surface transition-colors disabled:opacity-50 active:bg-surface-container"
+              >
+                <UserPlus className="size-3.5" aria-hidden />
+                {isAdicionandoApoio ? 'Adicionando...' : 'Adicionar apoio'}
+              </button>
+            ) : null}
           </div>
         ) : null}
 

@@ -32,6 +32,26 @@ export async function getDemandasRecebimentoComAlocacaoDb(
         FROM recebimento.itens_pre_recebimento
         WHERE pre_recebimento_id = ${preRecebimentos.id}
       )`,
+      empresas: sql<string[]>`(
+        SELECT ARRAY(
+          SELECT DISTINCT p.empresa
+          FROM recebimento.itens_pre_recebimento ipr
+          JOIN master_data.produtos p ON p.produto_id = ipr.produto_id
+          WHERE ipr.pre_recebimento_id = ${preRecebimentos.id}
+            AND p.empresa IS NOT NULL
+          ORDER BY p.empresa
+        )
+      )`,
+      categorias: sql<string[]>`(
+        SELECT ARRAY(
+          SELECT DISTINCT p.categoria
+          FROM recebimento.itens_pre_recebimento ipr
+          JOIN master_data.produtos p ON p.produto_id = ipr.produto_id
+          WHERE ipr.pre_recebimento_id = ${preRecebimentos.id}
+            AND p.categoria IS NOT NULL
+          ORDER BY p.categoria
+        )
+      )`,
       recebimentoId: recebimentos.id,
       recebimentoDataInicio: recebimentos.dataInicio,
       docaCodigo: docas.codigo,
@@ -56,6 +76,7 @@ export async function getDemandasRecebimentoComAlocacaoDb(
       and(
         eq(recebimentoAlocacoes.preRecebimentoId, preRecebimentos.id),
         eq(recebimentoAlocacoes.sessaoId, sessaoId),
+        eq(recebimentoAlocacoes.papel, 'responsavel'),
         inArray(recebimentoAlocacoes.status, ['atribuida', 'iniciada']),
       ),
     )
@@ -107,5 +128,7 @@ export async function getDemandasRecebimentoComAlocacaoDb(
     alocacaoAtribuidoEm: row.alocacaoAtribuidoEm ?? null,
     conferenteId: row.conferenteId ?? null,
     conferenteNome: row.conferenteNome ?? null,
+    empresas: row.empresas ?? [],
+    categorias: row.categorias ?? [],
   }));
 }

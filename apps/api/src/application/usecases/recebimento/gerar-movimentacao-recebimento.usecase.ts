@@ -5,8 +5,22 @@ import {
   createMovimentacaoXlsxRow,
   type MovimentacaoXlsxRow,
 } from '../../services/recebimento/build-movimentacao-xlsx.js';
+import {
+  CATEGORIA_CONFERENCIA,
+  DOMINIO_RECEBIMENTO,
+  ParametrosRecebimentoConferenciaSchema,
+  SUBTIPO_PARAMETROS,
+} from '../../../domain/model/configuracao-operacional/configuracao-operacional.model.js';
+import {
+  CONFIGURACAO_OPERACIONAL_REPOSITORY,
+  type IConfiguracaoOperacionalRepository,
+} from '../../../domain/repositories/configuracao-operacional/configuracao-operacional.repository.js';
+import {
+  MovimentacaoLoteContabilError,
+  montarLinhasMovimentacaoProduto,
+  type ConfigMovimentacaoUnidade,
+} from '../../../domain/services/montar-linhas-movimentacao-recebimento.js';
 import type {
-  MovimentacaoAvariaRecord,
   MovimentacaoConferidoRecord,
   MovimentacaoDataRecord,
   MovimentacaoEsperadoRecord,
@@ -33,56 +47,6 @@ export type GerarMovimentacaoRecebimentoResult = {
   filename: string;
 };
 
-function toCaixas(
-  quantidade: number,
-  unidadeMedida: string,
-  unidadesPorCaixa: number,
-): number {
-  if (unidadeMedida === 'CX') {
-    return quantidade;
-  }
-
-  const upc = unidadesPorCaixa > 0 ? unidadesPorCaixa : 1;
-  return quantidade / upc;
-}
-
-function calcularAvariaCaixasProduto(
-  avarias: MovimentacaoAvariaRecord[],
-  produtoId: string,
-  unidadesPorCaixa: number,
-): number {
-  const upc = unidadesPorCaixa > 0 ? unidadesPorCaixa : 1;
-
-  return avarias
-    .filter((avaria) => avaria.produtoId === produtoId)
-    .reduce(
-      (total, avaria) =>
-        total +
-        avaria.quantidadeCaixas +
-        Math.floor(avaria.quantidadeUnidades / upc),
-      0,
-    );
-}
-
-function calcularAvariaPesoKgProduto(
-  avarias: MovimentacaoAvariaRecord[],
-  produtoId: string,
-  unidadesPorCaixa: number,
-  pesoBrutoCaixa: number | null,
-): number {
-  const avariaCaixas = calcularAvariaCaixasProduto(
-    avarias,
-    produtoId,
-    unidadesPorCaixa,
-  );
-
-  if (!pesoBrutoCaixa || pesoBrutoCaixa <= 0) {
-    return 0;
-  }
-
-  return avariaCaixas * pesoBrutoCaixa;
-}
-
 function resolveCentro(
   empresa: string,
   centrosPorEmpresa: CentrosPorEmpresaInput,
@@ -104,179 +68,27 @@ function resolveCentro(
   return null;
 }
 
-function listarLotes(conferidos: MovimentacaoConferidoRecord[]): string[] {
-  const lotes = new Set<string>();
+function groupEsperadosPorChave(
+  esperados: MovimentacaoEsperadoRecord[],
+): Map<string, MovimentacaoEsperadoRecord[]> {
+  const map = new Map<string, MovimentacaoEsperadoRecord[]>();
 
-  for (const item of conferidos) {
-    lotes.add(item.loteRecebido?.trim() || '');
+  for (const esperado of esperados) {
+    const key = `${esperado.preRecebimentoId}:${esperado.produtoId}`;
+    const lista = map.get(key) ?? [];
+    lista.push(esperado);
+    map.set(key, lista);
   }
 
-  return [...lotes];
-}
-
-function montarLinhasProduto(
-  produtoId: string,
-  conferidosProduto: MovimentacaoConferidoRecord[],
-  esperado: MovimentacaoEsperadoRecord | undefined,
-  avarias: MovimentacaoAvariaRecord[],
-  centrosPorEmpresa: CentrosPorEmpresaInput,
-): MovimentacaoXlsxRow[] {
-  const referencia = conferidosProduto[0];
-
-  if (!referencia) {
-    return [];
-  }
-
-  const pesoVariavel = referencia.tipo === 'PVAR';
-  const centro = resolveCentro(referencia.empresa, centrosPorEmpresa);
-
-  if (!centro) {
-    throw new BadRequestException(
-      `Centro não informado para a empresa "${referencia.empresa}" (produto ${referencia.sku})`,
-    );
-  }
-
-  const lotes = listarLotes(conferidosProduto);
-
-  if (pesoVariavel) {
-    const totalPesoRecebido = conferidosProduto.reduce(
-      (total, item) => total + (item.pesoRecebido ?? 0),
-      0,
-    );
-    const totalPesoEsperado = esperado?.pesoEsperado ?? totalPesoRecebido;
-    const totalAvariaPeso = calcularAvariaPesoKgProduto(
-      avarias,
-      produtoId,
-      referencia.unidadesPorCaixa,
-      referencia.pesoBrutoCaixa,
-    );
-    const movimentarTotal = Math.max(
-      0,
-      Math.min(totalPesoRecebido, totalPesoEsperado) - totalAvariaPeso,
-    );
-
-    if (movimentarTotal <= 0 || totalPesoRecebido <= 0) {
-      return [];
-    }
-
-    const linhas: MovimentacaoXlsxRow[] = [];
-
-    for (const lote of lotes) {
-      const pesoLote = conferidosProduto
-        .filter((item) => (item.loteRecebido?.trim() || '') === lote)
-        .reduce((total, item) => total + (item.pesoRecebido ?? 0), 0);
-
-      if (pesoLote <= 0) {
-        continue;
-      }
-
-      const proporcao = pesoLote / totalPesoRecebido;
-      const quantidade = Number((movimentarTotal * proporcao).toFixed(3));
-
-      if (quantidade <= 0) {
-        continue;
-      }
-
-      linhas.push(
-        createMovimentacaoXlsxRow({
-          codigo: referencia.sku,
-          utilizacaoLivre: quantidade,
-          unidadeMedidaBasica: 'KG',
-          loteOrigem: lote,
-          loteDestino: lote,
-          centro,
-        }),
-      );
-    }
-
-    return linhas;
-  }
-
-  const totalRecebidoCaixas = conferidosProduto.reduce(
-    (total, item) =>
-      total +
-      toCaixas(
-        item.quantidadeRecebida,
-        item.unidadeMedida,
-        item.unidadesPorCaixa,
-      ),
-    0,
-  );
-  const totalEsperadoCaixas = esperado
-    ? toCaixas(
-        esperado.quantidadeEsperada,
-        esperado.unidadeMedida,
-        referencia.unidadesPorCaixa,
-      )
-    : totalRecebidoCaixas;
-  const totalAvariaCaixas = calcularAvariaCaixasProduto(
-    avarias,
-    produtoId,
-    referencia.unidadesPorCaixa,
-  );
-  const movimentarTotal = Math.max(
-    0,
-    Math.min(totalRecebidoCaixas, totalEsperadoCaixas) - totalAvariaCaixas,
-  );
-
-  if (movimentarTotal <= 0 || totalRecebidoCaixas <= 0) {
-    return [];
-  }
-
-  const linhas: MovimentacaoXlsxRow[] = [];
-
-  for (const lote of lotes) {
-    const qtdLoteCaixas = conferidosProduto
-      .filter((item) => (item.loteRecebido?.trim() || '') === lote)
-      .reduce(
-        (total, item) =>
-          total +
-          toCaixas(
-            item.quantidadeRecebida,
-            item.unidadeMedida,
-            item.unidadesPorCaixa,
-          ),
-        0,
-      );
-
-    if (qtdLoteCaixas <= 0) {
-      continue;
-    }
-
-    const proporcao = qtdLoteCaixas / totalRecebidoCaixas;
-    const quantidade = Number((movimentarTotal * proporcao).toFixed(3));
-
-    if (quantidade <= 0) {
-      continue;
-    }
-
-    linhas.push(
-      createMovimentacaoXlsxRow({
-        codigo: referencia.sku,
-        utilizacaoLivre: quantidade,
-        unidadeMedidaBasica: 'CX',
-        loteOrigem: lote,
-        loteDestino: lote,
-        centro,
-      }),
-    );
-  }
-
-  return linhas;
+  return map;
 }
 
 function montarLinhasMovimentacao(
   data: MovimentacaoDataRecord,
   centrosPorEmpresa: CentrosPorEmpresaInput,
+  configMovimentacao: ConfigMovimentacaoUnidade,
 ): MovimentacaoXlsxRow[] {
-  const esperadosPorChave = new Map<string, MovimentacaoEsperadoRecord>();
-
-  for (const esperado of data.esperados) {
-    esperadosPorChave.set(
-      `${esperado.preRecebimentoId}:${esperado.produtoId}`,
-      esperado,
-    );
-  }
+  const esperadosPorChave = groupEsperadosPorChave(data.esperados);
 
   const conferidosPorRecebimentoProduto = new Map<
     string,
@@ -301,26 +113,64 @@ function montarLinhasMovimentacao(
 
     const recebimentoId = key.slice(0, separatorIndex);
     const produtoId = key.slice(separatorIndex + 1);
-    const preRecebimentoId = conferidosProduto[0]?.preRecebimentoId;
+    const referencia = conferidosProduto[0];
+    const preRecebimentoId = referencia?.preRecebimentoId;
 
-    if (!preRecebimentoId) {
+    if (!referencia || !preRecebimentoId) {
       continue;
     }
 
-    const esperado = esperadosPorChave.get(`${preRecebimentoId}:${produtoId}`);
+    const centro = resolveCentro(referencia.empresa, centrosPorEmpresa);
+
+    if (!centro) {
+      throw new BadRequestException(
+        `Centro não informado para a empresa "${referencia.empresa}" (produto ${referencia.sku})`,
+      );
+    }
+
+    const esperadosProduto =
+      esperadosPorChave.get(`${preRecebimentoId}:${produtoId}`) ?? [];
     const avariasRecebimento = data.avarias.filter(
       (avaria) => avaria.recebimentoId === recebimentoId,
     );
 
-    linhas.push(
-      ...montarLinhasProduto(
+    let linhasProduto;
+
+    try {
+      linhasProduto = montarLinhasMovimentacaoProduto({
         produtoId,
+        sku: referencia.sku,
+        tipo: referencia.tipo,
+        unidadesPorCaixa: referencia.unidadesPorCaixa,
+        pesoBrutoCaixa: referencia.pesoBrutoCaixa,
         conferidosProduto,
-        esperado,
-        avariasRecebimento,
-        centrosPorEmpresa,
-      ),
-    );
+        esperadosProduto,
+        avarias: avariasRecebimento,
+        config: configMovimentacao,
+      });
+    } catch (error) {
+      if (error instanceof MovimentacaoLoteContabilError) {
+        throw new BadRequestException(error.message);
+      }
+
+      throw error;
+    }
+
+    const pesoVariavel = referencia.tipo === 'PVAR';
+    const unidadeMedidaBasica = pesoVariavel ? 'KG' : 'CX';
+
+    for (const linha of linhasProduto) {
+      linhas.push(
+        createMovimentacaoXlsxRow({
+          codigo: referencia.sku,
+          utilizacaoLivre: linha.quantidade,
+          unidadeMedidaBasica,
+          loteOrigem: linha.loteOrigem,
+          loteDestino: linha.loteDestino,
+          centro,
+        }),
+      );
+    }
   }
 
   return linhas;
@@ -331,6 +181,8 @@ export class GerarMovimentacaoRecebimentoUseCase {
   constructor(
     @Inject(DRIZZLE_PROVIDER)
     private readonly db: DrizzleClient,
+    @Inject(CONFIGURACAO_OPERACIONAL_REPOSITORY)
+    private readonly configuracaoOperacionalRepository: IConfiguracaoOperacionalRepository,
   ) {}
 
   async execute(
@@ -350,7 +202,29 @@ export class GerarMovimentacaoRecebimentoUseCase {
       );
     }
 
-    const linhas = montarLinhasMovimentacao(data, input.centrosPorEmpresa);
+    const configuracoes = await this.configuracaoOperacionalRepository.list({
+      unidadeId: data.unidadeId,
+      dominio: DOMINIO_RECEBIMENTO,
+      categoria: CATEGORIA_CONFERENCIA,
+      subtipo: SUBTIPO_PARAMETROS,
+      ativo: true,
+    });
+
+    const configPadrao =
+      configuracoes.find((item) => item.isPadrao) ?? configuracoes[0];
+    const parametros = ParametrosRecebimentoConferenciaSchema.parse(
+      configPadrao?.parametros ?? {},
+    );
+
+    const configMovimentacao: ConfigMovimentacaoUnidade = {
+      displayUnidadePadrao: parametros.displayUnidadePadrao,
+    };
+
+    const linhas = montarLinhasMovimentacao(
+      data,
+      input.centrosPorEmpresa,
+      configMovimentacao,
+    );
 
     if (linhas.length === 0) {
       throw new BadRequestException(

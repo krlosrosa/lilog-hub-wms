@@ -25,6 +25,7 @@ import {
   type IRecebimentoRepository,
 } from '../../../domain/repositories/recebimento/recebimento.repository.js';
 import { calcularDivergencias } from '../../../domain/services/recebimento-divergencia.js';
+import { RecebimentoParticipacaoService } from '../../services/recebimento/recebimento-participacao.service.js';
 import { RecebimentoEventPublisher } from '../../services/recebimento-event.publisher.js';
 
 export type EncerrarConferenciaUseCaseInput = {
@@ -44,6 +45,7 @@ export class EncerrarConferenciaUseCase {
     private readonly conferenciaRepository: IConferenciaRepository,
     @Inject(PRODUTO_REPOSITORY)
     private readonly produtoRepository: IProdutoRepository,
+    private readonly recebimentoParticipacaoService: RecebimentoParticipacaoService,
     private readonly recebimentoEventPublisher: RecebimentoEventPublisher,
   ) {}
 
@@ -52,6 +54,11 @@ export class EncerrarConferenciaUseCase {
     userId,
     quantidadePaletes,
   }: EncerrarConferenciaUseCaseInput) {
+    await this.recebimentoParticipacaoService.assertResponsavelForRecebimento(
+      recebimentoId,
+      userId,
+    );
+
     const recebimento = await this.recebimentoRepository.findById(recebimentoId);
 
     if (!recebimento) {

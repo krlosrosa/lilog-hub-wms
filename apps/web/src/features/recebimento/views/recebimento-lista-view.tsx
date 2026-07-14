@@ -21,7 +21,6 @@ import {
   Plus,
   SearchX,
 } from 'lucide-react';
-import { toast } from 'sonner';
 
 import { SidebarMain } from '@/components/layout/sidebar';
 import {
@@ -34,6 +33,7 @@ import {
 import { Pagination } from '@/features/filiais/components/pagination';
 import { DocasControl } from '@/features/recebimento/components/docas-control';
 import { ModalGerarMovimentacao } from '@/features/recebimento/components/modal-gerar-movimentacao';
+import { ModalReagendarRecebimento } from '@/features/recebimento/components/modal-reagendar-recebimento';
 import { RecebimentoFiltrosAvancadosSheet } from '@/features/recebimento/components/recebimento-filtros-avancados-sheet';
 import { RecebimentoRow } from '@/features/recebimento/components/recebimento-row';
 import { RecebimentoStatsCards } from '@/features/recebimento/components/recebimento-stats-cards';
@@ -49,6 +49,8 @@ const TABLE_HEADERS = [
   { label: '', className: 'w-8' },
   { label: 'Placa', className: 'min-w-[100px]' },
   { label: 'Transportador', className: 'hidden min-w-[90px] sm:table-cell' },
+  { label: 'Transporte', className: 'hidden min-w-[90px] md:table-cell' },
+  { label: 'OCR', className: 'hidden min-w-[90px] lg:table-cell' },
   { label: 'Horário', className: 'w-[88px]' },
   { label: 'Empresa', className: 'hidden text-right md:table-cell' },
   { label: 'Status', className: 'w-[100px]' },
@@ -61,8 +63,95 @@ const STATUS_ELEGIVEL_MOVIMENTACAO = new Set<RecebimentoStatus>([
   'finalizado',
 ]);
 
+const STATUS_ELEGIVEL_REAGENDAR = new Set<RecebimentoStatus>(['agendado']);
+
+type GrupoSelecao = 'reagendar' | 'movimentacao' | null;
+
 function podeSelecionarParaMovimentacao(status: RecebimentoStatus): boolean {
   return STATUS_ELEGIVEL_MOVIMENTACAO.has(status);
+}
+
+function podeSelecionarParaReagendar(status: RecebimentoStatus): boolean {
+  return STATUS_ELEGIVEL_REAGENDAR.has(status);
+}
+
+function resolveGrupoSelecao(
+  selectedIds: Set<string>,
+  recebimentos: RecebimentoListaItem[],
+): GrupoSelecao {
+  if (selectedIds.size === 0) {
+    return null;
+  }
+
+  const selecionados = recebimentos.filter((item) => selectedIds.has(item.id));
+
+  if (selecionados.some((item) => podeSelecionarParaReagendar(item.status))) {
+    return 'reagendar';
+  }
+
+  if (selecionados.some((item) => podeSelecionarParaMovimentacao(item.status))) {
+    return 'movimentacao';
+  }
+
+  return null;
+}
+
+function podeSelecionarItem(
+  recebimento: RecebimentoListaItem,
+  grupoAtivo: GrupoSelecao,
+): boolean {
+  const elegivelReagendar = podeSelecionarParaReagendar(recebimento.status);
+  const elegivelMovimentacao = podeSelecionarParaMovimentacao(recebimento.status);
+
+  if (!elegivelReagendar && !elegivelMovimentacao) {
+    return false;
+  }
+
+  if (grupoAtivo === 'reagendar') {
+    return elegivelReagendar;
+  }
+
+  if (grupoAtivo === 'movimentacao') {
+    return elegivelMovimentacao;
+  }
+
+  return elegivelReagendar || elegivelMovimentacao;
+}
+
+function resolveGrupoParaSelecionarTodos(
+  grupoAtivo: GrupoSelecao,
+  items: RecebimentoListaItem[],
+): GrupoSelecao | null {
+  if (grupoAtivo) {
+    return grupoAtivo;
+  }
+
+  const temAgendado = items.some((item) =>
+    podeSelecionarParaReagendar(item.status),
+  );
+  if (temAgendado) {
+    return 'reagendar';
+  }
+
+  const temMovimentacao = items.some((item) =>
+    podeSelecionarParaMovimentacao(item.status),
+  );
+  if (temMovimentacao) {
+    return 'movimentacao';
+  }
+
+  return null;
+}
+
+function filtrarItemsPorGrupo(
+  items: RecebimentoListaItem[],
+  grupo: GrupoSelecao,
+): RecebimentoListaItem[] {
+  if (grupo === 'reagendar') {
+    return items.filter((item) => podeSelecionarParaReagendar(item.status));
+  }
+
+  return items.filter((item) => podeSelecionarParaMovimentacao(item.status));
 }
 
 export function RecebimentoListaView() {
@@ -81,15 +170,21 @@ export function RecebimentoListaView() {
     setPagina,
     totalPaginas,
     itemsPagina,
+    itemsFiltrados,
     itemsInicio,
     totalFiltrados,
     stats,
     pageSize,
+    setPageSize,
+    pageSizeOptions,
+    recebimentos,
     cancelarRecebimento,
+    reagendarRecebimentos,
   } = useRecebimentoLista();
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [modalMovimentacaoAberto, setModalMovimentacaoAberto] = useState(false);
+  const [modalReagendarAberto, setModalReagendarAberto] = useState(false);
   const [recebimentoParaExcluir, setRecebimentoParaExcluir] =
     useState<RecebimentoListaItem | null>(null);
   const [excluindo, setExcluindo] = useState(false);
@@ -97,43 +192,154 @@ export function RecebimentoListaView() {
 
   const selectedIdsArray = useMemo(() => [...selectedIds], [selectedIds]);
 
+  const grupoSelecaoAtivo = useMemo(
+    () => resolveGrupoSelecao(selectedIds, recebimentos),
+    [recebimentos, selectedIds],
+  );
+
+  const idsParaReagendar = useMemo(
+    () =>
+      selectedIdsArray.filter((id) => {
+        const item = recebimentos.find((recebimento) => recebimento.id === id);
+        return item ? podeSelecionarParaReagendar(item.status) : false;
+      }),
+    [recebimentos, selectedIdsArray],
+  );
+
+  const idsParaMovimentacao = useMemo(
+    () =>
+      selectedIdsArray.filter((id) => {
+        const item = recebimentos.find((recebimento) => recebimento.id === id);
+        return item ? podeSelecionarParaMovimentacao(item.status) : false;
+      }),
+    [recebimentos, selectedIdsArray],
+  );
+
+  const grupoSelecionarTodos = useMemo(
+    () => resolveGrupoParaSelecionarTodos(grupoSelecaoAtivo, itemsFiltrados),
+    [grupoSelecaoAtivo, itemsFiltrados],
+  );
+
+  const itemsSelecionaveisFiltrados = useMemo(
+    () =>
+      grupoSelecionarTodos
+        ? filtrarItemsPorGrupo(itemsFiltrados, grupoSelecionarTodos)
+        : [],
+    [grupoSelecionarTodos, itemsFiltrados],
+  );
+
+  const itemsSelecionaveisPagina = useMemo(
+    () =>
+      itemsPagina.filter((item) =>
+        podeSelecionarItem(item, grupoSelecaoAtivo ?? grupoSelecionarTodos),
+      ),
+    [grupoSelecaoAtivo, grupoSelecionarTodos, itemsPagina],
+  );
+
+  const todosFiltradosSelecionados =
+    itemsSelecionaveisFiltrados.length > 0 &&
+    itemsSelecionaveisFiltrados.every((item) => selectedIds.has(item.id));
+
+  const todosPaginaSelecionados =
+    itemsSelecionaveisPagina.length > 0 &&
+    itemsSelecionaveisPagina.every((item) => selectedIds.has(item.id));
+
+  const algunsPaginaSelecionados =
+    itemsSelecionaveisPagina.some((item) => selectedIds.has(item.id)) &&
+    !todosPaginaSelecionados;
+
   const temFiltrosAtivos =
     filtroTurno !== 'todos' ||
     busca.trim().length > 0 ||
     filtrosAvancadosAtivos > 0;
   const listaVazia = !isLoading && itemsPagina.length === 0;
 
-  const exportar = useCallback(() => {
-    toast.success('Exportação simulada (mock)', {
-      description: 'O arquivo será gerado em instantes nos fluxos produtivos.',
-    });
+  const toggleSelecao = useCallback(
+    (recebimento: RecebimentoListaItem) => {
+      if (!podeSelecionarItem(recebimento, grupoSelecaoAtivo)) {
+        return;
+      }
+
+      setSelectedIds((atual) => {
+        const proximo = new Set(atual);
+
+        if (proximo.has(recebimento.id)) {
+          proximo.delete(recebimento.id);
+        } else {
+          proximo.add(recebimento.id);
+        }
+
+        return proximo;
+      });
+    },
+    [grupoSelecaoAtivo],
+  );
+
+  const selecionarTodosFiltrados = useCallback(() => {
+    if (!grupoSelecionarTodos) {
+      return;
+    }
+
+    setSelectedIds(
+      new Set(itemsSelecionaveisFiltrados.map((item) => item.id)),
+    );
+  }, [grupoSelecionarTodos, itemsSelecionaveisFiltrados]);
+
+  const limparSelecao = useCallback(() => {
+    setSelectedIds(new Set());
   }, []);
 
-  const toggleSelecao = useCallback((recebimento: RecebimentoListaItem) => {
-    if (!podeSelecionarParaMovimentacao(recebimento.status)) {
+  const toggleTodosPagina = useCallback(() => {
+    const grupo = grupoSelecaoAtivo ?? grupoSelecionarTodos;
+    if (!grupo) {
+      return;
+    }
+
+    if (todosPaginaSelecionados) {
+      setSelectedIds((atual) => {
+        const proximo = new Set(atual);
+        itemsSelecionaveisPagina.forEach((item) => proximo.delete(item.id));
+        return proximo;
+      });
       return;
     }
 
     setSelectedIds((atual) => {
       const proximo = new Set(atual);
-
-      if (proximo.has(recebimento.id)) {
-        proximo.delete(recebimento.id);
-      } else {
-        proximo.add(recebimento.id);
-      }
-
+      itemsSelecionaveisPagina.forEach((item) => proximo.add(item.id));
       return proximo;
     });
-  }, []);
+  }, [
+    grupoSelecaoAtivo,
+    grupoSelecionarTodos,
+    itemsSelecionaveisPagina,
+    todosPaginaSelecionados,
+  ]);
 
   const abrirModalMovimentacao = useCallback(() => {
-    if (selectedIds.size === 0) {
+    if (idsParaMovimentacao.length === 0) {
       return;
     }
 
     setModalMovimentacaoAberto(true);
-  }, [selectedIds.size]);
+  }, [idsParaMovimentacao.length]);
+
+  const abrirModalReagendar = useCallback(() => {
+    if (idsParaReagendar.length === 0) {
+      return;
+    }
+
+    setModalReagendarAberto(true);
+  }, [idsParaReagendar.length]);
+
+  const confirmarReagendamento = useCallback(
+    async (novaData: Date) => {
+      await reagendarRecebimentos(idsParaReagendar, novaData);
+      setSelectedIds(new Set());
+      setModalReagendarAberto(false);
+    },
+    [idsParaReagendar, reagendarRecebimentos],
+  );
 
   const limparFiltros = useCallback(() => {
     setFiltroTurno('todos');
@@ -273,6 +479,7 @@ export function RecebimentoListaView() {
               docasOcupadas={stats.docasOcupadas}
               docasTotal={stats.docasTotal}
               atrasos={stats.atrasos}
+              onAtrasadosClick={() => setFiltroTurno('atrasados')}
             />
 
             <div className="grid gap-4 xl:grid-cols-[1fr_minmax(240px,280px)] xl:items-start">
@@ -284,10 +491,24 @@ export function RecebimentoListaView() {
                     onTurnoChange={setFiltroTurno}
                     busca={busca}
                     onBuscaChange={setBusca}
+                    statusFiltro={filtrosAvancados.situacao}
+                    onStatusFiltroChange={(situacao) =>
+                      setFiltrosAvancados({ ...filtrosAvancados, situacao })
+                    }
                     onFiltrosAvancados={() => setFiltrosSheetAberto(true)}
                     filtrosAvancadosAtivos={filtrosAvancadosAtivos}
-                    onExportar={exportar}
-                    onGerarMovimentacao={abrirModalMovimentacao}
+                    onGerarMovimentacao={
+                      idsParaMovimentacao.length > 0
+                        ? abrirModalMovimentacao
+                        : undefined
+                    }
+                    onReagendar={
+                      idsParaReagendar.length > 0 ? abrirModalReagendar : undefined
+                    }
+                    onSelecionarTodos={selecionarTodosFiltrados}
+                    onLimparSelecao={limparSelecao}
+                    selecionaveisTotal={itemsSelecionaveisFiltrados.length}
+                    todosSelecionados={todosFiltradosSelecionados}
                     selecionadosCount={selectedIds.size}
                     totalFiltrados={isLoading ? undefined : totalFiltrados}
                   />
@@ -297,7 +518,23 @@ export function RecebimentoListaView() {
                   <table className={compactTableClassName}>
                     <thead>
                       <tr className={compactTableHeadRowClassName}>
-                        {TABLE_HEADERS.map((header) => (
+                        <th className={compactTableHeadCellClassName('w-8')}>
+                          {!isLoading && itemsSelecionaveisPagina.length > 0 ? (
+                            <input
+                              type="checkbox"
+                              checked={todosPaginaSelecionados}
+                              ref={(element) => {
+                                if (element) {
+                                  element.indeterminate = algunsPaginaSelecionados;
+                                }
+                              }}
+                              onChange={toggleTodosPagina}
+                              className="size-3.5 rounded border-outline-variant text-primary focus:ring-primary"
+                              aria-label="Selecionar todos da página"
+                            />
+                          ) : null}
+                        </th>
+                        {TABLE_HEADERS.slice(1).map((header) => (
                           <th
                             key={header.label || 'actions'}
                             className={compactTableHeadCellClassName(
@@ -379,7 +616,7 @@ export function RecebimentoListaView() {
                             key={r.id}
                             recebimento={r}
                             detailHref={`/recebimento/${r.id}`}
-                            selecionavel={podeSelecionarParaMovimentacao(r.status)}
+                            selecionavel={podeSelecionarItem(r, grupoSelecaoAtivo)}
                             selecionado={selectedIds.has(r.id)}
                             onSelecionar={toggleSelecao}
                             onExcluir={iniciarExclusao}
@@ -398,7 +635,10 @@ export function RecebimentoListaView() {
                     totalFiltrados={totalFiltrados}
                     itemsInicio={itemsInicio}
                     pageSize={pageSize}
+                    pageSizeOptions={pageSizeOptions}
+                    onPageSizeChange={setPageSize}
                     resourceLabelPlural="recebimentos"
+                    compact
                   />
                 ) : null}
               </section>
@@ -419,7 +659,14 @@ export function RecebimentoListaView() {
       <ModalGerarMovimentacao
         open={modalMovimentacaoAberto}
         onClose={() => setModalMovimentacaoAberto(false)}
-        selectedIds={selectedIdsArray}
+        selectedIds={idsParaMovimentacao}
+      />
+
+      <ModalReagendarRecebimento
+        open={modalReagendarAberto}
+        onClose={() => setModalReagendarAberto(false)}
+        selectedIds={idsParaReagendar}
+        onConfirmar={confirmarReagendamento}
       />
     </SidebarMain>
   );

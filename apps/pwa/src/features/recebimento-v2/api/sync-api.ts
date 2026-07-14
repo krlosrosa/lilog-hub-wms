@@ -58,3 +58,9 @@ export async function pushBatch(batch: SyncBatchRequest): Promise<SyncBatchResul
     body: JSON.stringify(batch),
   });
 }
+
+export async function encerrarApoioRecebimento(apoioId: string): Promise<void> {
+  await request(`/recebimentos/alocacoes/apoios/${encodeURIComponent(apoioId)}/encerrar`, {
+    method: 'POST',
+  });
+}

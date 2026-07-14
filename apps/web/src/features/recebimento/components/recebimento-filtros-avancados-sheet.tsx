@@ -117,9 +117,9 @@ export function RecebimentoFiltrosAvancadosSheet({
           <FilterSection label="Status">
             <div className="flex flex-wrap gap-1.5">
               <OptionButton
-                active={draft.situacao === 'todos'}
+                active={draft.situacao.length === 0}
                 onClick={() =>
-                  setDraft((prev) => ({ ...prev, situacao: 'todos' }))
+                  setDraft((prev) => ({ ...prev, situacao: [] }))
                 }
               >
                 Todos
@@ -127,9 +127,15 @@ export function RecebimentoFiltrosAvancadosSheet({
               {FILTROS_STATUS_RECEBIMENTO.map((status) => (
                 <OptionButton
                   key={status}
-                  active={draft.situacao === status}
+                  active={draft.situacao.includes(status)}
                   onClick={() =>
-                    setDraft((prev) => ({ ...prev, situacao: status }))
+                    setDraft((prev) => {
+                      const jaSelecionado = prev.situacao.includes(status);
+                      const situacao = jaSelecionado
+                        ? prev.situacao.filter((s) => s !== status)
+                        : [...prev.situacao, status];
+                      return { ...prev, situacao };
+                    })
                   }
                 >
                   {getRecebimentoStatusLabel(status)}

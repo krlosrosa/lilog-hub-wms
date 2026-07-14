@@ -36,12 +36,17 @@ import {
   ARMAZENAGEM_REPOSITORY,
   type IArmazenagemRepository,
 } from '../../../domain/repositories/armazenagem/armazenagem.repository.js';
+import {
+  USER_REPOSITORY,
+  type IUserRepository,
+} from '../../../domain/repositories/user/user.repository.js';
 import type { ProdutoConferenciaConfig } from '../../../domain/services/recebimento-produto-rules.js';
 import {
   resolveProdutoConferenciaConfig,
   validateConferirItemFields,
 } from '../../../domain/services/recebimento-produto-rules.js';
 import { toBaseUnits } from '../../../domain/services/unidade-medida.js';
+import { RecebimentoParticipacaoService } from '../../services/recebimento/recebimento-participacao.service.js';
 import { EtiquetaPesagemDuplicadaError } from '../../../infra/db/recebimento/create-pesagem-recebimento.drizzle.js';
 import { RecebimentoEventPublisher } from '../../services/recebimento-event.publisher.js';
 
@@ -85,8 +90,20 @@ export class ConferirItemUseCase {
     private readonly configuracaoOperacionalRepository: IConfiguracaoOperacionalRepository,
     @Inject(ARMAZENAGEM_REPOSITORY)
     private readonly armazenagemRepository: IArmazenagemRepository,
+    @Inject(USER_REPOSITORY)
+    private readonly userRepository: IUserRepository,
+    private readonly recebimentoParticipacaoService: RecebimentoParticipacaoService,
     private readonly recebimentoEventPublisher: RecebimentoEventPublisher,
   ) {}
+
+  private async resolveConferidoPorId(userId: number | null): Promise<number | null> {
+    if (userId == null) {
+      return null;
+    }
+
+    const user = await this.userRepository.findById(userId);
+    return user?.funcionarioId ?? null;
+  }
 
   async execute({ recebimentoId, data, userId }: ConferirItemUseCaseInput) {
     const parsed = ConferirItemInputSchema.parse(data);
@@ -102,6 +119,11 @@ export class ConferirItemUseCase {
         'Conferência só é permitida com recebimento em andamento',
       );
     }
+
+    await this.recebimentoParticipacaoService.assertResponsavelOuApoioForRecebimento(
+      recebimentoId,
+      userId,
+    );
 
     const produto = await this.produtoRepository.findByProdutoId(parsed.produtoId);
 
@@ -244,6 +266,8 @@ export class ConferirItemUseCase {
 
     let result;
 
+    const conferidoPorId = await this.resolveConferidoPorId(userId);
+
     try {
       result = await this.recebimentoRepository.addItem(
         recebimentoId,
@@ -252,6 +276,7 @@ export class ConferirItemUseCase {
         {
           unitizadorId,
           pesoVariavel: config.pesoVariavel,
+          conferidoPorId,
         },
       );
     } catch (error) {

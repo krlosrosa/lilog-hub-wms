@@ -10,6 +10,8 @@ import {
   type IRecebimentoRepository,
 } from '../../../domain/repositories/recebimento/recebimento.repository.js';
 
+import { RecebimentoParticipacaoService } from '../../services/recebimento/recebimento-participacao.service.js';
+
 @Injectable()
 export class UpsertTemperaturaProdutoRecebimentoUseCase {
   constructor(
@@ -17,6 +19,7 @@ export class UpsertTemperaturaProdutoRecebimentoUseCase {
     private readonly conferenciaRepository: IConferenciaRepository,
     @Inject(RECEBIMENTO_REPOSITORY)
     private readonly recebimentoRepository: IRecebimentoRepository,
+    private readonly recebimentoParticipacaoService: RecebimentoParticipacaoService,
   ) {}
 
   async execute(input: {
@@ -33,6 +36,11 @@ export class UpsertTemperaturaProdutoRecebimentoUseCase {
         `Recebimento "${input.recebimentoId}" não encontrado`,
       );
     }
+
+    await this.recebimentoParticipacaoService.assertResponsavelForRecebimento(
+      input.recebimentoId,
+      input.operatorId,
+    );
 
     const record = await this.conferenciaRepository.upsertTemperaturaProduto(
       input.recebimentoId,

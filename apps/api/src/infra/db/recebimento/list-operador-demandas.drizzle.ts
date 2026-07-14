@@ -13,6 +13,29 @@ import {
 
 const preDocas = alias(docas, 'pre_docas');
 
+function buildApoioAtivoExists(funcionarioId: number) {
+  return sql`exists (
+    select 1
+    from recebimento.alocacoes apoio_aloc
+    where apoio_aloc.pre_recebimento_id = ${preRecebimentos.id}
+      and apoio_aloc.funcionario_id = ${funcionarioId}
+      and apoio_aloc.papel = 'apoio'
+      and apoio_aloc.status in ('atribuida', 'iniciada')
+  )`;
+}
+
+function buildApoioAlocacaoIdSubquery(funcionarioId: number) {
+  return sql<string | null>`(
+    select apoio_aloc.id
+    from recebimento.alocacoes apoio_aloc
+    where apoio_aloc.pre_recebimento_id = ${preRecebimentos.id}
+      and apoio_aloc.funcionario_id = ${funcionarioId}
+      and apoio_aloc.papel = 'apoio'
+      and apoio_aloc.status in ('atribuida', 'iniciada')
+    limit 1
+  )`;
+}
+
 function buildSituacaoCondition(filter: ListOperadorDemandasFilter) {
   const liberadoSemRecebimento = and(
     eq(preRecebimentos.situacao, 'liberado_para_conferencia'),
@@ -42,16 +65,30 @@ function buildSituacaoCondition(filter: ListOperadorDemandasFilter) {
     ),
   );
 
+  const apoioDoOperador = and(
+    buildApoioAtivoExists(filter.responsavelId),
+    or(
+      eq(preRecebimentos.situacao, 'liberado_para_conferencia'),
+      eq(preRecebimentos.situacao, 'em_conferencia'),
+    ),
+  );
+
   const impedidoParaOperador = and(
     eq(preRecebimentos.situacao, 'impedido'),
     or(
       isNull(recebimentoAlocacoes.id),
       eq(recebimentoAlocacoes.funcionarioId, filter.responsavelId),
       eq(recebimentos.responsavelId, filter.responsavelId),
+      buildApoioAtivoExists(filter.responsavelId),
     ),
   );
 
-  return or(disponivelParaOperador, conferenciaDoOperador, impedidoParaOperador);
+  return or(
+    disponivelParaOperador,
+    conferenciaDoOperador,
+    apoioDoOperador,
+    impedidoParaOperador,
+  );
 }
 
 export async function listOperadorDemandasDb(
@@ -79,6 +116,12 @@ export async function listOperadorDemandasDb(
         WHERE pre_recebimento_id = ${preRecebimentos.id}
       )`,
       alocacaoFuncionarioId: recebimentoAlocacoes.funcionarioId,
+      souApoio: filter.responsavelId
+        ? buildApoioAtivoExists(filter.responsavelId)
+        : sql<boolean>`false`,
+      apoioAlocacaoId: filter.responsavelId
+        ? buildApoioAlocacaoIdSubquery(filter.responsavelId)
+        : sql<string | null>`null`,
     })
     .from(preRecebimentos)
     .leftJoin(
@@ -92,6 +135,7 @@ export async function listOperadorDemandasDb(
       recebimentoAlocacoes,
       and(
         eq(recebimentoAlocacoes.preRecebimentoId, preRecebimentos.id),
+        eq(recebimentoAlocacoes.papel, 'responsavel'),
         eq(recebimentoAlocacoes.status, 'atribuida'),
       ),
     )
@@ -109,6 +153,8 @@ export async function listOperadorDemandasDb(
       responsavelMatricula,
       skuCount,
       alocacaoFuncionarioId,
+      souApoio,
+      apoioAlocacaoId,
     }) => ({
       preRecebimentoId: preRecebimento.id,
       recebimentoId: recebimento?.id ?? null,
@@ -123,6 +169,8 @@ export async function listOperadorDemandasDb(
       conferente: responsavelNome ?? null,
       conferenteMatricula: responsavelMatricula ?? null,
       alocacaoFuncionarioId: alocacaoFuncionarioId ?? null,
+      souApoio: Boolean(souApoio),
+      apoioAlocacaoId: apoioAlocacaoId ?? null,
     }),
   );
 }

@@ -197,6 +197,9 @@ export const itensRecebimento = recebimentoPgSchema.table(
     unitizadorId: uuid('unitizador_id').references(() => unitizadores.id, {
       onDelete: 'set null',
     }),
+    conferidoPorId: integer('conferido_por_id').references(() => funcionarios.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -217,6 +220,9 @@ export const pesagensRecebimento = recebimentoPgSchema.table(
     sequenciaCaixa: integer('sequencia_caixa').notNull().default(1),
     etiquetaCodigo: varchar('etiqueta_codigo', { length: 100 }),
     pesoKg: numeric('peso_kg', { precision: 12, scale: 3 }).notNull(),
+    conferidoPorId: integer('conferido_por_id').references(() => funcionarios.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -319,7 +325,12 @@ export const checklistRecebimento = recebimentoPgSchema.table(
 
 export const recebimentoAlocacaoStatusEnum = pgEnum(
   'recebimento_alocacao_status_type',
-  ['atribuida', 'iniciada', 'cancelada'],
+  ['atribuida', 'iniciada', 'cancelada', 'encerrada'],
+);
+
+export const recebimentoAlocacaoPapelEnum = pgEnum(
+  'recebimento_alocacao_papel_type',
+  ['responsavel', 'apoio'],
 );
 
 export const recebimentoAlocacoes = recebimentoPgSchema.table(
@@ -338,6 +349,7 @@ export const recebimentoAlocacoes = recebimentoPgSchema.table(
     funcionarioId: integer('funcionario_id')
       .notNull()
       .references(() => funcionarios.id, { onDelete: 'restrict' }),
+    papel: recebimentoAlocacaoPapelEnum('papel').notNull().default('responsavel'),
     status: recebimentoAlocacaoStatusEnum('status').notNull().default('atribuida'),
     atribuidoPorUserId: integer('atribuido_por_user_id'),
     atribuidoEm: timestamp('atribuido_em', { withTimezone: true })
@@ -345,6 +357,7 @@ export const recebimentoAlocacoes = recebimentoPgSchema.table(
       .notNull(),
     inicioEm: timestamp('inicio_em', { withTimezone: true }),
     canceladoEm: timestamp('cancelado_em', { withTimezone: true }),
+    encerradoEm: timestamp('encerrado_em', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -353,9 +366,16 @@ export const recebimentoAlocacoes = recebimentoPgSchema.table(
       .notNull(),
   },
   (table) => [
-    uniqueIndex('alocacoes_pre_recebimento_ativa_idx')
+    uniqueIndex('alocacoes_pre_recebimento_responsavel_ativa_idx')
       .on(table.preRecebimentoId)
-      .where(sql`${table.status} = 'atribuida'`),
+      .where(
+        sql`${table.status} = 'atribuida' and ${table.papel} = 'responsavel'`,
+      ),
+    uniqueIndex('alocacoes_pre_recebimento_apoio_ativo_idx')
+      .on(table.preRecebimentoId, table.funcionarioId)
+      .where(
+        sql`${table.papel} = 'apoio' and ${table.status} in ('atribuida', 'iniciada')`,
+      ),
     index('alocacoes_sessao_id_idx').on(table.sessaoId),
     index('alocacoes_sessao_funcionario_id_idx').on(table.sessaoFuncionarioId),
   ],

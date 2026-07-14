@@ -106,6 +106,8 @@ export const recebimentoDetalheSchema = z.object({
   unidade: z.string(),
   placa: z.string(),
   transportador: z.string(),
+  motoristaNome: z.string().nullable().optional(),
+  motoristaTelefone: z.string().nullable().optional(),
   documentacaoOk: z.boolean(),
   status: recebimentoStatusSchema,
   inspecao: inspecaoTermicaSchema,

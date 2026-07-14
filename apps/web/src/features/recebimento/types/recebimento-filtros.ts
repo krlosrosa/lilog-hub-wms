@@ -3,7 +3,7 @@ import type { RecebimentoStatus } from '@/features/recebimento/types/recebimento
 import { RECEBIMENTO_STATUS_LABELS } from '@/features/recebimento/types/recebimento-lista.schema';
 
 export type RecebimentoFiltrosAvancados = {
-  situacao: RecebimentoStatus | 'todos';
+  situacao: RecebimentoStatus[];
   transportadora: string;
   dataInicio: string;
   dataFim: string;
@@ -24,7 +24,7 @@ export function getDefaultRecebimentoFiltrosAvancados(): RecebimentoFiltrosAvanc
   const hoje = getHojeReferencia();
 
   return {
-    situacao: 'todos',
+    situacao: [],
     transportadora: '',
     dataInicio: hoje,
     dataFim: hoje,
@@ -65,7 +65,7 @@ export function countRecebimentoFiltrosAvancadosAtivos(
 ): number {
   let count = 0;
 
-  if (filtros.situacao !== 'todos') count += 1;
+  if (filtros.situacao.length > 0) count += 1;
   if (filtros.transportadora.trim()) count += 1;
   if (!isIntervaloPadraoHoje(filtros)) count += 1;
 
@@ -81,9 +81,9 @@ export function mapRecebimentoFiltrosAvancadosToApiParams(
 } {
   return {
     situacao:
-      filtros.situacao === 'todos'
-        ? undefined
-        : (filtros.situacao as PreRecebimentoSituacaoApi),
+      filtros.situacao.length === 1
+        ? (filtros.situacao[0] as PreRecebimentoSituacaoApi)
+        : undefined,
     dataInicio: dateInputToIsoStart(filtros.dataInicio),
     dataFim: dateInputToIsoEnd(filtros.dataFim),
   };
@@ -98,8 +98,8 @@ export function matchesRecebimentoFiltrosAvancados(
   filtros: RecebimentoFiltrosAvancados,
 ): boolean {
   if (
-    filtros.situacao !== 'todos' &&
-    item.status !== filtros.situacao
+    filtros.situacao.length > 0 &&
+    !filtros.situacao.includes(item.status)
   ) {
     return false;
   }

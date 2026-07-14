@@ -26,6 +26,7 @@ describe('GetRecursosRecebimentoSessaoUseCase', () => {
 
   const recebimentoAlocacaoRepository = {
     listDemandasComAlocacao: vi.fn(),
+    listApoiosByPreRecebimentoId: vi.fn().mockResolvedValue([]),
     listUltimasMissoesFinalizadasPorSessao: vi.fn(),
   };
 
@@ -113,6 +114,8 @@ describe('GetRecursosRecebimentoSessaoUseCase', () => {
         alocacaoAtribuidoEm: null,
         conferenteId: 42,
         conferenteNome: 'Conferente Teste',
+        empresas: ['LDB'],
+        categorias: ['seco'],
       },
     ]);
 
@@ -121,6 +124,8 @@ describe('GetRecursosRecebimentoSessaoUseCase', () => {
 
     expect(result.funcionarios).toHaveLength(1);
     expect(result.demandas[0]?.statusDemanda).toBe('em_conferencia');
+    expect(result.demandas[0]?.empresas).toEqual(['LDB']);
+    expect(result.demandas[0]?.categorias).toEqual(['seco']);
 
     const ociosos = result.kpis.find((kpi) => kpi.id === 'ociosos');
     const atuando = result.kpis.find((kpi) => kpi.id === 'atuando');
@@ -151,6 +156,8 @@ describe('GetRecursosRecebimentoSessaoUseCase', () => {
         alocacaoAtribuidoEm: new Date('2026-07-13T11:00:00.000Z'),
         conferenteId: 42,
         conferenteNome: 'Conferente Teste',
+        empresas: ['LDB'],
+        categorias: ['seco'],
       },
     ]);
 

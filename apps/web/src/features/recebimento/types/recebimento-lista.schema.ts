@@ -48,6 +48,8 @@ export const recebimentoListaItemSchema = z.object({
   id: z.string(),
   placa: z.string(),
   transportador: z.string(),
+  numeroOcr: z.string().nullable().optional(),
+  numeroTransporte: z.string().nullable().optional(),
   /** HH:mm */
   horario: z.string().regex(horarioRegex, 'Horário deve estar no formato HH:mm'),
   horarioPrevisto: z.string(),

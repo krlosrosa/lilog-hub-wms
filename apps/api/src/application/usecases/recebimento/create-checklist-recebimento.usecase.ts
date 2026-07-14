@@ -17,10 +17,12 @@ import {
   RECEBIMENTO_REPOSITORY,
   type IRecebimentoRepository,
 } from '../../../domain/repositories/recebimento/recebimento.repository.js';
+import { RecebimentoParticipacaoService } from '../../services/recebimento/recebimento-participacao.service.js';
 
 export type CreateChecklistRecebimentoUseCaseInput = {
   recebimentoId: string;
   data: CreateChecklistRecebimentoInput;
+  userId?: number | null;
 };
 
 @Injectable()
@@ -30,9 +32,10 @@ export class CreateChecklistRecebimentoUseCase {
     private readonly recebimentoRepository: IRecebimentoRepository,
     @Inject(CONFERENCIA_REPOSITORY)
     private readonly conferenciaRepository: IConferenciaRepository,
+    private readonly recebimentoParticipacaoService: RecebimentoParticipacaoService,
   ) {}
 
-  async execute({ recebimentoId, data }: CreateChecklistRecebimentoUseCaseInput) {
+  async execute({ recebimentoId, data, userId }: CreateChecklistRecebimentoUseCaseInput) {
     const parsed = CreateChecklistRecebimentoInputSchema.parse(data);
 
     const recebimento = await this.recebimentoRepository.findById(recebimentoId);
@@ -48,6 +51,11 @@ export class CreateChecklistRecebimentoUseCase {
         'Checklist só pode ser registrado para recebimentos em andamento',
       );
     }
+
+    await this.recebimentoParticipacaoService.assertResponsavelForRecebimento(
+      recebimentoId,
+      userId ?? null,
+    );
 
     return this.conferenciaRepository.createChecklist(recebimentoId, parsed);
   }

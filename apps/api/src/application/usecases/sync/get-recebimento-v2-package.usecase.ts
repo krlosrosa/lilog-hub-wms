@@ -22,6 +22,10 @@ import {
   type IRecebimentoAvariaRepository,
 } from '../../../domain/repositories/recebimento/recebimento-avaria.repository.js';
 import {
+  RECEBIMENTO_ALOCACAO_REPOSITORY,
+  type IRecebimentoAlocacaoRepository,
+} from '../../../domain/repositories/recebimento/recebimento-alocacao.repository.js';
+import {
   USER_REPOSITORY,
   type IUserRepository,
 } from '../../../domain/repositories/user/user.repository.js';
@@ -29,6 +33,8 @@ import {
   SYNC_REPOSITORY,
   type ISyncRepository,
 } from '../../../domain/repositories/sync/sync.repository.js';
+import { RecebimentoParticipacaoService } from '../../services/recebimento/recebimento-participacao.service.js';
+import { resolveOperatorFuncionarioId } from '../../../domain/services/assert-operator-funcionario.js';
 
 type GetRecebimentoV2PackageInput = {
   demandId: string;
@@ -51,6 +57,9 @@ export class GetRecebimentoV2PackageUseCase {
     private readonly userRepository: IUserRepository,
     @Inject(SYNC_REPOSITORY)
     private readonly syncRepository: ISyncRepository,
+    @Inject(RECEBIMENTO_ALOCACAO_REPOSITORY)
+    private readonly recebimentoAlocacaoRepository: IRecebimentoAlocacaoRepository,
+    private readonly recebimentoParticipacaoService: RecebimentoParticipacaoService,
   ) {}
 
   async execute(input: GetRecebimentoV2PackageInput) {
@@ -112,6 +121,32 @@ export class GetRecebimentoV2PackageUseCase {
       (detalhe?.produtos ?? []).map((produto) => [produto.produtoId, produto]),
     );
 
+    const { papelDoUsuario, capabilities } =
+      recebimento != null
+        ? await this.recebimentoParticipacaoService.resolveCapabilitiesForRecebimento(
+            recebimento.id,
+            input.userId,
+          )
+        : await this.recebimentoParticipacaoService.resolveCapabilitiesForPreRecebimento(
+            input.demandId,
+            input.userId,
+            null,
+          );
+
+    let apoioAlocacaoId: string | undefined;
+    if (papelDoUsuario === 'apoio' && input.userId != null) {
+      const user = await this.userRepository.findById(input.userId);
+      const funcionarioId = user ? resolveOperatorFuncionarioId(user) : null;
+
+      if (funcionarioId != null) {
+        const apoio = await this.recebimentoAlocacaoRepository.findApoioAtivo(
+          input.demandId,
+          funcionarioId,
+        );
+        apoioAlocacaoId = apoio?.id;
+      }
+    }
+
     return {
       manifestId: `pkg-${input.demandId}-${serverRevision}`,
       demandId: input.demandId,
@@ -158,6 +193,9 @@ export class GetRecebimentoV2PackageUseCase {
       checklist: checklist ?? null,
       temperaturas: temperaturas ?? [],
       avarias: avarias ?? [],
+      papelDoUsuario,
+      capabilities,
+      apoioAlocacaoId,
     };
   }
 }

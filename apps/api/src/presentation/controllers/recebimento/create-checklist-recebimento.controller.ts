@@ -1,4 +1,5 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Param, Post, Request, UseGuards } from '@nestjs/common';
+import type { FastifyRequest } from 'fastify';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
@@ -52,10 +53,15 @@ export class CreateChecklistRecebimentoController {
     operationId: 'createChecklistRecebimento',
   })
   @ApiSuccessResponse(CreateChecklistResponseDto, 'created')
-  handle(@Param('id') id: string, @Body() body: CreateChecklistBodyDto) {
+  handle(
+    @Param('id') id: string,
+    @Body() body: CreateChecklistBodyDto,
+    @Request() req: FastifyRequest & { user: { id: number } },
+  ) {
     return this.createChecklistRecebimentoUseCase.execute({
       recebimentoId: id,
       data: body,
+      userId: req.user?.id ?? null,
     });
   }
 }

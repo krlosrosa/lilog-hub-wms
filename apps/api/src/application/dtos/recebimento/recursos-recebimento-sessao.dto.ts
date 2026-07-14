@@ -11,7 +11,10 @@ export const RecebimentoAlocacaoStatusDtoSchema = z.enum([
   'atribuida',
   'iniciada',
   'cancelada',
+  'encerrada',
 ]);
+
+export const RecebimentoAlocacaoPapelDtoSchema = z.enum(['responsavel', 'apoio']);
 
 export const AlocacaoRecebimentoDtoSchema = z.object({
   id: z.uuid(),
@@ -19,10 +22,12 @@ export const AlocacaoRecebimentoDtoSchema = z.object({
   sessaoId: z.uuid(),
   sessaoFuncionarioId: z.uuid(),
   funcionarioId: z.number().int(),
+  papel: RecebimentoAlocacaoPapelDtoSchema.default('responsavel'),
   status: RecebimentoAlocacaoStatusDtoSchema,
   atribuidoEm: z.iso.datetime(),
   inicioEm: z.iso.datetime().nullable(),
   canceladoEm: z.iso.datetime().nullable(),
+  encerradoEm: z.iso.datetime().nullable(),
 });
 
 export class AlocacaoRecebimentoDto extends createZodDto(AlocacaoRecebimentoDtoSchema) {}
@@ -60,6 +65,20 @@ export const DemandaRecebimentoRecursoDtoSchema = z.object({
       nome: z.string(),
     })
     .nullable(),
+  apoios: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        funcionarioId: z.number().int(),
+        funcionarioNome: z.string(),
+        funcionarioMatricula: z.string(),
+        status: RecebimentoAlocacaoStatusDtoSchema,
+        atribuidoEm: z.iso.datetime(),
+      }),
+    )
+    .default([]),
+  empresas: z.array(z.string()).default([]),
+  categorias: z.array(z.string()).default([]),
 });
 
 export class DemandaRecebimentoRecursoDto extends createZodDto(

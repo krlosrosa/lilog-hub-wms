@@ -66,6 +66,36 @@ describe('resolve-demandas-ativas-operador', () => {
         ),
       ).toBe(false);
     });
+
+    it('retorna true quando operador possui apoio ativo', () => {
+      expect(
+        demandaPertenceAoOperador(
+          {
+            statusDemanda: 'em_conferencia',
+            alocacao: null,
+            conferente: { id: 99 },
+            apoios: [{ funcionarioId: FUNCIONARIO_ID, status: 'iniciada' }],
+          },
+          SESSAO_FUNCIONARIO_ID,
+          FUNCIONARIO_ID,
+        ),
+      ).toBe(true);
+    });
+
+    it('retorna false quando apoio do operador está encerrado', () => {
+      expect(
+        demandaPertenceAoOperador(
+          {
+            statusDemanda: 'em_conferencia',
+            alocacao: null,
+            conferente: { id: 99 },
+            apoios: [{ funcionarioId: FUNCIONARIO_ID, status: 'encerrada' }],
+          },
+          SESSAO_FUNCIONARIO_ID,
+          FUNCIONARIO_ID,
+        ),
+      ).toBe(false);
+    });
   });
 
   describe('getDemandasAtivasDoOperador', () => {
@@ -136,6 +166,41 @@ describe('resolve-demandas-ativas-operador', () => {
       );
 
       expect([...result]).toEqual(['sf-outro']);
+    });
+
+    it('inclui operador via apoio ativo', () => {
+      const result = buildSessaoFuncionariosComDemanda(
+        [
+          {
+            statusDemanda: 'em_conferencia',
+            alocacao: null,
+            conferente: { id: 99 },
+            apoios: [{ funcionarioId: FUNCIONARIO_ID, status: 'atribuida' }],
+          },
+        ],
+        [{ id: SESSAO_FUNCIONARIO_ID, funcionarioId: FUNCIONARIO_ID }],
+      );
+
+      expect([...result]).toEqual([SESSAO_FUNCIONARIO_ID]);
+    });
+
+    it('ignora apoio encerrado ou cancelado', () => {
+      const result = buildSessaoFuncionariosComDemanda(
+        [
+          {
+            statusDemanda: 'em_conferencia',
+            alocacao: null,
+            conferente: { id: 99 },
+            apoios: [
+              { funcionarioId: FUNCIONARIO_ID, status: 'encerrada' },
+              { funcionarioId: 77, status: 'cancelada' },
+            ],
+          },
+        ],
+        [{ id: SESSAO_FUNCIONARIO_ID, funcionarioId: FUNCIONARIO_ID }],
+      );
+
+      expect([...result]).toEqual([]);
     });
   });
 });

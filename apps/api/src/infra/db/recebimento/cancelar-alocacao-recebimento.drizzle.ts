@@ -4,18 +4,30 @@ import type { RecebimentoAlocacaoRecord } from '../../../domain/repositories/rec
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import { recebimentoAlocacoes } from '../providers/drizzle/config/migrations/schema.js';
 
+import {
+  ALOCACAO_RECEBIMENTO_RETURNING,
+  mapAlocacaoRecebimentoRow,
+} from './map-alocacao-recebimento.drizzle.js';
+
 export async function cancelarAlocacaoRecebimentoDb(
   db: DrizzleClient,
   id: string,
 ): Promise<RecebimentoAlocacaoRecord> {
   const [existing] = await db
-    .select({ status: recebimentoAlocacoes.status })
+    .select({
+      status: recebimentoAlocacoes.status,
+      papel: recebimentoAlocacoes.papel,
+    })
     .from(recebimentoAlocacoes)
     .where(eq(recebimentoAlocacoes.id, id))
     .limit(1);
 
   if (!existing) {
     throw new Error('Alocação não encontrada');
+  }
+
+  if (existing.papel !== 'responsavel') {
+    throw new Error('Use o endpoint de remoção de apoio para este registro');
   }
 
   if (existing.status !== 'atribuida') {
@@ -33,21 +45,11 @@ export async function cancelarAlocacaoRecebimentoDb(
         eq(recebimentoAlocacoes.status, 'atribuida'),
       ),
     )
-    .returning({
-      id: recebimentoAlocacoes.id,
-      preRecebimentoId: recebimentoAlocacoes.preRecebimentoId,
-      sessaoId: recebimentoAlocacoes.sessaoId,
-      sessaoFuncionarioId: recebimentoAlocacoes.sessaoFuncionarioId,
-      funcionarioId: recebimentoAlocacoes.funcionarioId,
-      status: recebimentoAlocacoes.status,
-      atribuidoEm: recebimentoAlocacoes.atribuidoEm,
-      inicioEm: recebimentoAlocacoes.inicioEm,
-      canceladoEm: recebimentoAlocacoes.canceladoEm,
-    });
+    .returning(ALOCACAO_RECEBIMENTO_RETURNING);
 
   if (!updated) {
     throw new Error('Falha ao cancelar alocação');
   }
 
-  return updated;
+  return mapAlocacaoRecebimentoRow(updated);
 }

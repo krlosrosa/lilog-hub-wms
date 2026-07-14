@@ -925,6 +925,20 @@
       "when": 1791404800000,
       "tag": "0130_sessoes_trabalho_escala_status_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1791491200000,
+      "tag": "0131_recebimento_apoio_papel",
+      "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1791577600000,
+      "tag": "0132_recebimento_apoio_encerrada",
+      "breakpoints": true
     }
   ]
 }

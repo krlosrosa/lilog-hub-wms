@@ -46,6 +46,8 @@ type AtribuirConferenteSheetProps = {
   onAtribuir: (preRecebimentoId: string, sessaoFuncionarioId: string) => Promise<void>;
   isLoading?: boolean;
   title?: string;
+  /** Quando true, lista todos os operadores presentes (inclusive em outra demanda). */
+  includeBusyOperators?: boolean;
 };
 
 export function AtribuirConferenteSheet({
@@ -56,6 +58,7 @@ export function AtribuirConferenteSheet({
   onAtribuir,
   isLoading,
   title = 'Atribuir conferente',
+  includeBusyOperators = false,
 }: AtribuirConferenteSheetProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -71,7 +74,7 @@ export function AtribuirConferenteSheet({
   }, [isOpen, onClose]);
 
   const elegiveis = operators
-    .filter((operator) => operator.status === 'ocioso')
+    .filter((operator) => includeBusyOperators || operator.status === 'ocioso')
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
   if (!isOpen) return null;
@@ -115,7 +118,9 @@ export function AtribuirConferenteSheet({
             <div className="flex flex-col items-center gap-2 py-8 text-center">
               <UserCircle className="size-10 text-on-surface-variant/40" aria-hidden />
               <p className="text-body-md text-on-surface-variant">
-                Nenhum conferente disponível na sessão
+                {includeBusyOperators
+                  ? 'Nenhum operador presente na sessão'
+                  : 'Nenhum conferente disponível na sessão'}
               </p>
             </div>
           ) : (

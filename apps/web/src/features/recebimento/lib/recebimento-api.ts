@@ -70,6 +70,8 @@ export function mapPreRecebimentoToListaItem(
     id: item.id,
     placa: item.placa ?? 'Sem placa',
     transportador: item.transportadoraNome ?? '—',
+    numeroOcr: item.numeroOcr,
+    numeroTransporte: item.numeroTransporte,
     horario: formatHorario(item.horarioPrevisto),
     horarioPrevisto: item.horarioPrevisto,
     empresas: [item.unidadeId],
@@ -145,6 +147,19 @@ export function cancelPreRecebimento(id: string) {
   return apiRequest<PreRecebimentoApi>(
     `/pre-recebimentos/${encodeURIComponent(id)}/cancelar`,
     { method: 'PUT' },
+  );
+}
+
+export function reagendarPreRecebimento(
+  id: string,
+  horarioPrevisto: Date,
+): Promise<PreRecebimentoApi> {
+  return apiRequest<PreRecebimentoApi>(
+    `/pre-recebimentos/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ horarioPrevisto: horarioPrevisto.toISOString() }),
+    },
   );
 }
 
@@ -430,6 +445,22 @@ export async function postGerarMovimentacao(
   const resolvedFilename = filename.endsWith('.xlsx')
     ? filename
     : `movimentacao-migo-${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+  downloadBlobArquivo(blob, resolvedFilename);
+
+  return { filename: resolvedFilename };
+}
+
+export async function downloadRelatorioConferidos(
+  recebimentoId: string,
+): Promise<{ filename: string }> {
+  const { blob, filename } = await apiDownloadBlob(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/relatorio/itens-conferidos`,
+  );
+
+  const resolvedFilename = filename.endsWith('.xlsx')
+    ? filename
+    : `relatorio-conferidos-${new Date().toISOString().slice(0, 10)}.xlsx`;
 
   downloadBlobArquivo(blob, resolvedFilename);
 

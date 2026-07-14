@@ -19,6 +19,7 @@ import { hapticMedium } from '@/lib/haptics';
 
 import { V2BetaBadge } from '../components/v2-beta-badge';
 import { useBootstrapV2 } from '../hooks/use-bootstrap-v2';
+import { useProcessCapabilitiesV2 } from '../hooks/use-process-capabilities-v2';
 import { useProcessV2 } from '../hooks/use-process-v2';
 import type { BootstrapStep } from '../types/recebimento-v2.schema';
 
@@ -80,6 +81,7 @@ interface PreparacaoV2ViewProps {
 
 export function PreparacaoV2View({ demandId }: PreparacaoV2ViewProps) {
   const { process, isReady } = useProcessV2(demandId);
+  const { souApoio } = useProcessCapabilitiesV2(demandId);
   const { prepare, progress, isPreparing, error } = useBootstrapV2();
   const [storageEstimate, setStorageEstimate] = useState<StorageEstimate | null>(null);
 
@@ -119,8 +121,15 @@ export function PreparacaoV2View({ demandId }: PreparacaoV2ViewProps) {
             <ChevronLeft className="h-5 w-5" aria-hidden />
           </Link>
           <div className="min-w-0 flex-1">
-            <h1 className="text-headline-sm font-bold text-on-surface">Preparação offline</h1>
-            <V2BetaBadge className="mt-0.5" />
+            <h1 className="text-headline-sm font-bold text-on-surface">
+              {souApoio ? 'Preparação para apoio' : 'Preparação offline'}
+            </h1>
+            <p className="mt-0.5 text-body-sm text-on-surface-variant">
+              {souApoio
+                ? 'Baixe itens esperados, conferências do responsável e catálogo para conferir offline.'
+                : 'Baixe os dados da demanda para usar sem conexão.'}
+            </p>
+            <V2BetaBadge className="mt-1" />
           </div>
         </div>
       </div>
@@ -222,7 +231,7 @@ export function PreparacaoV2View({ demandId }: PreparacaoV2ViewProps) {
             params={{ id: demandId }}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation transition-transform active:scale-[0.98]"
           >
-            Iniciar conferência
+            {souApoio ? 'Iniciar apoio na conferência' : 'Iniciar conferência'}
           </Link>
         ) : (
           <Button
@@ -232,7 +241,7 @@ export function PreparacaoV2View({ demandId }: PreparacaoV2ViewProps) {
               hapticMedium();
               void prepare(demandId);
             }}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary text-label-md font-semibold text-primary-foreground touch-manipulation transition-transform active:scale-[0.98]"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation transition-transform active:scale-[0.98] disabled:opacity-100 disabled:saturate-75"
           >
             {isPreparing ? (
               <>
@@ -247,7 +256,7 @@ export function PreparacaoV2View({ demandId }: PreparacaoV2ViewProps) {
             ) : (
               <>
                 <Download className="h-5 w-5" aria-hidden />
-                Preparar para uso offline
+                {souApoio ? 'Baixar para apoiar' : 'Preparar para uso offline'}
               </>
             )}
           </Button>

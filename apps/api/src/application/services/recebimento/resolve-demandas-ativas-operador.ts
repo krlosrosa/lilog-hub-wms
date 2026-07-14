@@ -1,8 +1,18 @@
+export type ApoioAtivoOperadorInput = {
+  funcionarioId: number;
+  status: string;
+};
+
 export type DemandaAtivaOperadorInput = {
   statusDemanda: string;
   alocacao: { sessaoFuncionarioId: string } | null;
   conferente: { id: number } | null;
+  apoios?: ApoioAtivoOperadorInput[];
 };
+
+export function isApoioAtivoStatus(status: string): boolean {
+  return status === 'atribuida' || status === 'iniciada';
+}
 
 export function demandaPertenceAoOperador(
   demanda: DemandaAtivaOperadorInput,
@@ -14,6 +24,16 @@ export function demandaPertenceAoOperador(
   }
 
   if (demanda.alocacao?.sessaoFuncionarioId === sessaoFuncionarioId) {
+    return true;
+  }
+
+  if (
+    demanda.apoios?.some(
+      (apoio) =>
+        apoio.funcionarioId === funcionarioId &&
+        isApoioAtivoStatus(apoio.status),
+    )
+  ) {
     return true;
   }
 
@@ -40,9 +60,12 @@ export function buildSessaoFuncionariosComDemanda(
   const sessaoFuncionariosComDemanda = new Set<string>();
 
   for (const demanda of demandas) {
-    if (demanda.alocacao && demanda.statusDemanda !== 'disponivel') {
-      sessaoFuncionariosComDemanda.add(demanda.alocacao.sessaoFuncionarioId);
+    if (demanda.statusDemanda === 'disponivel') {
       continue;
+    }
+
+    if (demanda.alocacao) {
+      sessaoFuncionariosComDemanda.add(demanda.alocacao.sessaoFuncionarioId);
     }
 
     if (
@@ -51,6 +74,20 @@ export function buildSessaoFuncionariosComDemanda(
     ) {
       const funcionario = funcionarios.find(
         (item) => item.funcionarioId === demanda.conferente!.id,
+      );
+
+      if (funcionario) {
+        sessaoFuncionariosComDemanda.add(funcionario.id);
+      }
+    }
+
+    for (const apoio of demanda.apoios ?? []) {
+      if (!isApoioAtivoStatus(apoio.status)) {
+        continue;
+      }
+
+      const funcionario = funcionarios.find(
+        (item) => item.funcionarioId === apoio.funcionarioId,
       );
 
       if (funcionario) {

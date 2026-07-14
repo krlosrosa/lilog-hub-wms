@@ -317,6 +317,7 @@ export class RecebimentoV2SyncAdapter implements ISyncAdapter {
     try {
       await this.createChecklistRecebimentoUseCase.execute({
         recebimentoId,
+        userId: context.userId,
         data: {
           lacre: payload['lacre'] as string | undefined,
           tempBau: normalizeChecklistTempBau(payload['tempBau']),

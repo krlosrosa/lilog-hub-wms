@@ -58,6 +58,7 @@ function computeKpisRecebimento(
     statusDemanda: string;
     alocacao: { sessaoFuncionarioId: string } | null;
     conferente: { id: number } | null;
+    apoios?: Array<{ funcionarioId: number; status: string }>;
   }>,
   totalFuncionarios: number,
 ) {
@@ -301,44 +302,60 @@ export class GetRecursosRecebimentoSessaoUseCase {
       }),
     );
 
-    const demandas = demandasRaw.map((demanda) => {
-      const statusDemanda = resolveStatusDemanda(demanda);
+    const demandas = await Promise.all(
+      demandasRaw.map(async (demanda) => {
+        const statusDemanda = resolveStatusDemanda(demanda);
+        const apoios =
+          await this.recebimentoAlocacaoRepository.listApoiosByPreRecebimentoId(
+            demanda.preRecebimentoId,
+          );
 
-      return {
-        preRecebimentoId: demanda.preRecebimentoId,
-        placa: demanda.placa,
-        transportadoraNome: demanda.transportadoraNome,
-        horarioPrevisto: demanda.horarioPrevisto.toISOString(),
-        skuCount: demanda.skuCount,
-        dock: demanda.dock,
-        statusDemanda,
-        recebimentoId: demanda.recebimentoId,
-        recebimentoDataInicio: demanda.recebimentoDataInicio?.toISOString() ?? null,
-        alocacao:
-          demanda.alocacaoId &&
-          demanda.alocacaoSessaoFuncionarioId &&
-          demanda.alocacaoFuncionarioId &&
-          demanda.alocacaoFuncionarioNome &&
-          demanda.alocacaoFuncionarioMatricula &&
-          demanda.alocacaoAtribuidoEm
-            ? {
-                id: demanda.alocacaoId,
-                sessaoFuncionarioId: demanda.alocacaoSessaoFuncionarioId,
-                funcionarioId: demanda.alocacaoFuncionarioId,
-                funcionarioNome: demanda.alocacaoFuncionarioNome,
-                funcionarioMatricula: demanda.alocacaoFuncionarioMatricula,
-                atribuidoEm: demanda.alocacaoAtribuidoEm.toISOString(),
-              }
-            : null,
-        conferente:
-          demanda.conferenteId && demanda.conferenteNome
-            ? {
-                id: demanda.conferenteId,
-                nome: demanda.conferenteNome,
-              }
-            : null,
-      };
-    });
+        return {
+          preRecebimentoId: demanda.preRecebimentoId,
+          placa: demanda.placa,
+          transportadoraNome: demanda.transportadoraNome,
+          horarioPrevisto: demanda.horarioPrevisto.toISOString(),
+          skuCount: demanda.skuCount,
+          dock: demanda.dock,
+          statusDemanda,
+          recebimentoId: demanda.recebimentoId,
+          recebimentoDataInicio: demanda.recebimentoDataInicio?.toISOString() ?? null,
+          alocacao:
+            demanda.alocacaoId &&
+            demanda.alocacaoSessaoFuncionarioId &&
+            demanda.alocacaoFuncionarioId &&
+            demanda.alocacaoFuncionarioNome &&
+            demanda.alocacaoFuncionarioMatricula &&
+            demanda.alocacaoAtribuidoEm
+              ? {
+                  id: demanda.alocacaoId,
+                  sessaoFuncionarioId: demanda.alocacaoSessaoFuncionarioId,
+                  funcionarioId: demanda.alocacaoFuncionarioId,
+                  funcionarioNome: demanda.alocacaoFuncionarioNome,
+                  funcionarioMatricula: demanda.alocacaoFuncionarioMatricula,
+                  atribuidoEm: demanda.alocacaoAtribuidoEm.toISOString(),
+                }
+              : null,
+          conferente:
+            demanda.conferenteId && demanda.conferenteNome
+              ? {
+                  id: demanda.conferenteId,
+                  nome: demanda.conferenteNome,
+                }
+              : null,
+          apoios: apoios.map((apoio) => ({
+            id: apoio.id,
+            funcionarioId: apoio.funcionarioId,
+            funcionarioNome: apoio.funcionarioNome,
+            funcionarioMatricula: apoio.funcionarioMatricula,
+            status: apoio.status,
+            atribuidoEm: apoio.atribuidoEm.toISOString(),
+          })),
+          empresas: demanda.empresas,
+          categorias: demanda.categorias,
+        };
+      }),
+    );
 
     return {
       sessaoId: sessao.id,

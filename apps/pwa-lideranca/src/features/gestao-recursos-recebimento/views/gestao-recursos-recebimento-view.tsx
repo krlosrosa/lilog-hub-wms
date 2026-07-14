@@ -93,6 +93,10 @@ export function GestaoRecursosRecebimentoView() {
     handleAtribuir,
     handleCancelarAlocacao,
     handleLiberarImpedimento,
+    handleAdicionarApoio,
+    handleRemoverApoio,
+    adicionandoApoioId,
+    removendoApoioId,
   } = useGestaoRecursosRecebimento();
 
   const apoio = useFuncionarioApoio(sessaoAtiva?.id, async () => {
@@ -114,6 +118,10 @@ export function GestaoRecursosRecebimentoView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetPreRecebimentoId, setSheetPreRecebimentoId] = useState<
+    string | null
+  >(null);
+  const [apoioSheetOpen, setApoioSheetOpen] = useState(false);
+  const [apoioPreRecebimentoId, setApoioPreRecebimentoId] = useState<
     string | null
   >(null);
   const [impedimentoSheetOpen, setImpedimentoSheetOpen] = useState(false);
@@ -174,6 +182,11 @@ export function GestaoRecursosRecebimentoView() {
     setSheetOpen(true);
   }
 
+  function openApoioSheet(preRecebimentoId: string) {
+    setApoioPreRecebimentoId(preRecebimentoId);
+    setApoioSheetOpen(true);
+  }
+
   function openImpedimentoSheet(demanda: DemandaRecebimentoRecursoApi) {
     setImpedimentoDemanda(demanda);
     setImpedimentoSheetOpen(true);
@@ -185,6 +198,14 @@ export function GestaoRecursosRecebimentoView() {
   ) {
     await handleAtribuir(preRecebimentoId, sessaoFuncionarioId);
     setSheetOpen(false);
+  }
+
+  async function handleAdicionarApoioFromSheet(
+    preRecebimentoId: string,
+    sessaoFuncionarioId: string,
+  ) {
+    await handleAdicionarApoio(preRecebimentoId, sessaoFuncionarioId);
+    setApoioSheetOpen(false);
   }
 
   async function handleLiberarFromImpedimentoSheet(preRecebimentoId: string) {
@@ -366,6 +387,8 @@ export function GestaoRecursosRecebimentoView() {
                       demanda={demanda}
                       onAtribuir={openSheet}
                       onCancelar={handleCancelarAlocacao}
+                      onAdicionarApoio={openApoioSheet}
+                      onRemoverApoio={handleRemoverApoio}
                       onLiberarImpedimento={handleLiberarImpedimento}
                       onVerImpedimento={openImpedimentoSheet}
                       isAtribuindo={atribuindoId === demanda.preRecebimentoId}
@@ -374,6 +397,10 @@ export function GestaoRecursosRecebimentoView() {
                           ? cancelandoId === demanda.alocacao.id
                           : false
                       }
+                      isAdicionandoApoio={
+                        adicionandoApoioId === demanda.preRecebimentoId
+                      }
+                      isRemovendoApoio={removendoApoioId != null}
                       isLiberando={liberandoId === demanda.preRecebimentoId}
                     />
                   ))}
@@ -448,6 +475,21 @@ export function GestaoRecursosRecebimentoView() {
             ? atribuindoId === sheetPreRecebimentoId
             : false
         }
+      />
+
+      <AtribuirConferenteSheet
+        isOpen={apoioSheetOpen}
+        onClose={() => setApoioSheetOpen(false)}
+        operators={operators}
+        preRecebimentoId={apoioPreRecebimentoId}
+        onAtribuir={handleAdicionarApoioFromSheet}
+        isLoading={
+          apoioPreRecebimentoId
+            ? adicionandoApoioId === apoioPreRecebimentoId
+            : false
+        }
+        title="Adicionar apoio"
+        includeBusyOperators
       />
 
       <AdicionarApoioSheet

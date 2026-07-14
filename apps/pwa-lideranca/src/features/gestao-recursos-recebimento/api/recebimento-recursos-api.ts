@@ -35,6 +35,26 @@ export function cancelarAlocacaoRecebimento(id: string) {
   );
 }
 
+export function adicionarApoioRecebimento(body: {
+  unidadeId: string;
+  preRecebimentoId: string;
+  sessaoId: string;
+  sessaoFuncionarioId: string;
+}) {
+  return request<AlocacaoRecebimentoApi>('/recebimentos/alocacoes/apoios', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function removerApoioRecebimento(id: string) {
+  return request<AlocacaoRecebimentoApi>(
+    `/recebimentos/alocacoes/apoios/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  );
+}
+
 export function liberarImpedimentoRecebimento(preRecebimentoId: string) {
   return request<{ preRecebimentoId: string; impedimentoId: string }>(
     `/pre-recebimentos/${encodeURIComponent(preRecebimentoId)}/retomar-conferencia`,

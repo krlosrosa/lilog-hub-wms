@@ -132,6 +132,7 @@ export type RemovePesagemRecebimentoResult = {
 export type AddItemRecebimentoOptions = {
   unitizadorId?: string | null;
   pesoVariavel?: boolean;
+  conferidoPorId?: number | null;
 };
 
 export interface IRecebimentoRepository {

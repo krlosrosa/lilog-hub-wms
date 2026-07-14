@@ -17,6 +17,14 @@ export interface DownloadProgress {
   currentStep?: string;
 }
 
+export interface RecebimentoCapabilities {
+  canEditChecklist: boolean;
+  canRegistrarTemperatura: boolean;
+  canFinalizar: boolean;
+  canGerenciarPaletes: boolean;
+  canConferirItens: boolean;
+}
+
 export interface ProcessRecord {
   id: string; // demandId (PK)
   unidadeId: string;
@@ -40,6 +48,10 @@ export interface ProcessRecord {
   placa?: string;
   conferente?: string;
   atribuidoAMim?: boolean;
+  souApoio?: boolean;
+  papelDoUsuario?: 'responsavel' | 'apoio' | null;
+  capabilities?: RecebimentoCapabilities;
+  apoioAlocacaoId?: string;
   /** Sessão de palete ativa (bipado via Iniciar palete) */
   activePaleteCodigo?: string;
   createdAt: number;
