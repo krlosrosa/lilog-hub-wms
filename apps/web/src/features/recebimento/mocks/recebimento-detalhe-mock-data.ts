@@ -4,6 +4,12 @@ import type {
 } from '@/features/recebimento/types/recebimento-detalhe.schema';
 import type { RecebimentoListaItem } from '@/features/recebimento/types/recebimento-lista.schema';
 
+const CONFERENCIA_PESO_PADRAO = {
+  pesoVariavel: false,
+  pesoXml: null,
+  pesoFisico: null,
+} as const;
+
 /** Entrada principal alinhada ao protótipo (id da lista mock). */
 const DETALHE_RCV001: RecebimentoDetalhe = {
   id: 'rcv-001',
@@ -44,6 +50,7 @@ const DETALHE_RCV001: RecebimentoDetalhe = {
       ean: '7891991010321',
       qtdXml: 1200,
       qtdFisica: 1200,
+      ...CONFERENCIA_PESO_PADRAO,
       status: 'concluido',
       avarias: [],
       lotesDetalhe: [],
@@ -57,6 +64,7 @@ const DETALHE_RCV001: RecebimentoDetalhe = {
       ean: '7891991000889',
       qtdXml: 2400,
       qtdFisica: 2392,
+      ...CONFERENCIA_PESO_PADRAO,
       status: 'faltante',
       avarias: [],
       lotesDetalhe: [],
@@ -70,6 +78,7 @@ const DETALHE_RCV001: RecebimentoDetalhe = {
       ean: '7891991202023',
       qtdXml: 600,
       qtdFisica: 600,
+      ...CONFERENCIA_PESO_PADRAO,
       status: 'concluido',
       avarias: [],
       lotesDetalhe: [],
@@ -83,6 +92,7 @@ const DETALHE_RCV001: RecebimentoDetalhe = {
       ean: '7891991444119',
       qtdXml: 480,
       qtdFisica: 482,
+      ...CONFERENCIA_PESO_PADRAO,
       status: 'sobra',
       avarias: [],
       lotesDetalhe: [],
@@ -96,6 +106,7 @@ const DETALHE_RCV001: RecebimentoDetalhe = {
       ean: `7891991555${100 + i}`,
       qtdXml: 120 + i * 15,
       qtdFisica: 120 + i * 15,
+      ...CONFERENCIA_PESO_PADRAO,
       status: 'concluido' as const,
       avarias: [],
       lotesDetalhe: [],
@@ -149,6 +160,7 @@ export function criarDetalheFallbackFromLista(
         ean: '—',
         qtdXml: item.volumeUn,
         qtdFisica: item.volumeUn,
+        ...CONFERENCIA_PESO_PADRAO,
         status: 'concluido',
         avarias: [],
       lotesDetalhe: [],
@@ -162,6 +174,7 @@ export function criarDetalheFallbackFromLista(
         ean: '—',
         qtdXml: 0,
         qtdFisica: 0,
+        ...CONFERENCIA_PESO_PADRAO,
         status: 'concluido',
         avarias: [],
       lotesDetalhe: [],
