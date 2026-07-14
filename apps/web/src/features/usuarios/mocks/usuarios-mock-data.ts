@@ -121,6 +121,13 @@ export const MOCK_PERFIS: PerfilRole[] = [
     healthScore: 85,
   },
   {
+    id: 'lider',
+    label: 'Líder',
+    descricao: 'Supervisão de turno e alocação de recursos',
+    icon: 'supervisor_account',
+    healthScore: 86,
+  },
+  {
     id: 'analista',
     label: 'Analista',
     descricao: 'Relatórios e Insights',
@@ -183,6 +190,13 @@ export const MOCK_PERMISSOES_POR_PERFIL: Record<
   gerente: MODULOS_BASE.map((m) => ({
     ...m,
     permissoes: buildPermissoes(true, true, true, false),
+  })),
+  lider: MODULOS_BASE.map((m) => ({
+    ...m,
+    permissoes:
+      m.id === 'relatorios'
+        ? buildPermissoes(true, false, false, false)
+        : buildPermissoes(true, true, true, false),
   })),
   analista: MODULOS_BASE.map((m) => ({
     ...m,
