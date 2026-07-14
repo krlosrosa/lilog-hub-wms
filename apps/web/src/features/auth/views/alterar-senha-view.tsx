@@ -59,7 +59,7 @@ export function AlterarSenhaView() {
       });
 
       completePasswordChange();
-      toast.success('Senha alterada com sucesso');
+      toast.success('Senha atualizada com sucesso. Redirecionando para o início.');
       router.push('/');
     } catch (err) {
       const message =
@@ -79,12 +79,12 @@ export function AlterarSenhaView() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {user?.mustChangePassword
-              ? 'Troca de senha obrigatória'
+              ? 'Defina uma nova senha de acesso'
               : 'Alterar senha'}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {user?.mustChangePassword
-              ? 'Defina uma nova senha para continuar usando o sistema.'
+              ? 'Por segurança, você precisa atualizar sua senha antes de continuar usando o LiLog Hub.'
               : 'Informe sua senha atual e a nova senha desejada.'}
           </p>
         </div>

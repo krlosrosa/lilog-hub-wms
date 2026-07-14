@@ -9,6 +9,7 @@ import {
   FolderTree,
   HandHeart,
   Headphones,
+  Home,
   LineChart,
   LayoutGrid,
   Map,
@@ -57,6 +58,12 @@ const baseSidebarConfig: NavGroup[] = [
     icon: LineChart,
     defaultOpen: true,
     items: [
+      {
+        id: 'inicio',
+        label: 'Início',
+        icon: Home,
+        href: '/',
+      },
       {
         id: 'painel-operacional',
         label: 'Painel Operacional',

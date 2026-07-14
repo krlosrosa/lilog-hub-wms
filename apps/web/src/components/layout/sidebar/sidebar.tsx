@@ -68,7 +68,10 @@ export function Sidebar({
           collapsed && 'flex-col items-center px-2',
         )}
       >
-        <div className={cn('flex min-w-0 flex-1 items-center gap-2', collapsed && 'flex-col gap-2')}>
+        <Link
+          href="/"
+          className={cn('flex min-w-0 flex-1 items-center gap-2', collapsed && 'flex-col gap-2')}
+        >
           <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary shadow-inner-glow">
             <BriefcaseBusiness aria-hidden className="size-4 text-primary-foreground" />
           </div>
@@ -82,7 +85,7 @@ export function Sidebar({
               </p>
             </div>
           ) : null}
-        </div>
+        </Link>
         <button
           type="button"
           onClick={toggleCollapsed}

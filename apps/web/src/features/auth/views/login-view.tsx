@@ -31,10 +31,10 @@ export function LoginView() {
             <Lock className="size-7 text-primary-foreground" aria-hidden />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Lilog Hub
+            LiLog Hub
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Faça login com seu ID e senha
+            Portal interno de gestão logística do seu centro de distribuição.
           </p>
         </div>
 
@@ -62,7 +62,7 @@ export function LoginView() {
                   type="text"
                   inputMode="numeric"
                   autoComplete="username"
-                  placeholder="123456"
+                  placeholder="Informe o ID fornecido pela TI"
                   {...form.register('loginId')}
                   className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                 />
@@ -132,10 +132,14 @@ export function LoginView() {
               {isSubmitting && (
                 <Loader2 className="size-4 animate-spin" aria-hidden />
               )}
-              {isSubmitting ? 'Entrando…' : 'Entrar'}
+              {isSubmitting ? 'Entrando…' : 'Entrar no portal'}
             </Button>
           </form>
         </div>
+
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          Ambiente interno — acesso restrito a colaboradores autorizados.
+        </p>
       </div>
     </div>
   );

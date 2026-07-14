@@ -16,9 +16,9 @@ export default function AppError({
 
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 p-8 text-center">
-      <h2 className="text-xl font-semibold">Algo deu errado</h2>
+      <h2 className="text-xl font-semibold">Algo não saiu como esperado</h2>
       <p className="max-w-md text-sm text-muted-foreground">
-        Ocorreu um erro inesperado. Nossa equipe foi notificada automaticamente.
+        Ocorreu um erro interno. Tente novamente ou contate o suporte informando o horário deste erro.
       </p>
       <button
         type="button"
