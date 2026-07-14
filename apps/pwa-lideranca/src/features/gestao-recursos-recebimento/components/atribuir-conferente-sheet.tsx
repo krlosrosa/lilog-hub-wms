@@ -33,7 +33,7 @@ function OperadorStatusBadge({ operator }: { operator: Operator }) {
 
   return (
     <span className="inline-flex items-center gap-0.5 rounded-full bg-surface-container-high px-1.5 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant">
-      Ocioso
+      Disponível
     </span>
   );
 }
@@ -70,11 +70,9 @@ export function AtribuirConferenteSheet({
     return () => document.removeEventListener('keydown', handleKey);
   }, [isOpen, onClose]);
 
-  const elegiveis = [...operators].sort((a, b) => {
-    const order = (o: Operator) =>
-      o.emPausa ? 2 : o.status === 'ocioso' ? 0 : 1;
-    return order(a) - order(b) || a.name.localeCompare(b.name, 'pt-BR');
-  });
+  const elegiveis = operators
+    .filter((operator) => operator.status === 'ocioso')
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
   if (!isOpen) return null;
 
@@ -117,7 +115,7 @@ export function AtribuirConferenteSheet({
             <div className="flex flex-col items-center gap-2 py-8 text-center">
               <UserCircle className="size-10 text-on-surface-variant/40" aria-hidden />
               <p className="text-body-md text-on-surface-variant">
-                Nenhum funcionário disponível na sessão
+                Nenhum conferente disponível na sessão
               </p>
             </div>
           ) : (

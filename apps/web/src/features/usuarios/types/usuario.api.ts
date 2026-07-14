@@ -4,7 +4,7 @@ export type UserStatusApi =
   | 'pendente'
   | 'inativo';
 
-export type UserRoleApi = 'admin' | 'manager' | 'operator';
+export type UserRoleApi = 'admin' | 'manager' | 'operator' | 'leader';
 
 export type UserApi = {
   id: number;
@@ -12,6 +12,7 @@ export type UserApi = {
   email: string;
   role: UserRoleApi;
   status: UserStatusApi;
+  mustChangePassword?: boolean;
   funcionarioId: number | null;
   createdAt: string;
 };
@@ -42,4 +43,10 @@ export type UpdateUserPayload = {
   status?: UserStatusApi;
   funcionarioId?: number | null;
   unidadesIds?: string[];
+};
+
+export type ChangeOwnPasswordPayload = {
+  currentPassword?: string;
+  newPassword: string;
+  confirmNewPassword: string;
 };

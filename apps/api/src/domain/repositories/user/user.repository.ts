@@ -14,6 +14,7 @@ export type UserRecord = {
   passwordHash: string;
   role: string;
   status: UserStatus;
+  mustChangePassword: boolean;
   funcionarioId: number | null;
   unidadeId: string | null;
   createdAt: Date;

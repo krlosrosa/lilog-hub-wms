@@ -1,9 +1,10 @@
 /**
- * db:seed — insere dados iniciais (usuários, etc.) no banco.
+ * db:seed-dev — sandbox WMS (unidade, endereços, operadores).
  *
- * USE ONLY IN DEVELOPMENT / first-time setup.
+ * USE ONLY IN DEVELOPMENT.
+ * For production Web admin only, use: pnpm --filter api db:seed
  *
- * Run: pnpm --filter api db:seed
+ * Run: pnpm --filter api db:seed-dev
  */
 
 import { readFileSync } from 'node:fs';
@@ -11,6 +12,8 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
 import * as bcrypt from 'bcryptjs';
+
+import { buildInternalUserEmail } from '../src/shared/utils/internal-user-email.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dirname, '../.env');
@@ -52,6 +55,9 @@ if (!DATABASE_URL) {
 const sql = postgres(DATABASE_URL, { max: 1 });
 
 const SEED_UNIDADE_ID = 'UN-SEED-001';
+const SEED_USER_ADMIN_ID = 421931;
+const SEED_USER_OPERATOR_1_ID = 421932;
+const SEED_USER_OPERATOR_2_ID = 421933;
 const SEED_CENTRO_ID = '00000000-0000-4000-8000-000000000001';
 
 type EnderecoSeed = {
@@ -293,7 +299,7 @@ async function seed() {
     VALUES
       ('${SEED_UNIDADE_ID}', '421931', 'Carlos Roberto', 'supervisor', 'ativo', '2020-01-01'),
       ('${SEED_UNIDADE_ID}', '421932', 'Ricardo Silva', 'conferente', 'ativo', '2020-01-01'),
-      ('${SEED_UNIDADE_ID}', '421933', 'Ana Martins', 'separadora', 'ativo', '2020-01-01')
+      ('${SEED_UNIDADE_ID}', '421933', 'Ana Martins', 'separador', 'ativo', '2020-01-01')
     ON CONFLICT (unidade_id, matricula) DO UPDATE
       SET nome = EXCLUDED.nome,
           cargo = EXCLUDED.cargo,
@@ -302,7 +308,7 @@ async function seed() {
 
   await sql.unsafe(`
     INSERT INTO auth.users (id, name, email, password_hash, role, funcionario_id)
-    SELECT 421931, 'Carlos Roberto', '421931@lilog.com', '${passwordHash}', 'admin', f.id
+    SELECT ${SEED_USER_ADMIN_ID}, 'Carlos Roberto', '${buildInternalUserEmail(SEED_USER_ADMIN_ID)}', '${passwordHash}', 'admin', f.id
       FROM auth.funcionarios f
       WHERE f.matricula = '421931' AND f.unidade_id = '${SEED_UNIDADE_ID}'
     ON CONFLICT (id) DO UPDATE
@@ -313,7 +319,7 @@ async function seed() {
           funcionario_id = EXCLUDED.funcionario_id;
 
     INSERT INTO auth.users (id, name, email, password_hash, role, funcionario_id)
-    SELECT 421932, 'Ricardo Silva', 'ricardo@lilog.com', '${passwordHash}', 'operator', f.id
+    SELECT ${SEED_USER_OPERATOR_1_ID}, 'Ricardo Silva', '${buildInternalUserEmail(SEED_USER_OPERATOR_1_ID)}', '${passwordHash}', 'operator', f.id
       FROM auth.funcionarios f
       WHERE f.matricula = '421932' AND f.unidade_id = '${SEED_UNIDADE_ID}'
     ON CONFLICT (id) DO UPDATE
@@ -324,7 +330,7 @@ async function seed() {
           funcionario_id = EXCLUDED.funcionario_id;
 
     INSERT INTO auth.users (id, name, email, password_hash, role, funcionario_id)
-    SELECT 421933, 'Ana Martins', 'ana@lilog.com', '${passwordHash}', 'operator', f.id
+    SELECT ${SEED_USER_OPERATOR_2_ID}, 'Ana Martins', '${buildInternalUserEmail(SEED_USER_OPERATOR_2_ID)}', '${passwordHash}', 'operator', f.id
       FROM auth.funcionarios f
       WHERE f.matricula = '421933' AND f.unidade_id = '${SEED_UNIDADE_ID}'
     ON CONFLICT (id) DO UPDATE

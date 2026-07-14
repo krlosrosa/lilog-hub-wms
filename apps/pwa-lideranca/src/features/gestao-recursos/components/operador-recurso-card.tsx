@@ -85,7 +85,7 @@ function StatusBadge({ operator }: { operator: Operator }) {
   if (operator.status === 'ocioso') {
     return (
       <span className="rounded-full bg-surface-container px-2 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant">
-        Ocioso
+        Disponível
       </span>
     );
   }

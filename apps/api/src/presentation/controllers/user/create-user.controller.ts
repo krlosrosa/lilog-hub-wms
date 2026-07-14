@@ -22,7 +22,7 @@ import { PermissionsGuard } from '../../../shared/guards/permissions.guard.js';
 const CreateUserBodySchema = z.object({
   id: z.coerce.number().int().positive(),
   name: z.string().min(1).max(100),
-  email: z.string().email(),
+  email: z.string().email().optional(),
   password: z.string().min(6),
   role: UserRoleSchema.default('operator'),
   status: UserStatusSchema.default('pendente'),
@@ -38,6 +38,7 @@ function toPublicUser(user: {
   email: string;
   role: string;
   status: string;
+  mustChangePassword: boolean;
   funcionarioId: number | null;
   createdAt: Date;
 }) {
@@ -47,6 +48,7 @@ function toPublicUser(user: {
     email: user.email,
     role: user.role,
     status: user.status,
+    mustChangePassword: user.mustChangePassword,
     funcionarioId: user.funcionarioId,
     createdAt: user.createdAt,
   };

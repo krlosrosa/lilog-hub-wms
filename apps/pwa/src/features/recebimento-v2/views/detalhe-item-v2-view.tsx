@@ -28,6 +28,7 @@ import {
   useRef,
   useState,
   type ChangeEventHandler,
+  type FormEvent,
   type KeyboardEvent,
   type KeyboardEventHandler,
   type RefObject,
@@ -41,6 +42,7 @@ import {
 } from '@/features/recebimento/components/expandable-record-list';
 import { EMPTY_DETALHE_ITEM_FORM, buildFormForLoteEntry, resolveFirstFormError, resolveMaintainedLoteContext, syncMaintainedLoteFieldsForSubmit, validatePvarBoxDraft } from '@/features/recebimento/lib/conferencia-form';
 import { applyGs1BarcodeInput } from '@/features/recebimento/lib/parse-gs1-barcode';
+import { resolveNonPvarLoteOnSubmit, applyNonPvarLoteResolution } from '@/features/recebimento-v2/lib/resolve-non-pvar-lote-on-submit';
 import {
   buildDetalheItemSchema,
   type DetalheItemForm,
@@ -284,6 +286,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   const pendingConferenceRef = useRef<DetalheItemForm | null>(null);
   const gs1InputRef = useRef<HTMLInputElement>(null);
   const loteInputRef = useRef<HTMLInputElement>(null);
+  const previousEffectiveLoteRef = useRef('');
   const { process } = useProcessV2(demandId);
   const parametrosConferencia = useParametrosConferenciaV2(process?.unidadeId);
   const { results: searchResults, isSearching } = useProductSearchQuery(searchQuery);
@@ -418,19 +421,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
     return parseFabricacaoFromLote(effectiveLote);
   }, [effectiveLote, showLote]);
 
-  const maintainedFabricacaoDisplay = maintainedLoteContext.validade
-    ? formatIsoDateForDisplay(maintainedLoteContext.validade)
-    : fabricacaoFromLote?.ok
-      ? fabricacaoFromLote.display
-      : '';
-
-  const showValidadeInput =
-    showValidade && (!isPvar || !maintainedFabricacaoDisplay);
-
-  const fabricacaoIsoDate =
-    fabricacaoFromLote?.ok
-      ? fabricacaoFromLote.isoDate
-      : maintainedLoteContext.validade || null;
+  const showValidadeInput = showValidade;
 
   const conferidoTotais = useMemo(
     () =>
@@ -445,22 +436,22 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   );
 
   useEffect(() => {
-    if (fabricacaoIsoDate) {
-      if (validadeValue !== fabricacaoIsoDate) {
-        setValue('validade', fabricacaoIsoDate, { shouldValidate: true });
-      }
+    const loteChanged = previousEffectiveLoteRef.current !== effectiveLote;
+    previousEffectiveLoteRef.current = effectiveLote;
+
+    if (!loteChanged) {
       return;
     }
 
-    if (
-      fabricacaoFromLote &&
-      !fabricacaoFromLote.ok &&
-      effectiveLote.trim() &&
-      validadeValue !== ''
-    ) {
+    if (fabricacaoFromLote?.ok) {
+      setValue('validade', fabricacaoFromLote.isoDate, { shouldValidate: true });
+      return;
+    }
+
+    if (fabricacaoFromLote && !fabricacaoFromLote.ok && effectiveLote.trim()) {
       setValue('validade', '', { shouldValidate: true });
     }
-  }, [fabricacaoFromLote, fabricacaoIsoDate, effectiveLote, validadeValue, setValue]);
+  }, [fabricacaoFromLote, effectiveLote, setValue]);
 
   const focusGs1Input = useCallback(() => {
     window.setTimeout(() => {
@@ -616,8 +607,18 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
     async (form: DetalheItemForm) => {
       if (!selectedProduct || !produtoConfig) return;
 
+      let formToSubmit = form;
+
+      if (!isPvar && form.lote?.trim()) {
+        const { form: resolved, error } = resolveNonPvarLoteOnSubmit(form);
+        if (error) {
+          throw new Error(error);
+        }
+        formToSubmit = resolved;
+      }
+
       if (isPvar) {
-        const validationError = validatePvarBoxDraft(form, {
+        const validationError = validatePvarBoxDraft(formToSubmit, {
           existingLotes: conferenceLoteEntries,
           ignoreMaintainedLote,
           controlaLote: produtoConfig.controlaLote,
@@ -632,7 +633,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
       if (parametrosConferencia.controlaPalete) {
         const activePalete = await getActivePaleteCodigo(demandId);
         if (!activePalete) {
-          pendingConferenceRef.current = form;
+          pendingConferenceRef.current = formToSubmit;
           setPaleteSheetIntent('conferencia-pendente');
           setPaleteSheetOpen(true);
           setSaveError(null);
@@ -640,7 +641,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
         }
       }
 
-      await executeConferencia(form);
+      await executeConferencia(formToSubmit);
     },
     [
       conferenceLoteEntries,
@@ -718,6 +719,66 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
     }
   }, []);
 
+  const syncNonPvarLoteResolution = useCallback((): string | null => {
+    if (isPvar) {
+      return null;
+    }
+
+    const { form: resolved, changed, error } = applyNonPvarLoteResolution(getValues());
+    if (error) {
+      return error;
+    }
+
+    if (changed) {
+      setValue('lote', resolved.lote ?? '', { shouldDirty: true, shouldValidate: false });
+      setValue('validade', resolved.validade ?? '', { shouldDirty: true, shouldValidate: false });
+      clearErrors(['lote', 'validade']);
+    }
+
+    return null;
+  }, [clearErrors, getValues, isPvar, setValue]);
+
+  const triggerConferenciaSubmit = useCallback(() => {
+    const resolutionError = syncNonPvarLoteResolution();
+    if (resolutionError) {
+      setSaveError(resolutionError);
+      toast.error(resolutionError);
+      return;
+    }
+
+    setSaveError(null);
+    void handleSubmit(onSubmit, onInvalidSubmit)();
+  }, [handleSubmit, onInvalidSubmit, syncNonPvarLoteResolution]);
+
+  const handleFormSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (isPvar) {
+        void handleSubmit(onSubmit, onInvalidSubmit)(event);
+        return;
+      }
+      triggerConferenciaSubmit();
+    },
+    [handleSubmit, isPvar, onInvalidSubmit, triggerConferenciaSubmit],
+  );
+
+  const handleNonPvarLoteKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== 'Enter' || isPvar) return;
+      event.preventDefault();
+
+      const resolutionError = syncNonPvarLoteResolution();
+      if (resolutionError) {
+        setSaveError(resolutionError);
+        return;
+      }
+
+      setSaveError(null);
+      hapticMedium();
+    },
+    [isPvar, syncNonPvarLoteResolution],
+  );
+
   async function onSubmit(form: DetalheItemForm) {
     if (!selectedProduct) return;
 
@@ -777,40 +838,11 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
     [handleAddCaixa, isPvar],
   );
 
-  const submitGs1Wedge = useCallback(
-    async (raw?: string) => {
-      const text = (raw ?? gs1WedgeValue).trim();
-      if (!text) return false;
-
-      const result = applyGs1BarcodeInput(text);
-      if (!result.applied) {
-        setSaveError('Código GS1 inválido ou incompleto');
-        return false;
+  const applyGs1ScanResult = useCallback(
+    (result: ReturnType<typeof applyGs1BarcodeInput>) => {
+      if (result.pesoKg) {
+        setValue('peso', result.pesoKg, { shouldDirty: true, shouldValidate: true });
       }
-
-      if (!result.pesoKg) {
-        if (result.lote || result.validade) {
-          if (result.lote) {
-            setValue('lote', result.lote, { shouldDirty: true, shouldValidate: true });
-            setIgnoreMaintainedLote(false);
-            setLoteDraftConfirmed(true);
-          }
-          if (result.validade) {
-            setValue('validade', result.validade, { shouldDirty: true, shouldValidate: true });
-          }
-          setGs1WedgeValue('');
-          hapticMedium();
-          focusGs1Input();
-          return true;
-        }
-
-        setSaveError('Código GS1 sem peso líquido (AI 3103)');
-        return false;
-      }
-
-      setSaveError(null);
-      setValue('peso', result.pesoKg, { shouldDirty: true, shouldValidate: true });
-
       if (result.etiqueta) {
         setValue('etiqueta', result.etiqueta, { shouldDirty: true, shouldValidate: true });
       }
@@ -822,11 +854,30 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
       if (result.validade) {
         setValue('validade', result.validade, { shouldDirty: true, shouldValidate: true });
       }
+    },
+    [setValue],
+  );
 
+  const submitGs1Wedge = useCallback(
+    async (raw?: string) => {
+      const text = (raw ?? gs1WedgeValue).trim();
+      if (!text) return false;
+
+      const result = applyGs1BarcodeInput(text);
+      const hasUsefulData =
+        !!result.pesoKg || !!result.lote || !!result.validade || !!result.etiqueta;
+
+      if (!result.applied || !hasUsefulData) {
+        setSaveError('Código GS1 inválido ou incompleto');
+        return false;
+      }
+
+      setSaveError(null);
+      applyGs1ScanResult(result);
       setGs1WedgeValue('');
       hapticMedium();
 
-      if (!isPvar) {
+      if (!result.pesoKg || !isPvar) {
         focusGs1Input();
         return true;
       }
@@ -859,6 +910,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
       });
     },
     [
+      applyGs1ScanResult,
       conferenceLoteEntries,
       focusGs1Input,
       getValues,
@@ -882,32 +934,29 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
     [submitGs1Wedge],
   );
 
-  const handleLoteKeyDown = useCallback(
+  const handlePvarLoteKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key !== 'Enter') return;
+      if (event.key !== 'Enter' || !isPvar) return;
       event.preventDefault();
       const text = event.currentTarget.value.trim();
       if (!text) return;
 
-      const result = applyGs1BarcodeInput(text);
-      if (!result.applied) {
-        setSaveError('Código GS1 inválido ou incompleto');
-        return;
-      }
-
-      if (result.lote) {
-        setValue('lote', result.lote, { shouldDirty: true, shouldValidate: true });
-      }
-      if (result.validade) {
-        setValue('validade', result.validade, { shouldDirty: true, shouldValidate: true });
-      }
+      setSaveError(null);
+      setValue('lote', text, { shouldDirty: true, shouldValidate: true });
       setIgnoreMaintainedLote(false);
       setLoteDraftConfirmed(true);
-      setSaveError(null);
+
+      if (canParseFabricacaoFromLote(text)) {
+        const fabricacao = parseFabricacaoFromLote(text.replace(/\D/g, ''));
+        if (fabricacao.ok) {
+          setValue('validade', fabricacao.isoDate, { shouldDirty: true, shouldValidate: true });
+        }
+      }
+
       hapticMedium();
       focusGs1Input();
     },
-    [focusGs1Input, setValue],
+    [focusGs1Input, isPvar, setValue],
   );
 
   const startLoteChange = useCallback(() => {
@@ -1070,7 +1119,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
         )}
 
         {product && (
-          <form onSubmit={handleSubmit(onSubmit, onInvalidSubmit)} className="space-y-4">
+          <form onSubmit={handleFormSubmit} className="space-y-4">
             <input type="hidden" {...register('sku')} />
 
             {showCaixa || showUnidade ? (
@@ -1112,11 +1161,6 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                   <span className="font-mono text-body-md font-semibold text-on-surface">
                     {maintainedLoteContext.lote}
                   </span>
-                  {maintainedFabricacaoDisplay ? (
-                    <span className="mt-1 block text-label-sm text-on-surface-variant">
-                      Fabricação: {maintainedFabricacaoDisplay}
-                    </span>
-                  ) : null}
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={startLoteChange}>
                   Alterar
@@ -1133,103 +1177,91 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                 {isPvar ? 'Conferência caixa a caixa' : 'Lote'}
               </p>
               <div className="space-y-3">
-                {showLoteInput ? (
-                  isPvar ? (
-                    <ScanField
-                      id="lote"
-                      label="Lote da primeira caixa"
-                      icon={Barcode}
-                      placeholder="Bipe GS1 do lote ou digite o número"
-                      registerProps={{
-                        ...loteField,
-                        onKeyDown: (event) => {
-                          handleLoteKeyDown(event);
-                          loteField.onKeyDown?.(event);
-                        },
-                      }}
-                      inputRef={loteInputRef}
-                      error={errors.lote?.message}
-                    />
-                  ) : (
-                    <div className="space-y-1.5">
-                      <label className="flex items-center gap-1.5 text-label-sm font-medium text-on-surface" htmlFor="lote">
-                        <Hash className="h-3.5 w-3.5" aria-hidden />
-                        Lote
-                      </label>
-                      <input
-                        id="lote"
-                        {...register('lote')}
-                        inputMode="numeric"
-                        placeholder="Número do lote (10 dígitos)"
-                        className={cn(
-                          'w-full rounded-lg border bg-surface px-3 py-2.5 font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20',
-                          errors.lote ? 'border-destructive' : 'border-input',
-                        )}
-                      />
-                      {errors.lote?.message ? (
-                        <p className="text-label-sm text-destructive">{errors.lote.message}</p>
-                      ) : null}
-                    </div>
-                  )
-                ) : null}
-
-                {showValidadeInput && showLoteInput ? (
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-label-sm font-medium text-on-surface" htmlFor="validade">
-                      <Calendar className="h-3.5 w-3.5" aria-hidden />
-                      Fabricação
-                    </label>
-                    <input
-                      id="validade"
-                      type="date"
-                      value={validadeValue}
-                      onChange={(event) =>
-                        setValue('validade', event.target.value, { shouldValidate: true })
-                      }
-                      className="date-input-mobile h-12 w-full rounded-lg border border-input bg-surface px-3 py-2.5 font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20"
-                    />
-                    {fabricacaoFromLote?.ok ? (
-                      <p className="flex items-start gap-1.5 text-label-sm text-secondary">
-                        <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                        <span>Calculada a partir do lote: {fabricacaoFromLote.display}</span>
-                      </p>
-                    ) : null}
-                    {fabricacaoFromLote && !fabricacaoFromLote.ok && effectiveLote.trim() ? (
-                      <p className="text-label-sm text-destructive">{fabricacaoFromLote.error}</p>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {showValidadeInput && !showLoteInput ? (
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-label-sm font-medium text-on-surface" htmlFor="validade-only">
-                      <Calendar className="h-3.5 w-3.5" aria-hidden />
-                      Validade
-                    </label>
-                    <input
-                      id="validade-only"
-                      type="date"
-                      {...register('validade')}
-                      className={cn(
-                        'date-input-mobile h-12 w-full rounded-lg border bg-surface px-3 py-2.5 font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20',
-                        errors.validade ? 'border-destructive' : 'border-input',
-                      )}
-                    />
-                    {errors.validade?.message ? (
-                      <p className="text-label-sm text-destructive">{errors.validade.message}</p>
-                    ) : null}
-                  </div>
-                ) : null}
-
                 {isPvar ? (
-                  <div className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 py-2 text-body-sm text-on-surface-variant">
-                    Cada registro representa <strong>1 caixa</strong> com seu peso individual.
-                  </div>
-                ) : null}
-
-                {(isPvar || produtoConfig?.controlaPeso) && (
                   <>
-                    {produtoConfig?.exigirEtiquetaPesoVariavel && (
+                    <ScanField
+                      id="gs1-wedge"
+                      label="Código GS1"
+                      icon={ScanLine}
+                      placeholder="Bipe o código GS1 aqui"
+                      value={gs1WedgeValue}
+                      onChange={(event) => setGs1WedgeValue(event.target.value)}
+                      inputRef={gs1InputRef}
+                      onKeyDown={handleGs1WedgeKeyDown}
+                    />
+
+                    {showLoteInput ? (
+                      <div className="space-y-1.5">
+                        <label
+                          className="flex items-center gap-1.5 text-label-sm font-medium text-on-surface"
+                          htmlFor="lote"
+                        >
+                          <Hash className="h-3.5 w-3.5" aria-hidden />
+                          Lote da primeira caixa
+                        </label>
+                        <input
+                          id="lote"
+                          {...loteField}
+                          ref={(element) => {
+                            loteField.ref(element);
+                            loteInputRef.current = element;
+                          }}
+                          placeholder="Digite o número do lote"
+                          onKeyDown={handlePvarLoteKeyDown}
+                          className={cn(
+                            'w-full rounded-lg border bg-surface px-3 py-2.5 font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20',
+                            errors.lote ? 'border-destructive' : 'border-input',
+                          )}
+                        />
+                        {errors.lote?.message ? (
+                          <p className="text-label-sm text-destructive">{errors.lote.message}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {showValidadeInput ? (
+                      <div className="space-y-1.5">
+                        <label
+                          className="flex items-center gap-1.5 text-label-sm font-medium text-on-surface"
+                          htmlFor="validade"
+                        >
+                          <Calendar className="h-3.5 w-3.5" aria-hidden />
+                          Fabricação
+                        </label>
+                        <input
+                          id="validade"
+                          type="date"
+                          value={validadeValue}
+                          onChange={(event) =>
+                            setValue('validade', event.target.value, { shouldValidate: true })
+                          }
+                          className={cn(
+                            'date-input-mobile h-12 w-full rounded-lg border bg-surface px-3 py-2.5 font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20',
+                            errors.validade ? 'border-destructive' : 'border-input',
+                          )}
+                        />
+                        {errors.validade?.message ? (
+                          <p className="text-label-sm text-destructive">{errors.validade.message}</p>
+                        ) : null}
+                        {fabricacaoFromLote?.ok ? (
+                          <p className="flex items-start gap-1.5 text-label-sm text-secondary">
+                            <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                            <span>
+                              Sugerida a partir do lote: {fabricacaoFromLote.display}. Você pode ajustar se necessário.
+                            </span>
+                          </p>
+                        ) : null}
+                        {fabricacaoFromLote && !fabricacaoFromLote.ok && effectiveLote.trim() ? (
+                          <p className="text-label-sm text-destructive">{fabricacaoFromLote.error}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    <div className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 py-2 text-body-sm text-on-surface-variant">
+                      Cada registro representa <strong>1 caixa</strong> com seu peso individual.
+                    </div>
+
+                    {produtoConfig?.exigirEtiquetaPesoVariavel ? (
                       <ScanField
                         id="etiqueta"
                         label="Etiqueta da caixa"
@@ -1238,36 +1270,83 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                         registerProps={register('etiqueta')}
                         error={errors.etiqueta?.message}
                       />
-                    )}
+                    ) : null}
 
-                    {isPvar ? (
-                      <div className="space-y-3">
-                        <ScanField
-                          id="gs1-wedge"
-                          label="Código GS1 (opcional)"
-                          icon={ScanLine}
-                          placeholder="Bipe o código GS1 aqui"
-                          value={gs1WedgeValue}
-                          onChange={(event) => setGs1WedgeValue(event.target.value)}
-                          inputRef={gs1InputRef}
-                          onKeyDown={handleGs1WedgeKeyDown}
+                    <NumericStepper
+                      id="peso"
+                      label="Peso da caixa (kg)"
+                      inputMode="decimal"
+                      step={0.001}
+                      value={pesoValue}
+                      onChange={handlePesoInputChange}
+                      onKeyDown={handlePesoKeyDown}
+                      error={errors.peso?.message}
+                    />
+                    <p className="text-label-sm text-on-surface-variant">
+                      Bipe o GS1 e pressione Enter para preencher lote e/ou peso. Com peso informado,
+                      a caixa é registrada automaticamente.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    {showLoteInput ? (
+                      <div className="space-y-1.5">
+                        <label className="flex items-center gap-1.5 text-label-sm font-medium text-on-surface" htmlFor="lote">
+                          <Hash className="h-3.5 w-3.5" aria-hidden />
+                          Lote
+                        </label>
+                        <input
+                          id="lote"
+                          {...register('lote')}
+                          placeholder="Bipe GS1 ou digite o lote"
+                          onKeyDown={handleNonPvarLoteKeyDown}
+                          className={cn(
+                            'w-full rounded-lg border bg-surface px-3 py-2.5 font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20',
+                            errors.lote ? 'border-destructive' : 'border-input',
+                          )}
                         />
-                        <NumericStepper
-                          id="peso"
-                          label="Peso da caixa (kg)"
-                          inputMode="decimal"
-                          step={0.001}
-                          value={pesoValue}
-                          onChange={handlePesoInputChange}
-                          onKeyDown={handlePesoKeyDown}
-                          error={errors.peso?.message}
-                        />
-                        <p className="text-label-sm text-on-surface-variant">
-                          Informe o peso e toque em &quot;Adicionar caixa conferida&quot;, ou bipe o
-                          GS1 e pressione Enter para registrar automaticamente.
-                        </p>
+                        {errors.lote?.message ? (
+                          <p className="text-label-sm text-destructive">{errors.lote.message}</p>
+                        ) : null}
                       </div>
-                    ) : (
+                    ) : null}
+
+                    {showValidadeInput ? (
+                      <div className="space-y-1.5">
+                        <label className="flex items-center gap-1.5 text-label-sm font-medium text-on-surface" htmlFor="validade">
+                          <Calendar className="h-3.5 w-3.5" aria-hidden />
+                          Fabricação
+                        </label>
+                        <input
+                          id="validade"
+                          type="date"
+                          value={validadeValue}
+                          onChange={(event) =>
+                            setValue('validade', event.target.value, { shouldValidate: true })
+                          }
+                          className={cn(
+                            'date-input-mobile h-12 w-full rounded-lg border bg-surface px-3 py-2.5 font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20',
+                            errors.validade ? 'border-destructive' : 'border-input',
+                          )}
+                        />
+                        {errors.validade?.message ? (
+                          <p className="text-label-sm text-destructive">{errors.validade.message}</p>
+                        ) : null}
+                        {fabricacaoFromLote?.ok ? (
+                          <p className="flex items-start gap-1.5 text-label-sm text-secondary">
+                            <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                            <span>
+                              Sugerida a partir do lote: {fabricacaoFromLote.display}. Você pode ajustar se necessário.
+                            </span>
+                          </p>
+                        ) : null}
+                        {fabricacaoFromLote && !fabricacaoFromLote.ok && effectiveLote.trim() ? (
+                          <p className="text-label-sm text-destructive">{fabricacaoFromLote.error}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {produtoConfig?.controlaPeso ? (
                       <div className="space-y-1.5">
                         <label className="flex items-center gap-1.5 text-label-sm font-medium text-on-surface" htmlFor="peso">
                           <Barcode className="h-3.5 w-3.5" aria-hidden />
@@ -1288,7 +1367,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                           <p className="text-label-sm text-destructive">{errors.peso.message}</p>
                         ) : null}
                       </div>
-                    )}
+                    ) : null}
                   </>
                 )}
               </div>
@@ -1385,8 +1464,9 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
               </Button>
             ) : (
               <Button
-                type="submit"
+                type="button"
                 disabled={isSubmitting}
+                onClick={triggerConferenciaSubmit}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation transition-transform active:scale-[0.98]"
               >
                 {isSubmitting ? (

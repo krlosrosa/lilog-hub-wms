@@ -1,5 +1,5 @@
-import { FuncionariosCadastroView } from '@/features/funcionarios';
+import { redirect } from 'next/navigation';
 
 export default function FuncionarioNovoPage() {
-  return <FuncionariosCadastroView />;
+  redirect('/pessoas/novo');
 }

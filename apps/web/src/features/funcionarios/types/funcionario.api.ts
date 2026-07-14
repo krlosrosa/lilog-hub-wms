@@ -1,3 +1,5 @@
+import type { FuncionarioCargo } from '@lilog/contracts';
+
 export type FuncionarioSituacaoApi =
   | 'ativo'
   | 'afastado'
@@ -5,20 +7,7 @@ export type FuncionarioSituacaoApi =
   | 'desligado'
   | 'bloqueado';
 
-export type FuncionarioCargoApi =
-  | 'operador_empilhadeira'
-  | 'separador'
-  | 'conferente'
-  | 'ajudante'
-  | 'administrativo'
-  | 'estoquista'
-  | 'inventariante'
-  | 'carregador'
-  | 'recebedor'
-  | 'supervisor'
-  | 'analista'
-  | 'gerente'
-  | 'administrador';
+export type FuncionarioCargoApi = FuncionarioCargo;
 
 export type FuncionarioApi = {
   id: number;
@@ -46,25 +35,45 @@ export type CreateFuncionarioPayload = {
   matricula: string;
   nome: string;
   cargo: FuncionarioCargoApi;
-  situacao?: FuncionarioSituacaoApi;
   dataAdmissao: string;
+  situacao?: FuncionarioSituacaoApi;
   telefone?: string;
   email?: string;
   observacao?: string;
   criarUsuarioAdmin?: boolean;
   usuarioSenha?: string;
+  role?: 'admin' | 'manager' | 'operator';
+  unidadesIds?: string[];
 };
 
-export type CreateFuncionarioApiResponse = FuncionarioApi & {
+export type UpdateFuncionarioPayload = {
+  unidadeId?: string;
+  matricula?: string;
+  nome?: string;
+  cargo?: FuncionarioCargoApi;
+  dataAdmissao?: string;
+  situacao?: FuncionarioSituacaoApi;
+  telefone?: string | null;
+  email?: string | null;
+  observacao?: string | null;
+};
+
+export type CreateFuncionarioApiResponse = {
+  id: number;
+  unidadeId: string;
+  matricula: string;
+  nome: string;
+  cargo: FuncionarioCargoApi;
+  situacao: FuncionarioSituacaoApi;
+  dataAdmissao: string;
+  createdAt: string;
   usuario?: {
     id: number;
     name: string;
     email: string;
-    role: 'admin' | 'manager' | 'operator';
-    status: 'ativo' | 'bloqueado' | 'pendente' | 'inativo';
+    role: string;
+    status: string;
     funcionarioId: number | null;
     createdAt: string;
   };
 };
-
-export type UpdateFuncionarioPayload = Partial<CreateFuncionarioPayload>;

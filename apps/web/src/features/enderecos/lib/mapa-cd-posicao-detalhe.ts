@@ -30,11 +30,9 @@ export async function fetchMapaCdPosicaoDetalhe(
   }
 
   for (const saldo of response.items) {
-    if (!saldosPorNivel[saldo.enderecoId]) {
-      saldosPorNivel[saldo.enderecoId] = [];
-    }
-
-    saldosPorNivel[saldo.enderecoId].push(saldo);
+    const bucket = saldosPorNivel[saldo.enderecoId] ?? [];
+    bucket.push(saldo);
+    saldosPorNivel[saldo.enderecoId] = bucket;
   }
 
   return {

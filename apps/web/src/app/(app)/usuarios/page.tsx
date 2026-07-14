@@ -1,5 +1,5 @@
-import { UsuariosGestaoView } from '@/features/usuarios';
+import { redirect } from 'next/navigation';
 
 export default function UsuariosPage() {
-  return <UsuariosGestaoView />;
+  redirect('/pessoas');
 }

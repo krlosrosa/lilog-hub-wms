@@ -41,6 +41,7 @@ function toPublicUser(user: {
   email: string;
   role: string;
   status: string;
+  mustChangePassword: boolean;
   funcionarioId: number | null;
   createdAt: Date;
 }) {
@@ -50,6 +51,7 @@ function toPublicUser(user: {
     email: user.email,
     role: user.role,
     status: user.status,
+    mustChangePassword: user.mustChangePassword,
     funcionarioId: user.funcionarioId,
     createdAt: user.createdAt,
   };

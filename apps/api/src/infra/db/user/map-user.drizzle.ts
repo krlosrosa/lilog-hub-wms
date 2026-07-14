@@ -12,6 +12,7 @@ export function mapUserRow(
     passwordHash: row.passwordHash,
     role: row.role,
     status: row.status as UserRecord['status'],
+    mustChangePassword: row.mustChangePassword,
     funcionarioId: row.funcionarioId,
     unidadeId,
     createdAt: row.createdAt,

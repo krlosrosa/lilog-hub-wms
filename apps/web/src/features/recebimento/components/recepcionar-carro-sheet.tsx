@@ -176,7 +176,8 @@ export function RecepcionarCarroSheet({
           </SheetTitle>
           <SheetDescription>
             Registre a chegada do veículo. Motorista e placa são obrigatórios.
-            A placa deve seguir o formato AAA9999 ou AAA9999-AA.
+            A placa deve seguir o formato antigo (AAA9999) ou Mercosul (AAA9A99),
+            opcionalmente com UF (ex.: ABC1234-SP, EZU5H23-MG).
           </SheetDescription>
         </SheetHeader>
 

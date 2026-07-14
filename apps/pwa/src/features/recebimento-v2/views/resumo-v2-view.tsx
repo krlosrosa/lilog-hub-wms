@@ -18,7 +18,6 @@ import {
   PackageCheck,
   Plus,
   Timer,
-  Verified,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -79,48 +78,6 @@ function formatElapsed(minutes: number | null): string {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return rest > 0 ? `${hours}h ${rest}min` : `${hours}h`;
-}
-
-function AccuracyRing({ percent }: { percent: number }) {
-  const radius = 36;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percent / 100) * circumference;
-  const tone =
-    percent >= 95 ? 'text-secondary' : percent >= 80 ? 'text-warning' : 'text-destructive';
-
-  return (
-    <div className="relative flex h-[88px] w-[88px] shrink-0 items-center justify-center">
-      <svg className="-rotate-90" width="88" height="88" aria-hidden>
-        <circle
-          cx="44"
-          cy="44"
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="6"
-          className="text-outline-variant/40"
-        />
-        <circle
-          cx="44"
-          cy="44"
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="6"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          className={cn('transition-[stroke-dashoffset] duration-500', tone)}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={cn('font-mono text-headline-sm font-bold tabular-nums', tone)}>
-          {percent}%
-        </span>
-        <span className="text-[10px] font-medium text-on-surface-variant">acurácia</span>
-      </div>
-    </div>
-  );
 }
 
 function MetricCard({
@@ -507,7 +464,6 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
     naoConferidos,
     divergenciasAtivas,
     avarias,
-    accuracyPercent,
     elapsedMinutes,
     isFinalizing,
     showConfirmModal,
@@ -665,9 +621,8 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
           <p className="max-w-xs text-body-sm text-on-surface-variant">{hero.subtitle}</p>
         </section>
 
-        <section className="flex items-center gap-4 rounded-2xl border border-outline-variant bg-surface p-4 shadow-sm">
-          <AccuracyRing percent={accuracyPercent} />
-          <div className="min-w-0 flex-1 space-y-3">
+        <section className="rounded-2xl border border-outline-variant bg-surface p-4 shadow-sm">
+          <div className="space-y-3">
             <div className="grid grid-cols-4 gap-1.5">
               <StatPill label="Total" count={divergencias.length} tone="neutral" />
               <StatPill label="OK" count={okCount} tone="success" />
@@ -681,26 +636,12 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
           </div>
         </section>
 
-        <div className="grid grid-cols-2 gap-2">
-          <MetricCard
-            icon={Timer}
-            label="Tempo total"
-            value={formatElapsed(elapsedMinutes)}
-            sublabel={elapsedMinutes != null ? 'desde o início' : undefined}
-          />
-          <MetricCard
-            icon={Verified}
-            label="Acurácia"
-            value={`${accuracyPercent}%`}
-            sublabel={
-              accuracyPercent >= 95
-                ? 'Excelente'
-                : accuracyPercent >= 80
-                  ? 'Atenção'
-                  : 'Revisar itens'
-            }
-          />
-        </div>
+        <MetricCard
+          icon={Timer}
+          label="Tempo total"
+          value={formatElapsed(elapsedMinutes)}
+          sublabel={elapsedMinutes != null ? 'desde o início' : undefined}
+        />
 
         <SyncStatusV2
           syncStatus={{ ...syncStatus, isSyncing: syncStatus.isSyncing || isSyncing }}

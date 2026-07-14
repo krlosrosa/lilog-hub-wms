@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import type { UserUnidadeRecord } from '../../../domain/repositories/user/user.repository.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
@@ -30,18 +30,21 @@ async function resolveUnidadeIdsForUser(
     unidadeIds.add(user.unidadeId);
   }
 
-  const funcionarioRows = await db
-    .select({ unidadeId: funcionarios.unidadeId })
-    .from(funcionarios)
-    .where(
-      and(
-        eq(funcionarios.situacao, 'ativo'),
-        sql`lower(${funcionarios.email}) = ${user.email.toLowerCase()}`,
-      ),
-    );
+  if (user.funcionarioId != null) {
+    const [funcionarioRow] = await db
+      .select({ unidadeId: funcionarios.unidadeId })
+      .from(funcionarios)
+      .where(
+        and(
+          eq(funcionarios.id, user.funcionarioId),
+          eq(funcionarios.situacao, 'ativo'),
+        ),
+      )
+      .limit(1);
 
-  for (const row of funcionarioRows) {
-    unidadeIds.add(row.unidadeId);
+    if (funcionarioRow) {
+      unidadeIds.add(funcionarioRow.unidadeId);
+    }
   }
 
   return [...unidadeIds];

@@ -87,6 +87,7 @@ export type RecursosSessaoFuncionarioApi = {
   tipoVinculo: 'titular' | 'apoio';
   equipeOrigemNome: string | null;
   apoioInicio: string | null;
+  ultimaMissaoFinalizadaEm?: string | null;
 };
 
 export type RecursosSessaoKpiApi = {

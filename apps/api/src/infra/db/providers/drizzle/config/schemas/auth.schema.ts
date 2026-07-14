@@ -1,4 +1,5 @@
 import {
+  boolean,
   date,
   integer,
   pgSchema,
@@ -48,6 +49,7 @@ export const users = authPgSchema.table('users', {
   passwordHash: text('password_hash').notNull(),
   role: varchar('role', { length: 20 }).notNull().default('operator'),
   status: varchar('status', { length: 20 }).notNull().default('ativo'),
+  mustChangePassword: boolean('must_change_password').notNull().default(false),
   funcionarioId: integer('funcionario_id').references(() => funcionarios.id, {
     onDelete: 'set null',
   }),

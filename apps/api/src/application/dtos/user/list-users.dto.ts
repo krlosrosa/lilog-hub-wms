@@ -23,6 +23,7 @@ export const UserResponseSchema = z.object({
   email: z.string().email(),
   role: UserRoleSchema,
   status: UserStatusSchema,
+  mustChangePassword: z.boolean(),
   funcionarioId: z.number().int().positive().nullable(),
   createdAt: z.iso.datetime(),
 });

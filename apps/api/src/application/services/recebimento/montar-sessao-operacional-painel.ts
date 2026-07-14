@@ -1,5 +1,7 @@
 import type { RecebimentoPainelSnapshotDto } from '../../dtos/recebimento/recebimento-painel-snapshot.dto.js';
 import type { RecursosRecebimentoSessaoResponseDto } from '../../dtos/recebimento/recursos-recebimento-sessao.dto.js';
+import { getReferenciaOciosidadeRecebimentoIso } from './referencia-ociosidade-recebimento.js';
+import { getDemandasAtivasDoOperador } from './resolve-demandas-ativas-operador.js';
 import type {
   SessaoFuncionarioRecord,
   SessaoRecord,
@@ -50,11 +52,12 @@ function getDemandaIdentificador(demanda: DemandaRecurso): string {
 function getDemandasAtivas(
   demandas: DemandaRecurso[],
   sessaoFuncionarioId: string,
+  funcionarioId: number,
 ): DemandaRecurso[] {
-  return demandas.filter(
-    (demanda) =>
-      demanda.alocacao?.sessaoFuncionarioId === sessaoFuncionarioId &&
-      demanda.statusDemanda !== 'disponivel',
+  return getDemandasAtivasDoOperador(
+    demandas,
+    sessaoFuncionarioId,
+    funcionarioId,
   );
 }
 
@@ -106,7 +109,11 @@ export function mapOperadorPainel(
   demandas: DemandaRecurso[],
   now: Date,
 ): RecebimentoPainelSnapshotDto['sessaoOperacional']['operadores'][number] {
-  const demandasAtivas = getDemandasAtivas(demandas, funcionario.id);
+  const demandasAtivas = getDemandasAtivas(
+    demandas,
+    funcionario.id,
+    funcionario.funcionarioId,
+  );
   const principal = pickDemandaPrincipal(demandasAtivas);
   const statusOperacional = resolveStatusOperacional(funcionario, demandasAtivas);
   const precisaPausa = funcionario.alertaPausa?.precisaPausa === true;
@@ -128,7 +135,10 @@ export function mapOperadorPainel(
           : 'outros';
     atividade = `Em pausa ${tipo} · desde ${formatarHora(funcionario.pausaAtiva.inicio)}`;
   } else if (statusOperacional === 'disponivel') {
-    const referencia = funcionario.checkIn ?? funcionario.pausaAtiva?.inicio;
+    const referencia = getReferenciaOciosidadeRecebimentoIso(
+      funcionario.checkIn,
+      funcionario.ultimaMissaoFinalizadaEm,
+    );
     const minutos = referencia ? getElapsedMinutes(referencia, now) : 0;
     atividade = `Disponível · ${formatDurationMinutes(minutos)} sem missão`;
   } else if (funcionario.statusPresenca === 'atraso') {

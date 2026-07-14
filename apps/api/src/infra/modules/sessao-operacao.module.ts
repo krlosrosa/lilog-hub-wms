@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
 import { AbrirSessaoUseCase } from '../../application/usecases/sessao-operacao/abrir-sessao.usecase.js';
 import { AddEquipeFuncionarioUseCase } from '../../application/usecases/sessao-operacao/add-equipe-funcionario.usecase.js';
@@ -55,7 +55,7 @@ import { AuthModule } from './auth.module.js';
 import { FuncionarioModule } from './funcionario.module.js';
 
 @Module({
-  imports: [AuthModule, FuncionarioModule],
+  imports: [AuthModule, forwardRef(() => FuncionarioModule)],
   controllers: [
     ListEscalasController,
     ListEquipesController,
@@ -111,6 +111,6 @@ import { FuncionarioModule } from './funcionario.module.js';
       useClass: SessaoOperacaoService,
     },
   ],
-  exports: [SESSAO_OPERACAO_REPOSITORY],
+  exports: [SESSAO_OPERACAO_REPOSITORY, AddEquipeFuncionarioUseCase],
 })
 export class SessaoOperacaoModule {}

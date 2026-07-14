@@ -1,5 +1,5 @@
-import { FuncionariosGestaoView } from '@/features/funcionarios';
+import { redirect } from 'next/navigation';
 
 export default function FuncionariosPage() {
-  return <FuncionariosGestaoView />;
+  redirect('/pessoas');
 }

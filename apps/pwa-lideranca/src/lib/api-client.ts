@@ -50,6 +50,8 @@ export function isApiConfigured(): boolean {
   return Boolean(resolveApiBase());
 }
 
+export const LIDERANCA_PWA_CLIENT_APP = 'pwa-lideranca';
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!navigator.onLine) {
     throw new ApiClientError('Sem conexão com a internet');
@@ -68,6 +70,10 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     response = await fetch(url, {
       ...init,
       credentials: 'include',
+      headers: {
+        'X-Client-App': LIDERANCA_PWA_CLIENT_APP,
+        ...init?.headers,
+      },
     });
   } catch {
     throw new ApiClientError(

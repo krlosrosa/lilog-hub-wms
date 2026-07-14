@@ -16,6 +16,7 @@ import {
   USER_REPOSITORY,
   type IUserRepository,
 } from '../../../domain/repositories/user/user.repository.js';
+import { normalizePersonName } from '../../../shared/utils/normalize-person-name.js';
 
 export type UpdateUserUseCaseInput = UpdateUserInput & {
   password?: string;
@@ -40,6 +41,10 @@ export class UpdateUserUseCase {
 
     const { unidadesIds, password, ...updateFields } = input;
     const data: UpdateUserInput = { ...updateFields };
+
+    if (input.name !== undefined) {
+      data.name = normalizePersonName(input.name);
+    }
 
     if (password) {
       data.passwordHash = await bcrypt.hash(password, 10);

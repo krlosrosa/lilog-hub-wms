@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 
 import type { CreateFuncionarioInput } from '../../../domain/model/funcionario/funcionario.model.js';
+import type { UserRole } from '../../../domain/model/user/user.model.js';
 import {
   FUNCIONARIO_REPOSITORY,
   type IFuncionarioRepository,
@@ -16,11 +17,16 @@ import {
   UNIDADE_REPOSITORY,
   type IUnidadeRepository,
 } from '../../../domain/repositories/unidade/unidade.repository.js';
+import { resolveInternalUserEmail } from '../../../shared/utils/internal-user-email.js';
+import { normalizePersonName } from '../../../shared/utils/normalize-person-name.js';
 import { CreateUserUseCase } from '../user/create-user.usecase.js';
 
 export type CreateFuncionarioUseCaseInput = CreateFuncionarioInput & {
   criarUsuarioAdmin?: boolean;
   usuarioSenha?: string;
+  usuarioMustChangePassword?: boolean;
+  role?: UserRole;
+  unidadesIds?: string[];
 };
 
 export type CreateFuncionarioUseCaseResult = {
@@ -41,7 +47,14 @@ export class CreateFuncionarioUseCase {
   async execute(
     data: CreateFuncionarioUseCaseInput,
   ): Promise<CreateFuncionarioUseCaseResult> {
-    const { criarUsuarioAdmin, usuarioSenha, ...funcionarioData } = data;
+    const {
+      criarUsuarioAdmin,
+      usuarioSenha,
+      usuarioMustChangePassword,
+      role = 'operator',
+      unidadesIds,
+      ...funcionarioData
+    } = data;
 
     if (criarUsuarioAdmin) {
       if (!usuarioSenha || usuarioSenha.length < 6) {
@@ -72,7 +85,14 @@ export class CreateFuncionarioUseCase {
       );
     }
 
-    const funcionario = await this.funcionarioRepository.create(funcionarioData);
+    const normalizedFuncionarioData = {
+      ...funcionarioData,
+      nome: normalizePersonName(funcionarioData.nome),
+    };
+
+    const funcionario = await this.funcionarioRepository.create(
+      normalizedFuncionarioData,
+    );
 
     if (!criarUsuarioAdmin) {
       return { funcionario };
@@ -86,17 +106,21 @@ export class CreateFuncionarioUseCase {
       );
     }
 
-    const usuarioEmail =
-      funcionarioData.email?.trim() || `${loginId}@acesso.local`;
+    const usuarioEmail = resolveInternalUserEmail(
+      loginId,
+      funcionarioData.email,
+    );
 
     const usuario = await this.createUserUseCase.execute({
       id: loginId,
-      name: funcionarioData.nome,
+      name: normalizedFuncionarioData.nome,
       email: usuarioEmail,
       password: usuarioSenha!,
-      role: 'admin',
+      role,
       status: 'ativo',
       funcionarioId: funcionario.id,
+      unidadesIds: unidadesIds ?? [funcionarioData.unidadeId],
+      mustChangePassword: usuarioMustChangePassword ?? false,
     });
 
     return { funcionario, usuario };

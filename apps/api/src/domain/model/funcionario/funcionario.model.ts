@@ -1,4 +1,23 @@
+import {
+  FuncionarioCargoSchema,
+  parseFuncionarioCargo,
+  type FuncionarioCargo,
+} from '@lilog/contracts';
 import { z } from 'zod';
+
+export { FuncionarioCargoSchema };
+export type { FuncionarioCargo };
+
+export const FuncionarioCargoInputSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    return parseFuncionarioCargo(value) ?? value;
+  },
+  FuncionarioCargoSchema,
+);
 
 export const FuncionarioSituacaoSchema = z.enum([
   'ativo',
@@ -9,24 +28,6 @@ export const FuncionarioSituacaoSchema = z.enum([
 ]);
 
 export type FuncionarioSituacao = z.infer<typeof FuncionarioSituacaoSchema>;
-
-export const FuncionarioCargoSchema = z.enum([
-  'operador_empilhadeira',
-  'separador',
-  'conferente',
-  'ajudante',
-  'administrativo',
-  'estoquista',
-  'inventariante',
-  'carregador',
-  'recebedor',
-  'supervisor',
-  'analista',
-  'gerente',
-  'administrador',
-]);
-
-export type FuncionarioCargo = z.infer<typeof FuncionarioCargoSchema>;
 
 export const FuncionarioIdSchema = z.number().int().positive();
 export type FuncionarioId = z.infer<typeof FuncionarioIdSchema>;

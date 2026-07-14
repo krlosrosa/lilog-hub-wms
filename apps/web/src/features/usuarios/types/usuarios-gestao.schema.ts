@@ -7,6 +7,7 @@ export type UsuarioStatus = z.infer<typeof usuarioStatusSchema>;
 export const usuarioPerfilSchema = z.enum([
   'admin',
   'gerente',
+  'lider',
   'analista',
   'operador',
 ]);
@@ -63,6 +64,7 @@ export const USUARIO_STATUS_LABELS: Record<UsuarioStatus, string> = {
 export const USUARIO_PERFIL_LABELS: Record<UsuarioPerfil, string> = {
   admin: 'Admin',
   gerente: 'Gerente',
+  lider: 'Líder de Turno',
   analista: 'Analista',
   operador: 'Operador',
 };

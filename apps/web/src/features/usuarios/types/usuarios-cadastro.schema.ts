@@ -67,8 +67,13 @@ export const PERFIL_CADASTRO_OPTIONS = [
   },
   {
     value: 'gerente' as const,
-    label: 'Líder Operacional',
+    label: 'Gerente Operacional',
     description: 'Privilégios de gerenciamento de inventário e rotas',
+  },
+  {
+    value: 'lider' as const,
+    label: 'Líder de Turno',
+    description: 'Acesso ao painel PWA de liderança e gestão do turno',
   },
   {
     value: 'operador' as const,

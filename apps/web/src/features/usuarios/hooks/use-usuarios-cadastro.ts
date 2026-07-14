@@ -159,6 +159,8 @@ export function useUsuariosCadastro() {
           perfil:
             user.role === 'admin'
               ? 'admin'
+              : user.role === 'leader'
+                ? 'lider'
               : user.role === 'manager'
                 ? 'gerente'
                 : 'operador',

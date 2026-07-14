@@ -55,6 +55,7 @@ describe('CreateSessaoUseCase', () => {
   it('creates sessao when escala is active', async () => {
     const repository: Partial<ISessaoOperacaoRepository> = {
       findEscalaById: vi.fn().mockResolvedValue(escala),
+      findSessaoAbertaByEscalaId: vi.fn().mockResolvedValue(null),
       createSessao: vi.fn().mockResolvedValue(sessaoPlanejada),
     };
 
@@ -97,6 +98,7 @@ describe('CreateSessaoUseCase', () => {
   it('throws conflict on duplicate escala and date', async () => {
     const repository: Partial<ISessaoOperacaoRepository> = {
       findEscalaById: vi.fn().mockResolvedValue(escala),
+      findSessaoAbertaByEscalaId: vi.fn().mockResolvedValue(null),
       createSessao: vi
         .fn()
         .mockRejectedValue(
@@ -116,6 +118,31 @@ describe('CreateSessaoUseCase', () => {
     await expect(
       useCase.execute({ escalaId: 'escala-1', dataReferencia: '2026-06-20' }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('throws conflict when escala already has open sessao', async () => {
+    const repository: Partial<ISessaoOperacaoRepository> = {
+      findEscalaById: vi.fn().mockResolvedValue(escala),
+      findSessaoAbertaByEscalaId: vi.fn().mockResolvedValue({
+        ...sessaoPlanejada,
+        status: 'aberta',
+      }),
+      createSessao: vi.fn(),
+    };
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        CreateSessaoUseCase,
+        { provide: SESSAO_OPERACAO_REPOSITORY, useValue: repository },
+      ],
+    }).compile();
+
+    const useCase = moduleRef.get(CreateSessaoUseCase);
+
+    await expect(
+      useCase.execute({ escalaId: 'escala-1', dataReferencia: '2026-06-21' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(repository.createSessao).not.toHaveBeenCalled();
   });
 });
 

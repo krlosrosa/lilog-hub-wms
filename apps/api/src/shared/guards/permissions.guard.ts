@@ -1,7 +1,13 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import type { FastifyRequest } from 'fastify';
 
+import {
+  canAccessLiderancaPwa,
+  LIDERANCA_PWA_CLIENT_APP,
+} from '../constants/lideranca-permissions.js';
+import { resolveAllRolePermissions, type AppPermission } from '../constants/permissions.js';
 import { PERMISSIONS_KEY } from '../decorators/require-permissions.decorator.js';
 
 type AuthenticatedUser = {
@@ -16,21 +22,48 @@ export class PermissionsGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const requiredPermissions = this.reflector.getAllAndOverride<
-      string[] | undefined
+      AppPermission[] | undefined
     >(PERMISSIONS_KEY, [context.getHandler(), context.getClass()]);
 
     if (!requiredPermissions?.length) {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
+    const request = context.switchToHttp().getRequest<
+      FastifyRequest & { user?: AuthenticatedUser }
+    >();
     const user = request.user;
 
     if (!user) {
       throw new ForbiddenException('Usuário não autenticado');
     }
 
-    // Governança por permissão desativada temporariamente — apenas autenticação JWT.
+    this.assertLiderancaClientAccess(request, user.role);
+
+    const userPermissions = resolveAllRolePermissions(user.role);
+    const hasAll = requiredPermissions.every((permission) =>
+      userPermissions.includes(permission),
+    );
+
+    if (!hasAll) {
+      throw new ForbiddenException('Permissão insuficiente');
+    }
+
     return true;
+  }
+
+  private assertLiderancaClientAccess(
+    request: FastifyRequest,
+    role: string,
+  ): void {
+    const clientApp = request.headers['x-client-app'];
+
+    if (clientApp !== LIDERANCA_PWA_CLIENT_APP) {
+      return;
+    }
+
+    if (!canAccessLiderancaPwa(role)) {
+      throw new ForbiddenException('Acesso restrito ao painel de liderança');
+    }
   }
 }

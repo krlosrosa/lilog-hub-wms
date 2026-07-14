@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@lilog/ui';
-import { Coffee, TimerOff, Users, Zap } from 'lucide-react';
+import { Coffee, UserCheck, Users, Zap } from 'lucide-react';
 
 import type { KpiCard } from '@/features/gestao-recursos/types/gestao-recursos.schema';
 
@@ -55,7 +55,7 @@ export function GestaoRecursosResumoCard({
       value: precisamPausa?.value ?? '00',
       highlight: precisamCount > 0,
     },
-    { icon: TimerOff, label: 'Ociosos', value: ociosos?.value ?? '00' },
+    { icon: UserCheck, label: 'Disponíveis', value: ociosos?.value ?? '00' },
     { icon: Users, label: 'Em pausa', value: emPausa?.value ?? '00' },
   ];
 

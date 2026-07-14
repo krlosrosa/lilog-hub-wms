@@ -18,6 +18,7 @@ describe('GetRecebimentoV2SnapshotUseCase', () => {
   };
   let mockConferenciaRepo: {
     getConferenciaContext: ReturnType<typeof vi.fn>;
+    listTemperaturasProduto: ReturnType<typeof vi.fn>;
   };
   let mockSyncRepo: {
     getAggregateRevision: ReturnType<typeof vi.fn>;
@@ -112,6 +113,11 @@ describe('GetRecebimentoV2SnapshotUseCase', () => {
           },
         ],
       }),
+      listTemperaturasProduto: vi.fn().mockResolvedValue([
+        { etapa: 'inicio', temperatura: -18 },
+        { etapa: 'meio', temperatura: -17.5 },
+        { etapa: 'fim', temperatura: -18.2 },
+      ]),
     };
     mockSyncRepo = {
       getAggregateRevision: vi.fn().mockResolvedValue(7),
@@ -165,6 +171,11 @@ describe('GetRecebimentoV2SnapshotUseCase', () => {
       }),
     ]);
     expect(result.revision).toBe(7);
+    expect(result.temperaturas).toEqual([
+      { etapa: 'inicio', temperatura: -18 },
+      { etapa: 'meio', temperatura: -17.5 },
+      { etapa: 'fim', temperatura: -18.2 },
+    ]);
   });
 
   it('returns empty conferencias when recebimento has no context', async () => {

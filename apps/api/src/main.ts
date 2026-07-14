@@ -1,7 +1,6 @@
 import './instrument.js';
 
 import 'reflect-metadata';
-
 import { RequestMethod } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
@@ -150,7 +149,7 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-unidade-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-unidade-id', 'x-client-app'],
     exposedHeaders: ['Content-Disposition'],
   });
   app.useGlobalPipes(new ZodValidationPipe());

@@ -87,12 +87,6 @@ export const sidebarConfig: NavGroup[] = [
         icon: Building2,
         items: [
           {
-            id: 'unidades',
-            label: 'Unidades',
-            icon: Building2,
-            href: '/unidades',
-          },
-          {
             id: 'produtos',
             label: 'Produtos',
             icon: Package,
@@ -131,16 +125,16 @@ export const sidebarConfig: NavGroup[] = [
         icon: Users,
         items: [
           {
-            id: 'usuarios',
-            label: 'Usuários',
-            icon: Users,
-            href: '/usuarios',
+            id: 'pessoas',
+            label: 'Pessoas',
+            icon: UsersRound,
+            href: '/pessoas',
           },
           {
-            id: 'funcionarios',
-            label: 'Funcionários',
-            icon: UsersRound,
-            href: '/funcionarios',
+            id: 'pessoas-escalas',
+            label: 'Escalas e Equipes',
+            icon: Timer,
+            href: '/pessoas/escalas',
           },
           {
             id: 'perfis-permissao',
@@ -462,12 +456,6 @@ export const sidebarConfig: NavGroup[] = [
         href: '/sessao-operacao/sessoes/nova',
       },
       {
-        id: 'sessao-operacao-escalas',
-        label: 'Escalas',
-        icon: Timer,
-        href: '/sessao-operacao/escalas',
-      },
-      {
         id: 'pausas',
         label: 'Pausas',
         icon: Timer,
@@ -549,6 +537,18 @@ export const sidebarConfig: NavGroup[] = [
     label: 'Gestão',
     icon: Receipt,
     items: [
+      {
+        id: 'unidades',
+        label: 'Unidades',
+        icon: Building2,
+        href: '/unidades',
+      },
+      {
+        id: 'centros-origem',
+        label: 'Centros de Origem',
+        icon: MapPin,
+        href: '/centros-origem',
+      },
       {
         id: 'financeiro',
         label: 'Financeiro',

@@ -10,7 +10,7 @@ export type CncPermission =
 
 const ADMIN_PERMISSIONS: CncPermission[] = Object.values(CNC_PERMISSION);
 
-const SUPERVISOR_PERMISSIONS: CncPermission[] = [
+const OPERATOR_PERMISSIONS: CncPermission[] = [
   CNC_PERMISSION.VISUALIZAR,
   CNC_PERMISSION.ANALISAR,
   CNC_PERMISSION.ENCERRAR,
@@ -22,5 +22,5 @@ export function resolveCncRolePermissions(role: string): CncPermission[] {
     return ADMIN_PERMISSIONS;
   }
 
-  return SUPERVISOR_PERMISSIONS;
+  return OPERATOR_PERMISSIONS;
 }

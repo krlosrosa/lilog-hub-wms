@@ -12,6 +12,7 @@ export type GetMeOutput = {
   role: string;
   funcionarioId: number | null;
   unidadeId: string | null;
+  mustChangePassword: boolean;
 };
 
 @Injectable()
@@ -35,6 +36,7 @@ export class GetMeUseCase {
       role: user.role,
       funcionarioId: user.funcionarioId,
       unidadeId: user.unidadeId,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 }

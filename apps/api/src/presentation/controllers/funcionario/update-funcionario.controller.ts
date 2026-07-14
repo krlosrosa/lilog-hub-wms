@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { FuncionarioResponseDto } from '../../../application/dtos/funcionario/list-funcionarios.dto.js';
 import { UpdateFuncionarioUseCase } from '../../../application/usecases/funcionario/update-funcionario.usecase.js';
 import {
-  FuncionarioCargoSchema,
+  FuncionarioCargoInputSchema,
   FuncionarioSituacaoSchema,
 } from '../../../domain/model/funcionario/funcionario.model.js';
 import {
@@ -29,7 +29,7 @@ const UpdateFuncionarioBodySchema = z
       .regex(/^\d+$/, 'Matrícula deve ser um ID numérico')
       .optional(),
     nome: z.string().min(1).max(100).optional(),
-    cargo: FuncionarioCargoSchema.optional(),
+    cargo: FuncionarioCargoInputSchema.optional(),
     situacao: FuncionarioSituacaoSchema.optional(),
     dataAdmissao: z.iso.date().optional(),
     telefone: z.string().max(20).nullable().optional(),

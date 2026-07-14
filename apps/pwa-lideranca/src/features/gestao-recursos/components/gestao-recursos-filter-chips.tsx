@@ -10,7 +10,7 @@ const FILTERS: Array<{ id: GestaoRecursosFilter; label: string }> = [
   { id: 'atuando', label: 'Atuando' },
   { id: 'precisa_pausa', label: 'Precisa pausa' },
   { id: 'em_pausa', label: 'Em pausa' },
-  { id: 'ociosos', label: 'Ociosos' },
+  { id: 'ociosos', label: 'Disponíveis' },
 ];
 
 type GestaoRecursosFilterChipsProps = {

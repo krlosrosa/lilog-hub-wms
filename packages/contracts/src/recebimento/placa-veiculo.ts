@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const PLACA_VEICULO_REGEX = /^[A-Z]{3}-?\d{4}(-[A-Z]{2})?$/;
+export const PLACA_VEICULO_REGEX =
+  /^[A-Z]{3}-?(\d{4}|\d[A-Z]\d{2})(-[A-Z]{2})?$/;
 
 const PLACA_INVALIDA_LITERAL = new Set([
   'SEM PLACA',
@@ -24,7 +25,7 @@ export function isPlacaVeiculoValida(value: string): boolean {
 }
 
 export const PLACA_VEICULO_FORMATO_MENSAGEM =
-  'Placa deve seguir o formato AAA9999 ou AAA9999-AA';
+  'Placa deve seguir o formato AAA9999, AAA9A99 ou com UF (ex.: ABC1234-SP, EZU5H23-MG)';
 
 export const PlacaVeiculoSchema = z
   .string()

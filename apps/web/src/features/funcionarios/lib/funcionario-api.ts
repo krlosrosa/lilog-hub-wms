@@ -1,5 +1,6 @@
 import { apiRequest } from '@/lib/api';
 
+import { FUNCIONARIO_CARGO_LABELS } from '@lilog/contracts';
 import type {
   CreateFuncionarioApiResponse,
   CreateFuncionarioPayload,
@@ -8,7 +9,6 @@ import type {
   ListFuncionariosApiResponse,
   UpdateFuncionarioPayload,
 } from '@/features/funcionarios/types/funcionario.api';
-import { CARGO_LABELS } from '@/features/funcionarios/types/funcionarios-cadastro.schema';
 import type {
   FuncionarioDepartamento,
   FuncionarioKpi,
@@ -32,20 +32,17 @@ function mapSituacaoToStatus(situacao: FuncionarioSituacaoApi): FuncionarioStatu
 }
 
 function mapCargoToDepartamento(cargo: string): FuncionarioDepartamento {
-  if (cargo.includes('receb')) return 'recebimento';
-  if (cargo.includes('exped') || cargo.includes('carregador')) return 'expedicao';
-  if (cargo.includes('estoqu') || cargo.includes('invent')) return 'estoque';
   if (cargo.includes('confer')) return 'qualidade';
-  if (cargo.includes('supervisor')) return 'triagem';
-  if (cargo.includes('manut')) return 'manutencao';
+  if (cargo.includes('separ') || cargo === 'ajudante') return 'expedicao';
+  if (cargo.includes('empilhadeira') || cargo.includes('auxiliar')) return 'estoque';
+  if (cargo.includes('lider') || cargo.includes('supervisor')) return 'triagem';
   if (cargo === 'administrativo') return 'logistica';
-  if (cargo === 'ajudante') return 'expedicao';
   return 'logistica';
 }
 
 function formatCargoLabel(cargo: string): string {
-  if (cargo in CARGO_LABELS) {
-    return CARGO_LABELS[cargo as keyof typeof CARGO_LABELS];
+  if (cargo in FUNCIONARIO_CARGO_LABELS) {
+    return FUNCIONARIO_CARGO_LABELS[cargo as keyof typeof FUNCIONARIO_CARGO_LABELS];
   }
 
   return cargo.replaceAll('_', ' ');

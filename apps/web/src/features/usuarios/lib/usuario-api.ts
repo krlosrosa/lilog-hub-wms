@@ -1,6 +1,7 @@
 import { apiRequest } from '@/lib/api';
 
 import type {
+  ChangeOwnPasswordPayload,
   CreateUserPayload,
   ListUsersApiResponse,
   UpdateUserPayload,
@@ -26,12 +27,14 @@ type ListUsersParams = {
 
 function mapRoleToPerfil(role: UserRoleApi): UsuarioPerfil {
   if (role === 'admin') return 'admin';
+  if (role === 'leader') return 'lider';
   if (role === 'manager') return 'gerente';
   return 'operador';
 }
 
 function mapPerfilToRole(perfil: UsuarioPerfil): UserRoleApi {
   if (perfil === 'admin') return 'admin';
+  if (perfil === 'lider') return 'leader';
   if (perfil === 'gerente' || perfil === 'analista') return 'manager';
   return 'operator';
 }
@@ -118,6 +121,20 @@ export function blockUser(id: number) {
 export function unblockUser(id: number) {
   return apiRequest<UserApi>(`/users/${id}/unblock`, {
     method: 'PATCH',
+  });
+}
+
+export function resetUserPassword(id: number, password: string) {
+  return apiRequest<UserApi>(`/users/${id}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+}
+
+export function changeOwnPassword(payload: ChangeOwnPasswordPayload) {
+  return apiRequest<{ ok: true }>('/auth/change-password', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
   });
 }
 

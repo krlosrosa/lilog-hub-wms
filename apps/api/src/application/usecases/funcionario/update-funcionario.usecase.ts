@@ -18,6 +18,7 @@ import {
   UNIDADE_REPOSITORY,
   type IUnidadeRepository,
 } from '../../../domain/repositories/unidade/unidade.repository.js';
+import { normalizePersonName } from '../../../shared/utils/normalize-person-name.js';
 
 @Injectable()
 export class UpdateFuncionarioUseCase {
@@ -63,10 +64,30 @@ export class UpdateFuncionarioUseCase {
       }
     }
 
-    const updated = await this.funcionarioRepository.update(id, data);
+    const updateData = { ...data };
+
+    if (data.nome !== undefined) {
+      updateData.nome = normalizePersonName(data.nome);
+    }
+
+    const updated = await this.funcionarioRepository.update(id, updateData);
 
     if (!updated) {
       throw new NotFoundException(`Funcionário ${id} não encontrado`);
+    }
+
+    if (updateData.nome !== undefined) {
+      const linkedUsers = await this.userRepository.list({
+        funcionarioId: id,
+        page: 1,
+        limit: 1,
+      });
+
+      if (linkedUsers.items[0]) {
+        await this.userRepository.update(linkedUsers.items[0].id, {
+          name: updateData.nome,
+        });
+      }
     }
 
     if (data.situacao === 'desligado') {

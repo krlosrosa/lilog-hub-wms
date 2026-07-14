@@ -20,10 +20,38 @@ import { setActiveUnidadeId } from '@/lib/api';
 const STORAGE_KEY = 'lilog:unidade';
 export const SELECIONAR_UNIDADE_PATH = '/selecionar-unidade';
 const UNIDADE_OPTIONAL_PATHS = ['/peso-variavel'];
+const ADMIN_BOOTSTRAP_PATHS = ['/unidades', '/usuarios', '/pessoas', '/documentacao'];
 
 function isUnidadeOptionalPath(pathname: string): boolean {
   return UNIDADE_OPTIONAL_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
+
+function isAdminBootstrapPath(pathname: string): boolean {
+  return ADMIN_BOOTSTRAP_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
+
+function AdminBootstrapBanner() {
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-background p-6">
+      <div className="max-w-md space-y-4 text-center">
+        <p className="text-sm font-medium text-foreground">
+          Nenhuma unidade cadastrada
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Cadastre a primeira unidade para liberar as operações do WMS.
+        </p>
+        <a
+          href="/unidades/nova"
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+        >
+          Cadastrar primeira unidade
+        </a>
+      </div>
+    </div>
   );
 }
 
@@ -216,6 +244,7 @@ export function UnidadeProvider({ children }: { children: ReactNode }) {
 }
 
 export function UnidadeGuard({ children }: { children: ReactNode }) {
+  const { user } = useAuthContext();
   const {
     unidades,
     unidadeSelecionada,
@@ -257,6 +286,14 @@ export function UnidadeGuard({ children }: { children: ReactNode }) {
   }
 
   if (unidades.length === 0 && !isUnidadeOptionalPath(pathname)) {
+    if (user?.role === 'admin' && isAdminBootstrapPath(pathname)) {
+      return children;
+    }
+
+    if (user?.role === 'admin') {
+      return <AdminBootstrapBanner />;
+    }
+
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background p-6">
         <div className="max-w-md rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">

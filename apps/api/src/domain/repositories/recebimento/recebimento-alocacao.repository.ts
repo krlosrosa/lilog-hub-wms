@@ -43,6 +43,11 @@ export type DemandaRecebimentoComAlocacao = {
   conferenteNome: string | null;
 };
 
+export type UltimaMissaoFinalizadaRecebimentoRecord = {
+  funcionarioId: number;
+  ultimaMissaoFinalizadaEm: Date;
+};
+
 export interface IRecebimentoAlocacaoRepository {
   criar(input: CriarAlocacaoRecebimentoInput): Promise<RecebimentoAlocacaoRecord>;
   findAtivaByPreRecebimentoId(
@@ -54,4 +59,10 @@ export interface IRecebimentoAlocacaoRepository {
     sessaoId: string,
     unidadeId: string,
   ): Promise<DemandaRecebimentoComAlocacao[]>;
+  listUltimasMissoesFinalizadasPorSessao(
+    sessaoId: string,
+    unidadeId: string,
+    sessaoInicio: Date | null,
+    funcionarioIds: number[],
+  ): Promise<UltimaMissaoFinalizadaRecebimentoRecord[]>;
 }

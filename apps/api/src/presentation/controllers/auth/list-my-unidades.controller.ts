@@ -9,6 +9,7 @@ import {
   ApiSuccessResponse,
 } from '../../../shared/decorators/api-responses.decorator.js';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard.js';
+import { LiderancaGuard } from '../../../shared/guards/lideranca.guard.js';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -17,7 +18,7 @@ export class ListMyUnidadesController {
   constructor(private readonly listMyUnidadesUseCase: ListMyUnidadesUseCase) {}
 
   @Get('me/unidades')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, LiderancaGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Lista unidades acessíveis ao usuário autenticado',

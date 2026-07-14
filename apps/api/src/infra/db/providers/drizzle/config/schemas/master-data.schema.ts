@@ -51,6 +51,11 @@ export const centros = masterDataPgSchema.table('centros', {
     .notNull(),
 });
 
+export const centrosOrigem = masterDataPgSchema.table('centros_origem', {
+  centro: varchar('centro', { length: 50 }).primaryKey(),
+  nome: varchar('nome', { length: 255 }).notNull(),
+});
+
 export const produtos = masterDataPgSchema.table('produtos', {
   produtoId: varchar('produto_id', { length: 50 }).primaryKey(),
   sku: varchar('sku', { length: 50 }).notNull().unique(),

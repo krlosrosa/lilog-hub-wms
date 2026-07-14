@@ -5,6 +5,7 @@ import type {
   DemandaRecebimentoComAlocacao,
   IRecebimentoAlocacaoRepository,
   RecebimentoAlocacaoRecord,
+  UltimaMissaoFinalizadaRecebimentoRecord,
 } from '../../../domain/repositories/recebimento/recebimento-alocacao.repository.js';
 import {
   DRIZZLE_PROVIDER,
@@ -17,6 +18,7 @@ import {
 } from './criar-alocacao-recebimento.drizzle.js';
 import { cancelarAlocacaoRecebimentoDb } from './cancelar-alocacao-recebimento.drizzle.js';
 import { getDemandasRecebimentoComAlocacaoDb } from './get-recursos-recebimento-sessao.drizzle.js';
+import { listUltimasMissoesFinalizadasRecebimentoSessaoDb } from './list-ultimas-missoes-finalizadas-recebimento-sessao.drizzle.js';
 
 @Injectable()
 export class RecebimentoAlocacaoService implements IRecebimentoAlocacaoRepository {
@@ -48,5 +50,20 @@ export class RecebimentoAlocacaoService implements IRecebimentoAlocacaoRepositor
     unidadeId: string,
   ): Promise<DemandaRecebimentoComAlocacao[]> {
     return getDemandasRecebimentoComAlocacaoDb(this.db, sessaoId, unidadeId);
+  }
+
+  listUltimasMissoesFinalizadasPorSessao(
+    sessaoId: string,
+    unidadeId: string,
+    sessaoInicio: Date | null,
+    funcionarioIds: number[],
+  ): Promise<UltimaMissaoFinalizadaRecebimentoRecord[]> {
+    return listUltimasMissoesFinalizadasRecebimentoSessaoDb(
+      this.db,
+      sessaoId,
+      unidadeId,
+      sessaoInicio,
+      funcionarioIds,
+    );
   }
 }

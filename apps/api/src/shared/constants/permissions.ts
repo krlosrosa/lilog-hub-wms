@@ -46,6 +46,10 @@ import {
   resolveUserRolePermissions,
   type UserPermission,
 } from './user-permissions.js';
+import {
+  resolveLiderancaRolePermissions,
+  type LiderancaPermission,
+} from './lideranca-permissions.js';
 
 export type AppPermission =
   | AddressPermission
@@ -59,7 +63,8 @@ export type AppPermission =
   | PerfilTarifaPermission
   | DevolucaoPermission
   | CobrancaTransportadoraPermission
-  | InventarioPermission;
+  | InventarioPermission
+  | LiderancaPermission;
 
 export function resolveAllRolePermissions(role: string): AppPermission[] {
   return [
@@ -75,5 +80,6 @@ export function resolveAllRolePermissions(role: string): AppPermission[] {
     ...resolveDevolucaoRolePermissions(role),
     ...resolveCobrancaTransportadoraRolePermissions(role),
     ...resolveInventarioRolePermissions(role),
+    ...resolveLiderancaRolePermissions(role),
   ];
 }

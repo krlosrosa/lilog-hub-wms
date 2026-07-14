@@ -29,6 +29,12 @@ const MANAGER_USER_PERMISSIONS: UserPermission[] = [
   USER_PERMISSION.SESSAO_OPERACAO_MANAGE,
 ];
 
+const LEADER_USER_PERMISSIONS: UserPermission[] = [
+  USER_PERMISSION.FUNCIONARIO_VIEW,
+  USER_PERMISSION.SESSAO_OPERACAO_VIEW,
+  USER_PERMISSION.SESSAO_OPERACAO_MANAGE,
+];
+
 const OPERATOR_USER_PERMISSIONS: UserPermission[] = [
   USER_PERMISSION.FUNCIONARIO_VIEW,
   USER_PERMISSION.USUARIO_VIEW,
@@ -41,6 +47,10 @@ export function resolveUserRolePermissions(role: string): UserPermission[] {
 
   if (role === 'manager') {
     return MANAGER_USER_PERMISSIONS;
+  }
+
+  if (role === 'leader') {
+    return LEADER_USER_PERMISSIONS;
   }
 
   return OPERATOR_USER_PERMISSIONS;

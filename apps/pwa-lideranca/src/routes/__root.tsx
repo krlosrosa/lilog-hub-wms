@@ -4,7 +4,9 @@ import { Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '@/features/auth';
+import { canAccessLiderancaPwa } from '@/features/auth/lib/can-access-lideranca';
 import { AppBar, isAppBarHidden } from '@/components/layout/app-bar';
+import { AccessDenied } from '@/components/access-denied';
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -36,6 +38,7 @@ function RootLayout() {
   const [animationClass, setAnimationClass] = useState('page-enter');
   const hideAppBar = isAppBarHidden(pathname);
   const isLoginRoute = pathname === '/login';
+  const hasLiderancaAccess = canAccessLiderancaPwa(user?.role);
 
   useEffect(() => {
     if (isLoading) {
@@ -47,10 +50,10 @@ function RootLayout() {
       return;
     }
 
-    if (user && isLoginRoute) {
+    if (user && hasLiderancaAccess && isLoginRoute) {
       void navigate({ to: '/', replace: true });
     }
-  }, [user, isLoading, isLoginRoute, navigate]);
+  }, [user, isLoading, isLoginRoute, hasLiderancaAccess, navigate]);
 
   useEffect(() => {
     if (prevPathname.current !== pathname) {
@@ -75,12 +78,16 @@ function RootLayout() {
     );
   }
 
-  if (user && isLoginRoute) {
+  if (user && isLoginRoute && hasLiderancaAccess) {
     return (
       <div className="flex h-dvh items-center justify-center bg-background text-on-background">
         <Loader2 className="h-8 w-8 animate-spin text-secondary" aria-label="Redirecionando" />
       </div>
     );
+  }
+
+  if (user && !hasLiderancaAccess) {
+    return <AccessDenied />;
   }
 
   return (

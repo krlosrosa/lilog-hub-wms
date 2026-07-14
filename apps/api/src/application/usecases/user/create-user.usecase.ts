@@ -16,6 +16,8 @@ import {
   USER_REPOSITORY,
   type IUserRepository,
 } from '../../../domain/repositories/user/user.repository.js';
+import { resolveInternalUserEmail } from '../../../shared/utils/internal-user-email.js';
+import { normalizePersonName } from '../../../shared/utils/normalize-person-name.js';
 
 export type CreateUserUseCaseInput = Omit<CreateUserInput, 'passwordHash'> & {
   password: string;
@@ -48,10 +50,12 @@ export class CreateUserUseCase {
       throw new ConflictException(`ID "${input.id}" já cadastrado`);
     }
 
-    const existingEmail = await this.userRepository.findByEmail(input.email);
+    const email = resolveInternalUserEmail(input.id, input.email);
+
+    const existingEmail = await this.userRepository.findByEmail(email);
 
     if (existingEmail) {
-      throw new ConflictException(`E-mail "${input.email}" já cadastrado`);
+      throw new ConflictException(`E-mail "${email}" já cadastrado`);
     }
 
     const activeUser = await this.userRepository.findActiveByFuncionarioId(
@@ -76,12 +80,13 @@ export class CreateUserUseCase {
 
     const user = await this.userRepository.create({
       id: input.id,
-      name: input.name,
-      email: input.email,
+      name: normalizePersonName(input.name),
+      email,
       passwordHash,
       role: input.role,
       status: input.status,
       funcionarioId: input.funcionarioId,
+      mustChangePassword: input.mustChangePassword ?? false,
     });
 
     await this.userRepository.syncUserUnidades(user.id, unidadesIds);

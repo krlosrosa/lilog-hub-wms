@@ -1,5 +1,5 @@
-import { UsuariosCadastroView } from '@/features/usuarios';
+import { redirect } from 'next/navigation';
 
 export default function UsuarioNovoPage() {
-  return <UsuariosCadastroView />;
+  redirect('/pessoas/novo');
 }

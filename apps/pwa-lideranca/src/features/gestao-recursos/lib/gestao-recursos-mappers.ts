@@ -127,7 +127,7 @@ function buildOperadorOcioso(
     name,
     sector,
     status: 'ocioso',
-    idleDuration: `${formatDurationMinutes(idleElapsed).toUpperCase()} OCIOSO`,
+    idleDuration: `${formatDurationMinutes(idleElapsed).toUpperCase()} DISPONÍVEL`,
     idleThreshold: idleThreshold || 5,
   };
 }
@@ -458,7 +458,7 @@ function buildOperadorOciosoDevolucao(
     name,
     sector,
     status: 'ocioso',
-    idleDuration: `${formatDurationMinutes(idleElapsed).toUpperCase()} OCIOSO`,
+    idleDuration: `${formatDurationMinutes(idleElapsed).toUpperCase()} DISPONÍVEL`,
     idleThreshold: idleThreshold || 5,
   };
 }
@@ -737,7 +737,7 @@ export function recomputeKpisFromOperators(
     },
     {
       id: 'ociosidade-critica',
-      label: 'Ociosos',
+      label: 'Disponíveis',
       value: String(ociosos).padStart(2, '0'),
       suffix: 'SEM MISSÃO',
       accent: 'destructive',

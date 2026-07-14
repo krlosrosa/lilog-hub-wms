@@ -10,6 +10,7 @@ import {
   buildUsuarioKpi,
   listUsers,
   mapUserToRecord,
+  resetUserPassword,
   unblockUser,
 } from '@/features/usuarios/lib/usuario-api';
 import type { UserStatusApi } from '@/features/usuarios/types/usuario.api';
@@ -35,6 +36,12 @@ function mapFiltroToApiStatus(
   return status;
 }
 
+type ResetSenhaModalState = {
+  open: boolean;
+  usuarioId: string | null;
+  usuarioNome: string;
+};
+
 export function useUsuariosGestao() {
   const { unidadeSelecionada } = useUnidadeContext();
   const unidadeId = unidadeSelecionada?.id;
@@ -46,6 +53,12 @@ export function useUsuariosGestao() {
     useState<UsuarioFiltroStatus>('todos');
   const [busca, setBuscaState] = useState('');
   const [pagina, setPagina] = useState(1);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [resetSenhaModal, setResetSenhaModal] = useState<ResetSenhaModalState>({
+    open: false,
+    usuarioId: null,
+    usuarioNome: '',
+  });
 
   const loadUsuarios = useCallback(async () => {
     setIsLoading(true);
@@ -86,6 +99,8 @@ export function useUsuariosGestao() {
           role:
             usuario.perfil === 'admin'
               ? 'admin'
+              : usuario.perfil === 'lider'
+                ? 'leader'
               : usuario.perfil === 'gerente'
                 ? 'manager'
                 : 'operator',
@@ -124,11 +139,50 @@ export function useUsuariosGestao() {
     [totalPaginas],
   );
 
-  const resetPermissoes = useCallback(async (id: string) => {
-    toast.info('Reset de permissões', {
-      description: 'Funcionalidade disponível em Perfis e Permissões.',
-    });
+  const abrirResetSenha = useCallback(
+    (id: string) => {
+      const usuario = usuarios.find((item) => item.id === id);
+
+      setResetSenhaModal({
+        open: true,
+        usuarioId: id,
+        usuarioNome: usuario?.nome ?? 'usuário',
+      });
+    },
+    [usuarios],
+  );
+
+  const fecharResetSenha = useCallback((open: boolean) => {
+    if (!open) {
+      setResetSenhaModal({
+        open: false,
+        usuarioId: null,
+        usuarioNome: '',
+      });
+    }
   }, []);
+
+  const confirmarResetSenha = useCallback(
+    async (password: string) => {
+      if (!resetSenhaModal.usuarioId) {
+        throw new Error('Usuário não selecionado');
+      }
+
+      setIsResettingPassword(true);
+
+      try {
+        await resetUserPassword(Number(resetSenhaModal.usuarioId), password);
+        toast.success('Senha temporária definida', {
+          description:
+            'O usuário precisará trocar a senha no próximo login.',
+        });
+        await loadUsuarios();
+      } finally {
+        setIsResettingPassword(false);
+      }
+    },
+    [loadUsuarios, resetSenhaModal.usuarioId],
+  );
 
   const suspender = useCallback(
     async (id: string) => {
@@ -193,7 +247,11 @@ export function useUsuariosGestao() {
     totalFiltrados: total,
     itemsInicio,
     pageSize: PAGE_SIZE,
-    resetPermissoes,
+    resetSenhaModal,
+    isResettingPassword,
+    abrirResetSenha,
+    fecharResetSenha,
+    confirmarResetSenha,
     suspender,
     desbloquear,
     excluir,

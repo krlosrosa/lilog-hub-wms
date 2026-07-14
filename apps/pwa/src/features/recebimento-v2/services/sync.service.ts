@@ -9,8 +9,10 @@ import {
   buildSkuByProdutoIdMap,
   mapServerAvariaToRecord,
   mapServerConferenciaToRecord,
+  mapServerTemperaturaToRecord,
   resolveSnapshotAvarias,
   resolveSnapshotConferences,
+  resolveSnapshotTemperaturas,
 } from '../lib/map-snapshot-v2';
 import {
   mapServerChecklistToRecord,
@@ -89,6 +91,16 @@ function isSuccessfulAvariaOp(
 ): boolean {
   return (
     op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR &&
+    (opResult.status === 'applied' || opResult.status === 'skipped')
+  );
+}
+
+function isSuccessfulTemperaturaOp(
+  op: SyncOperationRecord,
+  opResult: SyncBatchResult['operations'][number],
+): boolean {
+  return (
+    op.opType === RECEBIMENTO_V2_OP_TYPES.TEMPERATURA_UPSERT &&
     (opResult.status === 'applied' || opResult.status === 'skipped')
   );
 }
@@ -214,6 +226,39 @@ async function applyDamageSyncResults(
         }
       }
     }
+  }
+}
+
+async function applyTemperatureSyncResults(
+  pendingOps: SyncOperationRecord[],
+  result: SyncBatchResult,
+  now: number,
+): Promise<void> {
+  for (const opResult of result.operations) {
+    if (opResult.status !== 'applied' && opResult.status !== 'skipped') {
+      continue;
+    }
+
+    const op = pendingOps.find((item) => item.id === opResult.opId);
+    if (!op || !isSuccessfulTemperaturaOp(op, opResult)) {
+      continue;
+    }
+
+    const payload = op.payload as { id?: string; demandId?: string; etapa?: string };
+    const recordId =
+      payload.id ??
+      (payload.demandId && payload.etapa
+        ? `${payload.demandId}::${payload.etapa}`
+        : undefined);
+
+    if (!recordId) {
+      continue;
+    }
+
+    await recebimentoV2Db.temperatures.update(recordId, {
+      syncStatus: 'synced',
+      updatedAt: now,
+    }).catch(() => undefined);
   }
 }
 
@@ -740,6 +785,7 @@ export async function pushDemand(demandId: string): Promise<PushResult> {
 
         await applyConferenceSyncResults(syncableOps, result, now);
         await applyDamageSyncResults(syncableOps, result, now);
+        await applyTemperatureSyncResults(syncableOps, result, now);
       },
     );
   } catch (err) {
@@ -897,6 +943,7 @@ export async function pullDemand(
       : null;
   const snapshotConferences = resolveSnapshotConferences(snapshot);
   const snapshotAvarias = resolveSnapshotAvarias(snapshot);
+  const snapshotTemperaturas = resolveSnapshotTemperaturas(snapshot);
   const snapshotChecklist = resolveSnapshotChecklist(snapshot);
   const skuByProdutoId = await buildSkuLookupForDemand(demandId, [
     ...snapshotConferences,
@@ -988,12 +1035,39 @@ export async function pullDemand(
         }
       } else if (force) {
         await recebimentoV2Db.checklists.delete(demandId);
+      } else if (process?.dock?.trim()) {
+        const existingChecklist = await recebimentoV2Db.checklists.get(demandId);
+        if (
+          (!existingChecklist || existingChecklist.syncStatus === 'synced') &&
+          !existingChecklist?.dock?.trim()
+        ) {
+          await recebimentoV2Db.checklists.put({
+            demandId,
+            id: existingChecklist?.id ?? crypto.randomUUID(),
+            dock: process.dock.trim(),
+            lacre: existingChecklist?.lacre ?? '',
+            tempBau: existingChecklist?.tempBau,
+            conditions: existingChecklist?.conditions ?? {},
+            observacoes: existingChecklist?.observacoes,
+            savedAt: existingChecklist?.savedAt ?? new Date(now).toISOString(),
+            syncStatus: existingChecklist?.syncStatus ?? 'synced',
+            updatedAt: now,
+          });
+        }
       }
 
       await recebimentoV2Db.temperatures.where('demandId').equals(demandId).delete();
-      if ((snapshot.temperatures?.length ?? 0) > 0) {
+      const temperaturasToApply =
+        snapshotTemperaturas.length > 0
+          ? snapshotTemperaturas
+          : force && forcePackage?.temperaturas?.length
+            ? forcePackage.temperaturas
+            : [];
+      if (temperaturasToApply.length > 0) {
         await recebimentoV2Db.temperatures.bulkPut(
-          snapshot.temperatures!.map((t) => ({ syncStatus: 'synced', updatedAt: now, ...t })) as never[],
+          temperaturasToApply.map((item) =>
+            mapServerTemperaturaToRecord(item, demandId, now),
+          ),
         );
       }
     }

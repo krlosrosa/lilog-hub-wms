@@ -6,8 +6,10 @@ import {
   buildSkuByProdutoIdMap,
   mapServerAvariaToRecord,
   mapServerConferenciaToRecord,
+  mapServerTemperaturaToRecord,
   resolveSnapshotAvarias,
   resolveSnapshotConferences,
+  resolveSnapshotTemperaturas,
 } from '../lib/map-snapshot-v2.js';
 import {
   mapServerChecklistToRecord,
@@ -50,6 +52,7 @@ export function useConflictV2(demandId: string): UseConflictV2Result {
       const now = Date.now();
       const snapshotConferences = resolveSnapshotConferences(snapshot);
       const snapshotAvarias = resolveSnapshotAvarias(snapshot);
+      const snapshotTemperaturas = resolveSnapshotTemperaturas(snapshot);
       const snapshotChecklist = resolveSnapshotChecklist(snapshot);
 
       const expectedItems = await recebimentoV2Db.expectedItems
@@ -89,6 +92,7 @@ export function useConflictV2(demandId: string): UseConflictV2Result {
           recebimentoV2Db.conferences,
           recebimentoV2Db.damages,
           recebimentoV2Db.checklists,
+          recebimentoV2Db.temperatures,
           recebimentoV2Db.processes,
         ],
         async () => {
@@ -126,6 +130,15 @@ export function useConflictV2(demandId: string): UseConflictV2Result {
           if (snapshotChecklist) {
             await recebimentoV2Db.checklists.put(
               mapServerChecklistToRecord(snapshotChecklist, demandId, checklistDock, now),
+            );
+          }
+
+          await recebimentoV2Db.temperatures.where('demandId').equals(demandId).delete();
+          if (snapshotTemperaturas.length > 0) {
+            await recebimentoV2Db.temperatures.bulkPut(
+              snapshotTemperaturas.map((item) =>
+                mapServerTemperaturaToRecord(item, demandId, now),
+              ),
             );
           }
 

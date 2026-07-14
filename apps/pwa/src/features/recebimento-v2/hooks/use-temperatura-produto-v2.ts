@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { recebimentoV2Db } from '../local-db/db';
 import type { SyncOperationRecord, TemperatureRecord } from '../local-db/schema';
+import { triggerAutoSyncIfPending } from '../services/auto-sync-v2.service';
 import {
   TEMPERATURA_BAU_ETAPA_LABELS,
   TEMPERATURA_BAU_ETAPAS,
@@ -115,6 +116,7 @@ export function useTemperaturaProdutoV2(demandId: string) {
           },
         );
 
+        triggerAutoSyncIfPending(demandId);
         return true;
       } catch (error) {
         setSaveError(

@@ -96,6 +96,47 @@ function formatarHora(date: Date): string {
   return `${hours}:${minutes}`;
 }
 
+function formatarPesoKg(pesoKg: number): string {
+  return pesoKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+}
+
+function calcularVolumesKgPainel(
+  empresaRecebimentos: RecebimentoPainelReadModel['empresaRecebimentos'],
+): { recebidoKg: number; esperadoKg: number } {
+  const porPre = new Map<
+    string,
+    { pesoKg: number; situacao: PreRecebimentoSituacao }
+  >();
+
+  for (const row of empresaRecebimentos) {
+    const atual = porPre.get(row.preRecebimentoId);
+    if (!atual) {
+      porPre.set(row.preRecebimentoId, {
+        pesoKg: row.pesoKg,
+        situacao: row.situacao,
+      });
+      continue;
+    }
+
+    atual.pesoKg += row.pesoKg;
+  }
+
+  let recebidoKg = 0;
+  let esperadoKg = 0;
+
+  for (const { pesoKg, situacao } of porPre.values()) {
+    esperadoKg += pesoKg;
+    if (situacao === 'finalizado') {
+      recebidoKg += pesoKg;
+    }
+  }
+
+  return {
+    recebidoKg: Math.round(recebidoKg * 1000) / 1000,
+    esperadoKg: Math.round(esperadoKg * 1000) / 1000,
+  };
+}
+
 function montarRecebimentosPorHora(
   readModel: RecebimentoPainelReadModel,
 ): RecebimentoPainelSnapshotDto['recebimentosPorHora'] {
@@ -410,12 +451,16 @@ export function montarSnapshotRecebimentoPainel(input: {
   const atrasados = preRecebimentos.filter((item) =>
     isAtrasado(item, now),
   ).length;
-  const volumeEsperado = Math.round(
-    preRecebimentos.reduce((sum, item) => sum + item.volumeUn, 0),
+  const { recebidoKg, esperadoKg } = calcularVolumesKgPainel(
+    readModel.empresaRecebimentos,
   );
   const pctConcluido =
     totalPrevisto > 0
       ? Math.round((finalizados / totalPrevisto) * 1000) / 10
+      : 0;
+  const pctVolumeRecebido =
+    esperadoKg > 0
+      ? Math.round((recebidoKg / esperadoKg) * 1000) / 10
       : 0;
 
   const pipelineTotal = preRecebimentos.length;
@@ -449,10 +494,11 @@ export function montarSnapshotRecebimentoPainel(input: {
       },
       {
         id: 'volume-esperado',
-        label: 'Volume esperado',
-        value: volumeEsperado.toLocaleString('pt-BR'),
-        suffix: 'UN',
-        accent: 'primary',
+        label: 'Volume',
+        value: `${formatarPesoKg(recebidoKg)}/${formatarPesoKg(esperadoKg)}`,
+        suffix: 'kg',
+        accent: 'tertiary',
+        progress: pctVolumeRecebido,
       },
       {
         id: 'atrasados',

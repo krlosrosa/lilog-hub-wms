@@ -12,19 +12,24 @@ import {
   Save,
   Trash2,
 } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { AvariaSelectField } from '@/features/recebimento/components/avaria-select-field';
-import { resolveDockDisplayLabel } from '@/lib/offline/checklist-cache';
+import {
+  findDockOptionValue,
+  resolveDockDisplayLabel,
+} from '@/lib/offline/checklist-cache';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 import { PhotoCaptureHiddenInputV2 } from '../components/photo-capture-hidden-input-v2';
 import { ChecklistResumoV2Card } from '../components/checklist-resumo-v2-card';
 import { SyncStatusV2 } from '../components/sync-status-v2';
 import { useChecklistV2 } from '../hooks/use-checklist-v2';
-import { useDocasV2 } from '../hooks/use-docas-v2';
+import { useDocasV2, type DocaOptionV2 } from '../hooks/use-docas-v2';
+import { recebimentoV2Db } from '../local-db/db';
 import { useForcePullV2 } from '../hooks/use-force-pull-v2';
 import { useImpedimentoV2 } from '../hooks/use-impedimento-v2';
 import { usePhotoCaptureV2 } from '../hooks/use-photo-capture-v2';
@@ -46,6 +51,21 @@ const REQUIRED_PHOTO_SLOTS = [
 ] as const;
 
 type PhotoSlotId = (typeof REQUIRED_PHOTO_SLOTS)[number]['id'];
+
+function resolveDockFormValue(
+  dockRef: string | null | undefined,
+  dockOptions: DocaOptionV2[],
+): string {
+  if (!dockRef?.trim()) return '';
+
+  return (
+    findDockOptionValue(dockRef, dockOptions) ??
+    dockOptions.find(
+      (option) => option.label === dockRef || option.value === dockRef,
+    )?.value ??
+    ''
+  );
+}
 
 function checklistOwnerId(demandId: string, slot: PhotoSlotId | 'extras') {
   return `checklist-${demandId}-${slot}`;
@@ -134,6 +154,10 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
   const syncStatus = useSyncStatusV2(demandId);
   const { forcePull, isPulling, pullDisabled } = useForcePullV2(demandId);
   const { dockOptions } = useDocasV2();
+  const process = useLiveQuery(
+    () => recebimentoV2Db.processes.get(demandId),
+    [demandId],
+  );
   const [photoErrors, setPhotoErrors] = useState<Partial<Record<PhotoSlotId, string>>>({});
   const [isImpedimentoSheetOpen, setIsImpedimentoSheetOpen] = useState(false);
   const [isRetomando, setIsRetomando] = useState(false);
@@ -185,12 +209,12 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
   const selectedDock = watch('dock');
 
   useEffect(() => {
-    if (checklist) {
-      const dockValue =
-        dockOptions.find(
-          (option) => option.label === checklist.dock || option.value === checklist.dock,
-        )?.value ?? checklist.dock ?? '';
+    if (dockOptions.length === 0) return;
 
+    const dockRef = checklist?.dock?.trim() || process?.dock?.trim() || '';
+    const dockValue = resolveDockFormValue(dockRef, dockOptions);
+
+    if (checklist) {
       reset({
         dock: dockValue,
         lacre: checklist.lacre ?? '',
@@ -198,8 +222,17 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
         conditions: checklist.conditions ?? {},
         observacoes: checklist.observacoes,
       });
+      return;
     }
-  }, [checklist, dockOptions, reset]);
+
+    if (dockValue) {
+      reset({
+        dock: dockValue,
+        lacre: '',
+        conditions: Object.fromEntries(DEFAULT_CONDITIONS.map((c) => [c.id, false])),
+      });
+    }
+  }, [checklist, dockOptions, process?.dock, reset]);
 
   if (viewOnly) {
     return (

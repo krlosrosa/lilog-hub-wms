@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, inArray } from 'drizzle-orm';
 
 import type {
   CriarAlocacaoRecebimentoInput,
@@ -160,4 +160,61 @@ export async function marcarAlocacaoIniciadaDb(
         eq(recebimentoAlocacoes.status, 'atribuida'),
       ),
     );
+}
+
+export type CriarAlocacaoIniciadaRetroativaInput = {
+  preRecebimentoId: string;
+  sessaoId: string;
+  sessaoFuncionarioId: string;
+  funcionarioId: number;
+  inicioEm: Date;
+};
+
+export async function criarAlocacaoIniciadaRetroativaDb(
+  db: DrizzleClient,
+  input: CriarAlocacaoIniciadaRetroativaInput,
+): Promise<RecebimentoAlocacaoRecord> {
+  const [existing] = await db
+    .select({ id: recebimentoAlocacoes.id })
+    .from(recebimentoAlocacoes)
+    .where(
+      and(
+        eq(recebimentoAlocacoes.preRecebimentoId, input.preRecebimentoId),
+        inArray(recebimentoAlocacoes.status, ['atribuida', 'iniciada']),
+      ),
+    )
+    .limit(1);
+
+  if (existing) {
+    throw new Error('Alocação ativa já existe para este pré-recebimento');
+  }
+
+  const [created] = await db
+    .insert(recebimentoAlocacoes)
+    .values({
+      preRecebimentoId: input.preRecebimentoId,
+      sessaoId: input.sessaoId,
+      sessaoFuncionarioId: input.sessaoFuncionarioId,
+      funcionarioId: input.funcionarioId,
+      status: 'iniciada',
+      inicioEm: input.inicioEm,
+      atribuidoEm: input.inicioEm,
+    })
+    .returning({
+      id: recebimentoAlocacoes.id,
+      preRecebimentoId: recebimentoAlocacoes.preRecebimentoId,
+      sessaoId: recebimentoAlocacoes.sessaoId,
+      sessaoFuncionarioId: recebimentoAlocacoes.sessaoFuncionarioId,
+      funcionarioId: recebimentoAlocacoes.funcionarioId,
+      status: recebimentoAlocacoes.status,
+      atribuidoEm: recebimentoAlocacoes.atribuidoEm,
+      inicioEm: recebimentoAlocacoes.inicioEm,
+      canceladoEm: recebimentoAlocacoes.canceladoEm,
+    });
+
+  if (!created) {
+    throw new Error('Falha ao criar alocação retroativa');
+  }
+
+  return created;
 }

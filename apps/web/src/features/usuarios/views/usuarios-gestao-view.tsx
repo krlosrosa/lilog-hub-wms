@@ -28,6 +28,7 @@ import {
 } from '@/features/usuarios/components/usuario-form-field-classes';
 import { UsuarioStatsCard } from '@/features/usuarios/components/usuario-stats-card';
 import { UsuarioTableRow } from '@/features/usuarios/components/usuario-table-row';
+import { ResetSenhaModal } from '@/features/usuarios/components/reset-senha-modal';
 import { useUsuariosGestao } from '@/features/usuarios/hooks/use-usuarios-gestao';
 
 const TABLE_HEADERS = [
@@ -56,7 +57,11 @@ export function UsuariosGestaoView() {
     totalFiltrados,
     itemsInicio,
     pageSize,
-    resetPermissoes,
+    resetSenhaModal,
+    isResettingPassword,
+    abrirResetSenha,
+    fecharResetSenha,
+    confirmarResetSenha,
     suspender,
     desbloquear,
     excluir,
@@ -210,7 +215,7 @@ export function UsuariosGestaoView() {
                       <UsuarioTableRow
                         key={usuario.id}
                         usuario={usuario}
-                        onResetPermissoes={resetPermissoes}
+                        onResetSenha={abrirResetSenha}
                         onSuspender={suspender}
                         onDesbloquear={desbloquear}
                         onExcluir={excluir}
@@ -256,6 +261,14 @@ export function UsuariosGestaoView() {
           </div>
         </div>
       </main>
+
+      <ResetSenhaModal
+        open={resetSenhaModal.open}
+        usuarioNome={resetSenhaModal.usuarioNome}
+        isSubmitting={isResettingPassword}
+        onOpenChange={fecharResetSenha}
+        onConfirm={confirmarResetSenha}
+      />
     </SidebarMain>
   );
 }

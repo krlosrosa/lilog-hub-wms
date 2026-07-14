@@ -4,8 +4,10 @@ import {
   buildSkuByProdutoIdMap,
   mapServerAvariaToRecord,
   mapServerConferenciaToRecord,
+  mapServerTemperaturaToRecord,
   resolveSnapshotAvarias,
   resolveSnapshotConferences,
+  resolveSnapshotTemperaturas,
 } from './map-snapshot-v2';
 
 describe('map-snapshot-v2', () => {
@@ -43,6 +45,41 @@ describe('map-snapshot-v2', () => {
         avarias: [{ id: 'avaria-1' }],
       }),
     ).toEqual([{ id: 'avaria-1' }]);
+  });
+
+  it('resolveSnapshotTemperaturas prefers temperatures and falls back to temperaturas', () => {
+    expect(
+      resolveSnapshotTemperaturas({
+        demandId: 'd1',
+        revision: 1,
+        temperatures: [{ etapa: 'inicio', temperatura: -18 }],
+      }),
+    ).toEqual([{ etapa: 'inicio', temperatura: -18 }]);
+
+    expect(
+      resolveSnapshotTemperaturas({
+        demandId: 'd1',
+        revision: 1,
+        temperaturas: [{ etapa: 'fim', temperatura: -17.5 }],
+      }),
+    ).toEqual([{ etapa: 'fim', temperatura: -17.5 }]);
+  });
+
+  it('mapServerTemperaturaToRecord maps etapas to local temperature records', () => {
+    const record = mapServerTemperaturaToRecord(
+      { etapa: 'meio', temperatura: -18.4 },
+      'demand-1',
+      123,
+    );
+
+    expect(record).toEqual({
+      id: 'demand-1::meio',
+      demandId: 'demand-1',
+      etapa: 'meio',
+      temperatura: -18.4,
+      syncStatus: 'synced',
+      updatedAt: 123,
+    });
   });
 
   it('mapServerConferenciaToRecord maps server item id to serverItemId', () => {

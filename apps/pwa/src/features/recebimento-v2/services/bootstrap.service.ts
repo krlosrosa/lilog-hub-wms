@@ -310,8 +310,8 @@ async function writePackageToDB(demandId: string, pkg: unknown): Promise<number>
 
   const pre = p.preRecebimento;
   let checklistRecord: ReturnType<typeof mapServerChecklistToRecord> | null = null;
+  const existingChecklist = await recebimentoV2Db.checklists.get(demandId);
   if (p.checklist && pre) {
-    const existingChecklist = await recebimentoV2Db.checklists.get(demandId);
     if (!existingChecklist || existingChecklist.syncStatus === 'synced') {
       const docaId =
         p.recebimento?.docaId ??
@@ -325,6 +325,27 @@ async function writePackageToDB(demandId: string, pkg: unknown): Promise<number>
         dock,
         Date.now(),
       );
+    }
+  } else if (pre && (!existingChecklist || existingChecklist.syncStatus === 'synced')) {
+    const docaId = p.recebimento?.docaId ?? pre.docaId ?? null;
+    const dockFromDoca = docaId
+      ? await resolveDockLabel(pre.unidadeId, docaId)
+      : '';
+    const dock = existingChecklist?.dock?.trim() || dockFromDoca.trim();
+    if (dock && !existingChecklist?.dock?.trim()) {
+      const now = Date.now();
+      checklistRecord = {
+        demandId,
+        id: existingChecklist?.id ?? crypto.randomUUID(),
+        dock,
+        lacre: existingChecklist?.lacre ?? '',
+        tempBau: existingChecklist?.tempBau,
+        conditions: existingChecklist?.conditions ?? {},
+        observacoes: existingChecklist?.observacoes,
+        savedAt: existingChecklist?.savedAt ?? new Date(now).toISOString(),
+        syncStatus: existingChecklist?.syncStatus ?? 'synced',
+        updatedAt: now,
+      };
     }
   }
 

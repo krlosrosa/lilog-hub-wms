@@ -26,6 +26,11 @@ const OPERATOR_PERMISSIONS: DocumentoPermission[] = [
   DOCUMENTO_PERMISSION.DOWNLOAD_URL,
 ];
 
+const LEADER_PERMISSIONS: DocumentoPermission[] = [
+  DOCUMENTO_PERMISSION.LIST,
+  DOCUMENTO_PERMISSION.DOWNLOAD_URL,
+];
+
 export function resolveDocumentoRolePermissions(
   role: string,
 ): DocumentoPermission[] {
@@ -35,6 +40,10 @@ export function resolveDocumentoRolePermissions(
 
   if (role === 'manager') {
     return MANAGER_PERMISSIONS;
+  }
+
+  if (role === 'leader') {
+    return LEADER_PERMISSIONS;
   }
 
   return OPERATOR_PERMISSIONS;

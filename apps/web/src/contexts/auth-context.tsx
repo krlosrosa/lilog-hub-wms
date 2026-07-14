@@ -22,6 +22,7 @@ export type AuthUser = {
   name: string;
   email: string;
   role: string;
+  mustChangePassword?: boolean;
 };
 
 type AuthContextValue = {
@@ -29,6 +30,7 @@ type AuthContextValue = {
   isLoading: boolean;
   login: (loginId: number, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  completePasswordChange: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -56,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: string;
           email: string;
           role: string;
+          mustChangePassword?: boolean;
         }>('/auth/me');
 
         setUser(data);
@@ -76,10 +79,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (loginId: number, password: string) => {
     const data = await apiRequest<{ user: AuthUser }>('/auth/login', {
       method: 'POST',
+      headers: {
+        'x-client-app': 'web',
+      },
       body: JSON.stringify({ id: loginId, password }),
     });
 
     setUser(data.user);
+
+    if (data.user.mustChangePassword) {
+      router.push('/alterar-senha');
+      return;
+    }
+
     router.push('/');
   }, [router]);
 
@@ -94,9 +106,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [router]);
 
+  const completePasswordChange = useCallback(() => {
+    setUser((current) =>
+      current ? { ...current, mustChangePassword: false } : current,
+    );
+  }, []);
+
   const value = useMemo(
-    () => ({ user, isLoading, login, logout }),
-    [user, isLoading, login, logout],
+    () => ({ user, isLoading, login, logout, completePasswordChange }),
+    [user, isLoading, login, logout, completePasswordChange],
   );
 
   return (

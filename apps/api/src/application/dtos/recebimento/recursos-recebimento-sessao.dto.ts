@@ -94,6 +94,7 @@ export const RecursosFuncionarioRecebimentoDtoSchema = z.object({
   tipoVinculo: z.enum(['titular', 'apoio']),
   equipeOrigemNome: z.string().nullable(),
   apoioInicio: z.iso.datetime().nullable(),
+  ultimaMissaoFinalizadaEm: z.iso.datetime().nullable(),
 });
 
 export class RecursosFuncionarioRecebimentoDto extends createZodDto(

@@ -33,6 +33,7 @@ import { createEscalaComEquipeDb } from './create-escala-com-equipe.drizzle.js';
 import { findEscalaByIdDb } from './find-escala.drizzle.js';
 import { findEquipeByIdDb } from './find-equipe.drizzle.js';
 import { findEquipeIdByFuncionarioIdDb } from './find-equipe-by-funcionario.drizzle.js';
+import { findSessaoAbertaByEscalaDb } from './find-sessao-aberta-by-escala.drizzle.js';
 import { findSessaoByIdDb } from './find-sessao-trabalho.drizzle.js';
 import { listSessaoFuncionariosDb } from './list-sessao-funcionarios.drizzle.js';
 import { listSessoesTrabalhoDb } from './list-sessoes-trabalho.drizzle.js';
@@ -50,6 +51,7 @@ import { adicionarFuncionarioApoioDb } from './adicionar-funcionario-apoio.drizz
 import { encerrarFuncionarioApoioDb } from './encerrar-funcionario-apoio.drizzle.js';
 import { listFuncionariosApoioCandidatosDb } from './list-funcionarios-apoio-candidatos.drizzle.js';
 import { findSessaoTitularAbertaPorFuncionarioDb } from './find-sessao-titular-aberta-por-funcionario.drizzle.js';
+import { findSessaoFuncionarioRecebimentoAbertaDb } from './find-sessao-funcionario-recebimento-aberta.drizzle.js';
 
 @Injectable()
 export class SessaoOperacaoService implements ISessaoOperacaoRepository {
@@ -107,6 +109,10 @@ export class SessaoOperacaoService implements ISessaoOperacaoRepository {
 
   findSessaoById(id: string) {
     return findSessaoByIdDb(this.db, id);
+  }
+
+  findSessaoAbertaByEscalaId(escalaId: string) {
+    return findSessaoAbertaByEscalaDb(this.db, escalaId);
   }
 
   abrirSessao(id: string, userId: number) {
@@ -244,6 +250,17 @@ export class SessaoOperacaoService implements ISessaoOperacaoRepository {
       unidadeId,
       funcionarioId,
       excludeSessaoId,
+    );
+  }
+
+  findSessaoFuncionarioRecebimentoAberta(
+    unidadeId: string,
+    funcionarioId: number,
+  ) {
+    return findSessaoFuncionarioRecebimentoAbertaDb(
+      this.db,
+      unidadeId,
+      funcionarioId,
     );
   }
 }

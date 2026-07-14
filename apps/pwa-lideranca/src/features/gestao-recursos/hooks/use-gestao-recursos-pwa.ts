@@ -57,7 +57,7 @@ const EMPTY_KPIS: KpiCard[] = [
   },
   {
     id: 'ociosidade-critica',
-    label: 'Ociosos',
+    label: 'Disponíveis',
     value: '00',
     suffix: 'SEM MISSÃO',
     accent: 'destructive',

@@ -7,7 +7,7 @@ import {
   SheetTitle,
 } from '@lilog/ui';
 import { CheckCircle2, Loader2, Thermometer } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 
@@ -50,9 +50,41 @@ function parseTemperatura(raw: string): number | null {
 export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string }) {
   const [open, setOpen] = useState(false);
   const [savingEtapa, setSavingEtapa] = useState<TemperaturaEtapaV2 | null>(null);
-  const { etapas, preenchidas, completo, saveError, saveEtapa, clearSaveError } =
+  const isClosingRef = useRef(false);
+  const { etapas, preenchidas, completo, saveError, saveEtapas, clearSaveError } =
     useTemperaturaProdutoV2(demandId);
   const [values, setValues] = useState<TemperaturaFormValues>(EMPTY_FORM);
+
+  const collectPendingEntries = useCallback((): Array<{
+    etapa: TemperaturaEtapaV2;
+    temperatura: number;
+  }> => {
+    return INPUTS.flatMap((input) => {
+      const raw = values[input.etapa];
+      const invalid = raw.trim() !== '' && parseTemperatura(raw) == null;
+      if (invalid) return [];
+
+      const temperatura = parseTemperatura(raw);
+      if (temperatura == null) return [];
+
+      const saved = etapas.find((item) => item.etapa === input.etapa)?.temperatura;
+      if (saved === temperatura) return [];
+
+      return [{ etapa: input.etapa, temperatura }];
+    });
+  }, [etapas, values]);
+
+  const persistPendingEntries = useCallback(async () => {
+    const entries = collectPendingEntries();
+    if (entries.length === 0) return;
+
+    setSavingEtapa(entries[entries.length - 1]?.etapa ?? null);
+    try {
+      await saveEtapas(entries);
+    } finally {
+      setSavingEtapa(null);
+    }
+  }, [collectPendingEntries, saveEtapas]);
 
   function openSheet() {
     hapticLight();
@@ -61,12 +93,24 @@ export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string
     setOpen(true);
   }
 
-  function handleOpenChange(nextOpen: boolean) {
+  async function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
+      isClosingRef.current = false;
       clearSaveError();
       setValues(buildFormFromEtapas(etapas));
+      setOpen(true);
+      return;
     }
-    setOpen(nextOpen);
+
+    if (isClosingRef.current) {
+      setOpen(false);
+      return;
+    }
+
+    isClosingRef.current = true;
+    await persistPendingEntries();
+    isClosingRef.current = false;
+    setOpen(false);
   }
 
   async function persistEtapa(etapa: TemperaturaEtapaV2) {
@@ -82,7 +126,7 @@ export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string
 
     setSavingEtapa(etapa);
     try {
-      await saveEtapa(etapa, temperatura);
+      await saveEtapas([{ etapa, temperatura }]);
     } finally {
       setSavingEtapa(null);
     }
@@ -91,6 +135,20 @@ export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string
   async function handleBlur(etapa: TemperaturaEtapaV2) {
     hapticMedium();
     await persistEtapa(etapa);
+  }
+
+  function handleKeyDown(
+    event: KeyboardEvent<HTMLInputElement>,
+    etapa: TemperaturaEtapaV2,
+    nextEtapa?: TemperaturaEtapaV2,
+  ) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    void persistEtapa(etapa).then(() => {
+      if (nextEtapa) {
+        document.getElementById(`temp-${nextEtapa}`)?.focus();
+      }
+    });
   }
 
   return (
@@ -129,13 +187,14 @@ export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string
           </SheetHeader>
 
           <div className="mt-4 space-y-4">
-            {INPUTS.map((input) => {
+            {INPUTS.map((input, index) => {
               const raw = values[input.etapa];
               const invalid = raw.trim() !== '' && parseTemperatura(raw) == null;
               const saved = etapas.find((item) => item.etapa === input.etapa)?.temperatura;
               const parsed = parseTemperatura(raw);
               const isSaved = saved != null && parsed === saved;
               const isFieldSaving = savingEtapa === input.etapa;
+              const nextEtapa = INPUTS[index + 1]?.etapa;
 
               return (
                 <div key={input.etapa} className="space-y-1.5">
@@ -156,6 +215,7 @@ export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string
                         setValues((current) => ({ ...current, [input.etapa]: e.target.value }))
                       }
                       onBlur={() => void handleBlur(input.etapa)}
+                      onKeyDown={(event) => handleKeyDown(event, input.etapa, nextEtapa)}
                       placeholder="Ex: -18.0"
                       aria-invalid={invalid}
                       className={cn(

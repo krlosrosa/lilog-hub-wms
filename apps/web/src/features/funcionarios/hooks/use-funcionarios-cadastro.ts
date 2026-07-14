@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 
 import { toast } from 'sonner';
 
+import { FUNCIONARIO_CARGOS } from '@lilog/contracts';
 import { useUnidadeContext } from '@/contexts/unidade-context';
 import { listUnidades } from '@/features/filiais/lib/unidade-api';
 import type { UnidadeApi } from '@/features/filiais/types/unidade.api';
@@ -40,13 +41,7 @@ export const FUNCIONARIO_FORM_DEFAULT_VALUES: FuncionarioFormValues = {
   usuarioSenha: '',
 };
 
-const CARGOS_CADASTRO = new Set<FuncionarioCargoApi>([
-  'operador_empilhadeira',
-  'separador',
-  'conferente',
-  'ajudante',
-  'administrativo',
-]);
+const CARGOS_CADASTRO = new Set<FuncionarioCargoApi>(FUNCIONARIO_CARGOS);
 
 function mapCargoFromApi(cargo: FuncionarioCargoApi): FuncionarioFormValues['cargo'] {
   if (CARGOS_CADASTRO.has(cargo)) {

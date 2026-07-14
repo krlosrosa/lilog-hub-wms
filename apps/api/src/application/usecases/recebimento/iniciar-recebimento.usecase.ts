@@ -30,6 +30,10 @@ import {
   type IRecebimentoAlocacaoRepository,
 } from '../../../domain/repositories/recebimento/recebimento-alocacao.repository.js';
 import {
+  SESSAO_OPERACAO_REPOSITORY,
+  type ISessaoOperacaoRepository,
+} from '../../../domain/repositories/sessao-operacao/sessao-operacao.repository.js';
+import {
   FUNCIONARIO_REPOSITORY,
   type IFuncionarioRepository,
 } from '../../../domain/repositories/funcionario/funcionario.repository.js';
@@ -69,6 +73,8 @@ export class IniciarRecebimentoUseCase {
     private readonly configuracaoOperacionalRepository: IConfiguracaoOperacionalRepository,
     @Inject(RECEBIMENTO_ALOCACAO_REPOSITORY)
     private readonly recebimentoAlocacaoRepository: IRecebimentoAlocacaoRepository,
+    @Inject(SESSAO_OPERACAO_REPOSITORY)
+    private readonly sessaoOperacaoRepository: ISessaoOperacaoRepository,
     private readonly recebimentoEventPublisher: RecebimentoEventPublisher,
   ) {}
 
@@ -103,10 +109,46 @@ export class IniciarRecebimentoUseCase {
       );
     }
 
-    const alocacaoAtiva =
+    let alocacaoAtiva =
       await this.recebimentoAlocacaoRepository.findAtivaByPreRecebimentoId(
         parsed.preRecebimentoId,
       );
+
+    if (alocacaoAtiva && alocacaoAtiva.funcionarioId !== parsed.responsavelId) {
+      throw new ConflictException(
+        'Esta demanda foi atribuída a outro conferente pelo líder. Solicite reatribuição.',
+      );
+    }
+
+    if (
+      !alocacaoAtiva &&
+      preRecebimento.situacao === 'liberado_para_conferencia'
+    ) {
+      const vinculo =
+        await this.sessaoOperacaoRepository.findSessaoFuncionarioRecebimentoAberta(
+          preRecebimento.unidadeId,
+          parsed.responsavelId,
+        );
+
+      if (vinculo) {
+        try {
+          await this.recebimentoAlocacaoRepository.criar({
+            preRecebimentoId: parsed.preRecebimentoId,
+            sessaoId: vinculo.sessaoId,
+            sessaoFuncionarioId: vinculo.sessaoFuncionarioId,
+            funcionarioId: vinculo.funcionarioId,
+            atribuidoPorUserId: userId,
+          });
+        } catch {
+          // Concorrência ou alocação criada em paralelo: revalida estado.
+        }
+
+        alocacaoAtiva =
+          await this.recebimentoAlocacaoRepository.findAtivaByPreRecebimentoId(
+            parsed.preRecebimentoId,
+          );
+      }
+    }
 
     if (alocacaoAtiva && alocacaoAtiva.funcionarioId !== parsed.responsavelId) {
       throw new ConflictException(

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const UserRoleSchema = z.enum(['admin', 'manager', 'operator']);
+export const UserRoleSchema = z.enum(['admin', 'manager', 'operator', 'leader']);
 export type UserRole = z.infer<typeof UserRoleSchema>;
 
 export const UserStatusSchema = z.enum([
@@ -21,6 +21,7 @@ export const UserSchema = z.object({
   passwordHash: z.string(),
   role: UserRoleSchema,
   status: UserStatusSchema,
+  mustChangePassword: z.boolean().default(false),
   funcionarioId: z.number().int().positive().nullable(),
   createdAt: z.coerce.date(),
 });
@@ -33,11 +34,12 @@ export type PublicUser = z.infer<typeof PublicUserSchema>;
 export const CreateUserInputSchema = z.object({
   id: UserIdSchema,
   name: z.string().min(1).max(100),
-  email: z.string().email(),
+  email: z.string().email().optional(),
   passwordHash: z.string(),
   role: UserRoleSchema.default('operator'),
   status: UserStatusSchema.default('pendente'),
   funcionarioId: z.number().int().positive(),
+  mustChangePassword: z.boolean().optional(),
 });
 
 export type CreateUserInput = z.infer<typeof CreateUserInputSchema>;
@@ -50,6 +52,7 @@ export const UpdateUserInputSchema = z
     status: UserStatusSchema.optional(),
     funcionarioId: z.number().int().positive().nullable().optional(),
     passwordHash: z.string().optional(),
+    mustChangePassword: z.boolean().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Informe ao menos um campo para atualização',

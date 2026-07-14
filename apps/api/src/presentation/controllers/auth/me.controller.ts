@@ -7,6 +7,7 @@ import {
   ApiErrorResponses,
 } from '../../../shared/decorators/api-responses.decorator.js';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard.js';
+import { LiderancaGuard } from '../../../shared/guards/lideranca.guard.js';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -15,7 +16,7 @@ export class MeController {
   constructor(private readonly getMeUseCase: GetMeUseCase) {}
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, LiderancaGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Retorna o usuário autenticado', operationId: 'getMe' })
   handle(@Request() req: FastifyRequest & { user: { id: number; email: string } }) {

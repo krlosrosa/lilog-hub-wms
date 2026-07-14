@@ -171,6 +171,10 @@ export const sessoesTrabalho = sessaoOperacaoPgSchema.table(
       table.equipeId,
       table.dataReferencia,
     ),
+    index('sessoes_trabalho_escala_status_idx').on(
+      table.escalaId,
+      table.status,
+    ),
   ],
 );
 

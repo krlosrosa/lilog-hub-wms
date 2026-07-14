@@ -183,6 +183,12 @@ export type SessaoTitularAbertaPorFuncionarioRecord = {
   equipeNome: string;
 };
 
+export type SessaoFuncionarioRecebimentoAbertaRecord = {
+  sessaoId: string;
+  sessaoFuncionarioId: string;
+  funcionarioId: number;
+};
+
 export interface ISessaoOperacaoRepository {
   listEscalas(filter: ListEscalasFilter): Promise<ListEscalasResult>;
   listEquipes(filter: ListEquipesFilter): Promise<ListEquipesResult>;
@@ -206,6 +212,7 @@ export interface ISessaoOperacaoRepository {
   listSessoes(filter: ListSessoesFilter): Promise<ListSessoesResult>;
   createSessao(input: CreateSessaoInput): Promise<SessaoRecord>;
   findSessaoById(id: string): Promise<SessaoRecord | null>;
+  findSessaoAbertaByEscalaId(escalaId: string): Promise<SessaoRecord | null>;
   abrirSessao(id: string, userId: number): Promise<SessaoRecord>;
   encerrarSessao(id: string, userId: number): Promise<SessaoRecord>;
   cancelarSessao(id: string): Promise<SessaoRecord>;
@@ -256,4 +263,8 @@ export interface ISessaoOperacaoRepository {
     funcionarioId: number,
     excludeSessaoId?: string,
   ): Promise<SessaoTitularAbertaPorFuncionarioRecord | null>;
+  findSessaoFuncionarioRecebimentoAberta(
+    unidadeId: string,
+    funcionarioId: number,
+  ): Promise<SessaoFuncionarioRecebimentoAbertaRecord | null>;
 }

@@ -8,3 +8,4 @@ export * from './expedicao/mapa-ordem-impressao.js';
 export * from './expedicao/mapa-carregamento-tabelas.js';
 export * from './recebimento/index.js';
 export * from './sync/index.js';
+export * from './funcionario/cargo.js';

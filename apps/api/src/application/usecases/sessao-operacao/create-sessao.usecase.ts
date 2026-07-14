@@ -32,6 +32,15 @@ export class CreateSessaoUseCase {
       throw new BadRequestException('Escala inativa');
     }
 
+    const sessaoAberta =
+      await this.sessaoOperacaoRepository.findSessaoAbertaByEscalaId(
+        input.escalaId,
+      );
+
+    if (sessaoAberta) {
+      throw new ConflictException('Esta escala já possui uma sessão aberta');
+    }
+
     try {
       return await this.sessaoOperacaoRepository.createSessao(input);
     } catch (error) {

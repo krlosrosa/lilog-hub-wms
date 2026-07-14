@@ -14,11 +14,19 @@ const OPERATOR_PERMISSIONS: ExpedicaoPermission[] = [
   EXPEDICAO_PERMISSION.VISUALIZAR,
 ];
 
+const LEADER_PERMISSIONS: ExpedicaoPermission[] = [
+  EXPEDICAO_PERMISSION.VISUALIZAR,
+];
+
 export function resolveExpedicaoRolePermissions(
   role: string,
 ): ExpedicaoPermission[] {
   if (role === 'admin') {
     return ADMIN_PERMISSIONS;
+  }
+
+  if (role === 'leader') {
+    return LEADER_PERMISSIONS;
   }
 
   return OPERATOR_PERMISSIONS;

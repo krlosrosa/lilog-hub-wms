@@ -19,6 +19,9 @@ export async function updateUserDb(
   if (data.status !== undefined) values.status = data.status;
   if (data.funcionarioId !== undefined) values.funcionarioId = data.funcionarioId;
   if (data.passwordHash !== undefined) values.passwordHash = data.passwordHash;
+  if (data.mustChangePassword !== undefined) {
+    values.mustChangePassword = data.mustChangePassword;
+  }
 
   const [record] = await db
     .update(users)

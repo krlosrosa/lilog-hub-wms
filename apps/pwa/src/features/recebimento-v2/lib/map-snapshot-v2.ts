@@ -1,12 +1,13 @@
 import { toBaseUnits } from '@/features/recebimento/lib/resolve-recebimento-divergencia';
 import type { QuantidadeModo } from '@/features/recebimento/types/recebimento.schema';
 
-import type { ConferenceRecord, DamageRecord } from '../local-db/schema';
+import type { ConferenceRecord, DamageRecord, TemperatureRecord } from '../local-db/schema';
 import { resolveUnidadesPorCaixa } from './resolve-produto-conferencia-v2';
 import type { RecebimentoSnapshot } from '../types/recebimento-v2.schema';
 
 type SnapshotConferencia = Record<string, unknown>;
 type SnapshotAvaria = Record<string, unknown>;
+type SnapshotTemperatura = { etapa?: unknown; temperatura?: unknown };
 
 type SkuLookupSource = {
   produtoId: string;
@@ -89,6 +90,29 @@ export function resolveSnapshotAvarias(
 ): SnapshotAvaria[] {
   const damages = snapshot.damages ?? snapshot.avarias;
   return Array.isArray(damages) ? damages : [];
+}
+
+export function resolveSnapshotTemperaturas(
+  snapshot: RecebimentoSnapshot,
+): SnapshotTemperatura[] {
+  const temperatures = snapshot.temperatures ?? snapshot.temperaturas;
+  return Array.isArray(temperatures) ? temperatures : [];
+}
+
+export function mapServerTemperaturaToRecord(
+  item: SnapshotTemperatura,
+  demandId: string,
+  now: number,
+): TemperatureRecord {
+  const etapa = String(item.etapa ?? '').trim();
+  return {
+    id: `${demandId}::${etapa}`,
+    demandId,
+    etapa,
+    temperatura: Number(item.temperatura),
+    syncStatus: 'synced',
+    updatedAt: now,
+  };
 }
 
 function resolveValidadeFromSnapshot(item: SnapshotConferencia): string | undefined {

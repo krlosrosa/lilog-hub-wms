@@ -1,16 +1,16 @@
+import {
+  FUNCIONARIO_CARGO_LABELS,
+  FUNCIONARIO_CARGO_OPTIONS,
+  FuncionarioCargoSchema,
+  type FuncionarioCargo,
+} from '@lilog/contracts';
 import { z } from 'zod';
 
 import { funcionarioTurnoSchema } from '@/features/funcionarios/types/funcionarios-gestao.schema';
 
-export const funcionarioCargoSchema = z.enum([
-  'operador_empilhadeira',
-  'separador',
-  'conferente',
-  'ajudante',
-  'administrativo',
-]);
+export { FuncionarioCargoSchema, type FuncionarioCargo };
 
-export type FuncionarioCargo = z.infer<typeof funcionarioCargoSchema>;
+export const funcionarioCargoSchema = FuncionarioCargoSchema;
 
 export const funcionarioFormSchema = z
   .object({
@@ -53,7 +53,10 @@ export const funcionarioFormSchema = z
         message: 'Informe a senha de acesso',
         path: ['usuarioSenha'],
       });
-    } else if (data.usuarioSenha.trim().length < 6) {
+      return;
+    }
+
+    if (data.usuarioSenha.trim().length < 6) {
       ctx.addIssue({
         code: 'custom',
         message: 'A senha deve ter no mínimo 6 caracteres',
@@ -64,16 +67,8 @@ export const funcionarioFormSchema = z
 
 export type FuncionarioFormValues = z.infer<typeof funcionarioFormSchema>;
 
-export const CARGO_OPTIONS: Array<{
-  value: FuncionarioCargo;
-  label: string;
-}> = [
-  { value: 'operador_empilhadeira', label: 'Operador Empilhadeira' },
-  { value: 'separador', label: 'Separador' },
-  { value: 'conferente', label: 'Conferente' },
-  { value: 'ajudante', label: 'Ajudante' },
-  { value: 'administrativo', label: 'Administrativo' },
-];
+export const CARGO_OPTIONS = FUNCIONARIO_CARGO_OPTIONS;
+export const CARGO_LABELS = FUNCIONARIO_CARGO_LABELS;
 
 export const TURNO_OPTIONS = [
   { value: 'manha' as const, label: 'Manhã' },
@@ -81,10 +76,4 @@ export const TURNO_OPTIONS = [
   { value: 'noite' as const, label: 'Noite' },
 ] as const;
 
-export const CARGO_LABELS: Record<FuncionarioCargo, string> = {
-  operador_empilhadeira: 'Operador Empilhadeira',
-  separador: 'Separador',
-  conferente: 'Conferente',
-  ajudante: 'Ajudante',
-  administrativo: 'Administrativo',
-};
+export type FuncionarioCargoForm = FuncionarioCargo;

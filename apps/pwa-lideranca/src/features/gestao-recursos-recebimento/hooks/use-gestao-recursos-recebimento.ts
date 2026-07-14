@@ -45,7 +45,7 @@ const EMPTY_KPIS: KpiCard[] = [
   },
   {
     id: 'ociosos',
-    label: 'Ociosos',
+    label: 'Disponíveis',
     value: '00',
     suffix: 'SEM MISSÃO',
     accent: 'destructive',

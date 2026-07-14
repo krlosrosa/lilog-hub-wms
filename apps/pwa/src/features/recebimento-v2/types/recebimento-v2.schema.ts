@@ -249,4 +249,6 @@ export interface RecebimentoSnapshot {
   checklist?: Record<string, unknown> | null;
   checklists?: Array<Record<string, unknown>>;
   temperatures?: Array<Record<string, unknown>>;
+  /** Campo retornado pela API de snapshot/package */
+  temperaturas?: Array<{ etapa: string; temperatura: number }>;
 }

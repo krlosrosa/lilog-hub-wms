@@ -15,6 +15,8 @@ import { CacheModuleConfig } from './infra/modules/cache.module.js';
 
 import { UnidadeModule } from './infra/modules/unidade.module.js';
 
+import { CentroOrigemModule } from './infra/modules/centro-origem.module.js';
+
 import { EnderecoModule } from './infra/modules/endereco.module.js';
 
 import { ProdutoEnderecoModule } from './infra/modules/produto-endereco.module.js';
@@ -99,6 +101,8 @@ import { EmailModule } from './infra/modules/email.module.js';
     AuditLogModule,
 
     UnidadeModule,
+
+    CentroOrigemModule,
 
     ProdutoModule,
 

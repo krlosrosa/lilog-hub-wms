@@ -20,6 +20,7 @@ export async function obterRegrasPausaPadraoDb(
     .select({
       subtipo: configuracoesOperacionais.subtipo,
       parametros: configuracoesOperacionais.parametros,
+      isPadrao: configuracoesOperacionais.isPadrao,
     })
     .from(configuracoesOperacionais)
     .where(
@@ -28,25 +29,46 @@ export async function obterRegrasPausaPadraoDb(
         eq(configuracoesOperacionais.dominio, DOMINIO_OPERACIONAL),
         eq(configuracoesOperacionais.categoria, CATEGORIA_PAUSAS),
         eq(configuracoesOperacionais.ativo, true),
-        eq(configuracoesOperacionais.isPadrao, true),
       ),
     );
 
-  const regras: RegrasPausaPadraoMap = {};
+  const groupedBySubtipo = new Map<
+    string,
+    Array<{ subtipo: string; parametros: unknown; isPadrao: boolean }>
+  >();
 
   for (const row of rows) {
     if (!isSubtipoPausa(row.subtipo)) {
       continue;
     }
 
-    regras[row.subtipo] = parseParametrosConfig(
-      CATEGORIA_PAUSAS,
-      row.subtipo,
-      row.parametros,
-    ) as ParametrosPausa;
+    const list = groupedBySubtipo.get(row.subtipo) ?? [];
+    list.push(row);
+    groupedBySubtipo.set(row.subtipo, list);
   }
 
-  return regras;
+  const records: Array<{ subtipo: string; parametros: unknown }> = [];
+
+  for (const [subtipo, list] of groupedBySubtipo.entries()) {
+    if (!list.length) {
+      continue;
+    }
+
+    const preferida =
+      list.find((item) => item.isPadrao) ??
+      list[0];
+
+    if (!preferida) {
+      continue;
+    }
+
+    records.push({
+      subtipo,
+      parametros: preferida.parametros,
+    });
+  }
+
+  return mapRegrasPausaFromRecords(records);
 }
 
 export function mapRegrasPausaFromRecords(

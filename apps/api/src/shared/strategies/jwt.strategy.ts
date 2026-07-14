@@ -8,6 +8,7 @@ export type JwtPayload = {
   sub: string;
   email: string;
   role: string;
+  mustChangePassword?: boolean;
 };
 
 @Injectable()
@@ -30,6 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: Number(payload.sub),
       email: payload.email,
       role: payload.role,
+      mustChangePassword: payload.mustChangePassword ?? false,
     };
   }
 }

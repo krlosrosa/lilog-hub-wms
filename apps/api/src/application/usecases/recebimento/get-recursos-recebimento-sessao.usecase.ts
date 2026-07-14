@@ -20,6 +20,7 @@ import {
   type DemandaRecebimentoComAlocacao,
   type IRecebimentoAlocacaoRepository,
 } from '../../../domain/repositories/recebimento/recebimento-alocacao.repository.js';
+import { buildSessaoFuncionariosComDemanda } from '../../services/recebimento/resolve-demandas-ativas-operador.js';
 import {
   SESSAO_OPERACAO_REPOSITORY,
   type ISessaoOperacaoRepository,
@@ -47,17 +48,23 @@ function resolveStatusDemanda(
 }
 
 function computeKpisRecebimento(
-  funcionarios: Array<{ id: string; pausaAtiva: unknown; alertaPausa: { precisaPausa: boolean } | null }>,
-  demandas: Array<{ statusDemanda: string; alocacao: { sessaoFuncionarioId: string } | null }>,
+  funcionarios: Array<{
+    id: string;
+    funcionarioId: number;
+    pausaAtiva: unknown;
+    alertaPausa: { precisaPausa: boolean } | null;
+  }>,
+  demandas: Array<{
+    statusDemanda: string;
+    alocacao: { sessaoFuncionarioId: string } | null;
+    conferente: { id: number } | null;
+  }>,
   totalFuncionarios: number,
 ) {
-  const sessaoFuncionariosComDemanda = new Set<string>();
-
-  for (const demanda of demandas) {
-    if (demanda.alocacao && demanda.statusDemanda !== 'disponivel') {
-      sessaoFuncionariosComDemanda.add(demanda.alocacao.sessaoFuncionarioId);
-    }
-  }
+  const sessaoFuncionariosComDemanda = buildSessaoFuncionariosComDemanda(
+    demandas,
+    funcionarios,
+  );
 
   let emPausa = 0;
   let atuando = 0;
@@ -200,6 +207,21 @@ export class GetRecursosRecebimentoSessaoUseCase {
       PRESENCA_ELEGIVEL.has(f.status),
     );
 
+    const ultimasMissoes =
+      await this.recebimentoAlocacaoRepository.listUltimasMissoesFinalizadasPorSessao(
+        sessaoId,
+        unidadeId,
+        sessao.inicioReal ?? sessao.inicioPlanejado,
+        funcionariosElegiveis.map((funcionario) => funcionario.funcionarioId),
+      );
+
+    const ultimasMissoesPorFuncionario = new Map(
+      ultimasMissoes.map((item) => [
+        item.funcionarioId,
+        item.ultimaMissaoFinalizadaEm.toISOString(),
+      ]),
+    );
+
     const now = new Date();
 
     const funcionarios = await Promise.all(
@@ -273,6 +295,8 @@ export class GetRecursosRecebimentoSessaoUseCase {
           tipoVinculo: funcionario.tipoVinculo,
           equipeOrigemNome: funcionario.equipeOrigemNome,
           apoioInicio: funcionario.apoioInicio?.toISOString() ?? null,
+          ultimaMissaoFinalizadaEm:
+            ultimasMissoesPorFuncionario.get(funcionario.funcionarioId) ?? null,
         };
       }),
     );

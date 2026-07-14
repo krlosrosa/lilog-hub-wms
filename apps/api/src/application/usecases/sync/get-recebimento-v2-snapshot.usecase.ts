@@ -46,6 +46,10 @@ export type RecebimentoV2Snapshot = {
   situacao: string;
   conferencias: unknown[];
   avarias: unknown[];
+  temperaturas: Array<{
+    etapa: string;
+    temperatura: number;
+  }>;
   checklist: {
     id: string;
     recebimentoId: string;
@@ -101,7 +105,21 @@ export class GetRecebimentoV2SnapshotUseCase {
       this.syncRepository.getAggregateRevision('recebimento-v2', input.processId),
     ]);
 
-    const conferencias = (conferenciaContext?.conferidos ?? []).map(mapConferidoToSnapshot);
+    const recebimentoId = detalhe?.recebimento?.id;
+    const [conferencias, temperaturas] = await Promise.all([
+      Promise.resolve((conferenciaContext?.conferidos ?? []).map(mapConferidoToSnapshot)),
+      recebimentoId
+        ? this.conferenciaRepository
+            .listTemperaturasProduto(recebimentoId)
+            .then((items) =>
+              items.map((item) => ({
+                etapa: item.etapa,
+                temperatura: item.temperatura,
+              })),
+            )
+            .catch(() => [] as Array<{ etapa: string; temperatura: number }>)
+        : Promise.resolve([] as Array<{ etapa: string; temperatura: number }>),
+    ]);
 
     return {
       processId: input.processId,
@@ -109,6 +127,7 @@ export class GetRecebimentoV2SnapshotUseCase {
       situacao: preRecebimento.situacao,
       conferencias,
       avarias: detalhe?.avarias ?? [],
+      temperaturas,
       checklist: detalhe?.checklist
         ? {
             id: detalhe.checklist.id,

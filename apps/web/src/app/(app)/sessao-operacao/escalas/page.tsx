@@ -1,5 +1,5 @@
-import { EscalasGestaoView } from '@/features/sessao-operacao';
+import { redirect } from 'next/navigation';
 
 export default function SessaoOperacaoEscalasPage() {
-  return <EscalasGestaoView />;
+  redirect('/pessoas/escalas');
 }

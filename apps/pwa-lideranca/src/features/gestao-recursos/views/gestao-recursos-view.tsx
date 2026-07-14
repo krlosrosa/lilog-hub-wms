@@ -36,7 +36,7 @@ const EMPTY_MESSAGES: Record<GestaoRecursosFilter, string> = {
   atuando: 'Nenhum operador atuando no momento.',
   precisa_pausa: 'Nenhum operador precisa de pausa agora.',
   em_pausa: 'Nenhum operador em pausa no momento.',
-  ociosos: 'Nenhum operador ocioso no momento.',
+  ociosos: 'Nenhum operador disponível no momento.',
 };
 
 export type GestaoRecursosViewProps = {

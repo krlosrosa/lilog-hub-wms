@@ -13,9 +13,10 @@ import { z } from 'zod';
 import { CreateFuncionarioResponseDto } from '../../../application/dtos/funcionario/list-funcionarios.dto.js';
 import { CreateFuncionarioUseCase } from '../../../application/usecases/funcionario/create-funcionario.usecase.js';
 import {
-  FuncionarioCargoSchema,
+  FuncionarioCargoInputSchema,
   FuncionarioSituacaoSchema,
 } from '../../../domain/model/funcionario/funcionario.model.js';
+import { UserRoleSchema } from '../../../domain/model/user/user.model.js';
 import {
   ApiErrorResponses,
   ApiSuccessResponse,
@@ -36,7 +37,7 @@ const CreateFuncionarioBodySchema = z
       .max(50)
       .regex(/^\d+$/, 'Matrícula deve ser um ID numérico'),
     nome: z.string().min(1).max(100),
-    cargo: FuncionarioCargoSchema,
+    cargo: FuncionarioCargoInputSchema,
     situacao: FuncionarioSituacaoSchema.default('ativo'),
     dataAdmissao: z.iso.date(),
     telefone: z.string().max(20).optional(),
@@ -44,6 +45,8 @@ const CreateFuncionarioBodySchema = z
     observacao: z.string().optional(),
     criarUsuarioAdmin: z.boolean().default(false),
     usuarioSenha: z.string().min(6).optional(),
+    role: UserRoleSchema.optional().default('operator'),
+    unidadesIds: z.array(z.string().min(1)).optional(),
   })
   .refine(
     (data) => !data.criarUsuarioAdmin || Boolean(data.usuarioSenha),
@@ -149,14 +152,22 @@ export class CreateFuncionarioController {
       }
     }
 
-    const { criarUsuarioAdmin, usuarioSenha, dataAdmissao, ...funcionarioData } =
-      body;
+    const {
+      criarUsuarioAdmin,
+      usuarioSenha,
+      role,
+      unidadesIds,
+      dataAdmissao,
+      ...funcionarioData
+    } = body;
 
     const result = await this.createFuncionarioUseCase.execute({
       ...funcionarioData,
       dataAdmissao: new Date(dataAdmissao),
       criarUsuarioAdmin,
       usuarioSenha,
+      role,
+      unidadesIds,
     });
 
     return {

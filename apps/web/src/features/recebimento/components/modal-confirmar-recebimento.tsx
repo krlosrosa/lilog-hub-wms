@@ -7,6 +7,7 @@ import {
   cn,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@lilog/ui';
@@ -146,6 +147,10 @@ export function ModalConfirmarRecebimento({
           <DialogTitle className="text-headline-md font-bold text-primary">
             Finalizar Recebimento
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Confirme a finalização do recebimento e, se desejar, libere a portaria
+            automaticamente.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 md:grid-cols-2 md:gap-6 md:p-6">

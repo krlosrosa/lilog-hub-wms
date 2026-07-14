@@ -15,7 +15,7 @@ import { USUARIO_PERFIL_LABELS } from '@/features/usuarios/types/usuarios-gestao
 
 type UsuarioTableRowProps = {
   usuario: UsuarioRecord;
-  onResetPermissoes: (id: string) => void;
+  onResetSenha: (id: string) => void;
   onSuspender: (id: string) => void;
   onDesbloquear: (id: string) => void;
   onExcluir: (id: string) => void;
@@ -37,7 +37,7 @@ function getPerfilBadgeClass(perfil: UsuarioRecord['perfil']) {
 
 export function UsuarioTableRow({
   usuario,
-  onResetPermissoes,
+  onResetSenha,
   onSuspender,
   onDesbloquear,
   onExcluir,
@@ -108,10 +108,10 @@ export function UsuarioTableRow({
           </Link>
           <button
             type="button"
-            onClick={() => onResetPermissoes(usuario.id)}
+            onClick={() => onResetSenha(usuario.id)}
             className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary/10 hover:text-secondary"
-            title="Resetar permissões"
-            aria-label={`Resetar permissões de ${usuario.nome}`}
+            title="Resetar senha"
+            aria-label={`Resetar senha de ${usuario.nome}`}
           >
             <Key className="size-3.5" aria-hidden />
           </button>

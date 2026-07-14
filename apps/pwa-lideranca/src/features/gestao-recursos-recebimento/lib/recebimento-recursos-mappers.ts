@@ -17,6 +17,7 @@ import type {
 } from '@/features/gestao-recursos/types/gestao-recursos.schema';
 
 import type { DemandaRecebimentoRecursoApi } from '@/features/gestao-recursos-recebimento/types/recebimento-recursos.api';
+import { getReferenciaOciosidadeRecebimentoIso } from '@/features/gestao-recursos-recebimento/lib/recebimento-ociosidade';
 
 const IDLE_THRESHOLD_BASE = 30;
 
@@ -37,12 +38,22 @@ function formatDemandaMission(demanda: DemandaRecebimentoRecursoApi): string {
 function getDemandasAtivasDoOperador(
   demandas: DemandaRecebimentoRecursoApi[],
   sessaoFuncionarioId: string,
+  funcionarioId: number,
 ): DemandaRecebimentoRecursoApi[] {
-  return demandas.filter(
-    (demanda) =>
-      demanda.alocacao?.sessaoFuncionarioId === sessaoFuncionarioId &&
-      demanda.statusDemanda !== 'disponivel',
-  );
+  return demandas.filter((demanda) => {
+    if (demanda.statusDemanda === 'disponivel') {
+      return false;
+    }
+
+    if (demanda.alocacao?.sessaoFuncionarioId === sessaoFuncionarioId) {
+      return true;
+    }
+
+    return (
+      demanda.statusDemanda === 'em_conferencia' &&
+      demanda.conferente?.id === funcionarioId
+    );
+  });
 }
 
 function pickDemandaPrincipal(
@@ -113,9 +124,16 @@ function buildOperadorOciosoRecebimento(
   name: string,
   sector: string,
   checkIn: string | null,
+  ultimaMissaoFinalizadaEm: string | null | undefined,
   now: Date,
 ): Operator {
-  const idleElapsed = checkIn ? getElapsedMinutes(checkIn, now) : 0;
+  const referenciaOciosidade = getReferenciaOciosidadeRecebimentoIso(
+    checkIn,
+    ultimaMissaoFinalizadaEm,
+  );
+  const idleElapsed = referenciaOciosidade
+    ? getElapsedMinutes(referenciaOciosidade, now)
+    : 0;
   const idleThreshold = Math.min(
     100,
     Math.round((idleElapsed / 60) * IDLE_THRESHOLD_BASE),
@@ -126,7 +144,7 @@ function buildOperadorOciosoRecebimento(
     name,
     sector,
     status: 'ocioso',
-    idleDuration: `${formatDurationMinutes(idleElapsed).toUpperCase()} OCIOSO`,
+    idleDuration: `${formatDurationMinutes(idleElapsed).toUpperCase()} DISPONÍVEL`,
     idleThreshold: idleThreshold || 5,
   };
 }
@@ -176,7 +194,11 @@ export function mapRecursosRecebimentoToOperators(
     const operatorId = funcionario.id;
     const sector = funcionario.cargo || 'Recebimento';
     const proxima = enrichProximaPausa(funcionario.proximaPausa, now);
-    const demandasAtivas = getDemandasAtivasDoOperador(demandas, funcionario.id);
+    const demandasAtivas = getDemandasAtivasDoOperador(
+      demandas,
+      funcionario.id,
+      funcionario.funcionarioId,
+    );
 
     if (funcionario.pausaAtiva) {
       return withApoioFields(
@@ -219,6 +241,7 @@ export function mapRecursosRecebimentoToOperators(
           funcionario.nome,
           sector,
           funcionario.checkIn,
+          funcionario.ultimaMissaoFinalizadaEm,
           now,
         ),
         proxima,
