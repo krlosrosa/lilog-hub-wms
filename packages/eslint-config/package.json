@@ -15,6 +15,7 @@
   "dependencies": {
     "@eslint/eslintrc": "^3.2.2",
     "@eslint/js": "^9.39.2",
+    "@next/eslint-plugin-next": "^15.5.11",
     "eslint-config-next": "^15.5.11",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
