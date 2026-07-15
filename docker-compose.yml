@@ -33,7 +33,9 @@ services:
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
       R2_TOKEN_ID: ${R2_TOKEN_ID:-}
       R2_REGION: ${R2_REGION:-auto}
-      R2_S3_ENDPOINT: ${R2_S3_ENDPOINT:-}
+      R2_S3_ENDPOINT: ${R2_S3_ENDPOINT:-http://minio:9000}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       API_PUBLIC_URL: ${API_PUBLIC_URL:-https://api-dev.logistica-processo.com}
       SWAGGER_PUBLIC_URL: ${SWAGGER_PUBLIC_URL:-https://api-dev.logistica-processo.com/api/docs}
       BULL_BOARD_PUBLIC_URL: ${BULL_BOARD_PUBLIC_URL:-https://api-dev.logistica-processo.com/queues}
@@ -46,6 +48,8 @@ services:
       EMAIL_FROM: ${EMAIL_FROM:-}
     depends_on:
       redis:
+        condition: service_started
+      minio:
         condition: service_started
     networks:
       - proxy
@@ -247,6 +251,44 @@ services:
       - traefik.http.routers.lilog-portal.tls.certresolver=cloudflare
       - traefik.http.services.lilog-portal.loadbalancer.server.port=3002
 
+  minio:
+    image: minio/minio:latest
+    container_name: lilog-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    networks:
+      - proxy
+      - internal
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 256M
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lilog-minio-api.rule=Host(`${MINIO_API_HOST:-storage-dev.logistica-processo.com}`)
+      - traefik.http.routers.lilog-minio-api.service=lilog-minio-api
+      - traefik.http.routers.lilog-minio-api.entrypoints=websecure
+      - traefik.http.routers.lilog-minio-api.tls=true
+      - traefik.http.routers.lilog-minio-api.tls.certresolver=cloudflare
+      - traefik.http.services.lilog-minio-api.loadbalancer.server.port=9000
+      - traefik.http.routers.lilog-minio-console.rule=Host(`${MINIO_HOST:-storage-console-dev.logistica-processo.com}`)
+      - traefik.http.routers.lilog-minio-console.service=lilog-minio-console
+      - traefik.http.routers.lilog-minio-console.entrypoints=websecure
+      - traefik.http.routers.lilog-minio-console.tls=true
+      - traefik.http.routers.lilog-minio-console.tls.certresolver=cloudflare
+      - traefik.http.services.lilog-minio-console.loadbalancer.server.port=9001
+
   redis:
     image: redis:7-alpine
     container_name: lilog-redis
@@ -276,3 +318,4 @@ networks:
 
 volumes:
   redis_data:
+  minio_data:
