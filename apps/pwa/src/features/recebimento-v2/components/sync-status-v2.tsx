@@ -54,22 +54,27 @@ export function SyncStatusV2({
     photoErrorCount,
     issueOperations,
     isSyncing,
+    isAutoSyncPaused,
     lastSyncedAt,
     lastPullAt,
   } = syncStatus;
 
   const busy = isSyncing || isPulling;
   const hasIssues =
+    isAutoSyncPaused ||
     conflictCount > 0 ||
     rejectedCount > 0 ||
     retryCount > 0 ||
     blockedCount > 0 ||
     photoErrorCount > 0;
   const isClean = pendingCount === 0 && pendingPhotoCount === 0 && !hasIssues;
+  const showRetryButton =
+    isAutoSyncPaused && (retryCount > 0 || pendingCount > 0 || pendingPhotoCount > 0);
 
   const statusLabel = (() => {
     if (isPulling) return 'Atualizando do servidor...';
     if (isSyncing) return 'Sincronizando...';
+    if (isAutoSyncPaused) return 'Sincronização pausada após 3 tentativas';
     if (hasIssues) {
       const parts: string[] = [];
       if (conflictCount > 0) parts.push(`${conflictCount} conflito(s)`);
@@ -150,7 +155,19 @@ export function SyncStatusV2({
             </button>
           )}
 
-          {onSync && !busy && (pendingCount > 0 || pendingPhotoCount > 0) && (
+          {onSync && !busy && showRetryButton && (
+            <button
+              type="button"
+              onClick={onSync}
+              className="flex items-center gap-1 rounded-md bg-destructive px-2.5 py-1.5 text-label-sm font-medium text-destructive-foreground touch-manipulation transition-transform active:scale-95"
+              aria-label="Tentar sincronizar novamente"
+            >
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+              Tentar novamente
+            </button>
+          )}
+
+          {onSync && !busy && !showRetryButton && (pendingCount > 0 || pendingPhotoCount > 0) && (
             <button
               type="button"
               onClick={onSync}

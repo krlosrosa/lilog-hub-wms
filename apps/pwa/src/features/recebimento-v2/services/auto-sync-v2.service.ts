@@ -40,11 +40,13 @@ export function getAutoSyncPaused(demandId: string): boolean {
 export function resetAutoSyncBackoff(demandId: string): void {
   consecutiveErrorsByDemand.delete(demandId);
   pausedDemands.delete(demandId);
+  void recebimentoV2Db.processes.update(demandId, { autoSyncPaused: false });
 }
 
 function recordAutoSyncSuccess(demandId: string): void {
   consecutiveErrorsByDemand.delete(demandId);
   pausedDemands.delete(demandId);
+  void recebimentoV2Db.processes.update(demandId, { autoSyncPaused: false });
 }
 
 function recordAutoSyncFailure(demandId: string): void {
@@ -53,6 +55,7 @@ function recordAutoSyncFailure(demandId: string): void {
 
   if (next >= MAX_CONSECUTIVE_AUTO_SYNC_ERRORS) {
     pausedDemands.add(demandId);
+    void recebimentoV2Db.processes.update(demandId, { autoSyncPaused: true });
   }
 }
 

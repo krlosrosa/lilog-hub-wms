@@ -19,6 +19,7 @@ export interface UseSyncStatusV2Result {
   photoErrorCount: number;
   issueOperations: SyncIssueOperation[];
   isSyncing: boolean;
+  isAutoSyncPaused: boolean;
   lastSyncedAt: number | null;
   lastPullAt: number | null;
   /** @deprecated Prefer DB-driven isSyncing; kept for manual sync callers */
@@ -75,6 +76,7 @@ export function useSyncStatusV2(demandId: string): UseSyncStatusV2Result {
       issueOperations,
       lastSyncedAt,
       lastPullAt,
+      isAutoSyncPaused: process?.autoSyncPaused ?? false,
       isSyncingFromDb:
         processSyncing ||
         syncingOpsCount > 0 ||
@@ -92,6 +94,7 @@ export function useSyncStatusV2(demandId: string): UseSyncStatusV2Result {
     photoErrorCount: result?.photoErrorCount ?? 0,
     issueOperations: result?.issueOperations ?? [],
     isSyncing: manualSyncing || (result?.isSyncingFromDb ?? false),
+    isAutoSyncPaused: result?.isAutoSyncPaused ?? false,
     lastSyncedAt: result?.lastSyncedAt ?? null,
     lastPullAt: result?.lastPullAt ?? null,
     setIsSyncing: setManualSyncing,

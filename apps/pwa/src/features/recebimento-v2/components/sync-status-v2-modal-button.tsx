@@ -36,10 +36,12 @@ export function SyncStatusV2ModalButton({ demandId }: SyncStatusV2ModalButtonPro
     blockedCount,
     photoErrorCount,
     isSyncing,
+    isAutoSyncPaused,
   } = syncStatus;
 
   const pendingTotal = pendingCount + pendingPhotoCount;
   const hasIssues =
+    isAutoSyncPaused ||
     conflictCount > 0 ||
     rejectedCount > 0 ||
     retryCount > 0 ||

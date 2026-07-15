@@ -38,6 +38,8 @@ export interface ProcessRecord {
   lastSyncedAt?: number;
   lastPullAt?: number;
   errorMessage?: string;
+  /** Auto-sync paused after consecutive failures — user must retry manually */
+  autoSyncPaused?: boolean;
   flowVersion: 'v2';
   /** Server recebimento id — cached after sync for photo uploads */
   recebimentoId?: string;
