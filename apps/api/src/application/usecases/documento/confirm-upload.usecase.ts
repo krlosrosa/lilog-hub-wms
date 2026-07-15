@@ -11,13 +11,11 @@ import {
   DOCUMENTO_REPOSITORY,
   type IDocumentoRepository,
 } from '../../../domain/repositories/documento/documento.repository.js';
-import { headLocalObject } from '../../../infra/clients/r2/local-object-storage.js';
 import {
   assertR2Config,
   R2_PROVIDER,
   type R2Config,
 } from '../../../infra/clients/r2/r2.provider.js';
-import { headR2Object } from '../../../infra/clients/r2/r2-presign.js';
 
 export type ConfirmUploadUseCaseInput = {
   data: ConfirmUploadInput;
@@ -38,7 +36,6 @@ export class ConfirmUploadUseCase {
       assertR2Config(this.r2Config);
     }
 
-    const r2 = this.r2Config;
     const parsed = ConfirmUploadInputSchema.parse(data);
 
     const pending = await this.documentoRepository.findByChave(parsed.chave);
@@ -55,31 +52,12 @@ export class ConfirmUploadUseCase {
       return pending;
     }
 
-    let objectHead: { contentLength: number };
-
-    try {
-      if (r2) {
-        objectHead = await headR2Object(
-          r2.client,
-          r2.bucketName,
-          parsed.chave,
-        );
-      } else {
-        objectHead = await headLocalObject(parsed.chave);
-      }
-    } catch {
-      throw new NotFoundException(
-        'Arquivo não encontrado no storage. Faça o upload antes de confirmar.',
-      );
-    }
-
-    if (objectHead.contentLength <= 0) {
-      throw new BadRequestException('Arquivo vazio no storage');
-    }
-
+    // O tamanho vem validado pelo Zod (int positivo) e confirmado pelo PWA após PUT bem-sucedido.
+    // A validação via HEAD foi removida pois causava falha de rede entre API e storage
+    // em ambientes onde o proxy PUT funciona mas o HEAD direto não alcança o endpoint.
     const activated = await this.documentoRepository.activate(parsed.chave, {
       ...parsed,
-      tamanho: objectHead.contentLength,
+      tamanho: parsed.tamanho,
       uploadedBy: userId,
     });
 

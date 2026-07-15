@@ -160,6 +160,7 @@ export async function createR2Client(
   return new S3Client({
     region,
     endpoint,
+    forcePathStyle: true,
     credentials: {
       accessKeyId,
       secretAccessKey,
