@@ -354,6 +354,22 @@ export async function listAvariaDocumentos(
   return result.items ?? [];
 }
 
+export async function listAvariaDocumentosByAvariaId(
+  avariaId: string,
+): Promise<DocumentoApi[]> {
+  const params = new URLSearchParams({
+    entidadeTipo: 'recebimento_avaria',
+    entidadeId: avariaId,
+    status: 'ativo',
+    page: '1',
+    limit: '50',
+  });
+  const result = await apiRequest<{ items: DocumentoApi[] }>(
+    `/documentos?${params.toString()}`,
+  );
+  return result.items ?? [];
+}
+
 export async function listImpedimentoDocumentos(
   preRecebimentoId: string,
 ): Promise<DocumentoApi[]> {

@@ -9,6 +9,7 @@ import {
   pgSchema,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
   varchar,
@@ -160,6 +161,9 @@ export const recebimentos = recebimentoPgSchema.table('recebimentos', {
     .notNull()
     .default('em_conferencia'),
   quantidadePaletes: integer('quantidade_paletes'),
+  teveSobreposicaoCarga: boolean('teve_sobreposicao_carga')
+    .notNull()
+    .default(false),
   modoUnitizacao: varchar('modo_unitizacao', { length: 50 })
     .notNull()
     .default('gerar_etiqueta_na_armazenagem'),
@@ -235,31 +239,41 @@ export const pesagensRecebimento = recebimentoPgSchema.table(
   ],
 );
 
-export const recebimentoAvarias = recebimentoPgSchema.table('recebimento_avarias', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  recebimentoId: uuid('recebimento_id')
-    .notNull()
-    .references(() => recebimentos.id, { onDelete: 'cascade' }),
-  produtoId: varchar('produto_id', { length: 50 }).references(() => produtos.produtoId, {
-    onDelete: 'set null',
-  }),
-  tipo: varchar('tipo', { length: 50 }).notNull(),
-  natureza: varchar('natureza', { length: 50 }).notNull(),
-  causa: varchar('causa', { length: 50 }).notNull(),
-  quantidadeCaixas: integer('quantidade_caixas').notNull().default(0),
-  quantidadeUnidades: integer('quantidade_unidades').notNull().default(0),
-  lote: varchar('lote', { length: 100 }),
-  validade: timestamp('validade', { withTimezone: true }),
-  numeroSerie: varchar('numero_serie', { length: 100 }),
-  photoCount: integer('photo_count').notNull().default(0),
-  replicado: boolean('replicado').notNull().default(false),
-  operatorId: integer('operator_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'restrict' }),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const recebimentoAvarias = recebimentoPgSchema.table(
+  'recebimento_avarias',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    recebimentoId: uuid('recebimento_id')
+      .notNull()
+      .references(() => recebimentos.id, { onDelete: 'cascade' }),
+    produtoId: varchar('produto_id', { length: 50 }).references(() => produtos.produtoId, {
+      onDelete: 'set null',
+    }),
+    tipo: varchar('tipo', { length: 50 }).notNull(),
+    natureza: varchar('natureza', { length: 50 }).notNull(),
+    causa: varchar('causa', { length: 50 }).notNull(),
+    quantidadeCaixas: integer('quantidade_caixas').notNull().default(0),
+    quantidadeUnidades: integer('quantidade_unidades').notNull().default(0),
+    lote: varchar('lote', { length: 100 }),
+    validade: timestamp('validade', { withTimezone: true }),
+    numeroSerie: varchar('numero_serie', { length: 100 }),
+    photoCount: integer('photo_count').notNull().default(0),
+    replicado: boolean('replicado').notNull().default(false),
+    clientDamageId: varchar('client_damage_id', { length: 128 }),
+    operatorId: integer('operator_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique('recebimento_avarias_recebimento_client_damage_uidx').on(
+      table.recebimentoId,
+      table.clientDamageId,
+    ),
+  ],
+);
 
 export const temperaturaProdutoEtapaEnum = pgEnum(
   'temperatura_produto_etapa_type',

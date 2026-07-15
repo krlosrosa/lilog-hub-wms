@@ -118,6 +118,7 @@ export class RecebimentoService implements IRecebimentoRepository {
     situacao: RecebimentoSituacao,
     dataFim?: Date | null,
     quantidadePaletes?: number | null,
+    teveSobreposicaoCarga?: boolean,
   ) {
     return updateRecebimentoStatusDb(
       this.db,
@@ -125,6 +126,7 @@ export class RecebimentoService implements IRecebimentoRepository {
       situacao,
       dataFim,
       quantidadePaletes,
+      teveSobreposicaoCarga,
     );
   }
 }

@@ -3,6 +3,8 @@ import { RECEBIMENTO_V2_OP_TYPES, type SyncBatchRequest, type SyncBatchResult } 
 import { toBaseUnits } from '@/features/recebimento/lib/resolve-recebimento-divergencia';
 
 import { filterSyncableOperations } from './palete-session-v2.service';
+import { isOpAutoSyncable, nextRetryAttemptAt } from '../lib/sync-retry-policy';
+import { debugRecebimentoV2, errorRecebimentoV2 } from '../lib/sync-debug';
 import { reconcileRemoteSituacao } from '../lib/reconcile-remote-situacao';
 import { fetchPackage, fetchSnapshot, pushBatch } from '../api/sync-api';
 import {
@@ -29,7 +31,10 @@ import type {
 } from '../local-db/schema';
 import type { RecebimentoPackage } from '../types/recebimento-v2.schema';
 import {
+  collectAvariaPhotoUploadTargets,
   countPendingPhotoUploads,
+  resolveMediaIdsForDamage,
+  resolveServerAvariaIdForDamage,
   recoverStuckSyncState,
   resolveRecebimentoIdForDemand,
 } from './sync-photo.helpers';
@@ -58,6 +63,11 @@ export interface PushResult {
 export type PullDemandOptions = {
   /** Apaga dados locais e substitui pelo snapshot do servidor, descartando ops pendentes. */
   force?: boolean;
+};
+
+export type PushDemandOptions = {
+  /** Bypass retry backoff and max-attempt limits for user-initiated sync. */
+  manual?: boolean;
 };
 
 const PULL_DISCARD_OP_STATUSES = new Set<SyncOperationStatus>(['pending', 'syncing', 'retry']);
@@ -458,28 +468,21 @@ async function ensureChecklistPhotosUploaded(
 
 async function ensureAvariaPhotosUploaded(
   demandId: string,
-  recebimentoId?: string | null,
 ): Promise<AvariaPhotoUploadResult> {
-  const resolvedRecebimentoId = await resolveRecebimentoIdForDemand(
-    demandId,
-    recebimentoId,
-  );
+  const targets = await collectAvariaPhotoUploadTargets(demandId);
 
-  if (!resolvedRecebimentoId) {
-    return { uploaded: 0, failed: 0, skipped: 0 };
+  let aggregate: AvariaPhotoUploadResult = { uploaded: 0, failed: 0, skipped: 0 };
+
+  for (const { serverAvariaId, mediaIds } of targets) {
+    const attempt = await uploadAvariaPhotosV2(serverAvariaId, mediaIds);
+    aggregate = {
+      uploaded: aggregate.uploaded + attempt.uploaded,
+      failed: aggregate.failed + attempt.failed,
+      skipped: aggregate.skipped + attempt.skipped,
+    };
   }
 
-  const damages = await recebimentoV2Db.damages
-    .where('demandId')
-    .equals(demandId)
-    .and((damage) => !damage.deletedAt)
-    .toArray();
-
-  const mediaIds = [
-    ...new Set(damages.flatMap((damage) => damage.mediaIds ?? [])),
-  ];
-
-  return uploadAvariaPhotosV2(resolvedRecebimentoId, mediaIds);
+  return aggregate;
 }
 
 async function ensureImpedimentoPhotosUploaded(
@@ -535,26 +538,36 @@ async function uploadAvariaPhotosAfterSync(
   demandId: string,
   result: SyncBatchResult,
   pendingOps: SyncOperationRecord[],
-  recebimentoId: string | null,
 ): Promise<AvariaPhotoUploadResult> {
-  if (!recebimentoId) {
-    return { uploaded: 0, failed: 0, skipped: 0 };
-  }
-
-  const syncedAvariaOps = result.operations
-    .filter((opResult) => {
-      const op = pendingOps.find((item) => item.id === opResult.opId);
-      return op != null && isSuccessfulAvariaOp(op, opResult);
-    })
-    .map((opResult) => pendingOps.find((item) => item.id === opResult.opId))
-    .filter((op): op is SyncOperationRecord => op != null);
+  const syncedAvariaOps = result.operations.filter((opResult) => {
+    const op = pendingOps.find((item) => item.id === opResult.opId);
+    return op != null && isSuccessfulAvariaOp(op, opResult);
+  });
 
   let aggregate: AvariaPhotoUploadResult = { uploaded: 0, failed: 0, skipped: 0 };
 
-  for (const op of syncedAvariaOps) {
-    const payload = op.payload as { mediaIds?: string[] };
-    const mediaIds = payload.mediaIds ?? op.attachmentIds;
-    const attempt = await uploadAvariaPhotosV2(recebimentoId, mediaIds);
+  for (const opResult of syncedAvariaOps) {
+    const op = pendingOps.find((item) => item.id === opResult.opId)!;
+    const payload = op.payload as { damageId?: string; mediaIds?: string[] };
+    const damage = payload.damageId
+      ? await recebimentoV2Db.damages.get(payload.damageId)
+      : undefined;
+
+    const serverAvariaId =
+      opResult.serverId ??
+      damage?.serverAvariaId ??
+      (await (damage ? resolveServerAvariaIdForDamage(damage) : Promise.resolve(null)));
+
+    if (!serverAvariaId) {
+      continue;
+    }
+
+    const mediaIds =
+      payload.mediaIds ??
+      op.attachmentIds ??
+      (damage ? await resolveMediaIdsForDamage(damage) : []);
+
+    const attempt = await uploadAvariaPhotosV2(serverAvariaId, mediaIds);
     aggregate = {
       uploaded: aggregate.uploaded + attempt.uploaded,
       failed: aggregate.failed + attempt.failed,
@@ -562,7 +575,7 @@ async function uploadAvariaPhotosAfterSync(
     };
   }
 
-  const remaining = await ensureAvariaPhotosUploaded(demandId, recebimentoId);
+  const remaining = await ensureAvariaPhotosUploaded(demandId);
   return {
     uploaded: aggregate.uploaded + remaining.uploaded,
     failed: aggregate.failed + remaining.failed,
@@ -573,7 +586,10 @@ async function uploadAvariaPhotosAfterSync(
 /**
  * Pushes all pending sync operations for a demand to the server.
  */
-export async function pushDemand(demandId: string): Promise<PushResult> {
+export async function pushDemand(
+  demandId: string,
+  options?: PushDemandOptions,
+): Promise<PushResult> {
   await recoverStuckSyncState(demandId);
 
   const process = await recebimentoV2Db.processes.get(demandId);
@@ -586,7 +602,11 @@ export async function pushDemand(demandId: string): Promise<PushResult> {
     .and((op) => op.status === 'pending' || op.status === 'retry')
     .sortBy('createdAt') as SyncOperationRecord[];
 
-  const syncableOps = await filterSyncableOperations(demandId, pendingOps);
+  const retryEligibleOps = options?.manual
+    ? pendingOps
+    : pendingOps.filter((op) => isOpAutoSyncable(op));
+
+  const syncableOps = await filterSyncableOperations(demandId, retryEligibleOps);
 
   if (syncableOps.length === 0) {
     let photosUploaded = 0;
@@ -636,7 +656,20 @@ export async function pushDemand(demandId: string): Promise<PushResult> {
   let result: SyncBatchResult;
   try {
     result = await pushBatch(batch);
+    debugRecebimentoV2('sync', 'pushDemand result', {
+      demandId,
+      batchId: result.batchId,
+      appliedCount: result.appliedCount,
+      errorCount: result.errorCount,
+      operations: result.operations.map((op) => ({
+        opId: op.opId,
+        status: op.status,
+        message: op.message,
+        serverId: 'serverId' in op ? op.serverId : undefined,
+      })),
+    });
   } catch (err) {
+    errorRecebimentoV2('sync', 'pushBatch failed', { demandId, err });
     // Revert to retry on network error
     await recebimentoV2Db.transaction(
       'rw',
@@ -646,8 +679,10 @@ export async function pushDemand(demandId: string): Promise<PushResult> {
           .where('id')
           .anyOf(opIds)
           .modify((op: SyncOperationRecord) => {
+            const nextAttempts = (op.attempts ?? 0) + 1;
             op.status = 'retry';
-            op.attempts = (op.attempts ?? 0) + 1;
+            op.attempts = nextAttempts;
+            op.nextAttemptAt = nextRetryAttemptAt(nextAttempts);
             op.updatedAt = Date.now();
           });
 
@@ -722,15 +757,19 @@ export async function pushDemand(demandId: string): Promise<PushResult> {
               });
               break;
 
-            case 'retryable':
+            case 'retryable': {
               retryCount += 1;
+              const currentOp = await recebimentoV2Db.syncOperations.get(opResult.opId);
+              const nextAttempts = (currentOp?.attempts ?? 0) + 1;
               await recebimentoV2Db.syncOperations.update(opResult.opId, {
                 status: 'retry',
                 errorMessage: opResult.message,
-                attempts: (await recebimentoV2Db.syncOperations.get(opResult.opId))?.attempts ?? 1,
+                attempts: nextAttempts,
+                nextAttemptAt: nextRetryAttemptAt(nextAttempts),
                 updatedAt: now,
               });
               break;
+            }
           }
         }
 
@@ -816,7 +855,7 @@ export async function pushDemand(demandId: string): Promise<PushResult> {
     const recebimentoId = await resolveRecebimentoId(demandId, result, syncableOps);
     const [checklistResult, avariaResult, impedimentoResult] = await Promise.all([
       uploadChecklistPhotosAfterSync(demandId, result, syncableOps),
-      uploadAvariaPhotosAfterSync(demandId, result, syncableOps, recebimentoId),
+      uploadAvariaPhotosAfterSync(demandId, result, syncableOps),
       uploadImpedimentoPhotosAfterSync(demandId, result, syncableOps),
     ]);
     photosUploaded =

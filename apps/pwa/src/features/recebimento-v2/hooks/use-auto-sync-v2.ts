@@ -24,7 +24,17 @@ export function useAutoSyncV2(demandId: string): void {
     return ops.filter((op) => op.status === 'pending' || op.status === 'retry').length;
   }, [demandId]);
 
-  useEffect(() => registerAutoSyncForDemand(demandId), [demandId]);
+  useEffect(() => {
+    let unregister: (() => void) | undefined;
+
+    void registerAutoSyncForDemand(demandId).then((cleanup) => {
+      unregister = cleanup;
+    });
+
+    return () => {
+      unregister?.();
+    };
+  }, [demandId]);
 
   useEffect(() => {
     if ((pendingWorkCount ?? 0) > 0) {

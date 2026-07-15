@@ -39,6 +39,43 @@ function aggregateQuantidadeByProduto(
   return map;
 }
 
+function aggregateQuantidadeEsperadaByProduto(
+  itens: ItemPreRecebimentoRecord[],
+  produtos: Map<string, ProdutoRecord>,
+): Map<string, number> {
+  const map = new Map<string, number>();
+
+  for (const item of itens) {
+    const unidadesPorCaixa =
+      produtos.get(item.produtoId)?.unidadesPorCaixa ?? item.unidadesPorCaixa;
+    const quantidadeUN = toBaseUnits(
+      item.quantidadeEsperada,
+      item.unidadeMedida,
+      unidadesPorCaixa,
+    );
+
+    map.set(item.produtoId, (map.get(item.produtoId) ?? 0) + quantidadeUN);
+  }
+
+  return map;
+}
+
+function resolveUnidadesPorCaixa(
+  produtoId: string,
+  produtos: Map<string, ProdutoRecord>,
+  itensEsperados: ItemPreRecebimentoRecord[],
+): number {
+  const fromProduto = produtos.get(produtoId)?.unidadesPorCaixa;
+
+  if (fromProduto) {
+    return fromProduto;
+  }
+
+  const esperado = itensEsperados.find((item) => item.produtoId === produtoId);
+
+  return esperado?.unidadesPorCaixa ?? 1;
+}
+
 function resolvePesoEsperadoEfetivo(
   esperado: ItemPreRecebimentoRecord,
   esperadoUN: number,
@@ -64,7 +101,56 @@ export function calcularDivergencias(
 ): DivergenciaCalculada[] {
   const divergencias: DivergenciaCalculada[] = [];
   const recebidosPorProduto = aggregateQuantidadeByProduto(itensRecebidos);
+  const esperadosPorProduto = aggregateQuantidadeEsperadaByProduto(
+    itensEsperados,
+    produtos,
+  );
   const esperadosIds = new Set(itensEsperados.map((item) => item.produtoId));
+
+  for (const produtoId of esperadosIds) {
+    const recebido = recebidosPorProduto.get(produtoId);
+    const esperadoUN = esperadosPorProduto.get(produtoId) ?? 0;
+
+    if (!recebido) {
+      divergencias.push({
+        produtoId,
+        tipoDivergencia: 'produto_ausente',
+        quantidadeEsperada: esperadoUN,
+        quantidadeRecebida: 0,
+        descricao: 'SKU esperado não encontrado na conferência',
+      });
+      continue;
+    }
+
+    const unidadesPorCaixa = resolveUnidadesPorCaixa(
+      produtoId,
+      produtos,
+      itensEsperados,
+    );
+    const recebidoUN = toBaseUnits(
+      recebido.quantidadeRecebida,
+      recebido.unidadeMedida,
+      unidadesPorCaixa,
+    );
+
+    if (recebidoUN > esperadoUN) {
+      divergencias.push({
+        produtoId,
+        tipoDivergencia: 'quantidade_maior',
+        quantidadeEsperada: esperadoUN,
+        quantidadeRecebida: recebidoUN,
+        descricao: 'Quantidade recebida acima da prevista',
+      });
+    } else if (recebidoUN < esperadoUN) {
+      divergencias.push({
+        produtoId,
+        tipoDivergencia: 'quantidade_menor',
+        quantidadeEsperada: esperadoUN,
+        quantidadeRecebida: recebidoUN,
+        descricao: 'Quantidade recebida abaixo da prevista',
+      });
+    }
+  }
 
   for (const esperado of itensEsperados) {
     const produto = produtos.get(esperado.produtoId);
@@ -72,17 +158,6 @@ export function calcularDivergencias(
     const recebido = recebidosPorProduto.get(esperado.produtoId);
 
     if (!recebido) {
-      divergencias.push({
-        produtoId: esperado.produtoId,
-        tipoDivergencia: 'produto_ausente',
-        quantidadeEsperada: toBaseUnits(
-          esperado.quantidadeEsperada,
-          esperado.unidadeMedida,
-          esperado.unidadesPorCaixa,
-        ),
-        quantidadeRecebida: 0,
-        descricao: 'SKU esperado não encontrado na conferência',
-      });
       continue;
     }
 
@@ -91,29 +166,6 @@ export function calcularDivergencias(
       esperado.unidadeMedida,
       esperado.unidadesPorCaixa,
     );
-    const recebidoUN = toBaseUnits(
-      recebido.quantidadeRecebida,
-      recebido.unidadeMedida,
-      esperado.unidadesPorCaixa,
-    );
-
-    if (recebidoUN > esperadoUN) {
-      divergencias.push({
-        produtoId: esperado.produtoId,
-        tipoDivergencia: 'quantidade_maior',
-        quantidadeEsperada: esperadoUN,
-        quantidadeRecebida: recebidoUN,
-        descricao: 'Quantidade recebida acima da prevista',
-      });
-    } else if (recebidoUN < esperadoUN) {
-      divergencias.push({
-        produtoId: esperado.produtoId,
-        tipoDivergencia: 'quantidade_menor',
-        quantidadeEsperada: esperadoUN,
-        quantidadeRecebida: recebidoUN,
-        descricao: 'Quantidade recebida abaixo da prevista',
-      });
-    }
 
     if (
       esperado.loteEsperado &&
@@ -127,10 +179,7 @@ export function calcularDivergencias(
       });
     }
 
-    if (
-      isPvar &&
-      recebido.pesoRecebido !== null
-    ) {
+    if (isPvar && recebido.pesoRecebido !== null) {
       const pesoEsperadoEfetivo = resolvePesoEsperadoEfetivo(
         esperado,
         esperadoUN,
@@ -166,8 +215,11 @@ export function calcularDivergencias(
   for (const [produtoId] of recebidosPorProduto) {
     if (!esperadosIds.has(produtoId)) {
       const recebido = recebidosPorProduto.get(produtoId)!;
-      const unidadesPorCaixa =
-        produtos.get(produtoId)?.unidadesPorCaixa ?? 1;
+      const unidadesPorCaixa = resolveUnidadesPorCaixa(
+        produtoId,
+        produtos,
+        itensEsperados,
+      );
 
       divergencias.push({
         produtoId,

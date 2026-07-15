@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   Loader2,
   Package,
-  Plus,
   Trash2,
   X,
 } from 'lucide-react';
@@ -48,8 +47,13 @@ import {
   resolveUnidadesPorCaixa,
 } from '../lib/resolve-produto-conferencia-v2';
 import type { DamageRecord } from '../local-db/schema';
+import { recebimentoV2Db } from '../local-db/db';
 
 const MIN_PHOTOS = 2;
+
+function avariaCaptureSessionOwnerId(sessionId: string): string {
+  return `avaria-session-${sessionId}`;
+}
 
 function formatIsoDateForDisplay(isoDate: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
@@ -57,10 +61,6 @@ function formatIsoDateForDisplay(isoDate: string): string {
     return isoDate;
   }
   return `${match[3]}/${match[2]}/${match[1]}`;
-}
-
-function avariaOwnerId(demandId: string, sku: string) {
-  return `avaria-${demandId}-${sku || 'geral'}`;
 }
 
 function DamageCard({
@@ -135,6 +135,7 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
     useAvariaV2(demandId);
   const { conferences } = useConferenciaV2(demandId);
   const [showForm, setShowForm] = useState(Boolean(initialSku));
+  const [captureSessionId, setCaptureSessionId] = useState(() => crypto.randomUUID());
   const [isClearing, setIsClearing] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [lotesListExpanded, setLotesListExpanded] = useState(true);
@@ -153,10 +154,12 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
     });
   }, [activeSku, demandId]);
 
+  const captureOwnerId = avariaCaptureSessionOwnerId(captureSessionId);
+
   const photoCapture = usePhotoCaptureV2({
     processId: demandId,
     ownerType: 'avaria',
-    ownerId: avariaOwnerId(demandId, activeSku),
+    ownerId: captureOwnerId,
   });
 
   const lotesConferidos = useMemo(() => {
@@ -241,6 +244,7 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
   useEffect(() => {
     if (initialSku) {
       setValue('sku', initialSku);
+      setCaptureSessionId(crypto.randomUUID());
       setShowForm(true);
     }
   }, [initialSku, setValue]);
@@ -315,6 +319,7 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
         replicarParaTodosConferidos: false,
       });
       setShowForm(false);
+      setCaptureSessionId(crypto.randomUUID());
       toast.success(
         replicar
           ? `Avaria replicada para ${itensConferidosSkus.length} item(ns) conferido(s)`
@@ -323,6 +328,19 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao registrar avaria');
     }
+  }
+
+  async function handleCloseForm() {
+    const ownerId = avariaCaptureSessionOwnerId(captureSessionId);
+    await recebimentoV2Db.media
+      .where('ownerId')
+      .equals(ownerId)
+      .filter((media) => media.ownerType === 'avaria')
+      .delete();
+
+    setPhotoError(null);
+    setShowForm(false);
+    setCaptureSessionId(crypto.randomUUID());
   }
 
   async function handleClearAll() {
@@ -382,20 +400,6 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
       </div>
 
       <div className="mt-4 space-y-4 px-margin-mobile">
-        {!showForm && (
-          <button
-            type="button"
-            onClick={() => {
-              hapticLight();
-              setShowForm(true);
-            }}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-outline bg-surface py-3.5 text-label-md font-medium text-on-surface-variant touch-manipulation transition-colors active:bg-surface-container"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Registrar avaria
-          </button>
-        )}
-
         {showForm && (
           <form
             onSubmit={handleSubmit(onSubmit)}
@@ -405,7 +409,7 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
               <p className="text-body-md font-semibold text-on-surface">Nova avaria</p>
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
+                onClick={() => void handleCloseForm()}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground touch-manipulation"
               >
                 <X className="h-4 w-4" aria-hidden />

@@ -30,9 +30,11 @@ import { SyncStatusV2 } from '../components/sync-status-v2';
 import { useChecklistV2 } from '../hooks/use-checklist-v2';
 import { useDocasV2, type DocaOptionV2 } from '../hooks/use-docas-v2';
 import { recebimentoV2Db } from '../local-db/db';
+import { useDismissPendingPhotosV2 } from '../hooks/use-dismiss-pending-photos-v2';
 import { useForcePullV2 } from '../hooks/use-force-pull-v2';
 import { useImpedimentoV2 } from '../hooks/use-impedimento-v2';
 import { usePhotoCaptureV2 } from '../hooks/use-photo-capture-v2';
+import { useReabrirV2 } from '../hooks/use-reabrir-v2';
 import { useSyncStatusV2 } from '../hooks/use-sync-status-v2';
 import {
   checklistRequiresObservacoes,
@@ -207,6 +209,9 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
     useImpedimentoV2(demandId);
   const syncStatus = useSyncStatusV2(demandId);
   const { forcePull, isPulling, pullDisabled } = useForcePullV2(demandId);
+  const { canReabrir, isReabrindo, reabrirHint, reabrirConferencia } =
+    useReabrirV2(demandId, syncStatus);
+  const dismissPendingPhotos = useDismissPendingPhotosV2(demandId);
   const { dockOptions } = useDocasV2();
   const process = useLiveQuery(
     () => recebimentoV2Db.processes.get(demandId),
@@ -303,6 +308,19 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
     }
   }, [checklist, dockOptions, process?.dock, reset]);
 
+  async function handleReabrir() {
+    try {
+      hapticMedium();
+      const ok = await reabrirConferencia();
+      if (!ok) {
+        return;
+      }
+      toast.success('Conferência reaberta. Sincronizando alterações pendentes...');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao reabrir conferência');
+    }
+  }
+
   if (viewOnly) {
     return (
       <div className="page-enter flex flex-col pb-safe-offset-4">
@@ -329,6 +347,11 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
           <SyncStatusV2
             syncStatus={syncStatus}
             onPull={() => void forcePull()}
+            onDismissPendingPhotos={() => dismissPendingPhotos()}
+            onReabrir={() => void handleReabrir()}
+            canReabrir={canReabrir}
+            isReabrindo={isReabrindo}
+            reabrirHint={reabrirHint}
             isPulling={isPulling}
             pullDisabled={pullDisabled}
           />
@@ -456,6 +479,11 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
         <SyncStatusV2
           syncStatus={syncStatus}
           onPull={() => void forcePull()}
+          onDismissPendingPhotos={() => dismissPendingPhotos()}
+          onReabrir={() => void handleReabrir()}
+          canReabrir={canReabrir}
+          isReabrindo={isReabrindo}
+          reabrirHint={reabrirHint}
           isPulling={isPulling}
           pullDisabled={pullDisabled}
         />

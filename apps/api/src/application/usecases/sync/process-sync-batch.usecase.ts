@@ -22,6 +22,25 @@ import {
 import type { SyncApplyContext } from './adapters/sync-adapter.interface.js';
 import { SyncAdapterRegistry } from './adapters/sync-adapter.registry.js';
 
+function formatSyncApplyError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return 'Erro ao processar operação';
+  }
+
+  const causeMessage =
+    error.cause instanceof Error
+      ? error.cause.message
+      : typeof error.cause === 'string'
+        ? error.cause
+        : undefined;
+
+  if (causeMessage && !error.message.includes(causeMessage)) {
+    return `${error.message} — ${causeMessage}`;
+  }
+
+  return error.message;
+}
+
 export const SYNC_ADAPTER_REGISTRY = 'SyncAdapterRegistry';
 
 type ProcessSyncBatchInput = {
@@ -144,8 +163,7 @@ export class ProcessSyncBatchUseCase {
       try {
         result = await adapter.apply(op, context);
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Erro ao processar operação';
+        const message = formatSyncApplyError(error);
         result = {
           opId: op.opId,
           status: 'retryable',

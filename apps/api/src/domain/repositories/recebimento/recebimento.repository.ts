@@ -17,6 +17,7 @@ export type RecebimentoRecord = {
   dataFim: Date | null;
   situacao: RecebimentoSituacao;
   quantidadePaletes: number | null;
+  teveSobreposicaoCarga: boolean;
   modoUnitizacao: string;
   userId: number | null;
   createdAt: Date;
@@ -188,5 +189,6 @@ export interface IRecebimentoRepository {
     situacao: RecebimentoSituacao,
     dataFim?: Date | null,
     quantidadePaletes?: number | null,
+    teveSobreposicaoCarga?: boolean,
   ): Promise<RecebimentoRecord | null>;
 }

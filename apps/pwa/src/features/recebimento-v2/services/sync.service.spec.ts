@@ -298,6 +298,64 @@ describe('sync.service – pushDemand', () => {
     const storedOp = await recebimentoV2Db.syncOperations.get(op.id);
     expect(storedOp?.status).toBe('retry');
     expect((storedOp?.attempts ?? 0)).toBeGreaterThan(0);
+    expect(storedOp?.nextAttemptAt).toBeGreaterThan(Date.now());
+  });
+
+  it('increments attempts and schedules backoff on retryable server response', async () => {
+    const op = makePendingOp({ attempts: 1 });
+    await recebimentoV2Db.syncOperations.put(op);
+
+    const batchResult: SyncBatchResult = {
+      batchId: 'batch-retryable',
+      adapter: 'recebimento-v2',
+      aggregateId: DEMAND_ID,
+      serverRevision: 5,
+      appliedCount: 0,
+      skippedCount: 0,
+      errorCount: 1,
+      operations: [{ opId: op.id, status: 'retryable', message: 'Try again later' }],
+    };
+    mockPushBatch.mockResolvedValue(batchResult);
+
+    await pushDemand(DEMAND_ID);
+
+    const storedOp = await recebimentoV2Db.syncOperations.get(op.id);
+    expect(storedOp?.status).toBe('retry');
+    expect(storedOp?.attempts).toBe(2);
+    expect(storedOp?.errorMessage).toBe('Try again later');
+    expect(storedOp?.nextAttemptAt).toBeGreaterThan(Date.now());
+  });
+
+  it('skips exhausted retry operations during automatic push', async () => {
+    const exhaustedOp = makePendingOp({ status: 'retry', attempts: 3 });
+    await recebimentoV2Db.syncOperations.put(exhaustedOp);
+
+    const result = await pushDemand(DEMAND_ID);
+
+    expect(mockPushBatch).not.toHaveBeenCalled();
+    expect(result.accepted).toBe(0);
+  });
+
+  it('retries exhausted operations during manual push', async () => {
+    const exhaustedOp = makePendingOp({ status: 'retry', attempts: 3 });
+    await recebimentoV2Db.syncOperations.put(exhaustedOp);
+
+    const batchResult: SyncBatchResult = {
+      batchId: 'batch-manual',
+      adapter: 'recebimento-v2',
+      aggregateId: DEMAND_ID,
+      serverRevision: 6,
+      appliedCount: 1,
+      skippedCount: 0,
+      errorCount: 0,
+      operations: [{ opId: exhaustedOp.id, status: 'applied' }],
+    };
+    mockPushBatch.mockResolvedValue(batchResult);
+
+    const result = await pushDemand(DEMAND_ID, { manual: true });
+
+    expect(mockPushBatch).toHaveBeenCalled();
+    expect(result.accepted).toBe(1);
   });
 
   it('stores serverItemId and serverPesagemId on conference after PVAR ITEM_CONFERIR sync', async () => {

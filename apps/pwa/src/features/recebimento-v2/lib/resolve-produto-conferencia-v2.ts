@@ -6,6 +6,7 @@ import type {
 
 import { recebimentoV2Db } from '../local-db/db';
 import type { ExpectedItemRecord, ProductRecord } from '../local-db/schema';
+import { debugRecebimentoV2 } from './sync-debug';
 
 export function normalizeSkuParam(sku: string | undefined): string {
   if (!sku) return '';
@@ -220,6 +221,12 @@ export async function resolveProdutoIdForSkuV2(
   product?: ProductRecord | null,
 ): Promise<string> {
   if (product?.produtoId && !product.produtoId.startsWith('novo-')) {
+    debugRecebimentoV2('produto', 'resolveProdutoIdForSkuV2', {
+      demandId,
+      sku,
+      source: 'product-cache',
+      produtoId: product.produtoId,
+    });
     return product.produtoId;
   }
 
@@ -241,10 +248,22 @@ export async function resolveProdutoIdForSkuV2(
         .first();
 
       if (catalogProduct) {
+        debugRecebimentoV2('produto', 'resolveProdutoIdForSkuV2', {
+          demandId,
+          sku: normalizedSku,
+          source: 'catalog-from-novo-expected',
+          produtoId: catalogProduct.produtoId,
+        });
         return catalogProduct.produtoId;
       }
     }
 
+    debugRecebimentoV2('produto', 'resolveProdutoIdForSkuV2', {
+      demandId,
+      sku: normalizedSku,
+      source: 'expected-item',
+      produtoId: expectedItem.produtoId,
+    });
     return expectedItem.produtoId;
   }
 
@@ -255,9 +274,21 @@ export async function resolveProdutoIdForSkuV2(
     .first();
 
   if (catalogProduct) {
+    debugRecebimentoV2('produto', 'resolveProdutoIdForSkuV2', {
+      demandId,
+      sku: normalizedSku,
+      source: 'catalog',
+      produtoId: catalogProduct.produtoId,
+    });
     return catalogProduct.produtoId;
   }
 
+  debugRecebimentoV2('produto', 'resolveProdutoIdForSkuV2', {
+    demandId,
+    sku: normalizedSku,
+    source: 'fallback-sku',
+    produtoId: normalizedSku,
+  });
   return normalizedSku;
 }
 

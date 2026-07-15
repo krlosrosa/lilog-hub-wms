@@ -18,15 +18,21 @@ const baseExisting = {
 };
 
 describe('addItemRecebimentoDb', () => {
-  it('returns existing row when the same conferencia is submitted again', async () => {
+  it('inserts a new line when conferindo again the same produto and lote', async () => {
+    const insertedItem = {
+      ...baseExisting,
+      id: 'item-2',
+      quantidadeRecebida: '48.000',
+    };
+
+    const itemReturning = vi.fn().mockResolvedValue([insertedItem]);
+
     const db = {
-      select: vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([baseExisting]),
-        }),
-      }),
+      select: vi.fn(),
       update: vi.fn(),
-      insert: vi.fn(),
+      insert: vi.fn().mockReturnValue({
+        values: vi.fn().mockReturnValue({ returning: itemReturning }),
+      }),
     };
 
     const result = await addItemRecebimentoDb(
@@ -41,55 +47,12 @@ describe('addItemRecebimentoDb', () => {
       },
     );
 
-    expect(result.item.id).toBe('item-1');
-    expect(result.pesagem).toBeNull();
-    expect(db.update).not.toHaveBeenCalled();
-    expect(db.insert).not.toHaveBeenCalled();
-  });
-
-  it('replaces quantity when conferindo novamente o mesmo produto e lote', async () => {
-    const returning = vi.fn().mockResolvedValue([
-      {
-        ...baseExisting,
-        quantidadeRecebida: '48.000',
-      },
-    ]);
-
-    const db = {
-      select: vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([
-            {
-              ...baseExisting,
-              quantidadeRecebida: '24.000',
-            },
-          ]),
-        }),
-      }),
-      update: vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            returning,
-          }),
-        }),
-      }),
-      insert: vi.fn(),
-    };
-
-    const result = await addItemRecebimentoDb(
-      db as never,
-      'rec-1',
-      'ITB',
-      {
-        produtoId: 'prod-1',
-        quantidadeRecebida: 48,
-        unidadeMedida: 'UN',
-        loteRecebido: '111111',
-      },
-    );
-
+    expect(result.item.id).toBe('item-2');
     expect(result.item.quantidadeRecebida).toBe(48);
-    expect(db.insert).not.toHaveBeenCalled();
+    expect(result.pesagem).toBeNull();
+    expect(db.select).not.toHaveBeenCalled();
+    expect(db.update).not.toHaveBeenCalled();
+    expect(db.insert).toHaveBeenCalledTimes(1);
   });
 
   it('creates pesagem per caixa and syncs item totals from pesagens for PVAR', async () => {

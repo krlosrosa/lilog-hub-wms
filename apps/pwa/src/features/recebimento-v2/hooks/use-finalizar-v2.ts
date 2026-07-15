@@ -2,6 +2,7 @@ import { RECEBIMENTO_V2_OP_TYPES } from '@lilog/contracts';
 import { useNavigate } from '@tanstack/react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 import { recebimentoV2Db } from '../local-db/db';
 import type { SyncOperationRecord } from '../local-db/schema';
@@ -64,7 +65,7 @@ export function useFinalizarV2(demandId: string) {
   const dockRaw = checklist?.dock ?? process?.dock ?? '—';
   const dock = useDockDisplayLabelV2(dockRaw);
 
-  const finalizar = useCallback(async (quantidadePaletes: number) => {
+  const finalizar = useCallback(async (quantidadePaletes: number, teveSobreposicao: boolean) => {
     setIsFinalizing(true);
     setError(null);
 
@@ -95,6 +96,7 @@ export function useFinalizarV2(demandId: string) {
             encerradoAt: new Date().toISOString(),
             dock,
             quantidadePaletes,
+            teveSobreposicaoCarga: teveSobreposicao,
           },
           attachmentIds: [],
           status: 'pending',
@@ -130,10 +132,13 @@ export function useFinalizarV2(demandId: string) {
       const message =
         err instanceof Error ? err.message : 'Erro ao finalizar conferência';
       setError(message);
+      toast.error(message);
     } finally {
       setIsFinalizing(false);
     }
   }, [demandId, dock, navigate]);
+
+  const clearError = useCallback(() => setError(null), []);
 
   return {
     dock,
@@ -147,6 +152,7 @@ export function useFinalizarV2(demandId: string) {
     setShowConfirmModal,
     finalizar,
     error,
+    clearError,
     temperaturasCompletas,
     temperaturasPreenchidas,
     temperaturasTotal,

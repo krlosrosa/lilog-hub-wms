@@ -35,6 +35,7 @@ export type RegistrarAvariaInput = {
   photoCount?: number;
   replicarParaTodos?: boolean;
   skusAlvo?: string[];
+  clientDamageId?: string;
   operatorId: number;
 };
 
@@ -142,6 +143,7 @@ export class RegistrarAvariaUseCase {
       validade: input.validade ?? null,
       numeroSerie: input.numeroSerie?.trim() ?? null,
       photoCount: input.photoCount ?? 0,
+      clientDamageId: input.clientDamageId?.trim() || null,
       operatorId: input.operatorId,
     };
 

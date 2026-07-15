@@ -12,6 +12,7 @@ export async function updateRecebimentoStatusDb(
   situacao: RecebimentoSituacao,
   dataFim?: Date | null,
   quantidadePaletes?: number | null,
+  teveSobreposicaoCarga?: boolean,
 ): Promise<RecebimentoRecord | null> {
   const [updated] = await db
     .update(recebimentos)
@@ -20,6 +21,7 @@ export async function updateRecebimentoStatusDb(
       dataFim: dataFim === undefined ? undefined : dataFim,
       quantidadePaletes:
         quantidadePaletes === undefined ? undefined : quantidadePaletes,
+      teveSobreposicaoCarga,
       updatedAt: new Date(),
     })
     .where(eq(recebimentos.id, id))

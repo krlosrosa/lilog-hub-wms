@@ -615,9 +615,25 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       resolvedSku: string,
       meta: ConferenciaItemMeta,
     ) => {
+      const prevIds = new Set(lotesConferidos.map((lote) => lote.id));
+      const nextIds = new Set(nextLotes.map((lote) => lote.id));
+      const removedIds = new Set([...prevIds].filter((id) => !nextIds.has(id)));
+
       setLotesConferidos(nextLotes);
 
-      if (nextLotes.length === 0) {
+      const rascunho = await getRecebimentoConferenciaRascunho(
+        demandId,
+        resolvedSku,
+      );
+      const rascunhoLotes = rascunho?.lotes ?? [];
+      const rascunhoIds = new Set(rascunhoLotes.map((lote) => lote.id));
+
+      const updatedLotes = [
+        ...rascunhoLotes.filter((lote) => !removedIds.has(lote.id)),
+        ...nextLotes.filter((lote) => !rascunhoIds.has(lote.id)),
+      ];
+
+      if (updatedLotes.length === 0) {
         await deleteRecebimentoConferenciaRascunho(demandId, resolvedSku);
         removeConferidoItem(demandId, resolvedSku);
         setHasRascunhoAcumulado(false);
@@ -627,7 +643,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
           demandId,
           sku: resolvedSku,
           produtoId: meta.produtoId,
-          lotes: nextLotes,
+          lotes: updatedLotes,
         });
         setHasRascunhoAcumulado(true);
         conferenciaExistenteRef.current = true;
@@ -641,13 +657,13 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       const nextContext = mergeSkuConferenciaIntoContext(context, {
         sku: resolvedSku,
         meta,
-        lotes: nextLotes,
-        removing: nextLotes.length === 0,
+        lotes: updatedLotes,
+        removing: updatedLotes.length === 0,
       });
       setConferenciaContextStore(demandId, nextContext);
       await saveConferenciaContextToDb(demandId, nextContext);
     },
-    [demandId],
+    [demandId, lotesConferidos],
   );
 
   const resolveItemMetaForSku = useCallback(
@@ -1478,9 +1494,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       canRemoverConferencia && lotesParaSalvar.length === 0;
     const lotesParaSalvarFinal = isRemovendoConferenciaFinal
       ? []
-      : controlaPalete
-        ? await listarLotesConferenciaSku(demandId, resolvedSku, lotesParaSalvar)
-        : lotesParaSalvar;
+      : await listarLotesConferenciaSku(demandId, resolvedSku, lotesParaSalvar);
     const totaisParaSalvar = lotesParaSalvarFinal.reduce(
       (acc, lote) => ({
         caixa: acc.caixa + lote.recebidaCaixa,

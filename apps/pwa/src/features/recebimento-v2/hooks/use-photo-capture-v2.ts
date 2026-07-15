@@ -35,7 +35,7 @@ export function usePhotoCaptureV2({
       recebimentoV2Db.media
         .where('ownerId')
         .equals(ownerId)
-        .and((m) => m.ownerType === ownerType && m.status !== 'error')
+        .and((m) => m.ownerType === ownerType && m.status !== 'uploaded' && m.status !== 'error')
         .toArray(),
     [ownerId, ownerType],
   );

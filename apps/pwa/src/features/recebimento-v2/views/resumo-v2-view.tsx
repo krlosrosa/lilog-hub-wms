@@ -34,7 +34,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 
-import { hapticMedium } from '@/lib/haptics';
+import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 import { encerrarApoioRecebimento } from '../api/sync-api';
 import { ChecklistResumoV2Card } from '../components/checklist-resumo-v2-card';
@@ -44,9 +44,11 @@ import { useChecklistV2 } from '../hooks/use-checklist-v2';
 import { useConflictV2 } from '../hooks/use-conflict-v2';
 import { useDockDisplayLabelV2 } from '../hooks/use-dock-display-label-v2';
 import { useFinalizarV2 } from '../hooks/use-finalizar-v2';
+import { useDismissPendingPhotosV2 } from '../hooks/use-dismiss-pending-photos-v2';
 import { useForcePullV2 } from '../hooks/use-force-pull-v2';
 import { useProcessV2 } from '../hooks/use-process-v2';
 import { useProcessCapabilitiesV2 } from '../hooks/use-process-capabilities-v2';
+import { useReabrirV2 } from '../hooks/use-reabrir-v2';
 import { useSyncStatusV2 } from '../hooks/use-sync-status-v2';
 import { syncNowV2 } from '../services/auto-sync-v2.service';
 import { showSyncResultToast } from '../lib/sync-result-toast';
@@ -292,18 +294,12 @@ function TerminoBottomDock({
   isFinalizing,
   hasBlockingIssues,
   temperaturasCompletas,
-  quantidadePaletes,
-  onQuantidadePaletesChange,
-  paletesInvalid,
   onRequestFinalize,
 }: {
   dock: string;
   isFinalizing: boolean;
   hasBlockingIssues: boolean;
   temperaturasCompletas: boolean;
-  quantidadePaletes: string;
-  onQuantidadePaletesChange: (value: string) => void;
-  paletesInvalid: boolean;
   onRequestFinalize: () => void;
 }) {
   const [mounted, setMounted] = useState(false);
@@ -328,40 +324,10 @@ function TerminoBottomDock({
               {TEMPERATURAS_BAU_INCOMPLETAS_MSG}
             </p>
           ) : null}
-          <div className="space-y-1.5">
-            <label
-              htmlFor="quantidade-paletes-recebidos"
-              className="text-label-sm font-medium text-on-surface"
-            >
-              Paletes recebidos *
-            </label>
-            <input
-              id="quantidade-paletes-recebidos"
-              type="number"
-              min={1}
-              step={1}
-              inputMode="numeric"
-              required
-              value={quantidadePaletes}
-              onChange={(event) => onQuantidadePaletesChange(event.target.value)}
-              placeholder="Ex: 12"
-              aria-invalid={paletesInvalid}
-              className={cn(
-                'w-full rounded-lg border bg-surface px-3 py-2.5 text-body-md text-on-surface outline-none',
-                'focus:border-secondary focus:ring-2 focus:ring-secondary/20',
-                paletesInvalid ? 'border-destructive' : 'border-input',
-              )}
-            />
-            {paletesInvalid ? (
-              <p className="text-label-sm text-destructive">
-                Informe a quantidade de paletes recebidos (número inteiro maior que zero)
-              </p>
-            ) : null}
-          </div>
           <Button
             type="button"
             onClick={onRequestFinalize}
-            disabled={isFinalizing || paletesInvalid || !temperaturasCompletas}
+            disabled={isFinalizing}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation active:scale-[0.98] hover:bg-secondary/90 disabled:opacity-60"
           >
             {isFinalizing ? (
@@ -387,12 +353,24 @@ function ConfirmarLiberacaoModal({
   open,
   dock,
   isFinalizing,
+  quantidadePaletes,
+  onQuantidadePaletesChange,
+  paletesInvalid,
+  teveSobreposicao,
+  onTeveSobreposicaoChange,
+  error,
   onCancel,
   onConfirm,
 }: {
   open: boolean;
   dock: string;
   isFinalizing: boolean;
+  quantidadePaletes: string;
+  onQuantidadePaletesChange: (value: string) => void;
+  paletesInvalid: boolean;
+  teveSobreposicao: boolean;
+  onTeveSobreposicaoChange: (value: boolean) => void;
+  error: string | null;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -430,15 +408,86 @@ function ConfirmarLiberacaoModal({
         >
           Confirmar conclusão?
         </h2>
-        <p className="mb-5 text-body-sm text-on-surface-variant">
+        <p className="mb-4 text-body-sm text-on-surface-variant">
           A doca <span className="font-semibold text-on-surface">{dock}</span> será liberada e o
           recebimento encerrado.
         </p>
+        <div className="mb-5 space-y-1.5">
+          <label
+            htmlFor="quantidade-paletes-recebidos"
+            className="text-label-sm font-medium text-on-surface"
+          >
+            Paletes recebidos *
+          </label>
+          <input
+            id="quantidade-paletes-recebidos"
+            type="number"
+            min={1}
+            step={1}
+            inputMode="numeric"
+            required
+            value={quantidadePaletes}
+            onChange={(event) => onQuantidadePaletesChange(event.target.value)}
+            placeholder="Ex: 12"
+            aria-invalid={paletesInvalid}
+            className={cn(
+              'w-full rounded-lg border bg-surface px-3 py-2.5 text-body-md text-on-surface outline-none',
+              'focus:border-secondary focus:ring-2 focus:ring-secondary/20',
+              paletesInvalid ? 'border-destructive' : 'border-input',
+            )}
+          />
+          {paletesInvalid ? (
+            <p className="text-label-sm text-destructive">
+              Informe a quantidade de paletes recebidos (número inteiro maior que zero)
+            </p>
+          ) : null}
+        </div>
+        <div className="mb-5">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={teveSobreposicao}
+            aria-label="Houve sobreposição de carga?"
+            onClick={() => {
+              hapticLight();
+              onTeveSobreposicaoChange(!teveSobreposicao);
+            }}
+            className={cn(
+              'flex w-full items-center justify-between gap-3 rounded-lg border px-3.5 py-3 text-left touch-manipulation transition-colors active:scale-[0.99]',
+              teveSobreposicao
+                ? 'border-secondary/30 bg-secondary/5'
+                : 'border-input bg-surface',
+            )}
+          >
+            <span className="text-label-sm font-medium text-on-surface">
+              Houve sobreposição de carga?
+            </span>
+            <div
+              className={cn(
+                'relative h-6 w-11 shrink-0 rounded-full transition-colors',
+                teveSobreposicao ? 'bg-secondary' : 'bg-outline-variant/60',
+              )}
+              aria-hidden
+            >
+              <span
+                className={cn(
+                  'absolute top-0.5 h-5 w-5 rounded-full bg-surface shadow-sm transition-transform',
+                  teveSobreposicao ? 'translate-x-[22px]' : 'translate-x-0.5',
+                )}
+              />
+            </div>
+          </button>
+        </div>
+        {error ? (
+          <p className="mb-4 rounded-lg bg-error-container px-3.5 py-2.5 text-label-sm text-on-error-container">
+            {error}
+          </p>
+        ) : null}
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
           <Button
             type="button"
             onClick={() => void onConfirm()}
-            disabled={isFinalizing}
+            disabled={isFinalizing || paletesInvalid}
             className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-secondary text-on-secondary touch-manipulation active:scale-[0.98]"
           >
             {isFinalizing ? (
@@ -652,6 +701,7 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
     setShowConfirmModal,
     finalizar,
     error,
+    clearError,
     temperaturasCompletas,
     temperaturasPreenchidas,
     temperaturasTotal,
@@ -662,9 +712,13 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
   const { checklist, isLoading: isChecklistLoading } = useChecklistV2(demandId);
   const syncStatus = useSyncStatusV2(demandId);
   const { forcePull, isPulling, pullDisabled } = useForcePullV2(demandId);
+  const { canReabrir, isReabrindo, reabrirHint, reabrirConferencia } =
+    useReabrirV2(demandId, syncStatus);
+  const dismissPendingPhotos = useDismissPendingPhotosV2(demandId);
   const { conflicts } = useConflictV2(demandId);
   const [isSyncing, setIsSyncing] = useState(false);
   const [quantidadePaletes, setQuantidadePaletes] = useState('');
+  const [teveSobreposicao, setTeveSobreposicao] = useState(false);
   const [showEncerrarApoioModal, setShowEncerrarApoioModal] = useState(false);
   const [isEncerrandoApoio, setIsEncerrandoApoio] = useState(false);
 
@@ -685,6 +739,32 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
     naoConferidos.length > 0 || divergenciasAtivas.length > 0 || avarias.length > 0;
   const hasBlockingIssues = conflicts.length > 0 || !temperaturasCompletas;
   const isCompleted = process?.status === 'completed';
+
+  function handleRequestFinalize() {
+    hapticMedium();
+
+    if (!temperaturasCompletas) {
+      toast.error(TEMPERATURAS_BAU_INCOMPLETAS_MSG);
+      return;
+    }
+
+    if (conflicts.length > 0) {
+      toast.error('Resolva os conflitos de sincronização antes de finalizar.');
+      return;
+    }
+
+    if (!process?.recebimentoId) {
+      toast.error(
+        'A conferência ainda não foi iniciada no servidor. Sincronize a demanda e tente novamente.',
+      );
+      return;
+    }
+
+    clearError();
+    setQuantidadePaletes('');
+    setTeveSobreposicao(false);
+    setShowConfirmModal(true);
+  }
 
   const hero = useMemo(() => {
     if (isCompleted) {
@@ -728,6 +808,19 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
   }, [hasBlockingIssues, hasReviewItems, isCompleted, temperaturasCompletas]);
 
   const HeroIcon = hero.icon;
+
+  async function handleReabrir() {
+    hapticMedium();
+    try {
+      const ok = await reabrirConferencia();
+      if (!ok) {
+        return;
+      }
+      toast.success('Conferência reaberta. Sincronizando alterações pendentes...');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao reabrir conferência');
+    }
+  }
 
   async function handleSync() {
     hapticMedium();
@@ -817,7 +910,7 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
         </div>
       </div>
 
-      <div className="space-y-5 px-margin-mobile pb-[calc(140px+env(safe-area-inset-bottom,0px))] pt-5">
+      <div className="space-y-5 px-margin-mobile pb-[calc(100px+env(safe-area-inset-bottom,0px))] pt-5">
         <section className="flex flex-col items-center rounded-2xl border border-outline-variant bg-surface px-5 py-6 text-center shadow-sm">
           <div
             className={cn(
@@ -867,6 +960,11 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
           syncStatus={{ ...syncStatus, isSyncing: syncStatus.isSyncing || isSyncing }}
           onSync={() => void handleSync()}
           onPull={() => void forcePull()}
+          onDismissPendingPhotos={() => dismissPendingPhotos()}
+          onReabrir={() => void handleReabrir()}
+          canReabrir={canReabrir}
+          isReabrindo={isReabrindo}
+          reabrirHint={reabrirHint}
           isPulling={isPulling}
           pullDisabled={pullDisabled}
         />
@@ -970,10 +1068,7 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
           isFinalizing={isFinalizing}
           hasBlockingIssues={hasBlockingIssues || hasReviewItems}
           temperaturasCompletas={temperaturasCompletas}
-          quantidadePaletes={quantidadePaletes}
-          onQuantidadePaletesChange={setQuantidadePaletes}
-          paletesInvalid={paletesInvalid}
-          onRequestFinalize={() => setShowConfirmModal(true)}
+          onRequestFinalize={handleRequestFinalize}
         />
       ) : null}
 
@@ -989,8 +1084,19 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
         open={showConfirmModal}
         dock={dock}
         isFinalizing={isFinalizing}
-        onCancel={() => setShowConfirmModal(false)}
-        onConfirm={() => void finalizar(paletesValue)}
+        quantidadePaletes={quantidadePaletes}
+        onQuantidadePaletesChange={setQuantidadePaletes}
+        paletesInvalid={paletesInvalid}
+        teveSobreposicao={teveSobreposicao}
+        onTeveSobreposicaoChange={setTeveSobreposicao}
+        error={error}
+        onCancel={() => {
+          setShowConfirmModal(false);
+          clearError();
+          setQuantidadePaletes('');
+          setTeveSobreposicao(false);
+        }}
+        onConfirm={() => void finalizar(paletesValue, teveSobreposicao)}
       />
 
       <ConfirmarEncerrarApoioModal

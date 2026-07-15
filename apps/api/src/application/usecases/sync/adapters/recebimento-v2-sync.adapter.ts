@@ -592,6 +592,7 @@ export class RecebimentoV2SyncAdapter implements ISyncAdapter {
         photoCount: (payload['photoCount'] as number) ?? 0,
         replicarParaTodos: payload['replicarParaTodos'] as boolean | undefined,
         skusAlvo: payload['skusAlvo'] as string[] | undefined,
+        clientDamageId: payload['damageId'] as string | undefined,
         operatorId: context.userId ?? 0,
       });
       const serverId = result.items[0]?.id;
@@ -774,6 +775,10 @@ export class RecebimentoV2SyncAdapter implements ISyncAdapter {
       const quantidadePaletes = payload['quantidadePaletes'] as
         | number
         | undefined;
+      const teveSobreposicaoCarga =
+        typeof payload['teveSobreposicaoCarga'] === 'boolean'
+          ? payload['teveSobreposicaoCarga']
+          : false;
 
       if (
         quantidadePaletes === undefined ||
@@ -792,6 +797,7 @@ export class RecebimentoV2SyncAdapter implements ISyncAdapter {
         recebimentoId,
         userId: context.userId,
         quantidadePaletes,
+        teveSobreposicaoCarga,
       });
     } catch (err) {
       if (err instanceof ConflictException) {

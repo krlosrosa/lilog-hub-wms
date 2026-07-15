@@ -1,3 +1,5 @@
+import { and, eq } from 'drizzle-orm';
+
 import type { CreateRecebimentoAvariaInput } from '../../../domain/repositories/recebimento/recebimento-avaria.repository.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import { recebimentoAvarias } from '../providers/drizzle/config/migrations/schema.js';
@@ -22,6 +24,25 @@ function mapRow(row: typeof recebimentoAvarias.$inferSelect) {
   };
 }
 
+async function findExistingByClientDamageId(
+  db: DrizzleClient,
+  recebimentoId: string,
+  clientDamageId: string,
+) {
+  const [row] = await db
+    .select()
+    .from(recebimentoAvarias)
+    .where(
+      and(
+        eq(recebimentoAvarias.recebimentoId, recebimentoId),
+        eq(recebimentoAvarias.clientDamageId, clientDamageId),
+      ),
+    )
+    .limit(1);
+
+  return row ? mapRow(row) : null;
+}
+
 export async function createRecebimentoAvariasDb(
   db: DrizzleClient,
   items: CreateRecebimentoAvariaInput[],
@@ -30,10 +51,26 @@ export async function createRecebimentoAvariasDb(
     return [];
   }
 
-  const rows = await db
-    .insert(recebimentoAvarias)
-    .values(
-      items.map((item) => ({
+  const createdItems = [];
+
+  for (const item of items) {
+    const clientDamageId = item.clientDamageId?.trim() || null;
+
+    if (clientDamageId) {
+      const existing = await findExistingByClientDamageId(
+        db,
+        item.recebimentoId,
+        clientDamageId,
+      );
+      if (existing) {
+        createdItems.push(existing);
+        continue;
+      }
+    }
+
+    const [row] = await db
+      .insert(recebimentoAvarias)
+      .values({
         recebimentoId: item.recebimentoId,
         produtoId: item.produtoId ?? null,
         tipo: item.tipo,
@@ -46,10 +83,30 @@ export async function createRecebimentoAvariasDb(
         numeroSerie: item.numeroSerie ?? null,
         photoCount: item.photoCount,
         replicado: item.replicado,
+        clientDamageId,
         operatorId: item.operatorId,
-      })),
-    )
-    .returning();
+      })
+      .onConflictDoNothing({
+        target: [recebimentoAvarias.recebimentoId, recebimentoAvarias.clientDamageId],
+      })
+      .returning();
 
-  return rows.map(mapRow);
+    if (row) {
+      createdItems.push(mapRow(row));
+      continue;
+    }
+
+    if (clientDamageId) {
+      const existing = await findExistingByClientDamageId(
+        db,
+        item.recebimentoId,
+        clientDamageId,
+      );
+      if (existing) {
+        createdItems.push(existing);
+      }
+    }
+  }
+
+  return createdItems;
 }

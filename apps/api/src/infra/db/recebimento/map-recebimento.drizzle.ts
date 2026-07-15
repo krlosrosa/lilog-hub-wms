@@ -122,6 +122,7 @@ export function mapRecebimentoRow(row: RecebimentoRow): RecebimentoRecord {
     dataFim: row.dataFim,
     situacao: row.situacao,
     quantidadePaletes: row.quantidadePaletes,
+    teveSobreposicaoCarga: row.teveSobreposicaoCarga,
     modoUnitizacao: row.modoUnitizacao,
     userId: row.userId,
     createdAt: row.createdAt,

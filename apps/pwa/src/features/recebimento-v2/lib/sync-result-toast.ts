@@ -46,7 +46,9 @@ export function showSyncResultToast(
       return;
     }
 
-    toast.error('Não foi possível enviar as fotos. Tente novamente.');
+    toast.error(
+      'Não foi possível enviar as fotos. Sincronize as avarias primeiro e tente novamente.',
+    );
     return;
   }
 

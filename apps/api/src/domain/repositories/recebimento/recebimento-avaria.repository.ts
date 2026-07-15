@@ -31,6 +31,7 @@ export type CreateRecebimentoAvariaInput = {
   numeroSerie?: string | null;
   photoCount: number;
   replicado: boolean;
+  clientDamageId?: string | null;
   operatorId: number;
 };
 

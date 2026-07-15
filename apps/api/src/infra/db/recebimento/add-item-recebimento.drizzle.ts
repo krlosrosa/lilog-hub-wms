@@ -34,23 +34,6 @@ function matchesConferenciaKey(
   );
 }
 
-function isSameConferenciaPayload(
-  row: typeof itensRecebimento.$inferSelect,
-  data: ConferirItemInput,
-): boolean {
-  const pesoAtual =
-    row.pesoRecebido !== null ? Number(row.pesoRecebido) : null;
-  const pesoNovo =
-    data.pesoRecebido !== undefined ? data.pesoRecebido : null;
-
-  return (
-    Number(row.quantidadeRecebida) === data.quantidadeRecebida &&
-    row.unidadeMedida === data.unidadeMedida &&
-    pesoAtual === pesoNovo &&
-    (row.validade?.getTime() ?? null) === (data.validade?.getTime() ?? null)
-  );
-}
-
 async function syncItemTotalsFromPesagens(
   db: DrizzleClient,
   itemId: string,
@@ -183,47 +166,6 @@ export async function addItemRecebimentoDb(
     const item = await syncItemTotalsFromPesagens(db, itemBase.id);
 
     return { item, pesagem };
-  }
-
-  const existingRows = await db
-    .select()
-    .from(itensRecebimento)
-    .where(
-      and(
-        eq(itensRecebimento.recebimentoId, recebimentoId),
-        eq(itensRecebimento.produtoId, data.produtoId),
-      ),
-    );
-
-  const match = existingRows.find((row) =>
-    matchesConferenciaKey(row, data, unitizadorId),
-  );
-
-  if (match) {
-    if (isSameConferenciaPayload(match, data)) {
-      return { item: mapItemRecebimentoRow(match), pesagem: null };
-    }
-
-    const [updated] = await db
-      .update(itensRecebimento)
-      .set({
-        quantidadeRecebida: String(data.quantidadeRecebida),
-        unidadeMedida: data.unidadeMedida,
-        pesoRecebido:
-          data.pesoRecebido !== undefined
-            ? String(data.pesoRecebido)
-            : match.pesoRecebido,
-        validade: data.validade ?? match.validade,
-        conferidoPorId: conferidoPorId ?? match.conferidoPorId,
-      })
-      .where(eq(itensRecebimento.id, match.id))
-      .returning();
-
-    if (!updated) {
-      throw new Error('Failed to update conferido item');
-    }
-
-    return { item: mapItemRecebimentoRow(updated), pesagem: null };
   }
 
   const [record] = await db

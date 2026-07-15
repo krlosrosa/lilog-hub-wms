@@ -19,6 +19,7 @@ import {
   recepcionarCarro,
   retomarConferenciaImpedida,
   listAvariaDocumentos,
+  listAvariaDocumentosByAvariaId,
   listChecklistDocumentos,
   listImpedimentoDocumentos,
   reabrirConferencia,
@@ -121,7 +122,7 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
       }
 
       if (recebimentoAtivo) {
-        const [documentosChecklist, documentosAvaria] = await Promise.all([
+        const [documentosChecklist, documentosAvariaBucket] = await Promise.all([
           listChecklistDocumentos(recebimentoAtivo.id),
           listAvariaDocumentos(recebimentoAtivo.id),
         ]);
@@ -139,26 +140,64 @@ export function useRecebimentoDetalhe(recebimentoId: string) {
         );
         fotoTotalInformado = Math.max(fotoTotalInformado, fotos.length);
 
-        const fotosPorDocumento = new Map(
-          await Promise.all(
-            documentosAvaria.map(async (documento, index) => {
-              const foto = {
+        const fotosPerAvariaResults = await Promise.all(
+          avarias.map(async (avaria) => {
+            const docs = await listAvariaDocumentosByAvariaId(avaria.id);
+            return { avariaId: avaria.id, docs };
+          }),
+        );
+
+        const hasNewStyleDocs = fotosPerAvariaResults.some(
+          (result) => result.docs.length > 0,
+        );
+
+        let fotosPorAvaria: Map<string, FotoEvidencia[]>;
+
+        if (hasNewStyleDocs) {
+          const allDocs = fotosPerAvariaResults.flatMap((result) => result.docs);
+          const urlsMap = new Map(
+            await Promise.all(
+              allDocs.map(
+                async (documento) =>
+                  [documento.id, await getDocumentDownloadUrl(documento.id)] as const,
+              ),
+            ),
+          );
+
+          fotosPorAvaria = new Map(
+            fotosPerAvariaResults.map(({ avariaId, docs }) => [
+              avariaId,
+              docs.map((documento, index) => ({
                 id: documento.id,
                 legenda: `Evidência ${index + 1}`,
-                url: await getDocumentDownloadUrl(documento.id),
-              };
-              return [documento.id, foto] as const;
-            }),
-          ),
-        );
+                url: urlsMap.get(documento.id) ?? '',
+              })),
+            ]),
+          );
 
-        fotosAvaria = [...fotosPorDocumento.values()];
+          fotosAvaria = [...fotosPorAvaria.values()].flat();
+        } else {
+          const fotosPorDocumento = new Map(
+            await Promise.all(
+              documentosAvariaBucket.map(async (documento, index) => {
+                const foto = {
+                  id: documento.id,
+                  legenda: `Evidência ${index + 1}`,
+                  url: await getDocumentDownloadUrl(documento.id),
+                };
+                return [documento.id, foto] as const;
+              }),
+            ),
+          );
 
-        const fotosPorAvaria = alocarFotosPorAvaria(
-          avarias,
-          documentosAvaria,
-          fotosPorDocumento,
-        );
+          fotosAvaria = [...fotosPorDocumento.values()];
+
+          fotosPorAvaria = alocarFotosPorAvaria(
+            avarias,
+            documentosAvariaBucket,
+            fotosPorDocumento,
+          );
+        }
 
         const detalheBase = mapRecebimentoDetalhe({
           preRecebimento,

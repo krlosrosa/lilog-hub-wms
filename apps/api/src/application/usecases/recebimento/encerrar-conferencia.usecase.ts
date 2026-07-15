@@ -32,6 +32,7 @@ export type EncerrarConferenciaUseCaseInput = {
   recebimentoId: string;
   userId: number | null;
   quantidadePaletes?: number;
+  teveSobreposicaoCarga?: boolean;
 };
 
 @Injectable()
@@ -53,6 +54,7 @@ export class EncerrarConferenciaUseCase {
     recebimentoId,
     userId,
     quantidadePaletes,
+    teveSobreposicaoCarga,
   }: EncerrarConferenciaUseCaseInput) {
     await this.recebimentoParticipacaoService.assertResponsavelForRecebimento(
       recebimentoId,
@@ -163,6 +165,7 @@ export class EncerrarConferenciaUseCase {
       novaSituacao,
       dataFim,
       quantidadePaletes,
+      teveSobreposicaoCarga,
     );
 
     await this.preRecebimentoRepository.updateSituacao(

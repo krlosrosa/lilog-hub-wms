@@ -13,7 +13,10 @@ import { toast } from 'sonner';
 import { hapticLight } from '@/lib/haptics';
 
 import { useForcePullV2 } from '../hooks/use-force-pull-v2';
+import { useDismissPendingPhotosV2 } from '../hooks/use-dismiss-pending-photos-v2';
+import { useReabrirV2 } from '../hooks/use-reabrir-v2';
 import { useSyncStatusV2 } from '../hooks/use-sync-status-v2';
+import { hasVisibleSyncIssues } from '../lib/sync-status-issues';
 import { showSyncResultToast } from '../lib/sync-result-toast';
 import { syncNowV2 } from '../services/auto-sync-v2.service';
 import { SyncStatusV2 } from './sync-status-v2';
@@ -26,6 +29,9 @@ export function SyncStatusV2ModalButton({ demandId }: SyncStatusV2ModalButtonPro
   const [open, setOpen] = useState(false);
   const syncStatus = useSyncStatusV2(demandId);
   const { forcePull, isPulling, pullDisabled } = useForcePullV2(demandId);
+  const { canReabrir, isReabrindo, reabrirHint, reabrirConferencia } =
+    useReabrirV2(demandId, syncStatus);
+  const dismissPendingPhotos = useDismissPendingPhotosV2(demandId);
 
   const {
     pendingCount,
@@ -40,19 +46,34 @@ export function SyncStatusV2ModalButton({ demandId }: SyncStatusV2ModalButtonPro
   } = syncStatus;
 
   const pendingTotal = pendingCount + pendingPhotoCount;
-  const hasIssues =
-    isAutoSyncPaused ||
-    conflictCount > 0 ||
-    rejectedCount > 0 ||
-    retryCount > 0 ||
-    blockedCount > 0 ||
-    photoErrorCount > 0;
-  const busy = isSyncing || isPulling;
+  const hasIssues = hasVisibleSyncIssues({
+    pendingCount,
+    pendingPhotoCount,
+    conflictCount,
+    rejectedCount,
+    retryCount,
+    blockedCount,
+    photoErrorCount,
+    isAutoSyncPaused,
+  });
+  const busy = isSyncing || isPulling || isReabrindo;
   const badgeCount = pendingTotal > 0 ? pendingTotal : hasIssues ? '!' : null;
 
   function openSheet() {
     hapticLight();
     setOpen(true);
+  }
+
+  async function handleReabrir() {
+    try {
+      const ok = await reabrirConferencia();
+      if (!ok) {
+        return;
+      }
+      toast.success('Conferência reaberta. Sincronizando alterações pendentes...');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao reabrir conferência');
+    }
   }
 
   async function handleSync() {
@@ -124,6 +145,11 @@ export function SyncStatusV2ModalButton({ demandId }: SyncStatusV2ModalButtonPro
               syncStatus={syncStatus}
               onSync={() => void handleSync()}
               onPull={() => void forcePull()}
+              onDismissPendingPhotos={() => dismissPendingPhotos()}
+              onReabrir={() => void handleReabrir()}
+              canReabrir={canReabrir}
+              isReabrindo={isReabrindo}
+              reabrirHint={reabrirHint}
               isPulling={isPulling}
               pullDisabled={pullDisabled}
             />

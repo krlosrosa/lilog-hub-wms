@@ -30,10 +30,14 @@ function mapRemoteToProcess(
   const now = Date.now();
   const updatedAt = Date.parse(item.updatedAt) || now;
 
-  const status =
+  let status: ProcessRecord['status'] =
     existing?.status && PRESERVE_STATUSES.has(existing.status)
       ? existing.status
       : 'notDownloaded';
+
+  if (item.situacao === 'em_conferencia' && status === 'completed') {
+    status = 'working';
+  }
 
   return {
     id: item.demandId,

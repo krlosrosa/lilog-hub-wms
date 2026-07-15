@@ -422,6 +422,7 @@ describe('RecebimentoV2SyncAdapter', () => {
     it('returns serverId from created avaria', async () => {
       const result = await adapter.apply(
         makeOperation('recebimento.avaria.registrar', {
+          damageId: 'damage-local-1',
           tipo: '1',
           natureza: '1',
           causa: '1',
@@ -431,7 +432,11 @@ describe('RecebimentoV2SyncAdapter', () => {
         makeContext(),
       );
 
-      expect(registrarAvariaUseCase.execute).toHaveBeenCalled();
+      expect(registrarAvariaUseCase.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientDamageId: 'damage-local-1',
+        }),
+      );
       expect(result.status).toBe('applied');
       expect(result.serverId).toBe('avaria-1');
     });
@@ -479,6 +484,7 @@ describe('RecebimentoV2SyncAdapter', () => {
         recebimentoId: 'rec-1',
         userId: null,
         quantidadePaletes: 8,
+        teveSobreposicaoCarga: false,
       });
       expect(result.status).toBe('applied');
     });

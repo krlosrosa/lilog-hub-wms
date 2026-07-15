@@ -11,13 +11,23 @@ import {
 import { useState } from 'react';
 
 import type { UseSyncStatusV2Result } from '../hooks/use-sync-status-v2';
+import { formatSyncIssueErrorMessage } from '../lib/sync-conferencia-bloqueada';
 import { getSyncIssueStatusLabel } from '../lib/sync-operation-labels';
+import {
+  hasVisibleSyncIssues,
+  isAutoSyncPausedWithWork,
+} from '../lib/sync-status-issues';
 import { dismissSyncOperation } from '../services/repair-sync-operations.service';
 
 interface SyncStatusV2Props {
   syncStatus: UseSyncStatusV2Result;
   onSync?: () => void;
   onPull?: () => void;
+  onDismissPendingPhotos?: () => void | Promise<void>;
+  onReabrir?: () => void;
+  canReabrir?: boolean;
+  isReabrindo?: boolean;
+  reabrirHint?: string | null;
   isPulling?: boolean;
   pullDisabled?: boolean;
   className?: string;
@@ -39,6 +49,11 @@ export function SyncStatusV2({
   syncStatus,
   onSync,
   onPull,
+  onDismissPendingPhotos,
+  onReabrir,
+  canReabrir = false,
+  isReabrindo = false,
+  reabrirHint = null,
   isPulling = false,
   pullDisabled = false,
   className,
@@ -59,22 +74,27 @@ export function SyncStatusV2({
     lastPullAt,
   } = syncStatus;
 
-  const busy = isSyncing || isPulling;
-  const hasIssues =
-    isAutoSyncPaused ||
-    conflictCount > 0 ||
-    rejectedCount > 0 ||
-    retryCount > 0 ||
-    blockedCount > 0 ||
-    photoErrorCount > 0;
+  const busy = isSyncing || isPulling || isReabrindo;
+  const issueCounts = {
+    pendingCount,
+    pendingPhotoCount,
+    conflictCount,
+    rejectedCount,
+    retryCount,
+    blockedCount,
+    photoErrorCount,
+    isAutoSyncPaused,
+  };
+  const hasIssues = hasVisibleSyncIssues(issueCounts);
   const isClean = pendingCount === 0 && pendingPhotoCount === 0 && !hasIssues;
-  const showRetryButton =
-    isAutoSyncPaused && (retryCount > 0 || pendingCount > 0 || pendingPhotoCount > 0);
+  const showRetryButton = isAutoSyncPausedWithWork(issueCounts);
 
   const statusLabel = (() => {
     if (isPulling) return 'Atualizando do servidor...';
     if (isSyncing) return 'Sincronizando...';
-    if (isAutoSyncPaused) return 'Sincronização pausada após 3 tentativas';
+    if (isAutoSyncPausedWithWork(issueCounts)) {
+      return 'Sincronização pausada após 3 tentativas';
+    }
     if (hasIssues) {
       const parts: string[] = [];
       if (conflictCount > 0) parts.push(`${conflictCount} conflito(s)`);
@@ -181,6 +201,47 @@ export function SyncStatusV2({
         </div>
       </div>
 
+      {pendingPhotoCount > 0 && onDismissPendingPhotos ? (
+        <div className="space-y-2 border-t border-outline-variant/60 px-3 py-2.5">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {photoErrorCount > 0
+              ? 'Algumas fotos falharam no envio ou estão aguardando a sincronização das avarias.'
+              : 'Fotos locais ainda não enviadas ao servidor.'}
+            {' '}
+            Descarte-as aqui se não precisar mais das evidências.
+          </p>
+          <button
+            type="button"
+            onClick={() => void onDismissPendingPhotos()}
+            disabled={busy}
+            className="text-[11px] font-medium text-destructive underline touch-manipulation disabled:opacity-50"
+          >
+            Descartar {pendingPhotoCount} foto(s) pendente(s)
+          </button>
+        </div>
+      ) : null}
+
+      {reabrirHint ? (
+        <div className="border-t border-destructive/20 px-3 py-2.5">
+          <p className="text-[11px] leading-relaxed text-destructive">{reabrirHint}</p>
+          {canReabrir && onReabrir ? (
+            <button
+              type="button"
+              onClick={onReabrir}
+              disabled={busy}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md bg-secondary px-3 py-2 text-label-sm font-medium text-on-secondary touch-manipulation transition-transform active:scale-95 disabled:opacity-50"
+            >
+              {isReabrindo ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+              )}
+              Reabrir conferência
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {issuesExpanded && issueOperations.length > 0 && (
         <div className="space-y-2 border-t border-destructive/20 px-3 py-2.5">
           {issueOperations.map((issue) => (
@@ -201,7 +262,7 @@ export function SyncStatusV2({
               </div>
               {issue.errorMessage ? (
                 <p className="mt-1 text-[11px] leading-relaxed text-destructive">
-                  {issue.errorMessage}
+                  {formatSyncIssueErrorMessage(issue.errorMessage)}
                 </p>
               ) : null}
               <button

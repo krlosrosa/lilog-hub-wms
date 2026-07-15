@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 
 import { buildSyncIssueOperations, type SyncIssueOperation } from '../lib/sync-operation-labels';
+import { debugRecebimentoV2 } from '../lib/sync-debug';
 import { recebimentoV2Db } from '../local-db/db';
 import { countPendingPhotoUploads, recoverStuckSyncState } from '../services/sync-photo.helpers';
 import { repairSyncOperations } from '../services/repair-sync-operations.service';
@@ -52,6 +53,18 @@ export function useSyncStatusV2(demandId: string): UseSyncStatusV2Result {
 
     const conferenceById = new Map(conferences.map((conference) => [conference.id, conference]));
     const issueOperations = buildSyncIssueOperations(ops, conferenceById);
+
+    const issueOps = ops.filter((op) => op.status === 'retry' || op.status === 'rejected');
+    if (issueOps.length > 0) {
+      debugRecebimentoV2('sync', 'issue ops', issueOps.map((op) => ({
+        id: op.id,
+        opType: op.opType,
+        status: op.status,
+        attempts: op.attempts,
+        errorMessage: op.errorMessage,
+        payload: op.payload,
+      })));
+    }
 
     const pendingCount = ops.filter((op) => op.status === 'pending').length;
     const blockedCount = ops.filter((op) => op.status === 'blocked').length;

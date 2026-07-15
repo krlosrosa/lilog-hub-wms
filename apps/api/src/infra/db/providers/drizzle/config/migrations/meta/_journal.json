@@ -939,6 +939,27 @@
       "when": 1791577600000,
       "tag": "0132_recebimento_apoio_encerrada",
       "breakpoints": true
+    },
+    {
+      "idx": 134,
+      "version": "7",
+      "when": 1791664000000,
+      "tag": "0133_recebimento_avarias_client_damage_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1791750400000,
+      "tag": "0134_recebimento_avarias_client_damage_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1791836800000,
+      "tag": "0135_recebimento_sobreposicao_carga",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { Button, cn } from '@lilog/ui';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import {
   AlertCircle,
   CheckCircle,
@@ -80,6 +80,7 @@ interface PreparacaoV2ViewProps {
 }
 
 export function PreparacaoV2View({ demandId }: PreparacaoV2ViewProps) {
+  const navigate = useNavigate();
   const { process, isReady } = useProcessV2(demandId);
   const { souApoio } = useProcessCapabilitiesV2(demandId);
   const { prepare, progress, isPreparing, error } = useBootstrapV2();
@@ -88,6 +89,16 @@ export function PreparacaoV2View({ demandId }: PreparacaoV2ViewProps) {
   useEffect(() => {
     navigator.storage?.estimate().then((e) => setStorageEstimate(e)).catch(() => null);
   }, []);
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    void navigate({
+      to: '/recebimento-v2/$id/itens',
+      params: { id: demandId },
+      replace: true,
+    });
+  }, [demandId, isReady, navigate]);
 
   const completedSteps = (process?.downloadProgress?.completedSteps ?? []) as BootstrapStep[];
 

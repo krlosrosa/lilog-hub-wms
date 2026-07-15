@@ -124,6 +124,8 @@ export function ProcessStatusCard({
     process.status === 'downloading' ||
     process.status === 'error';
   const showApoioDownloadHint = souApoio && needsDownload;
+  const isEffectivelyDownloading =
+    isPreparingThis || process.status === 'downloading';
 
   const cardClassName = cn(
     'group relative flex items-center gap-2.5 overflow-hidden rounded-lg border border-outline-variant bg-surface p-3 shadow-sm',
@@ -216,12 +218,6 @@ export function ProcessStatusCard({
           aria-hidden
         />
       ) : null}
-
-      {isPreparingThis ? (
-        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-surface/75">
-          <Loader2 className="h-5 w-5 animate-spin text-secondary" aria-hidden />
-        </div>
-      ) : null}
     </>
   );
 
@@ -245,7 +241,7 @@ export function ProcessStatusCard({
       <div className="mt-2 flex items-center gap-2 border-t border-outline-variant/40 pt-2">
         <Button
           type="button"
-          disabled={isPreparingThis}
+          disabled={isEffectivelyDownloading}
           onClick={() => {
             hapticMedium();
             onPrepare(process.id);
@@ -263,6 +259,26 @@ export function ProcessStatusCard({
           Detalhes
         </Link>
       </div>
+
+      {isEffectivelyDownloading ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-surface/80">
+          {isPreparingThis ? (
+            <Loader2 className="h-5 w-5 animate-spin text-secondary" aria-hidden />
+          ) : (
+            <Button
+              type="button"
+              onClick={() => {
+                hapticMedium();
+                onPrepare(process.id);
+              }}
+              className="h-9 rounded-lg bg-secondary px-4 text-label-sm font-semibold text-on-secondary touch-manipulation"
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              Retomar
+            </Button>
+          )}
+        </div>
+      ) : null}
     </article>
   );
 }

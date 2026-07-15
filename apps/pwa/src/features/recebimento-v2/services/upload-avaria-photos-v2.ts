@@ -11,7 +11,7 @@ export interface AvariaPhotoUploadResult {
 type UploadAttempt = 'uploaded' | 'failed' | 'skipped';
 
 async function uploadSingleAvariaMedia(
-  recebimentoId: string,
+  avariaId: string,
   mediaId: string,
 ): Promise<UploadAttempt> {
   const media = await recebimentoV2Db.media.get(mediaId);
@@ -35,7 +35,7 @@ async function uploadSingleAvariaMedia(
       {
         nome: `avaria-${mediaId}.jpg`,
         entidadeTipo: 'recebimento_avaria',
-        entidadeId: recebimentoId,
+        entidadeId: avariaId,
       },
     );
 
@@ -57,7 +57,7 @@ async function uploadSingleAvariaMedia(
  * Skips media already marked as uploaded. Does not throw on individual failures.
  */
 export async function uploadAvariaPhotosV2(
-  recebimentoId: string,
+  avariaId: string,
   mediaIds: string[] | undefined,
 ): Promise<AvariaPhotoUploadResult> {
   const result: AvariaPhotoUploadResult = {
@@ -71,7 +71,7 @@ export async function uploadAvariaPhotosV2(
   }
 
   for (const mediaId of mediaIds) {
-    const attempt = await uploadSingleAvariaMedia(recebimentoId, mediaId);
+    const attempt = await uploadSingleAvariaMedia(avariaId, mediaId);
 
     if (attempt === 'uploaded') {
       result.uploaded += 1;

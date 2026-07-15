@@ -13,6 +13,12 @@ import { recebimentoV2Db } from '../local-db/db';
 import type { ConferenceRecord, DamageRecord, SyncOperationRecord } from '../local-db/schema';
 import type { LoteModo } from '@/features/recebimento/types/recebimento.schema';
 
+import {
+  refreshAutoSyncPauseState,
+  resetAutoSyncBackoff,
+} from './auto-sync-v2.service';
+import { countPendingPhotoUploads } from './sync-photo.helpers';
+
 type ConferirOpPayload = {
   conferenceId?: string;
   serverItemId?: string;
@@ -151,8 +157,43 @@ async function rebuildAvariaPayload(
   return mapAvariaV2SyncPayload(damage, produtoId);
 }
 
+async function hasRemainingSyncIssueWork(demandId: string): Promise<boolean> {
+  const issueOpsCount = await recebimentoV2Db.syncOperations
+    .where('aggregateId')
+    .equals(demandId)
+    .filter(
+      (op) =>
+        op.status === 'pending' ||
+        op.status === 'retry' ||
+        op.status === 'rejected' ||
+        op.status === 'conflict' ||
+        op.status === 'blocked',
+    )
+    .count();
+
+  if (issueOpsCount > 0) {
+    return true;
+  }
+
+  const photoCounts = await countPendingPhotoUploads(demandId);
+  return photoCounts.error > 0 || photoCounts.pending > 0 || photoCounts.uploading > 0;
+}
+
 export async function dismissSyncOperation(opId: string): Promise<void> {
+  const op = await recebimentoV2Db.syncOperations.get(opId);
+  if (!op) {
+    return;
+  }
+
+  const demandId = op.aggregateId;
   await recebimentoV2Db.syncOperations.delete(opId);
+
+  if (!(await hasRemainingSyncIssueWork(demandId))) {
+    resetAutoSyncBackoff(demandId);
+    return;
+  }
+
+  await refreshAutoSyncPauseState(demandId);
 }
 
 export async function repairSyncOperations(demandId: string): Promise<number> {
@@ -275,6 +316,14 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
 
     const payload = (op.payload ?? {}) as Record<string, unknown>;
     const hasStaleReplicationPayload = payload.replicarParaTodos === true;
+    const damageId = payload.damageId as string | undefined;
+    const damage = damageId ? damageById.get(damageId) : undefined;
+
+    if (damage?.serverAvariaId) {
+      await recebimentoV2Db.syncOperations.delete(op.id);
+      changed += 1;
+      continue;
+    }
 
     if (
       isValidAvariaV2SyncPayload(payload) &&
@@ -299,8 +348,6 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
       continue;
     }
 
-    const damageId = payload.damageId as string | undefined;
-    const damage = damageId ? damageById.get(damageId) : undefined;
     if (!damage || damage.deletedAt != null) {
       await recebimentoV2Db.syncOperations.delete(op.id);
       changed += 1;

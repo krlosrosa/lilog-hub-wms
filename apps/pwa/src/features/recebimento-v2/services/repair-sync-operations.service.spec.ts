@@ -2,7 +2,7 @@ import { RECEBIMENTO_V2_OP_TYPES } from '@lilog/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { recebimentoV2Db } from '../local-db/db';
-import type { ConferenceRecord, SyncOperationRecord } from '../local-db/schema';
+import type { ConferenceRecord, DamageRecord, SyncOperationRecord } from '../local-db/schema';
 import { dismissSyncOperation, repairSyncOperations } from './repair-sync-operations.service';
 
 const DEMAND_ID = '550e8400-e29b-41d4-a716-446655440001';
@@ -27,6 +27,7 @@ function makeConference(overrides: Partial<ConferenceRecord> = {}): ConferenceRe
 describe('repairSyncOperations', () => {
   beforeEach(async () => {
     await recebimentoV2Db.conferences.clear();
+    await recebimentoV2Db.damages.clear();
     await recebimentoV2Db.syncOperations.clear();
     await recebimentoV2Db.processes.put({
       id: DEMAND_ID,
@@ -195,6 +196,53 @@ describe('repairSyncOperations', () => {
       unidadeMedida: 'UN',
     });
   });
+
+  it('removes rejected avaria op when damage already has serverAvariaId', async () => {
+    const damage: DamageRecord = {
+      id: 'damage-1',
+      demandId: DEMAND_ID,
+      sku: '600598361',
+      description: 'Avaria teste',
+      quantity: 1,
+      quantidadeCaixa: 1,
+      quantidadeUnidade: 0,
+      registradoAt: new Date().toISOString(),
+      syncStatus: 'synced',
+      serverAvariaId: 'avaria-server-1',
+      updatedAt: Date.now(),
+    };
+
+    const rejectedAvariaOp: SyncOperationRecord = {
+      id: crypto.randomUUID(),
+      aggregateId: DEMAND_ID,
+      module: 'damage',
+      opType: RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR,
+      sequence: 1,
+      dependsOn: [],
+      idempotencyKey: crypto.randomUUID(),
+      payload: {
+        damageId: 'damage-1',
+        tipo: '1',
+        natureza: '1',
+        causa: '1',
+        quantidadeCaixas: 1,
+        quantidadeUnidades: 0,
+      },
+      attachmentIds: [],
+      status: 'rejected',
+      attempts: 1,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    await recebimentoV2Db.damages.put(damage);
+    await recebimentoV2Db.syncOperations.put(rejectedAvariaOp);
+
+    const changed = await repairSyncOperations(DEMAND_ID);
+
+    expect(changed).toBe(1);
+    expect(await recebimentoV2Db.syncOperations.get(rejectedAvariaOp.id)).toBeUndefined();
+  });
 });
 
 describe('dismissSyncOperation', () => {
@@ -219,5 +267,30 @@ describe('dismissSyncOperation', () => {
     await dismissSyncOperation(opId);
 
     expect(await recebimentoV2Db.syncOperations.get(opId)).toBeUndefined();
+  });
+
+  it('clears auto-sync pause when last issue operation is dismissed', async () => {
+    const opId = crypto.randomUUID();
+    await recebimentoV2Db.processes.update(DEMAND_ID, { autoSyncPaused: true });
+    await recebimentoV2Db.syncOperations.put({
+      id: opId,
+      aggregateId: DEMAND_ID,
+      module: 'damage',
+      opType: RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR,
+      sequence: 1,
+      dependsOn: [],
+      idempotencyKey: crypto.randomUUID(),
+      payload: {},
+      attachmentIds: [],
+      status: 'retry',
+      attempts: 3,
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    await dismissSyncOperation(opId);
+
+    const process = await recebimentoV2Db.processes.get(DEMAND_ID);
+    expect(process?.autoSyncPaused).toBe(false);
   });
 });

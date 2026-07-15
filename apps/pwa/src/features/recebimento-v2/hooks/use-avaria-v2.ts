@@ -6,6 +6,7 @@ import type { QuantidadeModo } from '@/features/recebimento/types/recebimento.sc
 
 import { resolveConferenceQuantidadePar } from '../lib/conferencia-quantidade';
 import { mapAvariaV2SyncPayload, mapAvariaRemoverV2SyncPayload } from '../lib/map-avaria-v2-sync-payload';
+import { debugRecebimentoV2 } from '../lib/sync-debug';
 import {
   normalizeSkuParam,
   resolveProdutoIdForSkuV2,
@@ -130,6 +131,15 @@ async function createAvariaRecordAndSyncOp(params: {
     ...mapAvariaV2SyncPayload(record, produtoId),
     ...(conferenceId ? { conferenceId } : {}),
   };
+
+  debugRecebimentoV2('avaria', 'enqueue', {
+    demandId,
+    sku,
+    produtoId,
+    productFound: Boolean(product),
+    productProdutoId: product?.produtoId,
+    syncPayload,
+  });
 
   const syncOp: SyncOperationRecord = {
     id: opId,

@@ -95,7 +95,7 @@ describe('auto-sync-v2.service', () => {
 
     const result = await syncNowV2(DEMAND_ID);
 
-    expect(mockPushDemand).toHaveBeenCalledWith(DEMAND_ID);
+    expect(mockPushDemand).toHaveBeenCalledWith(DEMAND_ID, { manual: undefined });
     expect(result?.accepted).toBe(1);
   });
 
@@ -118,11 +118,57 @@ describe('auto-sync-v2.service', () => {
     await syncNowV2(DEMAND_ID);
 
     expect(getAutoSyncPaused(DEMAND_ID)).toBe(true);
+
+    const process = await recebimentoV2Db.processes.get(DEMAND_ID);
+    expect(process?.autoSyncPaused).toBe(true);
     expect(mockPushDemand).toHaveBeenCalledTimes(3);
 
     mockPushDemand.mockClear();
     await syncNowV2(DEMAND_ID);
     expect(mockPushDemand).not.toHaveBeenCalled();
+  });
+
+  it('pauses auto-sync when retry operations exhaust max attempts', async () => {
+    await recebimentoV2Db.syncOperations.bulkPut([
+      makePendingOp({ status: 'retry', attempts: 3 }),
+      makePendingOp({ status: 'retry', attempts: 3 }),
+      makePendingOp({ status: 'retry', attempts: 3 }),
+    ]);
+
+    mockPushDemand.mockResolvedValue({
+      accepted: 0,
+      rejected: 0,
+      conflicts: 0,
+      newRevision: 5,
+      photosUploaded: 0,
+      photosPending: 0,
+    });
+
+    const { refreshAutoSyncPauseState } = await import('./auto-sync-v2.service');
+    const paused = await refreshAutoSyncPauseState(DEMAND_ID);
+
+    expect(paused).toBe(true);
+    expect(getAutoSyncPaused(DEMAND_ID)).toBe(true);
+
+    mockPushDemand.mockClear();
+    await syncNowV2(DEMAND_ID);
+    expect(mockPushDemand).not.toHaveBeenCalled();
+  });
+
+  it('hydrates paused state from IndexedDB on register', async () => {
+    await recebimentoV2Db.processes.update(DEMAND_ID, { autoSyncPaused: true });
+    await recebimentoV2Db.syncOperations.put(makePendingOp({ status: 'retry', attempts: 1 }));
+
+    const { registerAutoSyncForDemand } = await import('./auto-sync-v2.service');
+    const unregister = await registerAutoSyncForDemand(DEMAND_ID);
+
+    expect(getAutoSyncPaused(DEMAND_ID)).toBe(true);
+
+    mockPushDemand.mockClear();
+    await syncNowV2(DEMAND_ID);
+    expect(mockPushDemand).not.toHaveBeenCalled();
+
+    unregister();
   });
 
   it('manual sync resets backoff and retries push', async () => {
@@ -151,8 +197,6 @@ describe('auto-sync-v2.service', () => {
   });
 
   it('scheduleAutoSync debounces push by 800ms', async () => {
-    vi.useFakeTimers();
-
     await recebimentoV2Db.syncOperations.put(makePendingOp());
 
     mockPushDemand.mockResolvedValue({
@@ -168,10 +212,8 @@ describe('auto-sync-v2.service', () => {
 
     expect(mockPushDemand).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(800);
+    await new Promise((resolve) => setTimeout(resolve, 900));
 
-    expect(mockPushDemand).toHaveBeenCalledWith(DEMAND_ID);
-
-    vi.useRealTimers();
+    expect(mockPushDemand).toHaveBeenCalledWith(DEMAND_ID, { manual: undefined });
   });
 });

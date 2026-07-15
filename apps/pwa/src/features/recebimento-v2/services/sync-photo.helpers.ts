@@ -1,7 +1,118 @@
+import { RECEBIMENTO_V2_OP_TYPES } from '@lilog/contracts';
+
 import { getRecebimentoByPreRecebimento } from '@/features/recebimento/lib/recebimento-api';
 
-import type { ChecklistPhotoMediaIds } from '../local-db/schema';
+import type { ChecklistPhotoMediaIds, DamageRecord, SyncOperationRecord } from '../local-db/schema';
 import { recebimentoV2Db } from '../local-db/db';
+
+export type AvariaPhotoUploadTarget = {
+  serverAvariaId: string;
+  mediaIds: string[];
+};
+
+type AvariaSyncPayload = {
+  damageId?: string;
+  serverAvariaId?: string;
+  mediaIds?: string[];
+};
+
+async function listSyncedAvariaOpsForDemand(
+  demandId: string,
+): Promise<SyncOperationRecord[]> {
+  return recebimentoV2Db.syncOperations
+    .where('aggregateId')
+    .equals(demandId)
+    .filter(
+      (op) =>
+        op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR &&
+        (op.status === 'synced' || op.status === 'syncing'),
+    )
+    .toArray();
+}
+
+function findSyncedAvariaOpForDamage(
+  ops: SyncOperationRecord[],
+  damage: DamageRecord,
+): SyncOperationRecord | undefined {
+  return ops.find((op) => {
+    const payload = op.payload as AvariaSyncPayload;
+    if (payload.damageId && payload.damageId === damage.id) {
+      return true;
+    }
+
+    const serverAvariaId = damage.serverAvariaId ?? damage.id;
+    return Boolean(payload.serverAvariaId && payload.serverAvariaId === serverAvariaId);
+  });
+}
+
+export async function resolveServerAvariaIdForDamage(
+  damage: DamageRecord,
+  syncedOps?: SyncOperationRecord[],
+): Promise<string | null> {
+  if (damage.serverAvariaId) {
+    return damage.serverAvariaId;
+  }
+
+  const ops = syncedOps ?? (await listSyncedAvariaOpsForDemand(damage.demandId));
+  const matchedOp = findSyncedAvariaOpForDamage(ops, damage);
+  const payload = matchedOp?.payload as AvariaSyncPayload | undefined;
+
+  return payload?.serverAvariaId ?? null;
+}
+
+export async function resolveMediaIdsForDamage(
+  damage: DamageRecord,
+  syncedOps?: SyncOperationRecord[],
+): Promise<string[]> {
+  if (damage.mediaIds?.length) {
+    return damage.mediaIds;
+  }
+
+  const ops = syncedOps ?? (await listSyncedAvariaOpsForDemand(damage.demandId));
+  const matchedOp = findSyncedAvariaOpForDamage(ops, damage);
+
+  if (matchedOp) {
+    const payload = matchedOp.payload as AvariaSyncPayload;
+    if (payload.mediaIds?.length) {
+      return payload.mediaIds;
+    }
+    if (matchedOp.attachmentIds.length > 0) {
+      return matchedOp.attachmentIds;
+    }
+  }
+
+  return [];
+}
+
+export async function collectAvariaPhotoUploadTargets(
+  demandId: string,
+): Promise<AvariaPhotoUploadTarget[]> {
+  const [damages, syncedOps] = await Promise.all([
+    recebimentoV2Db.damages
+      .where('demandId')
+      .equals(demandId)
+      .and((damage) => !damage.deletedAt)
+      .toArray(),
+    listSyncedAvariaOpsForDemand(demandId),
+  ]);
+
+  const targets: AvariaPhotoUploadTarget[] = [];
+
+  for (const damage of damages) {
+    const [serverAvariaId, mediaIds] = await Promise.all([
+      resolveServerAvariaIdForDamage(damage, syncedOps),
+      resolveMediaIdsForDamage(damage, syncedOps),
+    ]);
+
+    if (!serverAvariaId || mediaIds.length === 0) {
+      continue;
+    }
+
+    targets.push({ serverAvariaId, mediaIds });
+  }
+
+  return targets;
+}
 
 export async function persistRecebimentoId(
   demandId: string,
@@ -113,6 +224,132 @@ export async function countPendingPhotoUploads(demandId: string): Promise<{
   return { pending, uploading, error };
 }
 
+function filterPhotoIdList(
+  ids: string[] | undefined,
+  removeIds: Set<string>,
+): string[] | undefined {
+  if (!ids?.length) {
+    return ids;
+  }
+
+  const filtered = ids.filter((id) => !removeIds.has(id));
+  return filtered.length > 0 ? filtered : undefined;
+}
+
+/**
+ * Removes all non-uploaded photos for a demand from local storage and unlinks
+ * them from damages, checklist, impedimento and pending sync operations.
+ */
+export async function dismissPendingPhotos(demandId: string): Promise<number> {
+  const mediaRecords = await recebimentoV2Db.media
+    .where('processId')
+    .equals(demandId)
+    .toArray();
+
+  const removeIds = new Set(
+    mediaRecords
+      .filter((record) => record.status !== 'uploaded')
+      .map((record) => record.id),
+  );
+
+  if (removeIds.size === 0) {
+    return 0;
+  }
+
+  const now = Date.now();
+
+  await recebimentoV2Db.transaction(
+    'rw',
+    [
+      recebimentoV2Db.media,
+      recebimentoV2Db.damages,
+      recebimentoV2Db.impedimentos,
+      recebimentoV2Db.checklists,
+      recebimentoV2Db.syncOperations,
+    ],
+    async () => {
+      const damages = await recebimentoV2Db.damages
+        .where('demandId')
+        .equals(demandId)
+        .toArray();
+
+      for (const damage of damages) {
+        if (!damage.mediaIds?.some((id) => removeIds.has(id))) {
+          continue;
+        }
+
+        const mediaIds = damage.mediaIds.filter((id) => !removeIds.has(id));
+        await recebimentoV2Db.damages.update(damage.id, {
+          mediaIds: mediaIds.length > 0 ? mediaIds : undefined,
+          updatedAt: now,
+        });
+      }
+
+      const impedimento = await recebimentoV2Db.impedimentos
+        .where('demandId')
+        .equals(demandId)
+        .first();
+
+      if (impedimento?.mediaIds?.some((id) => removeIds.has(id))) {
+        const mediaIds = impedimento.mediaIds.filter((id) => !removeIds.has(id));
+        await recebimentoV2Db.impedimentos.update(impedimento.id, {
+          mediaIds,
+          updatedAt: now,
+        });
+      }
+
+      const checklist = await recebimentoV2Db.checklists.get(demandId);
+      if (checklist?.photoMediaIds) {
+        await recebimentoV2Db.checklists.update(demandId, {
+          photoMediaIds: {
+            lacre: filterPhotoIdList(checklist.photoMediaIds.lacre, removeIds),
+            bauFechado: filterPhotoIdList(checklist.photoMediaIds.bauFechado, removeIds),
+            bauAberto: filterPhotoIdList(checklist.photoMediaIds.bauAberto, removeIds),
+            extras: filterPhotoIdList(checklist.photoMediaIds.extras, removeIds),
+          },
+          updatedAt: now,
+        });
+      }
+
+      const ops = await recebimentoV2Db.syncOperations
+        .where('aggregateId')
+        .equals(demandId)
+        .toArray();
+
+      for (const op of ops) {
+        const attachmentIds = op.attachmentIds.filter((id) => !removeIds.has(id));
+        const payload = { ...(op.payload as Record<string, unknown>) };
+        let changed = attachmentIds.length !== op.attachmentIds.length;
+
+        if (Array.isArray(payload.mediaIds)) {
+          const mediaIds = payload.mediaIds.filter((id) => !removeIds.has(String(id)));
+          if (mediaIds.length !== payload.mediaIds.length) {
+            payload.mediaIds = mediaIds;
+            if (typeof payload.photoCount === 'number') {
+              payload.photoCount = mediaIds.length;
+            }
+            changed = true;
+          }
+        }
+
+        if (!changed) {
+          continue;
+        }
+
+        await recebimentoV2Db.syncOperations.update(op.id, {
+          attachmentIds,
+          payload,
+          updatedAt: now,
+        });
+      }
+
+      await recebimentoV2Db.media.bulkDelete([...removeIds]);
+    },
+  );
+
+  return removeIds.size;
+}
+
 export async function recoverStuckSyncState(demandId: string): Promise<void> {
   const now = Date.now();
 
@@ -123,6 +360,21 @@ export async function recoverStuckSyncState(demandId: string): Promise<void> {
     .toArray();
 
   for (const op of stuckOps) {
+    if (op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR) {
+      const payload = op.payload as { damageId?: string };
+      const damage = payload.damageId
+        ? await recebimentoV2Db.damages.get(payload.damageId)
+        : undefined;
+
+      if (damage?.serverAvariaId) {
+        await recebimentoV2Db.syncOperations.update(op.id, {
+          status: 'synced',
+          updatedAt: now,
+        });
+        continue;
+      }
+    }
+
     await recebimentoV2Db.syncOperations.update(op.id, {
       status: 'pending',
       updatedAt: now,

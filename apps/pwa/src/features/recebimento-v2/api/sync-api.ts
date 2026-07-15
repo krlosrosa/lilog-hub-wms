@@ -64,3 +64,17 @@ export async function encerrarApoioRecebimento(apoioId: string): Promise<void> {
     method: 'POST',
   });
 }
+
+export type ReabrirConferenciaResponse = {
+  id: string;
+  situacao: string;
+};
+
+export async function reabrirConferencia(
+  recebimentoId: string,
+): Promise<ReabrirConferenciaResponse> {
+  return request<ReabrirConferenciaResponse>(
+    `/recebimentos/${encodeURIComponent(recebimentoId)}/reabrir`,
+    { method: 'PUT' },
+  );
+}

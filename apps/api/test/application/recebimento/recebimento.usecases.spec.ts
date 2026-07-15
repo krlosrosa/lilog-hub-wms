@@ -601,6 +601,7 @@ describe('EncerrarConferenciaUseCase', () => {
       'conferido',
       expect.any(Date),
       undefined,
+      undefined,
     );
     expect(result?.situacao).toBe('conferido');
   });
@@ -1407,6 +1408,75 @@ describe('RegistrarAvariaUseCase', () => {
 
     expect(avariaRepository.createMany).toHaveBeenCalledWith([
       expect.objectContaining({ produtoId: 'prod-1', lote: 'L1' }),
+    ]);
+  });
+
+  it('forwards clientDamageId to repository for idempotent sync', async () => {
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        situacao: 'em_conferencia',
+      }),
+      findItemsByRecebimento: vi.fn().mockResolvedValue([
+        {
+          id: 'item-1',
+          produtoId: 'prod-1',
+          quantidadeRecebida: 5,
+          unidadeMedida: 'UN',
+          loteRecebido: 'L1',
+        },
+      ]),
+    };
+
+    const avariaRepository: Partial<IRecebimentoAvariaRepository> = {
+      createMany: vi.fn().mockResolvedValue([
+        {
+          id: 'av-1',
+          recebimentoId: 'rec-1',
+          produtoId: 'prod-1',
+          lote: 'L1',
+          tipo: 'fisica',
+          natureza: 'parcial',
+          causa: 'transporte',
+          quantidadeCaixas: 1,
+          quantidadeUnidades: 0,
+          photoCount: 0,
+          replicado: false,
+          operatorId: 1,
+          createdAt: new Date(),
+        },
+      ]),
+    };
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        RegistrarAvariaUseCase,
+        { provide: RECEBIMENTO_REPOSITORY, useValue: recebimentoRepository },
+        { provide: RECEBIMENTO_AVARIA_REPOSITORY, useValue: avariaRepository },
+        { provide: PRODUTO_REPOSITORY, useValue: {} },
+      ],
+    }).compile();
+
+    const useCase = moduleRef.get(RegistrarAvariaUseCase);
+
+    await useCase.execute({
+      recebimentoId: 'rec-1',
+      produtoId: 'prod-1',
+      lote: 'L1',
+      tipo: 'fisica',
+      natureza: 'parcial',
+      causa: 'transporte',
+      quantidadeCaixas: 1,
+      quantidadeUnidades: 0,
+      clientDamageId: 'damage-local-1',
+      operatorId: 1,
+    });
+
+    expect(avariaRepository.createMany).toHaveBeenCalledWith([
+      expect.objectContaining({
+        produtoId: 'prod-1',
+        clientDamageId: 'damage-local-1',
+      }),
     ]);
   });
 
