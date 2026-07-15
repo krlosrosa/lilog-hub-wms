@@ -11,6 +11,8 @@ SUBDOMAINS=(
   pwa-dev
   lideranca-dev
   portal-dev
+  storage-dev
+  storage-console-dev
 )
 
 ZONE_JSON=$(curl -sS -H "Authorization: Bearer ${CF_DNS_API_TOKEN}" \

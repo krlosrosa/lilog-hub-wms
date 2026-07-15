@@ -26,10 +26,15 @@ const sessaoPresencaStatusPainelSchema = z.enum([
   'atraso',
 ]);
 
+const dateReferenciaSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD');
+
 export const GetRecebimentoPainelSnapshotQuerySchema = z.object({
   unidadeId: z.string().min(1).max(50),
   dataInicio: z.iso.datetime(),
   dataFim: z.iso.datetime(),
+  dataReferencia: dateReferenciaSchema,
 });
 
 export class GetRecebimentoPainelSnapshotQueryDto extends createZodDto(

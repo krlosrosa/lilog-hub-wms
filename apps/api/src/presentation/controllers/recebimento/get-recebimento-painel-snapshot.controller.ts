@@ -37,6 +37,7 @@ export class GetRecebimentoPainelSnapshotController {
       unidadeId: query.unidadeId,
       dataInicio: new Date(query.dataInicio),
       dataFim: new Date(query.dataFim),
+      dataReferencia: query.dataReferencia,
     });
   }
 }

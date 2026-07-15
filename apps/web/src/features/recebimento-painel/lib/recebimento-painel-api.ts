@@ -6,6 +6,7 @@ export type GetRecebimentoPainelSnapshotParams = {
   unidadeId: string;
   dataInicio: string;
   dataFim: string;
+  dataReferencia: string;
 };
 
 export function getRecebimentoPainelSnapshot(
@@ -15,6 +16,7 @@ export function getRecebimentoPainelSnapshot(
     unidadeId: params.unidadeId,
     dataInicio: params.dataInicio,
     dataFim: params.dataFim,
+    dataReferencia: params.dataReferencia,
   });
 
   return apiRequest<RecebimentoPainelSnapshot>(

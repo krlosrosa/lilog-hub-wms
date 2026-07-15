@@ -62,6 +62,7 @@ export function useRecebimentoPainel({ intervalo }: UseRecebimentoPainelParams) 
           unidadeId: unidadeSelecionada.id,
           dataInicio,
           dataFim,
+          dataReferencia: intervaloNormalizado.dataFim,
         });
 
         setSnapshot(resultado);
