@@ -20,6 +20,7 @@ COPY apps/pwa/package.json ./apps/pwa/
 COPY apps/pwa-lideranca/package.json ./apps/pwa-lideranca/
 COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
+COPY packages/local-sync/package.json ./packages/local-sync/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 COPY packages/ui/package.json ./packages/ui/
 
@@ -46,6 +47,7 @@ COPY apps/pwa ./apps/pwa
 COPY packages ./packages
 
 RUN pnpm --filter @lilog/contracts build \
+  && pnpm --filter @lilog/local-sync build \
   && pnpm --filter @lilog/ui build \
   && pnpm --filter pwa build
 
