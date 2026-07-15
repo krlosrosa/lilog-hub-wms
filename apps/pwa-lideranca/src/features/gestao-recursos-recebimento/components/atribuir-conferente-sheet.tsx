@@ -2,8 +2,9 @@
 
 import { cn } from '@lilog/ui';
 import { Coffee, Loader2, UserCircle, UserPlus, X } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import { ConfirmarAdicionarApoioDialog } from '@/features/gestao-recursos/components/confirmar-adicionar-apoio-dialog';
 import type { Operator } from '@/features/gestao-recursos/types/gestao-recursos.schema';
 
 function getInitials(name: string): string {
@@ -48,6 +49,8 @@ type AtribuirConferenteSheetProps = {
   title?: string;
   /** Quando true, lista todos os operadores presentes (inclusive em outra demanda). */
   includeBusyOperators?: boolean;
+  /** Exibe confirmação antes de executar a ação (ex.: adicionar apoio). */
+  confirmBeforeAction?: boolean;
 };
 
 export function AtribuirConferenteSheet({
@@ -59,11 +62,18 @@ export function AtribuirConferenteSheet({
   isLoading,
   title = 'Atribuir conferente',
   includeBusyOperators = false,
+  confirmBeforeAction = false,
 }: AtribuirConferenteSheetProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [operadorSelecionado, setOperadorSelecionado] = useState<Operator | null>(
+    null,
+  );
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setOperadorSelecionado(null);
+      return;
+    }
 
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -72,6 +82,28 @@ export function AtribuirConferenteSheet({
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [isOpen, onClose]);
+
+  async function handleConfirmarAcao() {
+    if (!preRecebimentoId || !operadorSelecionado) return;
+
+    try {
+      await onAtribuir(preRecebimentoId, operadorSelecionado.id);
+      setOperadorSelecionado(null);
+    } catch {
+      // Mantém o modal aberto em caso de erro.
+    }
+  }
+
+  function handleSelectOperator(operator: Operator) {
+    if (confirmBeforeAction) {
+      setOperadorSelecionado(operator);
+      return;
+    }
+
+    if (preRecebimentoId) {
+      void onAtribuir(preRecebimentoId, operator.id);
+    }
+  }
 
   const elegiveis = operators
     .filter((operator) => includeBusyOperators || operator.status === 'ocioso')
@@ -130,11 +162,7 @@ export function AtribuirConferenteSheet({
                   <button
                     type="button"
                     disabled={isLoading}
-                    onClick={() => {
-                      if (preRecebimentoId) {
-                        void onAtribuir(preRecebimentoId, operator.id);
-                      }
-                    }}
+                    onClick={() => handleSelectOperator(operator)}
                     className={cn(
                       'flex w-full items-center gap-3 rounded-xl border border-outline-variant bg-surface px-3 py-2.5 text-left transition-colors shadow-sm',
                       'hover:bg-surface-container active:bg-surface-container-high disabled:opacity-50',
@@ -168,6 +196,19 @@ export function AtribuirConferenteSheet({
 
         <div className="h-[env(safe-area-inset-bottom,0px)]" />
       </div>
+
+      <ConfirmarAdicionarApoioDialog
+        open={operadorSelecionado != null}
+        onOpenChange={(open) => {
+          if (!open && !isLoading) {
+            setOperadorSelecionado(null);
+          }
+        }}
+        funcionarioNome={operadorSelecionado?.name ?? ''}
+        detalhe={operadorSelecionado?.sector}
+        onConfirm={handleConfirmarAcao}
+        isLoading={isLoading}
+      />
     </>
   );
 }

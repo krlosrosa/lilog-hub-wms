@@ -490,6 +490,7 @@ export function GestaoRecursosRecebimentoView() {
         }
         title="Adicionar apoio"
         includeBusyOperators
+        confirmBeforeAction
       />
 
       <AdicionarApoioSheet

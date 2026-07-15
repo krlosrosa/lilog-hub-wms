@@ -46,17 +46,36 @@ describe('derive-process-capabilities', () => {
     ).toEqual(RESPONSAVEL_CAPABILITIES);
   });
 
-  it('usa fallback restritivo sem papel nem capabilities', () => {
-    expect(deriveCapabilitiesFromProcess(undefined)).toEqual(
-      RESTRICTIVE_CAPABILITIES,
-    );
+  it('deriva permissões de responsável para demanda disponível sem alocação', () => {
+    expect(
+      deriveCapabilitiesFromProcessHeader({
+        papel: null,
+        souApoio: false,
+        atribuidoAMim: false,
+      }),
+    ).toEqual(RESPONSAVEL_CAPABILITIES);
+  });
+
+  it('ignora capabilities restritivas do pacote quando papelDoUsuario é null', () => {
     expect(
       deriveCapabilitiesFromProcess({
-        capabilities: undefined,
+        capabilities: {
+          canEditChecklist: false,
+          canRegistrarTemperatura: false,
+          canFinalizar: false,
+          canGerenciarPaletes: false,
+          canConferirItens: false,
+        },
         papelDoUsuario: null,
         souApoio: false,
         atribuidoAMim: false,
       }),
-    ).toEqual(RESTRICTIVE_CAPABILITIES);
+    ).toEqual(RESPONSAVEL_CAPABILITIES);
+  });
+
+  it('usa fallback restritivo apenas sem processo', () => {
+    expect(deriveCapabilitiesFromProcess(undefined)).toEqual(
+      RESTRICTIVE_CAPABILITIES,
+    );
   });
 });

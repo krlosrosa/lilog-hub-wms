@@ -121,6 +121,13 @@ export class GetRecebimentoV2PackageUseCase {
       (detalhe?.produtos ?? []).map((produto) => [produto.produtoId, produto]),
     );
 
+    const alocacaoResponsavel =
+      recebimento == null
+        ? await this.recebimentoAlocacaoRepository.findAtivaByPreRecebimentoId(
+            input.demandId,
+          )
+        : null;
+
     const { papelDoUsuario, capabilities } =
       recebimento != null
         ? await this.recebimentoParticipacaoService.resolveCapabilitiesForRecebimento(
@@ -130,7 +137,7 @@ export class GetRecebimentoV2PackageUseCase {
         : await this.recebimentoParticipacaoService.resolveCapabilitiesForPreRecebimento(
             input.demandId,
             input.userId,
-            null,
+            alocacaoResponsavel?.funcionarioId ?? null,
           );
 
     let apoioAlocacaoId: string | undefined;

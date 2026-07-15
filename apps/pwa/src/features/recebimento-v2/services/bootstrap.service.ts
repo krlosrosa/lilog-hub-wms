@@ -450,11 +450,13 @@ async function writePackageToDB(demandId: string, pkg: unknown): Promise<number>
         serverRevision,
         status: 'ready',
         ...(p.recebimento?.id ? { recebimentoId: p.recebimento.id } : {}),
-        ...(p.papelDoUsuario !== undefined
+        ...(p.papelDoUsuario != null
           ? { papelDoUsuario: p.papelDoUsuario }
           : {}),
         ...(p.apoioAlocacaoId ? { apoioAlocacaoId: p.apoioAlocacaoId } : {}),
-        ...(p.capabilities ? { capabilities: p.capabilities } : {}),
+        ...(p.capabilities && p.papelDoUsuario != null
+          ? { capabilities: p.capabilities }
+          : {}),
         updatedAt: Date.now(),
       });
     },

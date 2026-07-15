@@ -36,20 +36,25 @@ export function deriveCapabilitiesFromProcess(
     return RESTRICTIVE_CAPABILITIES;
   }
 
-  if (process.capabilities) {
-    return process.capabilities;
-  }
-
   const papel =
     process.papelDoUsuario ??
     (process.souApoio ? 'apoio' : process.atribuidoAMim ? 'responsavel' : null);
 
-  if (papel === 'responsavel') {
+  if (process.capabilities && process.papelDoUsuario != null) {
+    return process.capabilities;
+  }
+
+  if (papel === 'apoio' || process.souApoio) {
+    return APOIO_CAPABILITIES;
+  }
+
+  if (papel === 'responsavel' || process.atribuidoAMim) {
     return RESPONSAVEL_CAPABILITIES;
   }
 
-  if (papel === 'apoio') {
-    return APOIO_CAPABILITIES;
+  // Demanda liberada sem alocação: operador pode iniciar checklist e conferência
+  if (!process.souApoio) {
+    return RESPONSAVEL_CAPABILITIES;
   }
 
   return RESTRICTIVE_CAPABILITIES;

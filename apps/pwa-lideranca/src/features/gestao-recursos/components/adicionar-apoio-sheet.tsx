@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { hapticLight } from '@/lib/haptics';
 
+import { ConfirmarAdicionarApoioDialog } from '@/features/gestao-recursos/components/confirmar-adicionar-apoio-dialog';
 import type { FuncionarioApoioCandidatoApi } from '@/features/gestao-recursos/types/gestao-recursos.api';
 
 function getInitials(name: string): string {
@@ -45,6 +46,8 @@ export function AdicionarApoioSheet({
   const [sessaoOrigemFilter, setSessaoOrigemFilter] = useState<'all' | string>(
     'all',
   );
+  const [candidatoSelecionado, setCandidatoSelecionado] =
+    useState<FuncionarioApoioCandidatoApi | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -60,8 +63,20 @@ export function AdicionarApoioSheet({
   useEffect(() => {
     if (isOpen) {
       setSessaoOrigemFilter('all');
+      setCandidatoSelecionado(null);
     }
   }, [isOpen]);
+
+  async function handleConfirmarApoio() {
+    if (!candidatoSelecionado) return;
+
+    try {
+      await onAdicionar(candidatoSelecionado.funcionarioId);
+      setCandidatoSelecionado(null);
+    } catch {
+      // Mantém o modal aberto em caso de erro.
+    }
+  }
 
   const countsBySessao = useMemo(() => {
     const counts: Record<string, number> = { all: candidatos.length };
@@ -208,7 +223,8 @@ export function AdicionarApoioSheet({
                     type="button"
                     disabled={isLoading}
                     onClick={() => {
-                      void onAdicionar(candidato.funcionarioId);
+                      hapticLight();
+                      setCandidatoSelecionado(candidato);
                     }}
                     className={cn(
                       'flex w-full items-center gap-3 rounded-xl border border-outline-variant bg-surface px-3 py-2.5 text-left transition-colors shadow-sm',
@@ -247,6 +263,28 @@ export function AdicionarApoioSheet({
 
         <div className="h-[env(safe-area-inset-bottom,0px)]" />
       </div>
+
+      <ConfirmarAdicionarApoioDialog
+        open={candidatoSelecionado != null}
+        onOpenChange={(open) => {
+          if (!open && !isLoading) {
+            setCandidatoSelecionado(null);
+          }
+        }}
+        funcionarioNome={candidatoSelecionado?.nome ?? ''}
+        detalhe={
+          candidatoSelecionado
+            ? [
+                candidatoSelecionado.equipeOrigemNome,
+                candidatoSelecionado.equipeOrigemArea,
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            : null
+        }
+        onConfirm={handleConfirmarApoio}
+        isLoading={isLoading}
+      />
     </>
   );
 }

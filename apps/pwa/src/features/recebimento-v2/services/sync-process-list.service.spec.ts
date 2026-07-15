@@ -165,4 +165,48 @@ describe('syncProcessList', () => {
       canConferirItens: true,
     });
   });
+
+  it('atualiza capabilities restritivas quando header indica demanda disponível', async () => {
+    await recebimentoV2Db.processes.put({
+      id: DEMAND_ACTIVE,
+      unidadeId: UNIDADE_ID,
+      adapter: 'recebimento-v2',
+      status: 'ready',
+      serverRevision: 1,
+      baseRevision: 0,
+      flowVersion: 'v2',
+      papelDoUsuario: null,
+      capabilities: {
+        canEditChecklist: false,
+        canRegistrarTemperatura: false,
+        canFinalizar: false,
+        canGerenciarPaletes: false,
+        canConferirItens: false,
+      },
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    mockFetchProcesses.mockResolvedValue({
+      items: [
+        {
+          demandId: DEMAND_ACTIVE,
+          unidadeId: UNIDADE_ID,
+          situacao: 'liberado_para_conferencia',
+          preRecebimentoSituacao: 'liberado_para_conferencia',
+          serverRevision: 2,
+          updatedAt: new Date().toISOString(),
+          tombstone: false,
+          supplier: 'Transportadora',
+        },
+      ],
+      nextCursor: null,
+      hasMore: false,
+    });
+
+    await syncProcessList(UNIDADE_ID);
+
+    const process = await recebimentoV2Db.processes.get(DEMAND_ACTIVE);
+    expect(process?.capabilities?.canEditChecklist).toBe(true);
+  });
 });

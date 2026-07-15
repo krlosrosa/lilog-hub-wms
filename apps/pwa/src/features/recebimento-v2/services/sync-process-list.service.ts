@@ -52,13 +52,11 @@ function mapRemoteToProcess(
     souApoio: item.souApoio === true,
     papelDoUsuario: item.papel ?? existing?.papelDoUsuario ?? null,
     apoioAlocacaoId: item.apoioAlocacaoId ?? existing?.apoioAlocacaoId,
-    capabilities:
-      existing?.capabilities ??
-      deriveCapabilitiesFromProcessHeader({
-        papel: item.papel ?? existing?.papelDoUsuario ?? null,
-        souApoio: item.souApoio === true,
-        atribuidoAMim: item.atribuidoAMim === true,
-      }),
+    capabilities: deriveCapabilitiesFromProcessHeader({
+      papel: item.papel ?? existing?.papelDoUsuario ?? null,
+      souApoio: item.souApoio === true,
+      atribuidoAMim: item.atribuidoAMim === true,
+    }),
     downloadProgress: existing?.downloadProgress,
     downloadedAt: existing?.downloadedAt,
     lastSyncedAt: existing?.lastSyncedAt,
