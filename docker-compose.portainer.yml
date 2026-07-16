@@ -2,6 +2,12 @@
 # PRODUÇÃO — use ESTE arquivo no Portainer (Compose path).
 # NÃO use docker-compose.dev.yml (é só para desenvolvimento local).
 #
+# Deploy com código novo (obrigatório após mudanças no PWA):
+#   docker compose -f docker-compose.portainer.yml build --no-cache pwa pwa-lideranca
+#   docker compose -f docker-compose.portainer.yml up -d pwa pwa-lideranca
+#
+# Se usar Cloudflare (proxy laranja), faça Purge Cache nos domínios PWA após deploy.
+#
 # Servidor 4 GB RAM (ex.: DO s-2vcpu-4gb): faça o PRIMEIRO deploy via SSH,
 # buildando um serviço por vez:
 #   docker compose -f docker-compose.portainer.yml build api

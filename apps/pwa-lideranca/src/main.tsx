@@ -3,10 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from '@tanstack/react-router';
 import * as Sentry from '@sentry/react';
 import { ThemeProvider } from 'next-themes';
-import { registerSW } from 'virtual:pwa-register';
 
 import { AuthProvider } from '@/features/auth';
 import { UnidadeProvider } from '@/features/unidade';
+import { registerProductionServiceWorker } from '@/lib/register-production-sw';
 
 import { router } from './router';
 import './styles/globals.css';
@@ -24,7 +24,7 @@ Sentry.init({
 });
 
 if (import.meta.env.PROD) {
-  registerSW({ immediate: true });
+  registerProductionServiceWorker();
 } else if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   void navigator.serviceWorker.getRegistrations().then((registrations) => {
     for (const registration of registrations) {
