@@ -248,6 +248,33 @@ describe('calcularDivergencias multiplos lotes por SKU', () => {
       quantidadeRecebida: 0,
     });
   });
+
+  it('nao gera divergencia de quantidade quando recebido mistura CX e UN com total correto', () => {
+    const divergencias = calcularDivergencias(
+      [makeEsperadoMultiLote({ quantidadeEsperada: 100 })],
+      [
+        makeRecebidoMultiLote({
+          id: 'item-1',
+          quantidadeRecebida: 90,
+          unidadeMedida: 'CX',
+        }),
+        makeRecebidoMultiLote({
+          id: 'item-2',
+          quantidadeRecebida: 120,
+          unidadeMedida: 'UN',
+        }),
+      ],
+      produtos,
+    );
+
+    expect(
+      divergencias.filter((item) =>
+        ['quantidade_maior', 'quantidade_menor', 'produto_ausente'].includes(
+          item.tipoDivergencia,
+        ),
+      ),
+    ).toHaveLength(0);
+  });
 });
 
 describe('calcularDivergencias peso', () => {

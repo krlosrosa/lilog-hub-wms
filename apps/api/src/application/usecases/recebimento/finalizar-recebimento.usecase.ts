@@ -392,46 +392,40 @@ export class FinalizarRecebimentoUseCase {
       })),
     });
 
-    if (divergencias.length > 0 || avarias.length > 0) {
-      const produtoIds = new Set<string>();
+    const produtoIdsCnc = new Set<string>([
+      ...preRecebimento.itens.map((item) => item.produtoId),
+      ...itensConferidos.map((item) => item.produtoId),
+      ...avarias.flatMap((avaria) =>
+        avaria.produtoId ? [avaria.produtoId] : [],
+      ),
+    ]);
 
-      for (const divergencia of divergencias) {
-        if (divergencia.produtoId) {
-          produtoIds.add(divergencia.produtoId);
-        }
-      }
-
-      for (const avaria of avarias) {
-        if (avaria.produtoId) {
-          produtoIds.add(avaria.produtoId);
-        }
-      }
-
-      const produtos = new Map(
-        (
-          await Promise.all(
-            [...produtoIds].map((produtoId) =>
-              this.produtoRepository.findByProdutoId(produtoId),
-            ),
-          )
+    const produtosCnc = new Map(
+      (
+        await Promise.all(
+          [...produtoIdsCnc].map((produtoId) =>
+            this.produtoRepository.findByProdutoId(produtoId),
+          ),
         )
-          .filter((produto) => produto !== null)
-          .map((produto) => [produto!.produtoId, produto!]),
-      );
+      )
+        .filter((produto) => produto !== null)
+        .map((produto) => [produto!.produtoId, produto!]),
+    );
 
-      const displayConfig = await this.resolveDisplayConfig(
-        preRecebimento.unidadeId,
-      );
+    const displayConfig = await this.resolveDisplayConfig(
+      preRecebimento.unidadeId,
+    );
 
-      const itensCnc = montarItensCncRecebimento({
-        divergencias,
-        avarias,
-        itensEsperados: preRecebimento.itens,
-        itensRecebidos: itensConferidos,
-        produtos,
-        displayConfig,
-      });
+    const itensCnc = montarItensCncRecebimento({
+      recebimentoId,
+      itensEsperados: preRecebimento.itens,
+      itensRecebidos: itensConferidos,
+      avarias,
+      produtos: produtosCnc,
+      displayConfig,
+    });
 
+    if (itensCnc.length > 0) {
       await this.cncEventPublisher.publish({
         recebimentoId,
         preRecebimentoId: preRecebimento.id,

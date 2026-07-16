@@ -8,6 +8,11 @@ import type {
   ItemRecebimentoRecord,
 } from '../repositories/recebimento/recebimento.repository.js';
 import type { ProdutoRecord } from '../repositories/produto/produto.repository.js';
+import {
+  agregarEsperadoPorProdutoEmUN,
+  agregarRecebidoPorProdutoEmUN,
+  resolveUnidadesPorCaixa,
+} from './agregar-quantidades-por-produto.js';
 import { toBaseUnits } from './unidade-medida.js';
 
 export type DivergenciaCalculada = Omit<CreateDivergenciaInput, 'recebimentoId'>;
@@ -39,43 +44,6 @@ function aggregateQuantidadeByProduto(
   return map;
 }
 
-function aggregateQuantidadeEsperadaByProduto(
-  itens: ItemPreRecebimentoRecord[],
-  produtos: Map<string, ProdutoRecord>,
-): Map<string, number> {
-  const map = new Map<string, number>();
-
-  for (const item of itens) {
-    const unidadesPorCaixa =
-      produtos.get(item.produtoId)?.unidadesPorCaixa ?? item.unidadesPorCaixa;
-    const quantidadeUN = toBaseUnits(
-      item.quantidadeEsperada,
-      item.unidadeMedida,
-      unidadesPorCaixa,
-    );
-
-    map.set(item.produtoId, (map.get(item.produtoId) ?? 0) + quantidadeUN);
-  }
-
-  return map;
-}
-
-function resolveUnidadesPorCaixa(
-  produtoId: string,
-  produtos: Map<string, ProdutoRecord>,
-  itensEsperados: ItemPreRecebimentoRecord[],
-): number {
-  const fromProduto = produtos.get(produtoId)?.unidadesPorCaixa;
-
-  if (fromProduto) {
-    return fromProduto;
-  }
-
-  const esperado = itensEsperados.find((item) => item.produtoId === produtoId);
-
-  return esperado?.unidadesPorCaixa ?? 1;
-}
-
 function resolvePesoEsperadoEfetivo(
   esperado: ItemPreRecebimentoRecord,
   esperadoUN: number,
@@ -100,18 +68,23 @@ export function calcularDivergencias(
   produtos: Map<string, ProdutoRecord> = new Map(),
 ): DivergenciaCalculada[] {
   const divergencias: DivergenciaCalculada[] = [];
-  const recebidosPorProduto = aggregateQuantidadeByProduto(itensRecebidos);
-  const esperadosPorProduto = aggregateQuantidadeEsperadaByProduto(
+  const recebidosPorProdutoUN = agregarRecebidoPorProdutoEmUN(
+    itensRecebidos,
+    produtos,
+    itensEsperados,
+  );
+  const esperadosPorProduto = agregarEsperadoPorProdutoEmUN(
     itensEsperados,
     produtos,
   );
+  const recebidosPorProduto = aggregateQuantidadeByProduto(itensRecebidos);
   const esperadosIds = new Set(itensEsperados.map((item) => item.produtoId));
 
   for (const produtoId of esperadosIds) {
-    const recebido = recebidosPorProduto.get(produtoId);
-    const esperadoUN = esperadosPorProduto.get(produtoId) ?? 0;
+    const recebidoUN = recebidosPorProdutoUN.get(produtoId)?.totalUN ?? 0;
+    const esperadoUN = esperadosPorProduto.get(produtoId)?.totalUN ?? 0;
 
-    if (!recebido) {
+    if (recebidoUN === 0 && esperadoUN > 0) {
       divergencias.push({
         produtoId,
         tipoDivergencia: 'produto_ausente',
@@ -121,17 +94,6 @@ export function calcularDivergencias(
       });
       continue;
     }
-
-    const unidadesPorCaixa = resolveUnidadesPorCaixa(
-      produtoId,
-      produtos,
-      itensEsperados,
-    );
-    const recebidoUN = toBaseUnits(
-      recebido.quantidadeRecebida,
-      recebido.unidadeMedida,
-      unidadesPorCaixa,
-    );
 
     if (recebidoUN > esperadoUN) {
       divergencias.push({
@@ -212,23 +174,12 @@ export function calcularDivergencias(
     }
   }
 
-  for (const [produtoId] of recebidosPorProduto) {
+  for (const [produtoId, recebido] of recebidosPorProdutoUN) {
     if (!esperadosIds.has(produtoId)) {
-      const recebido = recebidosPorProduto.get(produtoId)!;
-      const unidadesPorCaixa = resolveUnidadesPorCaixa(
-        produtoId,
-        produtos,
-        itensEsperados,
-      );
-
       divergencias.push({
         produtoId,
         tipoDivergencia: 'produto_nao_esperado',
-        quantidadeRecebida: toBaseUnits(
-          recebido.quantidadeRecebida,
-          recebido.unidadeMedida,
-          unidadesPorCaixa,
-        ),
+        quantidadeRecebida: recebido.totalUN,
         descricao: 'SKU não informado no pré-recebimento',
       });
     }
