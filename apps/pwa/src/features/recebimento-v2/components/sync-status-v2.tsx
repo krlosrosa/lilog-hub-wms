@@ -5,9 +5,11 @@ import {
   Clock,
   Download,
   Image,
+  Info,
   Loader2,
   RefreshCw,
 } from 'lucide-react';
+import { useState } from 'react';
 
 import { formatBytes } from '@/lib/images/photo-debug-log';
 
@@ -23,8 +25,10 @@ import {
   isAutoSyncPausedWithWork,
 } from '../lib/sync-status-issues';
 import { dismissSyncOperation } from '../services/repair-sync-operations.service';
+import { SyncOperationDiagnosticSheet } from './sync-operation-diagnostic-sheet';
 
 interface SyncStatusV2Props {
+  demandId: string;
   syncStatus: UseSyncStatusV2Result;
   onSync?: () => void;
   onPull?: () => void;
@@ -83,8 +87,22 @@ function getPhotoStatusLabel(status: PendingPhotoOperation['status']): string {
   }
 }
 
-function QueueOperationCard({ operation }: { operation: SyncQueueOperation }) {
+const INSPECTABLE_STATUSES = new Set<SyncQueueOperation['status']>([
+  'retry',
+  'rejected',
+  'conflict',
+  'blocked',
+]);
+
+function QueueOperationCard({
+  operation,
+  onInspect,
+}: {
+  operation: SyncQueueOperation;
+  onInspect?: (id: string) => void;
+}) {
   const isIssue = operation.status === 'rejected' || operation.status === 'conflict';
+  const isInspectable = INSPECTABLE_STATUSES.has(operation.status);
 
   return (
     <div className={cn('rounded-md border px-2.5 py-2', getQueueItemTone(operation.status))}>
@@ -101,6 +119,17 @@ function QueueOperationCard({ operation }: { operation: SyncQueueOperation }) {
             {formatRelativeTime(operation.createdAt, '—')}
           </p>
         </div>
+        {isInspectable && onInspect ? (
+          <button
+            type="button"
+            onClick={() => onInspect(operation.id)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-outline-variant/60 bg-surface text-muted-foreground touch-manipulation transition-colors hover:text-on-surface"
+            aria-label="Ver diagnóstico da operação"
+            title="Ver diagnóstico"
+          >
+            <Info className="h-4 w-4" aria-hidden />
+          </button>
+        ) : null}
       </div>
       {operation.errorMessage ? (
         <p className="mt-1 text-[11px] leading-relaxed text-destructive">
@@ -150,6 +179,7 @@ function PendingPhotoCard({ photo }: { photo: PendingPhotoOperation }) {
 }
 
 export function SyncStatusV2({
+  demandId,
   syncStatus,
   onSync,
   onPull,
@@ -162,6 +192,8 @@ export function SyncStatusV2({
   pullDisabled = false,
   className,
 }: SyncStatusV2Props) {
+  const [selectedOpId, setSelectedOpId] = useState<string | null>(null);
+
   const {
     pendingCount,
     conflictCount,
@@ -285,7 +317,11 @@ export function SyncStatusV2({
             Operações ({queueOperations.length})
           </p>
           {queueOperations.map((operation) => (
-            <QueueOperationCard key={operation.id} operation={operation} />
+            <QueueOperationCard
+              key={operation.id}
+              operation={operation}
+              onInspect={setSelectedOpId}
+            />
           ))}
         </div>
       ) : null}
@@ -339,6 +375,12 @@ export function SyncStatusV2({
           ) : null}
         </div>
       ) : null}
+
+      <SyncOperationDiagnosticSheet
+        operationId={selectedOpId}
+        demandId={demandId}
+        onClose={() => setSelectedOpId(null)}
+      />
     </div>
   );
 }

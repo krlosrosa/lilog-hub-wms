@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 import { usePaleteSessionV2 } from '../hooks/use-palete-session-v2';
+import { generateUnitizadorCodigo } from '../services/palete-session-v2.service';
 import { PaleteBipSheet } from './palete-bip-sheet';
 
 type PaleteSheetIntent = 'default' | 'conferencia-pendente';
@@ -22,6 +23,7 @@ interface PaleteV2ToolbarProps {
   onOpenChange?: (open: boolean) => void;
   sheetIntent?: PaleteSheetIntent;
   onConfirmPalete?: (codigo: string) => Promise<void>;
+  allowAutoGenerate?: boolean;
 }
 
 function truncatePaleteCodigo(codigo: string, max = 10): string {
@@ -39,6 +41,7 @@ export function PaleteV2Toolbar({
   onOpenChange: controlledOnOpenChange,
   sheetIntent = 'default',
   onConfirmPalete,
+  allowAutoGenerate = false,
 }: PaleteV2ToolbarProps) {
   const palete = usePaleteSessionV2(demandId, controlaPalete);
   const [internalOpen, setInternalOpen] = useState(false);
@@ -66,6 +69,10 @@ export function PaleteV2Toolbar({
     await palete.setPalete(codigo);
     hapticMedium();
     toast.success(previous ? `Palete alterado para ${codigo}` : `Palete ${codigo} definido`);
+  }
+
+  async function handleAutoGenerate() {
+    await handleSetPalete(generateUnitizadorCodigo());
   }
 
   const hasPalete = Boolean(palete.activePaleteCodigo);
@@ -130,6 +137,7 @@ export function PaleteV2Toolbar({
         description={sheetDescription}
         confirmLabel={sheetConfirmLabel}
         onConfirm={handleSetPalete}
+        onAutoGenerate={allowAutoGenerate ? handleAutoGenerate : undefined}
       />
     </div>
   );

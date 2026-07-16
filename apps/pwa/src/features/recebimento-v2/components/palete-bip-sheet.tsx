@@ -7,7 +7,7 @@ import {
   SheetTitle,
   cn,
 } from '@lilog/ui';
-import { Barcode, Loader2 } from 'lucide-react';
+import { Barcode, Loader2, Wand2 } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 interface PaleteBipSheetProps {
@@ -17,6 +17,7 @@ interface PaleteBipSheetProps {
   description: string;
   confirmLabel?: string;
   onConfirm: (codigo: string) => Promise<void>;
+  onAutoGenerate?: () => Promise<void>;
 }
 
 export function PaleteBipSheet({
@@ -26,6 +27,7 @@ export function PaleteBipSheet({
   description,
   confirmLabel = 'Confirmar palete',
   onConfirm,
+  onAutoGenerate,
 }: PaleteBipSheetProps) {
   const [codigo, setCodigo] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +68,22 @@ export function PaleteBipSheet({
       onOpenChange(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao associar palete');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleAutoGenerate() {
+    if (!onAutoGenerate) return;
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      await onAutoGenerate();
+      onOpenChange(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao gerar palete');
     } finally {
       setIsSubmitting(false);
     }
@@ -125,6 +143,19 @@ export function PaleteBipSheet({
               confirmLabel
             )}
           </Button>
+
+          {onAutoGenerate ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSubmitting}
+              onClick={() => void handleAutoGenerate()}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-lg text-label-md font-medium"
+            >
+              <Wand2 className="h-4 w-4" aria-hidden />
+              Gerar automaticamente
+            </Button>
+          ) : null}
         </form>
       </SheetContent>
     </Sheet>

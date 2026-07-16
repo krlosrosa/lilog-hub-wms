@@ -345,6 +345,7 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
 
         <div className="mt-4 space-y-4 px-margin-mobile">
           <SyncStatusV2
+            demandId={demandId}
             syncStatus={syncStatus}
             onPull={() => void forcePull()}
             onDismissPendingPhotos={() => dismissPendingPhotos()}
@@ -477,6 +478,7 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-5 px-margin-mobile">
         <SyncStatusV2
+          demandId={demandId}
           syncStatus={syncStatus}
           onPull={() => void forcePull()}
           onDismissPendingPhotos={() => dismissPendingPhotos()}

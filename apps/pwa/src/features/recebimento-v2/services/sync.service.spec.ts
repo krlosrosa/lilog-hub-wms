@@ -298,6 +298,7 @@ describe('sync.service – pushDemand', () => {
     const storedOp = await recebimentoV2Db.syncOperations.get(op.id);
     expect(storedOp?.status).toBe('retry');
     expect((storedOp?.attempts ?? 0)).toBeGreaterThan(0);
+    expect(storedOp?.errorMessage).toBe('Network error');
     expect(storedOp?.nextAttemptAt).toBeGreaterThan(Date.now());
   });
 

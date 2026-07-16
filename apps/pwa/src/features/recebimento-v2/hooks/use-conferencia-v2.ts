@@ -161,7 +161,10 @@ export function useConferenciaV2(demandId: string): UseConferenciaV2Result {
       activePalete ||
       undefined;
 
-    if (input.parametros.controlaPalete && !unitizadorCodigo) {
+    if (
+      (input.parametros.controlaPalete || produtoConfig.pesoVariavel) &&
+      !unitizadorCodigo
+    ) {
       throw new Error(PALETE_OBRIGATORIO_MSG);
     }
 

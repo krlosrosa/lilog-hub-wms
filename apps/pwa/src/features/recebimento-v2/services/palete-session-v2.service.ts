@@ -7,6 +7,11 @@ import type { SyncOperationRecord } from '../local-db/schema';
 
 export const PALETE_OBRIGATORIO_MSG = 'Informe o palete antes de conferir';
 
+export function generateUnitizadorCodigo(): string {
+  const hex = crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
+  return `PLT-${hex}`;
+}
+
 function normalizePaleteCodigo(codigo: string): string {
   return codigo.trim();
 }
@@ -53,7 +58,7 @@ export async function isControlaPaleteEnabled(demandId: string): Promise<boolean
 }
 
 /**
- * ITEM_CONFERIR sem unitizadorCodigo ficam locais quando controlaPalete (rede de segurança).
+ * ITEM_CONFERIR sem unitizadorCodigo ficam locais quando controlaPalete ou pesoVariavel (rede de segurança).
  */
 export async function filterSyncableOperations(
   demandId: string,
@@ -84,16 +89,18 @@ export async function filterSyncableOperations(
   });
 
   const controlaPalete = await isControlaPaleteEnabled(demandId);
-  if (!controlaPalete) {
-    return filtered;
-  }
 
   return filtered.filter((op) => {
     if (op.opType !== RECEBIMENTO_V2_OP_TYPES.ITEM_CONFERIR) {
       return true;
     }
 
-    const payload = op.payload as { unitizadorCodigo?: string };
+    const payload = op.payload as { unitizadorCodigo?: string; pesoVariavel?: boolean };
+    const requiresUnitizador = controlaPalete || payload.pesoVariavel;
+    if (!requiresUnitizador) {
+      return true;
+    }
+
     return Boolean(payload.unitizadorCodigo?.trim());
   });
 }

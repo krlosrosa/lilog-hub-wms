@@ -957,6 +957,7 @@ export function ResumoV2View({ demandId }: ResumoV2ViewProps) {
         />
 
         <SyncStatusV2
+          demandId={demandId}
           syncStatus={{ ...syncStatus, isSyncing: syncStatus.isSyncing || isSyncing }}
           onSync={() => void handleSync()}
           onPull={() => void forcePull()}

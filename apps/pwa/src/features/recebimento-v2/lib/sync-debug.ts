@@ -1,5 +1,6 @@
 const DEBUG_PREFIX = '[recebimento-v2]';
-const DEBUG_STORAGE_KEY = 'recebimento-v2:debug';
+export const RECEBIMENTO_V2_DEBUG_STORAGE_KEY = 'recebimento-v2:debug';
+const DEBUG_STORAGE_KEY = RECEBIMENTO_V2_DEBUG_STORAGE_KEY;
 
 let bootstrapped = false;
 
@@ -13,6 +14,18 @@ export function isRecebimentoV2DebugEnabled(): boolean {
   }
 
   return localStorage.getItem(DEBUG_STORAGE_KEY) === '1';
+}
+
+export function setRecebimentoV2DebugEnabled(enabled: boolean): void {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
+
+  if (enabled) {
+    localStorage.setItem(DEBUG_STORAGE_KEY, '1');
+  } else {
+    localStorage.removeItem(DEBUG_STORAGE_KEY);
+  }
 }
 
 function ensureBootstrapLog(): void {

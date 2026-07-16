@@ -5,13 +5,14 @@ import {
   ChevronDown,
   ChevronLeft,
   Database,
+  FileDown,
   HardDrive,
   Loader2,
   RefreshCw,
   Server,
   Trash2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { hapticLight, hapticMedium } from '@/lib/haptics';
@@ -27,6 +28,15 @@ import {
   formatServiceWorkerScriptLabel,
   getStorageUsageTone,
 } from '../lib/cache-manager.service';
+import {
+  buildDemandDiagnostic,
+  copyDiagnosticToClipboard,
+  downloadDiagnosticJson,
+} from '../lib/sync-diagnostic';
+import {
+  isRecebimentoV2DebugEnabled,
+  setRecebimentoV2DebugEnabled,
+} from '../lib/sync-debug';
 import { showSyncResultToast } from '../lib/sync-result-toast';
 import { syncNowV2 } from '../services/auto-sync-v2.service';
 
@@ -98,6 +108,12 @@ export function SyncManagerV2View({ demandId }: SyncManagerV2ViewProps) {
     Catálogo: false,
     'Sync e mídia': false,
   });
+  const [debugModeEnabled, setDebugModeEnabled] = useState(() => isRecebimentoV2DebugEnabled());
+  const [isExportingDiagnostic, setIsExportingDiagnostic] = useState(false);
+
+  useEffect(() => {
+    setDebugModeEnabled(isRecebimentoV2DebugEnabled());
+  }, []);
 
   const cacheManager = useCacheManager(demandId);
   const syncStatus = useSyncStatusV2(demandId);
@@ -110,6 +126,46 @@ export function SyncManagerV2View({ demandId }: SyncManagerV2ViewProps) {
   const storage = snapshot?.storage;
   const serviceWorker = snapshot?.serviceWorker;
   const indexedDb = snapshot?.indexedDb;
+  const hasDiagnosticOps =
+    syncStatus.issueOperations.length > 0 ||
+    syncStatus.conflictCount > 0 ||
+    syncStatus.rejectedCount > 0 ||
+    syncStatus.retryCount > 0 ||
+    syncStatus.blockedCount > 0;
+
+  async function handleExportDiagnostic() {
+    setIsExportingDiagnostic(true);
+    try {
+      const diagnostic = await buildDemandDiagnostic(demandId);
+      const filename = `sync-diagnostic-${demandId.slice(0, 8)}-${Date.now()}.json`;
+      downloadDiagnosticJson(diagnostic, filename);
+      toast.success('Diagnóstico exportado');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao exportar diagnóstico');
+    } finally {
+      setIsExportingDiagnostic(false);
+    }
+  }
+
+  async function handleCopyDiagnostic() {
+    setIsExportingDiagnostic(true);
+    try {
+      const diagnostic = await buildDemandDiagnostic(demandId);
+      await copyDiagnosticToClipboard(diagnostic);
+      toast.success('Diagnóstico copiado');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao copiar diagnóstico');
+    } finally {
+      setIsExportingDiagnostic(false);
+    }
+  }
+
+  function handleToggleDebugMode() {
+    const next = !debugModeEnabled;
+    setRecebimentoV2DebugEnabled(next);
+    setDebugModeEnabled(next);
+    toast.success(next ? 'Modo diagnóstico ativado' : 'Modo diagnóstico desativado');
+  }
 
   async function handleReabrir() {
     try {
@@ -455,6 +511,34 @@ export function SyncManagerV2View({ demandId }: SyncManagerV2ViewProps) {
                       Limpar banco completo
                     </Button>
                   </div>
+
+                  <div className="rounded-md border border-outline-variant/60 bg-surface-container/40 px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-label-sm font-medium text-on-surface">Modo diagnóstico</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          Ativa logs detalhados no console do navegador.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={debugModeEnabled}
+                        onClick={handleToggleDebugMode}
+                        className={cn(
+                          'relative h-7 w-12 shrink-0 rounded-full transition-colors',
+                          debugModeEnabled ? 'bg-secondary' : 'bg-outline-variant',
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'absolute top-0.5 h-6 w-6 rounded-full bg-surface shadow transition-transform',
+                            debugModeEnabled ? 'translate-x-5' : 'translate-x-0.5',
+                          )}
+                        />
+                      </button>
+                    </div>
+                  </div>
                 </>
               ) : null}
             </SectionCard>
@@ -464,7 +548,36 @@ export function SyncManagerV2View({ demandId }: SyncManagerV2ViewProps) {
               description="Envie alterações locais ou atualize dados do servidor."
               icon={RefreshCw}
             >
+              {hasDiagnosticOps ? (
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isExportingDiagnostic}
+                    onClick={() => void handleExportDiagnostic()}
+                    className="h-10 flex-1"
+                  >
+                    {isExportingDiagnostic ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                    ) : (
+                      <FileDown className="mr-2 h-4 w-4" aria-hidden />
+                    )}
+                    Exportar diagnóstico
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isExportingDiagnostic}
+                    onClick={() => void handleCopyDiagnostic()}
+                    className="h-10 shrink-0"
+                  >
+                    Copiar
+                  </Button>
+                </div>
+              ) : null}
+
               <SyncStatusV2
+                demandId={demandId}
                 syncStatus={syncStatus}
                 onSync={() => void handleSync()}
                 onPull={() => void forcePull()}

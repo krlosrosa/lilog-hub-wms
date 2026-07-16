@@ -660,7 +660,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
         form: formToSubmit,
       });
 
-      if (parametrosConferencia.controlaPalete) {
+      if (isPvar || parametrosConferencia.controlaPalete) {
         const activePalete = await getActivePaleteCodigo(demandId);
         if (!activePalete) {
           logDetalheItemDebug('submitConference_missingPalete', {
@@ -1110,12 +1110,13 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
           <div className="mt-2.5 flex flex-wrap items-center justify-end gap-2">
             <PaleteV2Toolbar
               demandId={demandId}
-              controlaPalete={parametrosConferencia.controlaPalete}
+              controlaPalete={isPvar || parametrosConferencia.controlaPalete}
               variant="header"
               open={paleteSheetOpen}
               onOpenChange={handlePaleteSheetOpenChange}
               sheetIntent={paleteSheetIntent}
               onConfirmPalete={handlePaleteConfirm}
+              allowAutoGenerate={isPvar}
             />
             <TemperaturaProdutoV2ModalButton demandId={demandId} />
           </div>

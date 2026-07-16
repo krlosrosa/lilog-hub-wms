@@ -682,6 +682,8 @@ export async function pushDemand(
             const nextAttempts = (op.attempts ?? 0) + 1;
             op.status = 'retry';
             op.attempts = nextAttempts;
+            op.errorMessage =
+              err instanceof Error ? err.message : 'Falha ao enviar — erro desconhecido';
             op.nextAttemptAt = nextRetryAttemptAt(nextAttempts);
             op.updatedAt = Date.now();
           });
