@@ -159,6 +159,7 @@ export function mapPesagemRecebimentoRow(
     sequenciaCaixa: row.sequenciaCaixa,
     etiquetaCodigo: row.etiquetaCodigo,
     pesoKg: Number(row.pesoKg),
+    clientConferenceId: row.clientConferenceId ?? null,
     createdAt: row.createdAt,
   };
 }

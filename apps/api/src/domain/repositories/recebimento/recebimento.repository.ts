@@ -47,6 +47,7 @@ export type PesagemRecebimentoRecord = {
   sequenciaCaixa: number;
   etiquetaCodigo: string | null;
   pesoKg: number;
+  clientConferenceId?: string | null;
   createdAt: Date;
 };
 
@@ -134,6 +135,7 @@ export type AddItemRecebimentoOptions = {
   unitizadorId?: string | null;
   pesoVariavel?: boolean;
   conferidoPorId?: number | null;
+  clientConferenceId?: string | null;
 };
 
 export interface IRecebimentoRepository {

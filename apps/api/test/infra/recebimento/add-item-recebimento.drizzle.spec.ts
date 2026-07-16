@@ -77,6 +77,7 @@ describe('addItemRecebimentoDb', () => {
       sequenciaCaixa: 1,
       etiquetaCodigo: 'ETQ-001',
       pesoKg: '12.500',
+      clientConferenceId: 'conf-uuid-001',
       createdAt: new Date(),
     };
 
@@ -90,6 +91,13 @@ describe('addItemRecebimentoDb', () => {
         .mockReturnValueOnce({
           from: vi.fn().mockReturnValue({
             where: vi.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([]),
+            }),
           }),
         })
         .mockReturnValueOnce({
@@ -117,7 +125,11 @@ describe('addItemRecebimentoDb', () => {
           values: vi.fn().mockReturnValue({ returning: itemReturning }),
         })
         .mockReturnValueOnce({
-          values: vi.fn().mockReturnValue({ returning: pesagemReturning }),
+          values: vi.fn().mockReturnValue({
+            onConflictDoNothing: vi.fn().mockReturnValue({
+              returning: pesagemReturning,
+            }),
+          }),
         }),
     };
 
@@ -132,7 +144,7 @@ describe('addItemRecebimentoDb', () => {
         pesoRecebido: 12.5,
         etiquetaCodigo: 'ETQ-001',
       },
-      { pesoVariavel: true },
+      { pesoVariavel: true, clientConferenceId: 'conf-uuid-001' },
     );
 
     expect(result.item.id).toBe('item-2');

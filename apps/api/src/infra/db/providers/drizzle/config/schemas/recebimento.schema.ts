@@ -227,6 +227,7 @@ export const pesagensRecebimento = recebimentoPgSchema.table(
     conferidoPorId: integer('conferido_por_id').references(() => funcionarios.id, {
       onDelete: 'set null',
     }),
+    clientConferenceId: varchar('client_conference_id', { length: 128 }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -236,6 +237,10 @@ export const pesagensRecebimento = recebimentoPgSchema.table(
     uniqueIndex('pesagens_recebimento_etiqueta_unidade_idx')
       .on(table.unidadeId, table.etiquetaCodigo)
       .where(sql`${table.etiquetaCodigo} is not null`),
+    unique('pesagens_recebimento_item_client_conf_uidx').on(
+      table.recebimentoItemId,
+      table.clientConferenceId,
+    ),
   ],
 );
 

@@ -227,6 +227,7 @@ export type ConferirItemPayload = {
   validade?: string;
   numeroSerie?: string;
   unitizadorCodigo?: string;
+  clientConferenceId?: string;
 };
 
 export type SubmitAvariaPayload = {

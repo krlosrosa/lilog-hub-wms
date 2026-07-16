@@ -960,6 +960,13 @@
       "when": 1791836800000,
       "tag": "0135_recebimento_sobreposicao_carga",
       "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1791923200000,
+      "tag": "0136_pesagens_client_conference_id",
+      "breakpoints": true
     }
   ]
 }

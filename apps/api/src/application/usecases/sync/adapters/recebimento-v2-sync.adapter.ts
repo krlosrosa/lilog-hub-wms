@@ -407,6 +407,7 @@ export class RecebimentoV2SyncAdapter implements ISyncAdapter {
         unitizadorCodigo: payload['unitizadorCodigo'] as string | undefined,
       },
       userId: context.userId,
+      clientConferenceId: payload['conferenceId'] as string | undefined,
     });
 
     return {

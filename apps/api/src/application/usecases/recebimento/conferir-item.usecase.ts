@@ -54,6 +54,7 @@ export type ConferirItemUseCaseInput = {
   recebimentoId: string;
   data: ConferirItemInput;
   userId: number | null;
+  clientConferenceId?: string;
 };
 
 function applyParametrosToItemConfig(
@@ -105,7 +106,7 @@ export class ConferirItemUseCase {
     return user?.funcionarioId ?? null;
   }
 
-  async execute({ recebimentoId, data, userId }: ConferirItemUseCaseInput) {
+  async execute({ recebimentoId, data, userId, clientConferenceId }: ConferirItemUseCaseInput) {
     const parsed = ConferirItemInputSchema.parse(data);
 
     const recebimento = await this.recebimentoRepository.findById(recebimentoId);
@@ -277,6 +278,7 @@ export class ConferirItemUseCase {
           unitizadorId,
           pesoVariavel: config.pesoVariavel,
           conferidoPorId,
+          clientConferenceId: clientConferenceId?.trim() || null,
         },
       );
     } catch (error) {

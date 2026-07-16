@@ -140,6 +140,8 @@ async function rebuildConferirPayload(
 
   return {
     conferenceId: conference.id,
+    clientConferenceId: conference.id,
+    pesoVariavel: produtoConfig.pesoVariavel,
     ...syncPayload,
   };
 }
@@ -268,6 +270,18 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
       }
 
       const payload = (op.payload ?? {}) as Record<string, unknown>;
+      const conferenceId = payload.conferenceId as string | undefined;
+      const conference = conferenceId ? conferenceById.get(conferenceId) : undefined;
+
+      if (
+        conference?.serverPesagemId &&
+        (payload.pesoVariavel === true || conference.isPvarBox === true)
+      ) {
+        await recebimentoV2Db.syncOperations.delete(op.id);
+        changed += 1;
+        continue;
+      }
+
       if (isValidConferirPayload(payload)) {
         if (op.status === 'rejected') {
           await recebimentoV2Db.syncOperations.update(op.id, {

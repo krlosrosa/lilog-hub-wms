@@ -16,6 +16,7 @@ const DEMAND_ID = '550e8400-e29b-41d4-a716-446655440001';
 describe('recoverStuckSyncState', () => {
   beforeEach(async () => {
     await recebimentoV2Db.damages.clear();
+    await recebimentoV2Db.conferences.clear();
     await recebimentoV2Db.syncOperations.clear();
     await recebimentoV2Db.processes.put({
       id: DEMAND_ID,
@@ -121,6 +122,54 @@ describe('recoverStuckSyncState', () => {
 
     const recovered = await recebimentoV2Db.syncOperations.get(stuckAvariaOp.id);
     expect(recovered?.status).toBe('pending');
+  });
+
+  it('marks stuck PVAR conferir op as synced when conference already has serverPesagemId', async () => {
+    const conferenceId = crypto.randomUUID();
+
+    await recebimentoV2Db.conferences.put({
+      id: conferenceId,
+      demandId: DEMAND_ID,
+      sku: 'SKU-PVAR',
+      quantity: 1,
+      recebidaCaixa: 1,
+      peso: 12.5,
+      isPvarBox: true,
+      conferidoAt: new Date().toISOString(),
+      syncStatus: 'synced',
+      serverPesagemId: 'pesagem-server-1',
+      updatedAt: Date.now(),
+    });
+
+    const stuckConferirOp: SyncOperationRecord = {
+      id: crypto.randomUUID(),
+      aggregateId: DEMAND_ID,
+      module: 'conference',
+      opType: RECEBIMENTO_V2_OP_TYPES.ITEM_CONFERIR,
+      sequence: 1,
+      dependsOn: [],
+      idempotencyKey: crypto.randomUUID(),
+      payload: {
+        conferenceId,
+        pesoVariavel: true,
+        produtoId: 'PVAR-001',
+        quantidadeRecebida: 1,
+        unidadeMedida: 'CX',
+        pesoRecebido: 12.5,
+      },
+      attachmentIds: [],
+      status: 'syncing',
+      attempts: 0,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    await recebimentoV2Db.syncOperations.put(stuckConferirOp);
+
+    await recoverStuckSyncState(DEMAND_ID);
+
+    const recovered = await recebimentoV2Db.syncOperations.get(stuckConferirOp.id);
+    expect(recovered?.status).toBe('synced');
   });
 });
 

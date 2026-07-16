@@ -91,4 +91,22 @@ describe('mapConferenciaV2SyncPayload', () => {
     expect(empty.loteRecebido).toBeUndefined();
     expect(blank.loteRecebido).toBeUndefined();
   });
+
+  it('includes clientConferenceId when pesoVariavel is true', () => {
+    const payload = mapConferenciaV2SyncPayload(
+      { ...baseRecord, id: 'conf-uuid-001', peso: 12.5 },
+      { ...baseMeta, pesoVariavel: true },
+      'lote',
+    );
+
+    expect(payload.clientConferenceId).toBe('conf-uuid-001');
+    expect(payload.quantidadeRecebida).toBe(1);
+    expect(payload.unidadeMedida).toBe('CX');
+  });
+
+  it('does not include clientConferenceId for non-PVAR items', () => {
+    const payload = mapConferenciaV2SyncPayload(baseRecord, baseMeta, 'lote');
+
+    expect(payload.clientConferenceId).toBeUndefined();
+  });
 });

@@ -161,6 +161,7 @@ export async function addItemRecebimentoDb(
       pesoKg: data.pesoRecebido,
       etiquetaCodigo: data.etiquetaCodigo,
       conferidoPorId,
+      clientConferenceId: options?.clientConferenceId ?? null,
     });
 
     const item = await syncItemTotalsFromPesagens(db, itemBase.id);

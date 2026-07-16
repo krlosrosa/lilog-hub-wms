@@ -57,6 +57,10 @@ export function mapConferenciaV2SyncPayload(
     payload.unitizadorCodigo = record.unitizadorCodigo.trim();
   }
 
+  if (meta.pesoVariavel) {
+    payload.clientConferenceId = record.id;
+  }
+
   const validade = record.validade ?? record.fabricacao;
   if (enviaValidade && validade) {
     payload.validade = new Date(validade).toISOString();

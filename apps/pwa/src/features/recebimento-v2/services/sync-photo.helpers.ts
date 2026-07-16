@@ -375,6 +375,20 @@ export async function recoverStuckSyncState(demandId: string): Promise<void> {
       }
     }
 
+    if (op.opType === RECEBIMENTO_V2_OP_TYPES.ITEM_CONFERIR) {
+      const payload = op.payload as { conferenceId?: string; pesoVariavel?: boolean };
+      if (payload.pesoVariavel && payload.conferenceId) {
+        const conference = await recebimentoV2Db.conferences.get(payload.conferenceId);
+        if (conference?.serverPesagemId) {
+          await recebimentoV2Db.syncOperations.update(op.id, {
+            status: 'synced',
+            updatedAt: now,
+          });
+          continue;
+        }
+      }
+    }
+
     await recebimentoV2Db.syncOperations.update(op.id, {
       status: 'pending',
       updatedAt: now,
