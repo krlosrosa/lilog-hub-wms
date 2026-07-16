@@ -17,6 +17,27 @@ export type Gs1BarcodeParseResult = {
 };
 
 const FNC1 = '\u001d';
+const AI10_FIXED_NUMERIC_LENGTH = 10;
+
+export function normalizeGs1ScannerInput(input: string): string {
+  return input.replace(/[\t\r\n]+/g, '').trim();
+}
+
+export function isScannerSubmitKey(key: string): boolean {
+  return key === 'Enter' || key === 'Tab';
+}
+
+export function isGtinLikeNumeric(value: string): boolean {
+  return /^\d{13,14}$/.test(value.trim());
+}
+
+function normalizeBatchLotFromAi10(value: string): string {
+  const trimmed = value.trim();
+  if (/^\d+$/.test(trimmed) && trimmed.length >= AI10_FIXED_NUMERIC_LENGTH) {
+    return trimmed.slice(0, AI10_FIXED_NUMERIC_LENGTH);
+  }
+  return trimmed;
+}
 
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
@@ -84,7 +105,9 @@ function parseParenthesesFormat(input: string): Record<string, string> | null {
   let match = pattern.exec(input);
 
   while (match) {
-    result[match[1]] = match[2].trim();
+    const ai = match[1];
+    const value = ai === '10' ? normalizeBatchLotFromAi10(match[2]) : match[2].trim();
+    result[ai] = value;
     match = pattern.exec(input);
   }
 
@@ -111,6 +134,41 @@ function readVariableLengthField(
   return {
     value: normalized.slice(startIndex, end),
     nextIndex: end === startIndex ? startIndex + 1 : end,
+  };
+}
+
+function readGtinField(
+  input: string,
+  startIndex: number,
+): { value: string; nextIndex: number } {
+  const afterAi = startIndex + 2;
+  const remainder = input.slice(afterAi);
+
+  const weightSuccessor = remainder.match(/^(\d{13,14})(?=310[0-6]|330[0-6])/);
+  if (weightSuccessor) {
+    return {
+      value: weightSuccessor[1],
+      nextIndex: afterAi + weightSuccessor[1].length,
+    };
+  }
+
+  const traceSuccessor = remainder.match(
+    /^(\d{13,14})(?=(?:11|15|17)\d{6}|10\d{10,}|7030|\u001d|$)/,
+  );
+  if (traceSuccessor) {
+    return {
+      value: traceSuccessor[1],
+      nextIndex: afterAi + traceSuccessor[1].length,
+    };
+  }
+
+  if (/^\d{14}/.test(remainder)) {
+    return { value: remainder.slice(0, 14), nextIndex: afterAi + 14 };
+  }
+
+  return {
+    value: remainder.slice(0, 13),
+    nextIndex: afterAi + Math.min(13, remainder.length),
   };
 }
 
@@ -144,8 +202,9 @@ function parseConcatenatedFormat(input: string): Record<string, string> {
     const ai2 = input.slice(index, index + 2);
 
     if (ai2 === '01') {
-      result[ai2] = input.slice(index + 2, index + 16);
-      index += 16;
+      const gtinField = readGtinField(input, index);
+      result[ai2] = gtinField.value;
+      index = gtinField.nextIndex;
       continue;
     }
 
@@ -168,9 +227,18 @@ function parseConcatenatedFormat(input: string): Record<string, string> {
     }
 
     if (ai2 === '10') {
-      const fnc1Pos = input.indexOf(FNC1, index + 2);
+      const lotStart = index + 2;
+      const lotSlice = input.slice(lotStart);
+
+      if (/^\d{10,}/.test(lotSlice)) {
+        result[ai2] = lotSlice.slice(0, AI10_FIXED_NUMERIC_LENGTH);
+        index = lotStart + AI10_FIXED_NUMERIC_LENGTH;
+        continue;
+      }
+
+      const fnc1Pos = input.indexOf(FNC1, lotStart);
       const end = fnc1Pos >= 0 ? fnc1Pos : input.length;
-      result[ai2] = input.slice(index + 2, end).trim();
+      result[ai2] = input.slice(lotStart, end).trim();
       index = fnc1Pos >= 0 ? fnc1Pos + 1 : input.length;
       continue;
     }
@@ -244,7 +312,7 @@ function buildResult(applicationIdentifiers: Record<string, string>): Gs1Barcode
 }
 
 export function looksLikeGs1TraceabilityBarcode(input: string): boolean {
-  const normalized = input.trim();
+  const normalized = normalizeGs1ScannerInput(input);
   if (normalized.length < 12) {
     return false;
   }
@@ -262,7 +330,7 @@ export function looksLikeGs1TraceabilityBarcode(input: string): boolean {
 }
 
 export function looksLikeGs1WeightBarcode(input: string): boolean {
-  const normalized = input.trim();
+  const normalized = normalizeGs1ScannerInput(input);
   if (normalized.length < 10) {
     return false;
   }
@@ -300,7 +368,7 @@ export type Gs1BarcodeApplyResult = {
 };
 
 export function applyGs1BarcodeInput(input: string): Gs1BarcodeApplyResult {
-  const trimmed = input.trim();
+  const trimmed = normalizeGs1ScannerInput(input);
   if (!trimmed || !looksLikeGs1Barcode(trimmed)) {
     return {
       applied: false,
@@ -345,7 +413,7 @@ export type LoteFieldResolveResult = {
 };
 
 export function resolveLoteFieldInput(raw: string): LoteFieldResolveResult {
-  const trimmed = raw.trim();
+  const trimmed = normalizeGs1ScannerInput(raw);
   if (!trimmed) {
     return { lote: '', validade: null, parsedFromGs1: false };
   }
@@ -374,7 +442,7 @@ export function resolveLoteFieldInput(raw: string): LoteFieldResolveResult {
 }
 
 export function parseGs1Barcode(input: string): Gs1BarcodeParseResult {
-  const normalized = input.trim();
+  const normalized = normalizeGs1ScannerInput(input);
   if (!normalized) {
     return {
       gtin: null,
@@ -411,7 +479,7 @@ export function formatPesoFromGs1Kg(kg: number): string {
 }
 
 export function resolvePesoInputValue(raw: string): string {
-  const trimmed = raw.trim();
+  const trimmed = normalizeGs1ScannerInput(raw);
   if (!trimmed) {
     return '';
   }

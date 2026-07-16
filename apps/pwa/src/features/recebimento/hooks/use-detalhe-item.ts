@@ -33,6 +33,7 @@ import {
 import type { ConferenciaItemMeta } from '../lib/map-conferencia-itens';
 import {
   applyGs1BarcodeInput,
+  isScannerSubmitKey,
   looksLikeGs1Barcode,
   looksLikeGs1TraceabilityBarcode,
   parseGs1Barcode,
@@ -1266,7 +1267,7 @@ export function useDetalheItem(demandId: string, initKey?: string) {
 
   const handleGs1WedgeKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key !== 'Enter') {
+      if (!isScannerSubmitKey(event.key)) {
         return;
       }
 

@@ -24,7 +24,7 @@ describe('resolveNonPvarLoteOnSubmit', () => {
     });
 
     expect(error).toBeUndefined();
-    expect(form.lote).toBe('401126031209');
+    expect(form.lote).toBe('4011260312');
     expect(form.validade).toBe('2026-06-16');
   });
 
@@ -76,7 +76,7 @@ describe('applyNonPvarLoteResolution', () => {
 
     expect(error).toBeUndefined();
     expect(changed).toBe(true);
-    expect(form.lote).toBe('401126031209');
+    expect(form.lote).toBe('4011260312');
     expect(form.validade).toBe('2026-06-16');
   });
 

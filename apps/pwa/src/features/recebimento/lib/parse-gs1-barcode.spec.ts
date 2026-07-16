@@ -4,8 +4,11 @@ import {
   applyGs1BarcodeInput,
   extractNetWeightKgFromGs1,
   formatPesoFromGs1Kg,
+  isGtinLikeNumeric,
+  isScannerSubmitKey,
   looksLikeGs1Barcode,
   looksLikeGs1TraceabilityBarcode,
+  normalizeGs1ScannerInput,
   parseGs1Barcode,
   parseGs1DateYyMmDd,
   resolveLoteFieldInput,
@@ -13,6 +16,31 @@ import {
 } from './parse-gs1-barcode';
 
 const LOTE_GS1 = '(15)261213(11)260616(7030)674(10)401126031209';
+const LOTE_GS1_IMAGEM = '(15)261227(11)260630(7030)674(10)401126061001';
+const PESO_GS1_IMAGEM = '(01)7891097104275(3103)013207(3303)013860(30)01';
+
+describe('isGtinLikeNumeric', () => {
+  it('detecta GTIN numérico de 13 ou 14 dígitos', () => {
+    expect(isGtinLikeNumeric('7891097104275')).toBe(true);
+    expect(isGtinLikeNumeric('07891097104275')).toBe(true);
+    expect(isGtinLikeNumeric('4011260610')).toBe(false);
+  });
+});
+
+describe('normalizeGs1ScannerInput', () => {
+  it('remove tab e quebras de linha do final da leitura', () => {
+    expect(normalizeGs1ScannerInput('(3103)013207\t')).toBe('(3103)013207');
+    expect(normalizeGs1ScannerInput('(3103)013207\r\n')).toBe('(3103)013207');
+  });
+});
+
+describe('isScannerSubmitKey', () => {
+  it('aceita Enter e Tab como gatilho de submit', () => {
+    expect(isScannerSubmitKey('Enter')).toBe(true);
+    expect(isScannerSubmitKey('Tab')).toBe(true);
+    expect(isScannerSubmitKey('Escape')).toBe(false);
+  });
+});
 
 describe('looksLikeGs1Barcode', () => {
   it('ignora entrada parcial durante digitação do leitor', () => {
@@ -30,6 +58,10 @@ describe('looksLikeGs1Barcode', () => {
     expect(looksLikeGs1TraceabilityBarcode(LOTE_GS1)).toBe(true);
     expect(looksLikeGs1Barcode(LOTE_GS1)).toBe(true);
   });
+
+  it('detecta código com tab no final', () => {
+    expect(looksLikeGs1Barcode(`${PESO_GS1_IMAGEM}\t`)).toBe(true);
+  });
 });
 
 describe('parseGs1DateYyMmDd', () => {
@@ -43,19 +75,36 @@ describe('parseGs1Barcode traceability', () => {
   it('parseia lote, produção, validade e autorização', () => {
     const result = parseGs1Barcode(LOTE_GS1);
 
-    expect(result.batchLot).toBe('401126031209');
+    expect(result.batchLot).toBe('4011260312');
     expect(result.productionDateIso).toBe('2026-06-16');
     expect(result.bestBeforeDateIso).toBe('2026-12-13');
+    expect(result.authorizationCode).toBe('674');
+  });
+
+  it('parseia lote da imagem real com 10 dígitos fixos após AI 10', () => {
+    const result = parseGs1Barcode(LOTE_GS1_IMAGEM);
+
+    expect(result.batchLot).toBe('4011260610');
+    expect(result.productionDateIso).toBe('2026-06-30');
+    expect(result.bestBeforeDateIso).toBe('2026-12-27');
     expect(result.authorizationCode).toBe('674');
   });
 
   it('parseia lote concatenado cujo valor contém 01 interno', () => {
     const result = parseGs1Barcode('1526121311260616703067410401126031209');
 
-    expect(result.batchLot).toBe('401126031209');
+    expect(result.batchLot).toBe('4011260312');
     expect(result.productionDateIso).toBe('2026-06-16');
     expect(result.bestBeforeDateIso).toBe('2026-12-13');
     expect(result.authorizationCode).toBe('674');
+  });
+
+  it('parseia lote concatenado com 12 dígitos e sufixo AI 30', () => {
+    const result = parseGs1Barcode('152612271126063070306741040112606103001');
+
+    expect(result.batchLot).toBe('4011260610');
+    expect(result.productionDateIso).toBe('2026-06-30');
+    expect(result.count).toBe(1);
   });
 
   it('parseia lote com FNC1 como separador', () => {
@@ -63,7 +112,7 @@ describe('parseGs1Barcode traceability', () => {
       `15261213112606167030674${'\u001d'}10401126031209`,
     );
 
-    expect(result.batchLot).toBe('401126031209');
+    expect(result.batchLot).toBe('4011260312');
     expect(result.productionDateIso).toBe('2026-06-16');
     expect(result.authorizationCode).toBe('674');
   });
@@ -88,7 +137,7 @@ describe('parseGs1Barcode traceability', () => {
 describe('resolveLoteFieldInput', () => {
   it('extrai lote e fabricação de GS1 bipado no campo lote', () => {
     expect(resolveLoteFieldInput(LOTE_GS1)).toEqual({
-      lote: '401126031209',
+      lote: '4011260312',
       validade: '2026-06-16',
       parsedFromGs1: true,
     });
@@ -132,13 +181,43 @@ describe('applyGs1BarcodeInput', () => {
     });
   });
 
+  it('aplica peso da imagem real com AI 3103 e bruto 3303', () => {
+    expect(applyGs1BarcodeInput(PESO_GS1_IMAGEM)).toEqual({
+      applied: true,
+      pesoKg: '13.207',
+      etiqueta: '7891097104275',
+      lote: null,
+      validade: null,
+    });
+  });
+
+  it('aplica leitura com tab no final', () => {
+    expect(applyGs1BarcodeInput(`${PESO_GS1_IMAGEM}\t`)).toEqual({
+      applied: true,
+      pesoKg: '13.207',
+      etiqueta: '7891097104275',
+      lote: null,
+      validade: null,
+    });
+  });
+
   it('aplica lote e fabricação de GS1 de rastreabilidade', () => {
     expect(applyGs1BarcodeInput(LOTE_GS1)).toEqual({
       applied: true,
       pesoKg: null,
       etiqueta: null,
-      lote: '401126031209',
+      lote: '4011260312',
       validade: '2026-06-16',
+    });
+  });
+
+  it('aplica lote truncado da imagem de rastreabilidade', () => {
+    expect(applyGs1BarcodeInput(LOTE_GS1_IMAGEM)).toEqual({
+      applied: true,
+      pesoKg: null,
+      etiqueta: null,
+      lote: '4011260610',
+      validade: '2026-06-30',
     });
   });
 
@@ -161,6 +240,25 @@ describe('applyGs1BarcodeInput', () => {
       validade: null,
     });
   });
+  it('parseia código concatenado com GTIN de 13 dígitos', () => {
+    const code = '017891097104275310301320733030138603001';
+    const result = parseGs1Barcode(code);
+
+    expect(result.gtin).toBe('7891097104275');
+    expect(result.netWeightKg).toBe(13.207);
+    expect(result.grossWeightKg).toBe(13.86);
+    expect(result.count).toBe(1);
+  });
+
+  it('aplica peso do código concatenado com GTIN de 13 dígitos', () => {
+    expect(applyGs1BarcodeInput('017891097104275310301320733030138603001')).toEqual({
+      applied: true,
+      pesoKg: '13.207',
+      etiqueta: '7891097104275',
+      lote: null,
+      validade: null,
+    });
+  });
 });
 
 describe('parseGs1Barcode weight', () => {
@@ -172,6 +270,15 @@ describe('parseGs1Barcode weight', () => {
     expect(result.gtin).toBe('7891097104275');
     expect(result.netWeightKg).toBe(13.207);
     expect(result.grossWeightKg).toBe(13.869);
+    expect(result.count).toBe(1);
+  });
+
+  it('parseia peso da imagem real', () => {
+    const result = parseGs1Barcode(PESO_GS1_IMAGEM);
+
+    expect(result.gtin).toBe('7891097104275');
+    expect(result.netWeightKg).toBe(13.207);
+    expect(result.grossWeightKg).toBe(13.86);
     expect(result.count).toBe(1);
   });
 

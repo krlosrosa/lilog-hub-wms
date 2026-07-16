@@ -41,7 +41,7 @@ import {
   RecordListItem,
 } from '@/features/recebimento/components/expandable-record-list';
 import { EMPTY_DETALHE_ITEM_FORM, buildFormForLoteEntry, resolveFirstFormError, resolveMaintainedLoteContext, syncMaintainedLoteFieldsForSubmit, validatePvarBoxDraft } from '@/features/recebimento/lib/conferencia-form';
-import { applyGs1BarcodeInput } from '@/features/recebimento/lib/parse-gs1-barcode';
+import { applyGs1BarcodeInput, isScannerSubmitKey, looksLikeGs1TraceabilityBarcode, looksLikeGs1WeightBarcode, normalizeGs1ScannerInput, resolveLoteFieldInput } from '@/features/recebimento/lib/parse-gs1-barcode';
 import { resolveNonPvarLoteOnSubmit, applyNonPvarLoteResolution } from '@/features/recebimento-v2/lib/resolve-non-pvar-lote-on-submit';
 import {
   buildDetalheItemSchema,
@@ -80,6 +80,8 @@ interface DetalheItemV2ViewProps {
   sku?: string;
 }
 
+type PvarFocusAfterSubmit = 'gs1-lote' | 'gs1-peso' | 'peso';
+
 function formatIsoDateForDisplay(isoDate: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
   if (!match) {
@@ -98,6 +100,7 @@ function NumericStepper({
   min = 0,
   inputMode = 'numeric' as 'numeric' | 'decimal',
   onKeyDown,
+  inputRef,
 }: {
   id: string;
   label: string;
@@ -108,6 +111,7 @@ function NumericStepper({
   min?: number;
   inputMode?: 'numeric' | 'decimal';
   onKeyDown?: KeyboardEventHandler<HTMLInputElement>;
+  inputRef?: RefObject<HTMLInputElement | null>;
 }) {
   const adjust = (delta: number) => {
     hapticLight();
@@ -133,6 +137,7 @@ function NumericStepper({
         </button>
         <input
           id={id}
+          ref={inputRef}
           type="text"
           inputMode={inputMode}
           value={value}
@@ -279,13 +284,16 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   const [lotesListExpanded, setLotesListExpanded] = useState(true);
   const [ignoreMaintainedLote, setIgnoreMaintainedLote] = useState(false);
   const [loteDraftConfirmed, setLoteDraftConfirmed] = useState(false);
-  const [gs1WedgeValue, setGs1WedgeValue] = useState('');
+  const [gs1LoteWedgeValue, setGs1LoteWedgeValue] = useState('');
+  const [gs1PesoWedgeValue, setGs1PesoWedgeValue] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [paleteSheetOpen, setPaleteSheetOpen] = useState(false);
   const [paleteSheetIntent, setPaleteSheetIntent] = useState<PaleteSheetIntent>('default');
   const pendingConferenceRef = useRef<DetalheItemForm | null>(null);
-  const gs1InputRef = useRef<HTMLInputElement>(null);
-  const loteInputRef = useRef<HTMLInputElement>(null);
+  const pendingFocusRef = useRef<PvarFocusAfterSubmit>('gs1-peso');
+  const gs1LoteInputRef = useRef<HTMLInputElement>(null);
+  const gs1PesoInputRef = useRef<HTMLInputElement>(null);
+  const pesoInputRef = useRef<HTMLInputElement>(null);
   const previousEffectiveLoteRef = useRef('');
   const { process } = useProcessV2(demandId);
   const parametrosConferencia = useParametrosConferenciaV2(process?.unidadeId);
@@ -430,14 +438,22 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
     (hasMaintainedLoteFromConferidos || loteDraftConfirmed) &&
     !!maintainedLoteContext.lote;
   const showLoteInput = showLote && (!isPvar || !showMaintainedLote);
+  const showPvarGs1LoteScan = isPvar && !showMaintainedLote;
+  const showPvarGs1PesoScan = isPvar && showMaintainedLote;
   const effectiveLote = maintainedLoteContext.lote || loteValue;
 
   const fabricacaoFromLote = useMemo(() => {
-    if (!showLote || !canParseFabricacaoFromLote(effectiveLote)) {
+    if (!showLote || isPvar || !canParseFabricacaoFromLote(effectiveLote)) {
+      return null;
+    }
+    if (
+      looksLikeGs1TraceabilityBarcode(effectiveLote) ||
+      looksLikeGs1WeightBarcode(effectiveLote)
+    ) {
       return null;
     }
     return parseFabricacaoFromLote(effectiveLote);
-  }, [effectiveLote, showLote]);
+  }, [effectiveLote, isPvar, showLote]);
 
   const showValidadeInput = showValidade;
 
@@ -471,22 +487,47 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
     }
   }, [fabricacaoFromLote, effectiveLote, setValue]);
 
-  const focusGs1Input = useCallback(() => {
+  const focusGs1LoteInput = useCallback(() => {
     window.setTimeout(() => {
-      gs1InputRef.current?.focus();
+      gs1LoteInputRef.current?.focus();
     }, 100);
   }, []);
 
-  const focusLoteInput = useCallback(() => {
+  const focusGs1PesoInput = useCallback(() => {
     window.setTimeout(() => {
-      loteInputRef.current?.focus();
+      gs1PesoInputRef.current?.focus();
     }, 100);
   }, []);
+
+  const focusPesoInput = useCallback(() => {
+    window.setTimeout(() => {
+      pesoInputRef.current?.focus();
+    }, 100);
+  }, []);
+
+  const focusPvarAfterSubmit = useCallback(
+    (target: PvarFocusAfterSubmit) => {
+      if (target === 'peso') {
+        focusPesoInput();
+        return;
+      }
+      if (target === 'gs1-peso') {
+        focusGs1PesoInput();
+        return;
+      }
+      focusGs1LoteInput();
+    },
+    [focusGs1LoteInput, focusGs1PesoInput, focusPesoInput],
+  );
 
   useEffect(() => {
     if (!isPvar || !selectedProduct) return;
-    focusGs1Input();
-  }, [focusGs1Input, isPvar, selectedProduct?.sku]);
+    if (showMaintainedLote) {
+      focusGs1PesoInput();
+      return;
+    }
+    focusGs1LoteInput();
+  }, [focusGs1LoteInput, focusGs1PesoInput, isPvar, selectedProduct?.sku, showMaintainedLote]);
 
   useEffect(() => {
     if (!initialSku) return;
@@ -549,7 +590,8 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
           validade: maintained?.validade,
         }),
       );
-      setGs1WedgeValue('');
+      setGs1LoteWedgeValue('');
+      setGs1PesoWedgeValue('');
       setIgnoreMaintainedLote(false);
       setLoteDraftConfirmed(Boolean(maintained?.lote));
     },
@@ -557,7 +599,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   );
 
   const executeConferencia = useCallback(
-    async (form: DetalheItemForm) => {
+    async (form: DetalheItemForm, focusAfter: PvarFocusAfterSubmit = 'gs1-peso') => {
       if (!selectedProduct || !produtoConfig) return;
 
       setSaveError(null);
@@ -602,14 +644,14 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
       }
       toast.success(isPvar ? 'Caixa conferida' : 'Conferência registrada');
       if (isPvar) {
-        focusGs1Input();
+        focusPvarAfterSubmit(focusAfter);
       }
     },
     [
       conferenceLoteEntries,
       conferirItem,
       demandId,
-      focusGs1Input,
+      focusPvarAfterSubmit,
       ignoreMaintainedLote,
       isPvar,
       parametrosConferencia,
@@ -622,7 +664,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   );
 
   const submitConference = useCallback(
-    async (form: DetalheItemForm) => {
+    async (form: DetalheItemForm, focusAfter: PvarFocusAfterSubmit = 'gs1-peso') => {
       if (!selectedProduct || !produtoConfig) {
         logDetalheItemDebug('submitConference_missingProductOrConfig', {
           hasSelectedProduct: Boolean(selectedProduct),
@@ -667,6 +709,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
             form: formToSubmit,
           });
           pendingConferenceRef.current = formToSubmit;
+          pendingFocusRef.current = focusAfter;
           setPaleteSheetIntent('conferencia-pendente');
           setPaleteSheetOpen(true);
           setSaveError(null);
@@ -677,7 +720,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
       logDetalheItemDebug('submitConference_beforeExecute', {
         form: formToSubmit,
       });
-      await executeConferencia(formToSubmit);
+      await executeConferencia(formToSubmit, focusAfter);
     },
     [
       conferenceLoteEntries,
@@ -725,7 +768,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
 
       if (shouldSavePending) {
         try {
-          await executeConferencia(pendingForm);
+          await executeConferencia(pendingForm, pendingFocusRef.current);
           pendingConferenceRef.current = null;
           setPaleteSheetIntent('default');
         } catch (err) {
@@ -888,7 +931,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
     void handleSubmit(
       async (form) => {
         try {
-          await submitConference(form);
+          await submitConference(form, 'peso');
         } catch (err) {
           handleConferenciaError(err);
         }
@@ -908,56 +951,66 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
 
   const handlePesoKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key !== 'Enter' || !isPvar) return;
+      if (!isScannerSubmitKey(event.key) || !isPvar) return;
       event.preventDefault();
       handleAddCaixa();
     },
     [handleAddCaixa, isPvar],
   );
 
-  const applyGs1ScanResult = useCallback(
-    (result: ReturnType<typeof applyGs1BarcodeInput>) => {
-      if (result.pesoKg) {
-        setValue('peso', result.pesoKg, { shouldDirty: true, shouldValidate: true });
-      }
-      if (result.etiqueta) {
-        setValue('etiqueta', result.etiqueta, { shouldDirty: true, shouldValidate: true });
-      }
-      if (result.lote) {
-        setValue('lote', result.lote, { shouldDirty: true, shouldValidate: true });
-        setIgnoreMaintainedLote(false);
-        setLoteDraftConfirmed(true);
-      }
-      if (result.validade) {
-        setValue('validade', result.validade, { shouldDirty: true, shouldValidate: true });
-      }
-    },
-    [setValue],
-  );
-
-  const submitGs1Wedge = useCallback(
+  const submitGs1LoteWedge = useCallback(
     async (raw?: string) => {
-      const text = (raw ?? gs1WedgeValue).trim();
-      if (!text) return false;
+      const text = normalizeGs1ScannerInput(raw ?? gs1LoteWedgeValue);
+      if (!text) return;
 
-      const result = applyGs1BarcodeInput(text);
-      const hasUsefulData =
-        !!result.pesoKg || !!result.lote || !!result.validade || !!result.etiqueta;
+      if (looksLikeGs1WeightBarcode(text)) {
+        setSaveError('Use o campo GS1 de peso para bipar o peso');
+        return;
+      }
 
-      if (!result.applied || !hasUsefulData) {
-        setSaveError('Código GS1 inválido ou incompleto');
-        return false;
+      if (!looksLikeGs1TraceabilityBarcode(text)) {
+        setSaveError('Código GS1 de lote inválido ou incompleto');
+        return;
+      }
+
+      const resolved = resolveLoteFieldInput(text);
+      if (!resolved.lote) {
+        setSaveError('Código GS1 de lote inválido ou incompleto');
+        return;
       }
 
       setSaveError(null);
-      applyGs1ScanResult(result);
-      setGs1WedgeValue('');
-      hapticMedium();
-
-      if (!result.pesoKg || !isPvar) {
-        focusGs1Input();
-        return true;
+      setValue('lote', resolved.lote, { shouldDirty: true, shouldValidate: true });
+      if (resolved.validade) {
+        setValue('validade', resolved.validade, { shouldDirty: true, shouldValidate: true });
       }
+      setIgnoreMaintainedLote(false);
+      setLoteDraftConfirmed(true);
+      setGs1LoteWedgeValue('');
+      hapticMedium();
+      focusGs1PesoInput();
+    },
+    [focusGs1PesoInput, gs1LoteWedgeValue, setValue],
+  );
+
+  const submitGs1PesoWedge = useCallback(
+    async (raw?: string) => {
+      const text = normalizeGs1ScannerInput(raw ?? gs1PesoWedgeValue);
+      if (!text) return;
+
+      const result = applyGs1BarcodeInput(text);
+      if (!result.applied || !result.pesoKg) {
+        setSaveError('Código GS1 de peso inválido ou incompleto');
+        return;
+      }
+
+      setSaveError(null);
+      setValue('peso', result.pesoKg, { shouldDirty: true, shouldValidate: true });
+      if (result.etiqueta) {
+        setValue('etiqueta', result.etiqueta, { shouldDirty: true, shouldValidate: true });
+      }
+      setGs1PesoWedgeValue('');
+      hapticMedium();
 
       syncMaintainedLoteFieldsForSubmit(
         { getValues, setValue },
@@ -965,75 +1018,51 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
         ignoreMaintainedLote,
       );
 
-      return new Promise<boolean>((resolve) => {
-        void handleSubmit(
-          async (form) => {
-            try {
-              await submitConference(form);
-              resolve(true);
-            } catch (err) {
-              handleConferenciaError(err);
-              resolve(false);
-            } finally {
-              focusGs1Input();
-            }
-          },
-          (fieldErrors) => {
-            onInvalidSubmit(fieldErrors);
-            resolve(false);
-            focusGs1Input();
-          },
-        )();
-      });
+      void handleSubmit(
+        async (form) => {
+          try {
+            await submitConference(form, 'gs1-peso');
+          } catch (err) {
+            handleConferenciaError(err);
+            focusGs1PesoInput();
+          }
+        },
+        (fieldErrors) => {
+          onInvalidSubmit(fieldErrors);
+          focusGs1PesoInput();
+        },
+      )();
     },
     [
-      applyGs1ScanResult,
       conferenceLoteEntries,
-      focusGs1Input,
+      focusGs1PesoInput,
       getValues,
-      gs1WedgeValue,
+      gs1PesoWedgeValue,
       handleConferenciaError,
       handleSubmit,
       ignoreMaintainedLote,
-      isPvar,
       onInvalidSubmit,
       setValue,
       submitConference,
     ],
   );
 
-  const handleGs1WedgeKeyDown = useCallback(
+  const handleGs1LoteKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key !== 'Enter') return;
+      if (!isScannerSubmitKey(event.key)) return;
       event.preventDefault();
-      void submitGs1Wedge(event.currentTarget.value);
+      void submitGs1LoteWedge(event.currentTarget.value);
     },
-    [submitGs1Wedge],
+    [submitGs1LoteWedge],
   );
 
-  const handlePvarLoteKeyDown = useCallback(
+  const handleGs1PesoKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key !== 'Enter' || !isPvar) return;
+      if (!isScannerSubmitKey(event.key)) return;
       event.preventDefault();
-      const text = event.currentTarget.value.trim();
-      if (!text) return;
-
-      setSaveError(null);
-      setValue('lote', text, { shouldDirty: true, shouldValidate: true });
-      setIgnoreMaintainedLote(false);
-      setLoteDraftConfirmed(true);
-
-      if (canParseFabricacaoFromLote(text)) {
-        const fabricacao = parseFabricacaoFromLote(text.replace(/\D/g, ''));
-        if (fabricacao.ok) {
-          setValue('validade', fabricacao.isoDate, { shouldDirty: true, shouldValidate: true });
-        }
-      }
-
-      hapticMedium();
-      focusGs1Input();
+      void submitGs1PesoWedge(event.currentTarget.value);
     },
-    [focusGs1Input, isPvar, setValue],
+    [submitGs1PesoWedge],
   );
 
   const startLoteChange = useCallback(() => {
@@ -1043,8 +1072,11 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
     setSaveError(null);
     setValue('lote', '', { shouldValidate: false });
     setValue('validade', '', { shouldValidate: false });
-    focusLoteInput();
-  }, [focusLoteInput, setValue]);
+    setValue('peso', '', { shouldValidate: false });
+    setGs1PesoWedgeValue('');
+    setGs1LoteWedgeValue('');
+    focusGs1LoteInput();
+  }, [focusGs1LoteInput, setValue]);
 
   const handlePesoInputChange = useCallback(
     (raw: string) => {
@@ -1063,7 +1095,6 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   }
 
   const product = selectedProduct;
-  const loteField = register('lote');
 
   return (
     <div className="page-enter flex flex-col pb-safe-offset-4">
@@ -1199,6 +1230,8 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
         {product && (
           <form onSubmit={handleFormSubmit} className="space-y-4">
             <input type="hidden" {...register('sku')} />
+            <input type="hidden" {...register('lote')} />
+            <input type="hidden" {...register('validade')} />
 
             {showCaixa || showUnidade ? (
               <article className="rounded-lg border border-outline-variant bg-surface p-4 shadow-sm">
@@ -1257,47 +1290,33 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
               <div className="space-y-3">
                 {isPvar ? (
                   <>
-                    <ScanField
-                      id="gs1-wedge"
-                      label="Código GS1"
-                      icon={ScanLine}
-                      placeholder="Bipe o código GS1 aqui"
-                      value={gs1WedgeValue}
-                      onChange={(event) => setGs1WedgeValue(event.target.value)}
-                      inputRef={gs1InputRef}
-                      onKeyDown={handleGs1WedgeKeyDown}
-                    />
-
-                    {showLoteInput ? (
-                      <div className="space-y-1.5">
-                        <label
-                          className="flex items-center gap-1.5 text-label-sm font-medium text-on-surface"
-                          htmlFor="lote"
-                        >
-                          <Hash className="h-3.5 w-3.5" aria-hidden />
-                          Lote da primeira caixa
-                        </label>
-                        <input
-                          id="lote"
-                          {...loteField}
-                          ref={(element) => {
-                            loteField.ref(element);
-                            loteInputRef.current = element;
-                          }}
-                          placeholder="Digite o número do lote"
-                          onKeyDown={handlePvarLoteKeyDown}
-                          className={cn(
-                            'w-full rounded-lg border bg-surface px-3 py-2.5 font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20',
-                            errors.lote ? 'border-destructive' : 'border-input',
-                          )}
-                        />
-                        {errors.lote?.message ? (
-                          <p className="text-label-sm text-destructive">{errors.lote.message}</p>
-                        ) : null}
-                      </div>
+                    {showPvarGs1LoteScan ? (
+                      <ScanField
+                        id="gs1-lote"
+                        label="GS1 — Lote"
+                        icon={ScanLine}
+                        placeholder="Bipe o código GS1 de lote aqui"
+                        value={gs1LoteWedgeValue}
+                        onChange={(event) => setGs1LoteWedgeValue(event.target.value)}
+                        inputRef={gs1LoteInputRef}
+                        onKeyDown={handleGs1LoteKeyDown}
+                      />
                     ) : null}
 
-                    {showValidadeInput ? (
+                    {showPvarGs1PesoScan ? (
+                      <ScanField
+                        id="gs1-peso"
+                        label="GS1 — Peso"
+                        icon={ScanLine}
+                        placeholder="Bipe o código GS1 de peso aqui"
+                        value={gs1PesoWedgeValue}
+                        onChange={(event) => setGs1PesoWedgeValue(event.target.value)}
+                        inputRef={gs1PesoInputRef}
+                        onKeyDown={handleGs1PesoKeyDown}
+                      />
+                    ) : null}
+
+                    {showValidadeInput && showMaintainedLote ? (
                       <div className="space-y-1.5">
                         <label
                           className="flex items-center gap-1.5 text-label-sm font-medium text-on-surface"
@@ -1321,49 +1340,48 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                         {errors.validade?.message ? (
                           <p className="text-label-sm text-destructive">{errors.validade.message}</p>
                         ) : null}
-                        {fabricacaoFromLote?.ok ? (
-                          <p className="flex items-start gap-1.5 text-label-sm text-secondary">
-                            <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                            <span>
-                              Sugerida a partir do lote: {fabricacaoFromLote.display}. Você pode ajustar se necessário.
-                            </span>
-                          </p>
-                        ) : null}
-                        {fabricacaoFromLote && !fabricacaoFromLote.ok && effectiveLote.trim() ? (
-                          <p className="text-label-sm text-destructive">{fabricacaoFromLote.error}</p>
-                        ) : null}
                       </div>
                     ) : null}
 
-                    <div className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 py-2 text-body-sm text-on-surface-variant">
-                      Cada registro representa <strong>1 caixa</strong> com seu peso individual.
-                    </div>
+                    {showPvarGs1PesoScan ? (
+                      <>
+                        <div className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 py-2 text-body-sm text-on-surface-variant">
+                          Cada registro representa <strong>1 caixa</strong> com seu peso individual.
+                        </div>
 
-                    {produtoConfig?.exigirEtiquetaPesoVariavel ? (
-                      <ScanField
-                        id="etiqueta"
-                        label="Etiqueta da caixa"
-                        icon={Barcode}
-                        placeholder="Escaneie ou digite a etiqueta"
-                        registerProps={register('etiqueta')}
-                        error={errors.etiqueta?.message}
-                      />
-                    ) : null}
+                        {produtoConfig?.exigirEtiquetaPesoVariavel ? (
+                          <ScanField
+                            id="etiqueta"
+                            label="Etiqueta da caixa"
+                            icon={Barcode}
+                            placeholder="Escaneie ou digite a etiqueta"
+                            registerProps={register('etiqueta')}
+                            error={errors.etiqueta?.message}
+                          />
+                        ) : null}
 
-                    <NumericStepper
-                      id="peso"
-                      label="Peso da caixa (kg)"
-                      inputMode="decimal"
-                      step={0.001}
-                      value={pesoValue}
-                      onChange={handlePesoInputChange}
-                      onKeyDown={handlePesoKeyDown}
-                      error={errors.peso?.message}
-                    />
-                    <p className="text-label-sm text-on-surface-variant">
-                      Bipe o GS1 e pressione Enter para preencher lote e/ou peso. Com peso informado,
-                      a caixa é registrada automaticamente.
-                    </p>
+                        <NumericStepper
+                          id="peso"
+                          label="Peso da caixa (kg)"
+                          inputMode="decimal"
+                          step={0.001}
+                          value={pesoValue}
+                          onChange={handlePesoInputChange}
+                          onKeyDown={handlePesoKeyDown}
+                          inputRef={pesoInputRef}
+                          error={errors.peso?.message}
+                        />
+                        <p className="text-label-sm text-on-surface-variant">
+                          Bipe o GS1 de peso e pressione Enter ou Tab para registrar a caixa
+                          automaticamente. Ou informe o peso manualmente e use o botão abaixo.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-label-sm text-on-surface-variant">
+                        Bipe o GS1 de lote e pressione Enter ou Tab para iniciar a conferência
+                        deste lote.
+                      </p>
+                    )}
                   </>
                 ) : (
                   <>
@@ -1418,7 +1436,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                             </span>
                           </p>
                         ) : null}
-                        {fabricacaoFromLote && !fabricacaoFromLote.ok && effectiveLote.trim() ? (
+                        {fabricacaoFromLote && !fabricacaoFromLote.ok && effectiveLote.trim() && !validadeValue?.trim() && !isPvar ? (
                           <p className="text-label-sm text-destructive">{fabricacaoFromLote.error}</p>
                         ) : null}
                       </div>
@@ -1526,7 +1544,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
               </div>
             ) : null}
 
-            {isPvar ? (
+            {isPvar && showPvarGs1PesoScan ? (
               <Button
                 type="button"
                 disabled={isSubmitting}
@@ -1540,7 +1558,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                 )}
                 {isSubmitting ? 'Salvando caixa...' : 'Adicionar caixa conferida'}
               </Button>
-            ) : (
+            ) : !isPvar ? (
               <Button
                 type="button"
                 disabled={isSubmitting}
@@ -1554,7 +1572,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                 )}
                 {isSubmitting ? 'Registrando...' : 'Conferir'}
               </Button>
-            )}
+            ) : null}
           </form>
         )}
 
