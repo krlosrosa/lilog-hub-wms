@@ -294,8 +294,6 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
         continue;
       }
 
-      const conferenceId = payload.conferenceId as string | undefined;
-      const conference = conferenceId ? conferenceById.get(conferenceId) : undefined;
       if (!conference || conference.deletedAt != null) {
         await recebimentoV2Db.syncOperations.delete(op.id);
         changed += 1;
