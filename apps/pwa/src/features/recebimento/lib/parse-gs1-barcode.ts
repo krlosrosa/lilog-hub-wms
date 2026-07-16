@@ -122,7 +122,7 @@ function readVariableLengthField(
   let end = startIndex;
   while (end < normalized.length && end - startIndex < maxLength) {
     const remainder = normalized.slice(end);
-    if (/^(11|15|17|10|01|02|00|30)\d/.test(remainder) || /^7030/.test(remainder)) {
+    if (/^(11|15|17|10|01|02|00|30|37)\d/.test(remainder) || /^7030/.test(remainder)) {
       break;
     }
     if (normalized[end] === FNC1) {
@@ -169,6 +169,32 @@ function readGtinField(
   return {
     value: remainder.slice(0, 13),
     nextIndex: afterAi + Math.min(13, remainder.length),
+  };
+}
+
+function readCountField(
+  input: string,
+  startIndex: number,
+): { value: string; nextIndex: number } {
+  let end = startIndex;
+  while (end < input.length && end - startIndex < 8 && /\d/.test(input[end] ?? '')) {
+    const remainder = input.slice(end);
+    if (
+      /^(11|15|17)\d{6}/.test(remainder) ||
+      /^10\d{10}(?:\u001d|$)/.test(remainder) ||
+      /^7030/.test(remainder)
+    ) {
+      break;
+    }
+    if (input[end] === FNC1) {
+      break;
+    }
+    end += 1;
+  }
+
+  return {
+    value: input.slice(startIndex, end),
+    nextIndex: end === startIndex ? startIndex + 1 : end,
   };
 }
 
@@ -243,16 +269,10 @@ function parseConcatenatedFormat(input: string): Record<string, string> {
       continue;
     }
 
-    if (ai2 === '30') {
-      let end = index + 2;
-      while (end < input.length && end - index - 2 < 8 && /\d/.test(input[end] ?? '')) {
-        if (input[end] === FNC1) {
-          break;
-        }
-        end += 1;
-      }
-      result[ai2] = input.slice(index + 2, end);
-      index = end;
+    if (ai2 === '30' || ai2 === '37') {
+      const field = readCountField(input, index + 2);
+      result[ai2] = field.value;
+      index = field.nextIndex;
       if (input[index] === FNC1) {
         index += 1;
       }
@@ -283,7 +303,7 @@ function buildResult(applicationIdentifiers: Record<string, string>): Gs1Barcode
     gtinDigits.length > 14
       ? gtinDigits.slice(-14)
       : gtinDigits.replace(/^0+/, '') || gtinDigits || null;
-  const countRaw = applicationIdentifiers['30'];
+  const countRaw = applicationIdentifiers['37'] ?? applicationIdentifiers['30'];
   const count = countRaw ? Number(countRaw.replace(/\D/g, '')) : null;
   const batchLot = applicationIdentifiers['10']?.trim() || null;
   const productionDateIso = applicationIdentifiers['11']
@@ -476,6 +496,53 @@ export function extractNetWeightKgFromGs1(input: string): number | null {
 
 export function formatPesoFromGs1Kg(kg: number): string {
   return kg.toFixed(3).replace(/\.?0+$/, '');
+}
+
+export type Gs1NonPvarScanResult = {
+  applied: boolean;
+  lote: string | null;
+  fabricacao: string | null;
+  quantidadeCaixas: number | null;
+};
+
+export function applyGs1NonPvarScanInput(input: string): Gs1NonPvarScanResult {
+  const trimmed = normalizeGs1ScannerInput(input);
+  if (!trimmed || !looksLikeGs1Barcode(trimmed)) {
+    return {
+      applied: false,
+      lote: null,
+      fabricacao: null,
+      quantidadeCaixas: null,
+    };
+  }
+
+  const parsed = parseGs1Barcode(trimmed);
+  const lote = parsed.batchLot;
+  const quantidadeCaixas = parsed.count;
+
+  let fabricacao: string | null = null;
+  if (lote && canParseFabricacaoFromLote(lote)) {
+    const parsedFabricacao = parseFabricacaoFromLote(lote);
+    if (parsedFabricacao.ok) {
+      fabricacao = parsedFabricacao.isoDate;
+    }
+  }
+
+  if (!lote && quantidadeCaixas == null) {
+    return {
+      applied: false,
+      lote: null,
+      fabricacao: null,
+      quantidadeCaixas: null,
+    };
+  }
+
+  return {
+    applied: true,
+    lote,
+    fabricacao,
+    quantidadeCaixas,
+  };
 }
 
 export function resolvePesoInputValue(raw: string): string {

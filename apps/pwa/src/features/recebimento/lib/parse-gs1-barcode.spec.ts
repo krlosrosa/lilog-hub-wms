@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyGs1BarcodeInput,
+  applyGs1NonPvarScanInput,
   extractNetWeightKgFromGs1,
   formatPesoFromGs1Kg,
   isGtinLikeNumeric,
@@ -18,6 +19,8 @@ import {
 const LOTE_GS1 = '(15)261213(11)260616(7030)674(10)401126031209';
 const LOTE_GS1_IMAGEM = '(15)261227(11)260630(7030)674(10)401126061001';
 const PESO_GS1_IMAGEM = '(01)7891097104275(3103)013207(3303)013860(30)01';
+const NON_PVAR_GS1_IMAGEM = '(02)17891097103381(15)260901(37)0105(10)4022260708';
+const NON_PVAR_GS1_CONCATENADO = '021789109710338115260901370105104022260708';
 
 describe('isGtinLikeNumeric', () => {
   it('detecta GTIN numérico de 13 ou 14 dígitos', () => {
@@ -131,6 +134,22 @@ describe('parseGs1Barcode traceability', () => {
     expect(result.gtin).toBe('7891097104275');
     expect(result.expirationDateIso).toBe('2026-12-31');
     expect(result.batchLot).toBe('LOTE123');
+  });
+
+  it('parseia AI 37 em formato com parênteses', () => {
+    const result = parseGs1Barcode(NON_PVAR_GS1_IMAGEM);
+
+    expect(result.batchLot).toBe('4022260708');
+    expect(result.bestBeforeDateIso).toBe('2026-09-01');
+    expect(result.count).toBe(105);
+  });
+
+  it('parseia AI 37 em formato concatenado sem separadores', () => {
+    const result = parseGs1Barcode(NON_PVAR_GS1_CONCATENADO);
+
+    expect(result.batchLot).toBe('4022260708');
+    expect(result.bestBeforeDateIso).toBe('2026-09-01');
+    expect(result.count).toBe(105);
   });
 });
 
@@ -311,6 +330,35 @@ describe('resolvePesoInputValue', () => {
 
   it('mantém entrada manual numérica', () => {
     expect(resolvePesoInputValue('12.5')).toBe('12.5');
+  });
+});
+
+describe('applyGs1NonPvarScanInput', () => {
+  it('extrai lote, quantidade de caixas e fabricação do lote (não do AI 15)', () => {
+    expect(applyGs1NonPvarScanInput(NON_PVAR_GS1_IMAGEM)).toEqual({
+      applied: true,
+      lote: '4022260708',
+      fabricacao: '2026-07-08',
+      quantidadeCaixas: 105,
+    });
+  });
+
+  it('extrai dados de GS1 concatenado sem separadores', () => {
+    expect(applyGs1NonPvarScanInput(NON_PVAR_GS1_CONCATENADO)).toEqual({
+      applied: true,
+      lote: '4022260708',
+      fabricacao: '2026-07-08',
+      quantidadeCaixas: 105,
+    });
+  });
+
+  it('não aplica quando o código não possui lote nem quantidade', () => {
+    expect(applyGs1NonPvarScanInput('(01)7891097104275')).toEqual({
+      applied: false,
+      lote: null,
+      fabricacao: null,
+      quantidadeCaixas: null,
+    });
   });
 });
 

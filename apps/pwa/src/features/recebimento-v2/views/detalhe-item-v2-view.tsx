@@ -41,7 +41,7 @@ import {
   RecordListItem,
 } from '@/features/recebimento/components/expandable-record-list';
 import { EMPTY_DETALHE_ITEM_FORM, buildFormForLoteEntry, resolveFirstFormError, resolveMaintainedLoteContext, syncMaintainedLoteFieldsForSubmit, validatePvarBoxDraft } from '@/features/recebimento/lib/conferencia-form';
-import { applyGs1BarcodeInput, isScannerSubmitKey, looksLikeGs1TraceabilityBarcode, looksLikeGs1WeightBarcode, normalizeGs1ScannerInput, resolveLoteFieldInput } from '@/features/recebimento/lib/parse-gs1-barcode';
+import { applyGs1BarcodeInput, applyGs1NonPvarScanInput, isScannerSubmitKey, looksLikeGs1TraceabilityBarcode, looksLikeGs1WeightBarcode, normalizeGs1ScannerInput, resolveLoteFieldInput } from '@/features/recebimento/lib/parse-gs1-barcode';
 import { resolveNonPvarLoteOnSubmit, applyNonPvarLoteResolution } from '@/features/recebimento-v2/lib/resolve-non-pvar-lote-on-submit';
 import {
   buildDetalheItemSchema,
@@ -64,6 +64,7 @@ import { useProductSearchQuery } from '../hooks/use-product-search-v2';
 import {
   formatConferenceQuantityLabel,
   resolveConferenceQuantidadePar,
+  resolveConferidoTotaisForSkuV2,
 } from '../lib/conferencia-quantidade';
 import {
   CATALOGO_PRODUTO_NAO_ENCONTRADO_MSG,
@@ -199,7 +200,11 @@ function ScanField({
         <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           id={id}
-          ref={inputRef}
+          ref={(node) => {
+            if (inputRef) {
+              inputRef.current = node;
+            }
+          }}
           type="text"
           placeholder={placeholder}
           autoComplete="off"
@@ -286,6 +291,8 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   const [loteDraftConfirmed, setLoteDraftConfirmed] = useState(false);
   const [gs1LoteWedgeValue, setGs1LoteWedgeValue] = useState('');
   const [gs1PesoWedgeValue, setGs1PesoWedgeValue] = useState('');
+  const [gs1NonPvarScanValue, setGs1NonPvarScanValue] = useState('');
+  const [nonPvarGs1FocusKey, setNonPvarGs1FocusKey] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [paleteSheetOpen, setPaleteSheetOpen] = useState(false);
   const [paleteSheetIntent, setPaleteSheetIntent] = useState<PaleteSheetIntent>('default');
@@ -293,6 +300,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   const pendingFocusRef = useRef<PvarFocusAfterSubmit>('gs1-peso');
   const gs1LoteInputRef = useRef<HTMLInputElement>(null);
   const gs1PesoInputRef = useRef<HTMLInputElement>(null);
+  const gs1NonPvarScanRef = useRef<HTMLInputElement>(null);
   const pesoInputRef = useRef<HTMLInputElement>(null);
   const previousEffectiveLoteRef = useRef('');
   const { process } = useProcessV2(demandId);
@@ -440,6 +448,9 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   const showLoteInput = showLote && (!isPvar || !showMaintainedLote);
   const showPvarGs1LoteScan = isPvar && !showMaintainedLote;
   const showPvarGs1PesoScan = isPvar && showMaintainedLote;
+  const showConferenciaActionBar = Boolean(
+    selectedProduct && (isPvar ? showPvarGs1PesoScan : true),
+  );
   const effectiveLote = maintainedLoteContext.lote || loteValue;
 
   const fabricacaoFromLote = useMemo(() => {
@@ -457,16 +468,27 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
 
   const showValidadeInput = showValidade;
 
-  const conferidoTotais = useMemo(
+  const conferidoTotaisPvar = useMemo(
     () =>
       conferences.reduce(
         (acc, record) => ({
-          caixa: acc.caixa + (record.recebidaCaixa ?? (isPvar ? 1 : 0)),
+          caixa: acc.caixa + (record.recebidaCaixa ?? 1),
           peso: acc.peso + (record.peso ?? 0),
         }),
         { caixa: 0, peso: 0 },
       ),
-    [conferences, isPvar],
+    [conferences],
+  );
+
+  const conferidoTotaisNonPvar = useMemo(
+    () =>
+      resolveConferidoTotaisForSkuV2(
+        conferences,
+        activeSku,
+        quantidadeModo,
+        unidadesPorCaixa,
+      ),
+    [activeSku, conferences, quantidadeModo, unidadesPorCaixa],
   );
 
   useEffect(() => {
@@ -477,15 +499,15 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
       return;
     }
 
-    if (fabricacaoFromLote?.ok) {
+    if (fabricacaoFromLote?.ok && !validadeValue?.trim()) {
       setValue('validade', fabricacaoFromLote.isoDate, { shouldValidate: true });
       return;
     }
 
-    if (fabricacaoFromLote && !fabricacaoFromLote.ok && effectiveLote.trim()) {
+    if (fabricacaoFromLote && !fabricacaoFromLote.ok && effectiveLote.trim() && !validadeValue?.trim()) {
       setValue('validade', '', { shouldValidate: true });
     }
-  }, [fabricacaoFromLote, effectiveLote, setValue]);
+  }, [fabricacaoFromLote, effectiveLote, setValue, validadeValue]);
 
   const focusGs1LoteInput = useCallback(() => {
     window.setTimeout(() => {
@@ -498,6 +520,47 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
       gs1PesoInputRef.current?.focus();
     }, 100);
   }, []);
+
+  const focusGs1NonPvarScanInput = useCallback(() => {
+    setNonPvarGs1FocusKey((key) => key + 1);
+  }, []);
+
+  useEffect(() => {
+    if (nonPvarGs1FocusKey === 0 || isPvar || !selectedProduct) {
+      return;
+    }
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    const tryFocus = () => {
+      if (cancelled) return;
+
+      const input = gs1NonPvarScanRef.current;
+      if (input) {
+        if (document.activeElement instanceof HTMLElement && document.activeElement !== input) {
+          document.activeElement.blur();
+        }
+        input.focus({ preventScroll: true });
+        if (document.activeElement === input) {
+          return;
+        }
+      }
+
+      attempts += 1;
+      if (attempts < maxAttempts) {
+        window.setTimeout(tryFocus, 50);
+      }
+    };
+
+    const frameId = window.requestAnimationFrame(tryFocus);
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [isPvar, nonPvarGs1FocusKey, selectedProduct]);
 
   const focusPesoInput = useCallback(() => {
     window.setTimeout(() => {
@@ -641,6 +704,8 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
           ...EMPTY_DETALHE_ITEM_FORM,
           sku: form.sku,
         });
+        setGs1NonPvarScanValue('');
+        focusGs1NonPvarScanInput();
       }
       toast.success(isPvar ? 'Caixa conferida' : 'Conferência registrada');
       if (isPvar) {
@@ -651,6 +716,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
       conferenceLoteEntries,
       conferirItem,
       demandId,
+      focusGs1NonPvarScanInput,
       focusPvarAfterSubmit,
       ignoreMaintainedLote,
       isPvar,
@@ -884,6 +950,37 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
       hapticMedium();
     },
     [isPvar, syncNonPvarLoteResolution],
+  );
+
+  const handleGs1NonPvarScanKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (!isScannerSubmitKey(event.key) || isPvar) return;
+      event.preventDefault();
+
+      const text = normalizeGs1ScannerInput(gs1NonPvarScanValue);
+      if (!text) return;
+
+      const result = applyGs1NonPvarScanInput(text);
+      if (!result.applied) {
+        toast.error('Código GS1 inválido ou sem dados de lote/quantidade');
+        return;
+      }
+
+      if (result.lote) {
+        setValue('lote', result.lote, { shouldDirty: true });
+      }
+      if (result.fabricacao) {
+        setValue('validade', result.fabricacao, { shouldDirty: true });
+      }
+      if (result.quantidadeCaixas != null) {
+        setValue('recebidaCaixa', String(result.quantidadeCaixas), { shouldValidate: true });
+      }
+
+      setGs1NonPvarScanValue('');
+      hapticLight();
+      clearErrors(['lote', 'validade', 'recebidaCaixa']);
+    },
+    [clearErrors, gs1NonPvarScanValue, isPvar, setValue],
   );
 
   async function onSubmit(form: DetalheItemForm) {
@@ -1154,7 +1251,12 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
         </div>
       </div>
 
-      <div className="mt-4 space-y-5 px-margin-mobile">
+      <div
+        className={cn(
+          'mt-4 space-y-5 px-margin-mobile',
+          showConferenciaActionBar && 'pb-safe-offset-20',
+        )}
+      >
         {!product && (
           <div className="space-y-2">
             <div className="relative">
@@ -1214,15 +1316,43 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
               <div className="rounded-lg bg-surface-container px-3 py-2.5 text-center">
                 <span className="block text-label-sm text-on-surface-variant">Caixas</span>
                 <span className="font-mono text-headline-md font-semibold text-on-surface">
-                  {conferidoTotais.caixa}
+                  {conferidoTotaisPvar.caixa}
                 </span>
               </div>
               <div className="rounded-lg bg-surface-container px-3 py-2.5 text-center">
                 <span className="block text-label-sm text-on-surface-variant">Peso total (kg)</span>
                 <span className="font-mono text-headline-md font-semibold text-on-surface">
-                  {conferidoTotais.peso > 0 ? conferidoTotais.peso.toFixed(3) : '—'}
+                  {conferidoTotaisPvar.peso > 0 ? conferidoTotaisPvar.peso.toFixed(3) : '—'}
                 </span>
               </div>
+            </div>
+          </article>
+        )}
+
+        {product && !isPvar && conferidoTotaisNonPvar.hasConferencia && (
+          <article className="rounded-lg border border-outline-variant bg-surface p-4 shadow-sm">
+            <div
+              className={cn(
+                'grid gap-3',
+                showCaixa && showUnidade ? 'grid-cols-2' : 'grid-cols-1',
+              )}
+            >
+              {showCaixa ? (
+                <div className="rounded-lg bg-surface-container px-3 py-2.5 text-center">
+                  <span className="block text-label-sm text-on-surface-variant">Caixas conferidas</span>
+                  <span className="font-mono text-headline-md font-semibold text-on-surface">
+                    {conferidoTotaisNonPvar.caixa}
+                  </span>
+                </div>
+              ) : null}
+              {showUnidade ? (
+                <div className="rounded-lg bg-surface-container px-3 py-2.5 text-center">
+                  <span className="block text-label-sm text-on-surface-variant">Unidades conferidas</span>
+                  <span className="font-mono text-headline-md font-semibold text-on-surface">
+                    {conferidoTotaisNonPvar.unidade}
+                  </span>
+                </div>
+              ) : null}
             </div>
           </article>
         )}
@@ -1230,15 +1360,35 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
         {product && (
           <form onSubmit={handleFormSubmit} className="space-y-4">
             <input type="hidden" {...register('sku')} />
-            <input type="hidden" {...register('lote')} />
-            <input type="hidden" {...register('validade')} />
+            {isPvar ? (
+              <>
+                <input type="hidden" {...register('lote')} />
+                <input type="hidden" {...register('validade')} />
+              </>
+            ) : null}
 
-            {showCaixa || showUnidade ? (
+            {(showCaixa || showUnidade || !isPvar) ? (
               <article className="rounded-lg border border-outline-variant bg-surface p-4 shadow-sm">
-                <p className="mb-3 text-label-sm font-semibold uppercase tracking-wide text-on-surface-variant">
-                  Quantidade
-                </p>
-                <div className={cn('grid gap-3', quantidadeGridClass)}>
+                {!isPvar ? (
+                  <div className="mb-4">
+                    <ScanField
+                      id="gs1-non-pvar-scan"
+                      label="GS1 — Lote / Quantidade"
+                      icon={ScanLine}
+                      placeholder="Bipe o código GS1 aqui"
+                      value={gs1NonPvarScanValue}
+                      onChange={(event) => setGs1NonPvarScanValue(event.target.value)}
+                      inputRef={gs1NonPvarScanRef}
+                      onKeyDown={handleGs1NonPvarScanKeyDown}
+                    />
+                  </div>
+                ) : null}
+                {showCaixa || showUnidade ? (
+                  <>
+                    <p className="mb-3 text-label-sm font-semibold uppercase tracking-wide text-on-surface-variant">
+                      Quantidade
+                    </p>
+                    <div className={cn('grid gap-3', quantidadeGridClass)}>
                   {showCaixa ? (
                     <NumericStepper
                       id="recebida-caixa"
@@ -1262,6 +1412,8 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                     />
                   ) : null}
                 </div>
+                  </>
+                ) : null}
               </article>
             ) : null}
 
@@ -1394,7 +1546,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                         <input
                           id="lote"
                           {...register('lote')}
-                          placeholder="Bipe GS1 ou digite o lote"
+                          placeholder="Digite o lote"
                           onKeyDown={handleNonPvarLoteKeyDown}
                           className={cn(
                             'w-full rounded-lg border bg-surface px-3 py-2.5 font-mono text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20',
@@ -1428,7 +1580,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                         {errors.validade?.message ? (
                           <p className="text-label-sm text-destructive">{errors.validade.message}</p>
                         ) : null}
-                        {fabricacaoFromLote?.ok ? (
+                        {fabricacaoFromLote?.ok && !validadeValue?.trim() ? (
                           <p className="flex items-start gap-1.5 text-label-sm text-secondary">
                             <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                             <span>
@@ -1534,45 +1686,6 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
             </article>
             )}
 
-            {saveError ? (
-              <div
-                role="alert"
-                className="flex items-start gap-2 rounded-lg border border-error/30 bg-error-container/20 px-3 py-2.5 text-body-sm text-on-error-container"
-              >
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                <span>{saveError}</span>
-              </div>
-            ) : null}
-
-            {isPvar && showPvarGs1PesoScan ? (
-              <Button
-                type="button"
-                disabled={isSubmitting}
-                onClick={handleAddCaixa}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation transition-transform active:scale-[0.98] disabled:opacity-100 disabled:saturate-75"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-                ) : (
-                  <CheckCircle className="h-5 w-5" aria-hidden />
-                )}
-                {isSubmitting ? 'Salvando caixa...' : 'Adicionar caixa conferida'}
-              </Button>
-            ) : !isPvar ? (
-              <Button
-                type="button"
-                disabled={isSubmitting}
-                onClick={triggerConferenciaSubmit}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation transition-transform active:scale-[0.98] disabled:opacity-100 disabled:saturate-75"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-                ) : (
-                  <CheckCircle className="h-5 w-5" aria-hidden />
-                )}
-                {isSubmitting ? 'Registrando...' : 'Conferir'}
-              </Button>
-            ) : null}
           </form>
         )}
 
@@ -1593,6 +1706,50 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
           </div>
         )}
       </div>
+
+      {showConferenciaActionBar ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-outline-variant/60 bg-surface/95 px-margin-mobile pb-safe-offset-4 pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur-md supports-[backdrop-filter]:bg-surface/90">
+          {saveError ? (
+            <div
+              role="alert"
+              className="mb-3 flex items-start gap-2 rounded-lg border border-error/30 bg-error-container/20 px-3 py-2.5 text-body-sm text-on-error-container"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <span>{saveError}</span>
+            </div>
+          ) : null}
+
+          {isPvar && showPvarGs1PesoScan ? (
+            <Button
+              type="button"
+              disabled={isSubmitting}
+              onClick={handleAddCaixa}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation transition-transform active:scale-[0.98] disabled:opacity-100 disabled:saturate-75"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+              ) : (
+                <CheckCircle className="h-5 w-5" aria-hidden />
+              )}
+              {isSubmitting ? 'Salvando caixa...' : 'Adicionar caixa conferida'}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              disabled={isSubmitting}
+              onClick={triggerConferenciaSubmit}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-label-md font-semibold text-on-secondary touch-manipulation transition-transform active:scale-[0.98] disabled:opacity-100 disabled:saturate-75"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+              ) : (
+                <CheckCircle className="h-5 w-5" aria-hidden />
+              )}
+              {isSubmitting ? 'Registrando...' : 'Conferir'}
+            </Button>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
