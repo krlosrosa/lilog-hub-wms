@@ -48,6 +48,41 @@ describe('parseGs1Barcode traceability', () => {
     expect(result.bestBeforeDateIso).toBe('2026-12-13');
     expect(result.authorizationCode).toBe('674');
   });
+
+  it('parseia lote concatenado cujo valor contém 01 interno', () => {
+    const result = parseGs1Barcode('1526121311260616703067410401126031209');
+
+    expect(result.batchLot).toBe('401126031209');
+    expect(result.productionDateIso).toBe('2026-06-16');
+    expect(result.bestBeforeDateIso).toBe('2026-12-13');
+    expect(result.authorizationCode).toBe('674');
+  });
+
+  it('parseia lote com FNC1 como separador', () => {
+    const result = parseGs1Barcode(
+      `15261213112606167030674${'\u001d'}10401126031209`,
+    );
+
+    expect(result.batchLot).toBe('401126031209');
+    expect(result.productionDateIso).toBe('2026-06-16');
+    expect(result.authorizationCode).toBe('674');
+  });
+
+  it('parseia AI 17 em formato com parênteses', () => {
+    const result = parseGs1Barcode('(01)7891097104275(17)261231(10)LOTE123');
+
+    expect(result.gtin).toBe('7891097104275');
+    expect(result.expirationDateIso).toBe('2026-12-31');
+    expect(result.batchLot).toBe('LOTE123');
+  });
+
+  it('parseia AI 17 em formato concatenado', () => {
+    const result = parseGs1Barcode('01078910971042751726123110LOTE123');
+
+    expect(result.gtin).toBe('7891097104275');
+    expect(result.expirationDateIso).toBe('2026-12-31');
+    expect(result.batchLot).toBe('LOTE123');
+  });
 });
 
 describe('resolveLoteFieldInput', () => {
@@ -107,6 +142,16 @@ describe('applyGs1BarcodeInput', () => {
     });
   });
 
+  it('aplica validade de AI 17 quando produção não está presente', () => {
+    expect(applyGs1BarcodeInput('(01)7891097104275(17)261231(10)LOTE123')).toEqual({
+      applied: true,
+      pesoKg: null,
+      etiqueta: '7891097104275',
+      lote: 'LOTE123',
+      validade: '2026-12-31',
+    });
+  });
+
   it('não aplica enquanto o código ainda está incompleto', () => {
     expect(applyGs1BarcodeInput('(01)7891097104275')).toEqual({
       applied: false,
@@ -141,6 +186,12 @@ describe('parseGs1Barcode weight', () => {
 
   it('prioriza peso líquido 310n sobre bruto 330n', () => {
     expect(extractNetWeightKgFromGs1('(3103)013207(3303)013869')).toBe(13.207);
+  });
+
+  it('detecta e parseia peso bare sem GTIN', () => {
+    expect(looksLikeGs1Barcode('3103013207')).toBe(true);
+    expect(parseGs1Barcode('3103013207').netWeightKg).toBe(13.207);
+    expect(resolvePesoInputValue('3103013207')).toBe('13.207');
   });
 });
 

@@ -204,24 +204,65 @@ export async function countPendingPhotoUploads(demandId: string): Promise<{
   uploading: number;
   error: number;
 }> {
-  const ids = await collectAllPendingPhotoIds(demandId);
-  if (ids.length === 0) {
-    return { pending: 0, uploading: 0, error: 0 };
-  }
-
-  const records = await recebimentoV2Db.media.bulkGet(ids);
+  const items = await listPendingPhotoUploads(demandId);
   let pending = 0;
   let uploading = 0;
   let error = 0;
 
-  for (const record of records) {
-    if (!record || record.status === 'uploaded') continue;
-    if (record.status === 'uploading') uploading += 1;
-    else if (record.status === 'error') error += 1;
+  for (const item of items) {
+    if (item.status === 'uploading') uploading += 1;
+    else if (item.status === 'error') error += 1;
     else pending += 1;
   }
 
   return { pending, uploading, error };
+}
+
+export async function listPendingPhotoUploads(demandId: string): Promise<
+  Array<{
+    id: string;
+    ownerType: string;
+    ownerId: string;
+    status: 'local' | 'uploading' | 'error';
+    filename?: string;
+    mimeType: string;
+    sizeBytes: number;
+    createdAt: string;
+  }>
+> {
+  const ids = await collectAllPendingPhotoIds(demandId);
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const records = await recebimentoV2Db.media.bulkGet(ids);
+  const items: Array<{
+    id: string;
+    ownerType: string;
+    ownerId: string;
+    status: 'local' | 'uploading' | 'error';
+    filename?: string;
+    mimeType: string;
+    sizeBytes: number;
+    createdAt: string;
+  }> = [];
+
+  for (const record of records) {
+    if (!record || record.status === 'uploaded') continue;
+
+    items.push({
+      id: record.id,
+      ownerType: record.ownerType,
+      ownerId: record.ownerId,
+      status: record.status === 'uploading' ? 'uploading' : record.status === 'error' ? 'error' : 'local',
+      filename: record.filename,
+      mimeType: record.mimeType,
+      sizeBytes: record.blob.size,
+      createdAt: record.createdAt,
+    });
+  }
+
+  return items.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 function filterPhotoIdList(

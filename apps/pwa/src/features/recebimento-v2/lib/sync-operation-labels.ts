@@ -1,4 +1,5 @@
 import { RECEBIMENTO_V2_OP_TYPES } from '@lilog/contracts';
+import type { SyncOperationStatus } from '@lilog/contracts';
 
 import type { ConferenceRecord, SyncOperationRecord } from '../local-db/schema';
 
@@ -12,6 +13,29 @@ export interface SyncIssueOperation {
   status: SyncIssueStatus;
   errorMessage?: string;
   createdAt: number;
+}
+
+export interface SyncQueueOperation {
+  id: string;
+  opType: string;
+  label: string;
+  detail?: string;
+  status: SyncOperationStatus;
+  errorMessage?: string;
+  attempts: number;
+  sequence: number;
+  createdAt: number;
+}
+
+export interface PendingPhotoOperation {
+  id: string;
+  ownerType: 'checklist' | 'avaria' | 'impedimento' | 'documento';
+  ownerId: string;
+  status: 'local' | 'uploading' | 'error';
+  filename?: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
 }
 
 const OP_TYPE_LABELS: Record<string, string> = {
@@ -106,17 +130,56 @@ export function buildSyncIssueOperations(
     }));
 }
 
-export function getSyncIssueStatusLabel(status: SyncIssueStatus): string {
+const ACTIVE_QUEUE_STATUSES = new Set<SyncOperationStatus>([
+  'pending',
+  'blocked',
+  'syncing',
+  'retry',
+  'conflict',
+  'rejected',
+]);
+
+export function buildSyncQueueOperations(
+  ops: SyncOperationRecord[],
+  conferenceById: Map<string, ConferenceRecord>,
+): SyncQueueOperation[] {
+  return ops
+    .filter((op) => ACTIVE_QUEUE_STATUSES.has(op.status))
+    .sort((a, b) => a.sequence - b.sequence || a.createdAt - b.createdAt)
+    .map((op) => ({
+      id: op.id,
+      opType: op.opType,
+      label: getSyncOpLabel(op.opType),
+      detail: getSyncOpDetail(op, conferenceById),
+      status: op.status,
+      errorMessage: op.errorMessage,
+      attempts: op.attempts,
+      sequence: op.sequence,
+      createdAt: op.createdAt,
+    }));
+}
+
+export function getSyncOperationStatusLabel(status: SyncOperationStatus): string {
   switch (status) {
-    case 'rejected':
-      return 'Rejeitada';
-    case 'retry':
-      return 'Aguardando nova tentativa';
+    case 'pending':
+      return 'Pendente';
     case 'blocked':
       return 'Aguardando retomada';
+    case 'syncing':
+      return 'Enviando';
+    case 'retry':
+      return 'Aguardando nova tentativa';
     case 'conflict':
       return 'Conflito';
+    case 'rejected':
+      return 'Rejeitada';
+    case 'synced':
+      return 'Sincronizada';
     default:
       return status;
   }
+}
+
+export function getSyncIssueStatusLabel(status: SyncIssueStatus): string {
+  return getSyncOperationStatusLabel(status);
 }

@@ -1,14 +1,14 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 
-import { buildSyncIssueOperations, type SyncIssueOperation } from '../lib/sync-operation-labels';
+import { buildSyncIssueOperations, buildSyncQueueOperations, type PendingPhotoOperation, type SyncIssueOperation, type SyncQueueOperation } from '../lib/sync-operation-labels';
 import { debugRecebimentoV2 } from '../lib/sync-debug';
 import { recebimentoV2Db } from '../local-db/db';
-import { countPendingPhotoUploads, recoverStuckSyncState } from '../services/sync-photo.helpers';
+import { countPendingPhotoUploads, listPendingPhotoUploads, recoverStuckSyncState } from '../services/sync-photo.helpers';
 import { repairSyncOperations } from '../services/repair-sync-operations.service';
 import { triggerAutoSyncIfPending } from '../services/auto-sync-v2.service';
 
-export type { SyncIssueOperation };
+export type { SyncIssueOperation, SyncQueueOperation, PendingPhotoOperation };
 
 export interface UseSyncStatusV2Result {
   pendingCount: number;
@@ -19,6 +19,8 @@ export interface UseSyncStatusV2Result {
   pendingPhotoCount: number;
   photoErrorCount: number;
   issueOperations: SyncIssueOperation[];
+  queueOperations: SyncQueueOperation[];
+  pendingPhotos: PendingPhotoOperation[];
   isSyncing: boolean;
   isAutoSyncPaused: boolean;
   lastSyncedAt: number | null;
@@ -41,7 +43,7 @@ export function useSyncStatusV2(demandId: string): UseSyncStatusV2Result {
   }, [demandId]);
 
   const result = useLiveQuery(async () => {
-    const [ops, conferences, process, photoCounts] = await Promise.all([
+    const [ops, conferences, process, photoCounts, pendingPhotos] = await Promise.all([
       recebimentoV2Db.syncOperations
         .where('aggregateId')
         .equals(demandId)
@@ -49,10 +51,12 @@ export function useSyncStatusV2(demandId: string): UseSyncStatusV2Result {
       recebimentoV2Db.conferences.where('demandId').equals(demandId).toArray(),
       recebimentoV2Db.processes.get(demandId),
       countPendingPhotoUploads(demandId),
+      listPendingPhotoUploads(demandId),
     ]);
 
     const conferenceById = new Map(conferences.map((conference) => [conference.id, conference]));
     const issueOperations = buildSyncIssueOperations(ops, conferenceById);
+    const queueOperations = buildSyncQueueOperations(ops, conferenceById);
 
     const issueOps = ops.filter((op) => op.status === 'retry' || op.status === 'rejected');
     if (issueOps.length > 0) {
@@ -87,6 +91,8 @@ export function useSyncStatusV2(demandId: string): UseSyncStatusV2Result {
       pendingPhotoCount,
       photoErrorCount: photoCounts.error,
       issueOperations,
+      queueOperations,
+      pendingPhotos,
       lastSyncedAt,
       lastPullAt,
       isAutoSyncPaused: process?.autoSyncPaused ?? false,
@@ -106,6 +112,8 @@ export function useSyncStatusV2(demandId: string): UseSyncStatusV2Result {
     pendingPhotoCount: result?.pendingPhotoCount ?? 0,
     photoErrorCount: result?.photoErrorCount ?? 0,
     issueOperations: result?.issueOperations ?? [],
+    queueOperations: result?.queueOperations ?? [],
+    pendingPhotos: result?.pendingPhotos ?? [],
     isSyncing: manualSyncing || (result?.isSyncingFromDb ?? false),
     isAutoSyncPaused: result?.isAutoSyncPaused ?? false,
     lastSyncedAt: result?.lastSyncedAt ?? null,

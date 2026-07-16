@@ -2,17 +2,22 @@ import { cn } from '@lilog/ui';
 import {
   AlertTriangle,
   CheckCircle,
-  ChevronDown,
   Clock,
   Download,
+  Image,
   Loader2,
   RefreshCw,
 } from 'lucide-react';
-import { useState } from 'react';
+
+import { formatBytes } from '@/lib/images/photo-debug-log';
 
 import type { UseSyncStatusV2Result } from '../hooks/use-sync-status-v2';
 import { formatSyncIssueErrorMessage } from '../lib/sync-conferencia-bloqueada';
-import { getSyncIssueStatusLabel } from '../lib/sync-operation-labels';
+import {
+  getSyncOperationStatusLabel,
+  type PendingPhotoOperation,
+  type SyncQueueOperation,
+} from '../lib/sync-operation-labels';
 import {
   hasVisibleSyncIssues,
   isAutoSyncPausedWithWork,
@@ -33,6 +38,13 @@ interface SyncStatusV2Props {
   className?: string;
 }
 
+const PHOTO_OWNER_LABELS: Record<PendingPhotoOperation['ownerType'], string> = {
+  checklist: 'Checklist',
+  avaria: 'Avaria',
+  impedimento: 'Impedimento',
+  documento: 'Documento',
+};
+
 function formatRelativeTime(value: number | string | null, fallback: string): string {
   if (!value) return fallback;
   const ts = typeof value === 'string' ? new Date(value).getTime() : value;
@@ -43,6 +55,98 @@ function formatRelativeTime(value: number | string | null, fallback: string): st
   const h = Math.floor(min / 60);
   if (h < 24) return `Há ${h}h`;
   return new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
+function getQueueItemTone(status: SyncQueueOperation['status']): string {
+  switch (status) {
+    case 'rejected':
+    case 'conflict':
+      return 'border-destructive/20 bg-destructive/5';
+    case 'retry':
+    case 'blocked':
+      return 'border-warning/30 bg-warning/5';
+    case 'syncing':
+      return 'border-secondary/30 bg-secondary/8';
+    default:
+      return 'border-outline-variant/60 bg-surface/80';
+  }
+}
+
+function getPhotoStatusLabel(status: PendingPhotoOperation['status']): string {
+  switch (status) {
+    case 'uploading':
+      return 'Enviando';
+    case 'error':
+      return 'Erro no envio';
+    default:
+      return 'Pendente';
+  }
+}
+
+function QueueOperationCard({ operation }: { operation: SyncQueueOperation }) {
+  const isIssue = operation.status === 'rejected' || operation.status === 'conflict';
+
+  return (
+    <div className={cn('rounded-md border px-2.5 py-2', getQueueItemTone(operation.status))}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-label-sm font-medium text-on-surface">
+            #{operation.sequence} · {operation.label}
+            {operation.detail ? ` · ${operation.detail}` : ''}
+          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {getSyncOperationStatusLabel(operation.status)}
+            {operation.attempts > 0 ? ` · ${operation.attempts} tentativa(s)` : ''}
+            {' · '}
+            {formatRelativeTime(operation.createdAt, '—')}
+          </p>
+        </div>
+      </div>
+      {operation.errorMessage ? (
+        <p className="mt-1 text-[11px] leading-relaxed text-destructive">
+          {formatSyncIssueErrorMessage(operation.errorMessage)}
+        </p>
+      ) : null}
+      {isIssue || operation.status === 'retry' || operation.status === 'blocked' ? (
+        <button
+          type="button"
+          onClick={() => void dismissSyncOperation(operation.id)}
+          className="mt-2 text-[11px] font-medium text-muted-foreground underline touch-manipulation"
+        >
+          Descartar
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function PendingPhotoCard({ photo }: { photo: PendingPhotoOperation }) {
+  return (
+    <div
+      className={cn(
+        'rounded-md border px-2.5 py-2',
+        photo.status === 'error'
+          ? 'border-destructive/20 bg-destructive/5'
+          : photo.status === 'uploading'
+            ? 'border-secondary/30 bg-secondary/8'
+            : 'border-outline-variant/60 bg-surface/80',
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <Image className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="text-label-sm font-medium text-on-surface">
+            {PHOTO_OWNER_LABELS[photo.ownerType] ?? photo.ownerType}
+            {photo.filename ? ` · ${photo.filename}` : ''}
+          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {getPhotoStatusLabel(photo.status)} · {formatBytes(photo.sizeBytes)} ·{' '}
+            {formatRelativeTime(photo.createdAt, '—')}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function SyncStatusV2({
@@ -58,7 +162,6 @@ export function SyncStatusV2({
   pullDisabled = false,
   className,
 }: SyncStatusV2Props) {
-  const [issuesExpanded, setIssuesExpanded] = useState(true);
   const {
     pendingCount,
     conflictCount,
@@ -67,7 +170,8 @@ export function SyncStatusV2({
     blockedCount,
     pendingPhotoCount,
     photoErrorCount,
-    issueOperations,
+    queueOperations,
+    pendingPhotos,
     isSyncing,
     isAutoSyncPaused,
     lastSyncedAt,
@@ -86,8 +190,10 @@ export function SyncStatusV2({
     isAutoSyncPaused,
   };
   const hasIssues = hasVisibleSyncIssues(issueCounts);
-  const isClean = pendingCount === 0 && pendingPhotoCount === 0 && !hasIssues;
+  const isClean =
+    queueOperations.length === 0 && pendingPhotos.length === 0 && !hasIssues;
   const showRetryButton = isAutoSyncPausedWithWork(issueCounts);
+  const totalQueueItems = queueOperations.length + pendingPhotos.length;
 
   const statusLabel = (() => {
     if (isPulling) return 'Atualizando do servidor...';
@@ -95,21 +201,9 @@ export function SyncStatusV2({
     if (isAutoSyncPausedWithWork(issueCounts)) {
       return 'Sincronização pausada após 3 tentativas';
     }
-    if (hasIssues) {
-      const parts: string[] = [];
-      if (conflictCount > 0) parts.push(`${conflictCount} conflito(s)`);
-      if (rejectedCount > 0) parts.push(`${rejectedCount} rejeitado(s)`);
-      if (retryCount > 0) parts.push(`${retryCount} em retry`);
-      if (blockedCount > 0) parts.push(`${blockedCount} aguardando retomada`);
-      if (photoErrorCount > 0) parts.push(`${photoErrorCount} foto(s) com erro`);
-      return parts.join(' · ');
-    }
     if (isClean) return 'Tudo sincronizado';
-    if (pendingCount > 0 && pendingPhotoCount > 0) {
-      return `${pendingCount} operação(ões) · ${pendingPhotoCount} foto(s) pendente(s)`;
-    }
-    if (pendingPhotoCount > 0) return `${pendingPhotoCount} foto(s) pendente(s)`;
-    return `${pendingCount} operação(ões) pendente(s)`;
+    if (hasIssues) return 'Fila com pendências que precisam de atenção';
+    return `${totalQueueItems} item(ns) na fila`;
   })();
 
   const subtitle = onPull
@@ -144,22 +238,6 @@ export function SyncStatusV2({
           <p className="text-[11px] text-muted-foreground">{subtitle}</p>
         </div>
 
-        {issueOperations.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setIssuesExpanded((prev) => !prev)}
-            className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-destructive touch-manipulation"
-            aria-expanded={issuesExpanded}
-            aria-label={issuesExpanded ? 'Ocultar detalhes' : 'Ver detalhes'}
-          >
-            Detalhes
-            <ChevronDown
-              className={cn('h-3.5 w-3.5 transition-transform', issuesExpanded && 'rotate-180')}
-              aria-hidden
-            />
-          </button>
-        )}
-
         <div className="flex shrink-0 items-center gap-1.5">
           {onPull && !busy && (
             <button
@@ -187,7 +265,7 @@ export function SyncStatusV2({
             </button>
           )}
 
-          {onSync && !busy && !showRetryButton && (pendingCount > 0 || pendingPhotoCount > 0) && (
+          {onSync && !busy && !showRetryButton && totalQueueItems > 0 && (
             <button
               type="button"
               onClick={onSync}
@@ -201,23 +279,43 @@ export function SyncStatusV2({
         </div>
       </div>
 
-      {pendingPhotoCount > 0 && onDismissPendingPhotos ? (
+      {queueOperations.length > 0 ? (
         <div className="space-y-2 border-t border-outline-variant/60 px-3 py-2.5">
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            {photoErrorCount > 0
-              ? 'Algumas fotos falharam no envio ou estão aguardando a sincronização das avarias.'
-              : 'Fotos locais ainda não enviadas ao servidor.'}
-            {' '}
-            Descarte-as aqui se não precisar mais das evidências.
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Operações ({queueOperations.length})
           </p>
-          <button
-            type="button"
-            onClick={() => void onDismissPendingPhotos()}
-            disabled={busy}
-            className="text-[11px] font-medium text-destructive underline touch-manipulation disabled:opacity-50"
-          >
-            Descartar {pendingPhotoCount} foto(s) pendente(s)
-          </button>
+          {queueOperations.map((operation) => (
+            <QueueOperationCard key={operation.id} operation={operation} />
+          ))}
+        </div>
+      ) : null}
+
+      {pendingPhotos.length > 0 ? (
+        <div className="space-y-2 border-t border-outline-variant/60 px-3 py-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Fotos ({pendingPhotos.length})
+          </p>
+          {pendingPhotos.map((photo) => (
+            <PendingPhotoCard key={photo.id} photo={photo} />
+          ))}
+          {onDismissPendingPhotos ? (
+            <>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                {photoErrorCount > 0
+                  ? 'Algumas fotos falharam no envio ou estão aguardando a sincronização das avarias.'
+                  : 'Fotos locais ainda não enviadas ao servidor.'}{' '}
+                Descarte-as aqui se não precisar mais das evidências.
+              </p>
+              <button
+                type="button"
+                onClick={() => void onDismissPendingPhotos()}
+                disabled={busy}
+                className="text-[11px] font-medium text-destructive underline touch-manipulation disabled:opacity-50"
+              >
+                Descartar todas as fotos pendentes
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -241,41 +339,6 @@ export function SyncStatusV2({
           ) : null}
         </div>
       ) : null}
-
-      {issuesExpanded && issueOperations.length > 0 && (
-        <div className="space-y-2 border-t border-destructive/20 px-3 py-2.5">
-          {issueOperations.map((issue) => (
-            <div
-              key={issue.id}
-              className="rounded-md border border-destructive/20 bg-surface/80 px-2.5 py-2"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-label-sm font-medium text-on-surface">
-                    {issue.label}
-                    {issue.detail ? ` · ${issue.detail}` : ''}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {getSyncIssueStatusLabel(issue.status)}
-                  </p>
-                </div>
-              </div>
-              {issue.errorMessage ? (
-                <p className="mt-1 text-[11px] leading-relaxed text-destructive">
-                  {formatSyncIssueErrorMessage(issue.errorMessage)}
-                </p>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => void dismissSyncOperation(issue.id)}
-                className="mt-2 text-[11px] font-medium text-muted-foreground underline touch-manipulation"
-              >
-                Descartar
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

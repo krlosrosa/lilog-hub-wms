@@ -10,6 +10,7 @@ export type Gs1BarcodeParseResult = {
   count: number | null;
   batchLot: string | null;
   productionDateIso: string | null;
+  expirationDateIso: string | null;
   bestBeforeDateIso: string | null;
   authorizationCode: string | null;
   applicationIdentifiers: Record<string, string>;
@@ -98,7 +99,7 @@ function readVariableLengthField(
   let end = startIndex;
   while (end < normalized.length && end - startIndex < maxLength) {
     const remainder = normalized.slice(end);
-    if (/^(11|15|10|01|02|00|30)\d/.test(remainder) || /^7030/.test(remainder)) {
+    if (/^(11|15|17|10|01|02|00|30)\d/.test(remainder) || /^7030/.test(remainder)) {
       break;
     }
     if (normalized[end] === FNC1) {
@@ -115,64 +116,78 @@ function readVariableLengthField(
 
 function parseConcatenatedFormat(input: string): Record<string, string> {
   const result: Record<string, string> = {};
-  const normalized = input.split(FNC1).join('');
   let index = 0;
 
-  while (index < normalized.length) {
-    const ai4 = normalized.slice(index, index + 4);
+  while (index < input.length) {
+    if (input[index] === FNC1) {
+      index += 1;
+      continue;
+    }
+
+    const ai4 = input.slice(index, index + 4);
     if (isNetWeightAi(ai4) || isGrossWeightAi(ai4)) {
-      result[ai4] = normalized.slice(index + 4, index + 10);
+      result[ai4] = input.slice(index + 4, index + 10);
       index += 10;
       continue;
     }
 
     if (ai4 === '7030') {
-      const field = readVariableLengthField(normalized, index + 4, 20);
+      const field = readVariableLengthField(input, index + 4, 20);
       result[ai4] = field.value;
       index = field.nextIndex;
+      if (input[index] === FNC1) {
+        index += 1;
+      }
       continue;
     }
 
-    const ai2 = normalized.slice(index, index + 2);
+    const ai2 = input.slice(index, index + 2);
 
     if (ai2 === '01') {
-      result[ai2] = normalized.slice(index + 2, index + 16);
+      result[ai2] = input.slice(index + 2, index + 16);
       index += 16;
       continue;
     }
 
     if (ai2 === '00') {
-      result[ai2] = normalized.slice(index + 2, index + 20);
+      result[ai2] = input.slice(index + 2, index + 20);
       index += 20;
       continue;
     }
 
     if (ai2 === '02') {
-      result[ai2] = normalized.slice(index + 2, index + 16);
+      result[ai2] = input.slice(index + 2, index + 16);
       index += 16;
       continue;
     }
 
-    if (ai2 === '11' || ai2 === '15') {
-      result[ai2] = normalized.slice(index + 2, index + 8);
+    if (ai2 === '11' || ai2 === '15' || ai2 === '17') {
+      result[ai2] = input.slice(index + 2, index + 8);
       index += 8;
       continue;
     }
 
     if (ai2 === '10') {
-      const field = readVariableLengthField(normalized, index + 2, 20);
-      result[ai2] = field.value;
-      index = field.nextIndex;
+      const fnc1Pos = input.indexOf(FNC1, index + 2);
+      const end = fnc1Pos >= 0 ? fnc1Pos : input.length;
+      result[ai2] = input.slice(index + 2, end).trim();
+      index = fnc1Pos >= 0 ? fnc1Pos + 1 : input.length;
       continue;
     }
 
     if (ai2 === '30') {
       let end = index + 2;
-      while (end < normalized.length && end - index - 2 < 8 && /\d/.test(normalized[end] ?? '')) {
+      while (end < input.length && end - index - 2 < 8 && /\d/.test(input[end] ?? '')) {
+        if (input[end] === FNC1) {
+          break;
+        }
         end += 1;
       }
-      result[ai2] = normalized.slice(index + 2, end);
+      result[ai2] = input.slice(index + 2, end);
       index = end;
+      if (input[index] === FNC1) {
+        index += 1;
+      }
       continue;
     }
 
@@ -206,6 +221,9 @@ function buildResult(applicationIdentifiers: Record<string, string>): Gs1Barcode
   const productionDateIso = applicationIdentifiers['11']
     ? parseGs1DateYyMmDd(applicationIdentifiers['11'])
     : null;
+  const expirationDateIso = applicationIdentifiers['17']
+    ? parseGs1DateYyMmDd(applicationIdentifiers['17'])
+    : null;
   const bestBeforeDateIso = applicationIdentifiers['15']
     ? parseGs1DateYyMmDd(applicationIdentifiers['15'])
     : null;
@@ -218,6 +236,7 @@ function buildResult(applicationIdentifiers: Record<string, string>): Gs1Barcode
     count: count !== null && !Number.isNaN(count) ? count : null,
     batchLot,
     productionDateIso,
+    expirationDateIso,
     bestBeforeDateIso,
     authorizationCode,
     applicationIdentifiers,
@@ -230,16 +249,16 @@ export function looksLikeGs1TraceabilityBarcode(input: string): boolean {
     return false;
   }
 
-  if (/\((?:10|11|15|7030)\)/.test(normalized)) {
+  if (/\((?:10|11|15|17|7030)\)/.test(normalized)) {
     return true;
   }
 
-  if (normalized.includes(FNC1) && /(?:^|\u001d)(?:10|11|15|7030)/.test(normalized)) {
+  if (normalized.includes(FNC1) && /(?:^|\u001d)(?:10|11|15|17|7030)/.test(normalized)) {
     return true;
   }
 
   const compact = normalized.replace(/\s/g, '');
-  return /(?:^|\d)(?:11|15)\d{6}/.test(compact) && /10\d/.test(compact);
+  return /(?:^|\d)(?:11|15|17)\d{6}/.test(compact) && /10\d/.test(compact);
 }
 
 export function looksLikeGs1WeightBarcode(input: string): boolean {
@@ -258,6 +277,10 @@ export function looksLikeGs1WeightBarcode(input: string): boolean {
 
   const compact = normalized.replace(/\s/g, '');
   if (/^01\d{14}310[0-6]\d{6}/.test(compact)) {
+    return true;
+  }
+
+  if (/^310[0-6]\d{6}$/.test(compact) || /^330[0-6]\d{6}$/.test(compact)) {
     return true;
   }
 
@@ -292,7 +315,8 @@ export function applyGs1BarcodeInput(input: string): Gs1BarcodeApplyResult {
   const hasWeight = parsed.netWeightKg != null;
   const hasGtin = parsed.gtin != null;
   const hasLote = !!parsed.batchLot;
-  const validade = parsed.productionDateIso ?? parsed.bestBeforeDateIso ?? null;
+  const validade =
+    parsed.productionDateIso ?? parsed.expirationDateIso ?? parsed.bestBeforeDateIso ?? null;
   const hasValidade = !!validade;
 
   if (!hasWeight && !hasGtin && !hasLote && !hasValidade) {
@@ -330,7 +354,8 @@ export function resolveLoteFieldInput(raw: string): LoteFieldResolveResult {
     const parsed = parseGs1Barcode(trimmed);
     return {
       lote: parsed.batchLot ?? '',
-      validade: parsed.productionDateIso ?? parsed.bestBeforeDateIso ?? null,
+      validade:
+        parsed.productionDateIso ?? parsed.expirationDateIso ?? parsed.bestBeforeDateIso ?? null,
       parsedFromGs1: true,
     };
   }
@@ -358,6 +383,7 @@ export function parseGs1Barcode(input: string): Gs1BarcodeParseResult {
       count: null,
       batchLot: null,
       productionDateIso: null,
+      expirationDateIso: null,
       bestBeforeDateIso: null,
       authorizationCode: null,
       applicationIdentifiers: {},

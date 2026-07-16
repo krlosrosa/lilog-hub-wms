@@ -42,6 +42,7 @@ import { Route as RecebimentoIdTerminoRouteImport } from './routes/recebimento/$
 import { Route as RecebimentoIdItensRouteImport } from './routes/recebimento/$id.itens'
 import { Route as RecebimentoIdChecklistRouteImport } from './routes/recebimento/$id.checklist'
 import { Route as RecebimentoIdAvariaRouteImport } from './routes/recebimento/$id.avaria'
+import { Route as RecebimentoV2IdSyncRouteImport } from './routes/recebimento-v2/$id.sync'
 import { Route as RecebimentoV2IdResumoRouteImport } from './routes/recebimento-v2/$id.resumo'
 import { Route as RecebimentoV2IdPreparacaoRouteImport } from './routes/recebimento-v2/$id.preparacao'
 import { Route as RecebimentoV2IdItensRouteImport } from './routes/recebimento-v2/$id.itens'
@@ -243,6 +244,11 @@ const RecebimentoIdAvariaRoute = RecebimentoIdAvariaRouteImport.update({
   id: '/avaria',
   path: '/avaria',
   getParentRoute: () => RecebimentoIdRoute,
+} as any)
+const RecebimentoV2IdSyncRoute = RecebimentoV2IdSyncRouteImport.update({
+  id: '/sync',
+  path: '/sync',
+  getParentRoute: () => RecebimentoV2IdRoute,
 } as any)
 const RecebimentoV2IdResumoRoute = RecebimentoV2IdResumoRouteImport.update({
   id: '/resumo',
@@ -471,6 +477,7 @@ export interface FileRoutesByFullPath {
   '/recebimento-v2/$id/itens': typeof RecebimentoV2IdItensRoute
   '/recebimento-v2/$id/preparacao': typeof RecebimentoV2IdPreparacaoRoute
   '/recebimento-v2/$id/resumo': typeof RecebimentoV2IdResumoRoute
+  '/recebimento-v2/$id/sync': typeof RecebimentoV2IdSyncRoute
   '/recebimento/$id/avaria': typeof RecebimentoIdAvariaRoute
   '/recebimento/$id/checklist': typeof RecebimentoIdChecklistRoute
   '/recebimento/$id/itens': typeof RecebimentoIdItensRoute
@@ -532,6 +539,7 @@ export interface FileRoutesByTo {
   '/recebimento-v2/$id/itens': typeof RecebimentoV2IdItensRoute
   '/recebimento-v2/$id/preparacao': typeof RecebimentoV2IdPreparacaoRoute
   '/recebimento-v2/$id/resumo': typeof RecebimentoV2IdResumoRoute
+  '/recebimento-v2/$id/sync': typeof RecebimentoV2IdSyncRoute
   '/recebimento/$id/avaria': typeof RecebimentoIdAvariaRoute
   '/recebimento/$id/checklist': typeof RecebimentoIdChecklistRoute
   '/recebimento/$id/itens': typeof RecebimentoIdItensRoute
@@ -600,6 +608,7 @@ export interface FileRoutesById {
   '/recebimento-v2/$id/itens': typeof RecebimentoV2IdItensRoute
   '/recebimento-v2/$id/preparacao': typeof RecebimentoV2IdPreparacaoRoute
   '/recebimento-v2/$id/resumo': typeof RecebimentoV2IdResumoRoute
+  '/recebimento-v2/$id/sync': typeof RecebimentoV2IdSyncRoute
   '/recebimento/$id/avaria': typeof RecebimentoIdAvariaRoute
   '/recebimento/$id/checklist': typeof RecebimentoIdChecklistRoute
   '/recebimento/$id/itens': typeof RecebimentoIdItensRoute
@@ -671,6 +680,7 @@ export interface FileRouteTypes {
     | '/recebimento-v2/$id/itens'
     | '/recebimento-v2/$id/preparacao'
     | '/recebimento-v2/$id/resumo'
+    | '/recebimento-v2/$id/sync'
     | '/recebimento/$id/avaria'
     | '/recebimento/$id/checklist'
     | '/recebimento/$id/itens'
@@ -732,6 +742,7 @@ export interface FileRouteTypes {
     | '/recebimento-v2/$id/itens'
     | '/recebimento-v2/$id/preparacao'
     | '/recebimento-v2/$id/resumo'
+    | '/recebimento-v2/$id/sync'
     | '/recebimento/$id/avaria'
     | '/recebimento/$id/checklist'
     | '/recebimento/$id/itens'
@@ -799,6 +810,7 @@ export interface FileRouteTypes {
     | '/recebimento-v2/$id/itens'
     | '/recebimento-v2/$id/preparacao'
     | '/recebimento-v2/$id/resumo'
+    | '/recebimento-v2/$id/sync'
     | '/recebimento/$id/avaria'
     | '/recebimento/$id/checklist'
     | '/recebimento/$id/itens'
@@ -1101,6 +1113,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecebimentoIdAvariaRouteImport
       parentRoute: typeof RecebimentoIdRoute
     }
+    '/recebimento-v2/$id/sync': {
+      id: '/recebimento-v2/$id/sync'
+      path: '/sync'
+      fullPath: '/recebimento-v2/$id/sync'
+      preLoaderRoute: typeof RecebimentoV2IdSyncRouteImport
+      parentRoute: typeof RecebimentoV2IdRoute
+    }
     '/recebimento-v2/$id/resumo': {
       id: '/recebimento-v2/$id/resumo'
       path: '/resumo'
@@ -1383,6 +1402,7 @@ interface RecebimentoV2IdRouteChildren {
   RecebimentoV2IdItensRoute: typeof RecebimentoV2IdItensRoute
   RecebimentoV2IdPreparacaoRoute: typeof RecebimentoV2IdPreparacaoRoute
   RecebimentoV2IdResumoRoute: typeof RecebimentoV2IdResumoRoute
+  RecebimentoV2IdSyncRoute: typeof RecebimentoV2IdSyncRoute
   RecebimentoV2IdIndexRoute: typeof RecebimentoV2IdIndexRoute
 }
 
@@ -1393,6 +1413,7 @@ const RecebimentoV2IdRouteChildren: RecebimentoV2IdRouteChildren = {
   RecebimentoV2IdItensRoute: RecebimentoV2IdItensRoute,
   RecebimentoV2IdPreparacaoRoute: RecebimentoV2IdPreparacaoRoute,
   RecebimentoV2IdResumoRoute: RecebimentoV2IdResumoRoute,
+  RecebimentoV2IdSyncRoute: RecebimentoV2IdSyncRoute,
   RecebimentoV2IdIndexRoute: RecebimentoV2IdIndexRoute,
 }
 
