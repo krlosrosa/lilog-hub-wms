@@ -2,6 +2,7 @@ import { and, count, eq, sum } from 'drizzle-orm';
 
 import type { ConferirItemInput } from '../../../domain/model/recebimento/recebimento.model.js';
 import type {
+  AddItemRecebimentoOptions,
   AddItemRecebimentoResult,
   ItemRecebimentoRecord,
 } from '../../../domain/repositories/recebimento/recebimento.repository.js';
@@ -135,7 +136,7 @@ export async function addItemRecebimentoDb(
   recebimentoId: string,
   unidadeId: string,
   data: ConferirItemInput,
-  options?: { unitizadorId?: string | null; pesoVariavel?: boolean; conferidoPorId?: number | null },
+  options?: AddItemRecebimentoOptions,
 ): Promise<AddItemRecebimentoResult> {
   const unitizadorId = options?.unitizadorId ?? null;
   const pesoVariavel = options?.pesoVariavel ?? false;
