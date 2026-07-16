@@ -525,7 +525,10 @@ describe('sync.service – pushDemand', () => {
       },
     });
     await recebimentoV2Db.syncOperations.put(op);
-    await recebimentoV2Db.processes.update(DEMAND_ID, { status: 'completed' });
+    await recebimentoV2Db.processes.update(DEMAND_ID, {
+      status: 'completed',
+      pendingFinalizationSync: true,
+    });
 
     const batchResult: SyncBatchResult = {
       batchId: 'batch-encerrar',
@@ -543,6 +546,7 @@ describe('sync.service – pushDemand', () => {
 
     const process = await recebimentoV2Db.processes.get(DEMAND_ID);
     expect(process?.status).toBe('completed');
+    expect(process?.pendingFinalizationSync).toBe(false);
 
     const storedOp = await recebimentoV2Db.syncOperations.get(op.id);
     expect(storedOp?.status).toBe('synced');
@@ -560,7 +564,10 @@ describe('sync.service – pushDemand', () => {
       },
     });
     await recebimentoV2Db.syncOperations.put(op);
-    await recebimentoV2Db.processes.update(DEMAND_ID, { status: 'completed' });
+    await recebimentoV2Db.processes.update(DEMAND_ID, {
+      status: 'completed',
+      pendingFinalizationSync: true,
+    });
 
     const batchResult: SyncBatchResult = {
       batchId: 'batch-encerrar-reject',
@@ -584,6 +591,7 @@ describe('sync.service – pushDemand', () => {
 
     const process = await recebimentoV2Db.processes.get(DEMAND_ID);
     expect(process?.status).toBe('pendingSync');
+    expect(process?.pendingFinalizationSync).toBe(false);
 
     const storedOp = await recebimentoV2Db.syncOperations.get(op.id);
     expect(storedOp?.status).toBe('rejected');

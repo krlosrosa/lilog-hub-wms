@@ -11,7 +11,7 @@ export function isActiveDemandProcess(
   process: ProcessRecord,
   demand?: DemandRecord | null,
 ): boolean {
-  if (process.status === 'completed') {
+  if (process.status === 'completed' || process.pendingFinalizationSync) {
     return false;
   }
 

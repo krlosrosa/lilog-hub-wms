@@ -112,6 +112,7 @@ export function useFinalizarV2(demandId: string) {
             await recebimentoV2Db.syncOperations.put(syncOp);
             await recebimentoV2Db.processes.update(demandId, {
               status: 'completed',
+              pendingFinalizationSync: true,
               errorMessage: undefined,
               updatedAt: nowMs,
             });
@@ -120,6 +121,7 @@ export function useFinalizarV2(demandId: string) {
       } else {
         await recebimentoV2Db.processes.update(demandId, {
           status: 'completed',
+          pendingFinalizationSync: true,
           errorMessage: undefined,
           updatedAt: nowMs,
         });

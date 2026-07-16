@@ -688,6 +688,7 @@ export async function pushDemand(
 
         await recebimentoV2Db.processes.update(demandId, {
           status: previousStatus === 'syncing' ? 'working' : previousStatus,
+          pendingFinalizationSync: false,
           updatedAt: Date.now(),
         });
       },
@@ -807,6 +808,7 @@ export async function pushDemand(
           lastSyncedAt: now,
           updatedAt: now,
           status: nextProcessStatus,
+          pendingFinalizationSync: false,
           ...(result.resourceId ? { recebimentoId: result.resourceId } : {}),
         });
 
@@ -842,6 +844,7 @@ export async function pushDemand(
 
         await recebimentoV2Db.processes.update(demandId, {
           status: previousStatus === 'syncing' ? 'working' : previousStatus,
+          pendingFinalizationSync: false,
           updatedAt: now,
         });
       },

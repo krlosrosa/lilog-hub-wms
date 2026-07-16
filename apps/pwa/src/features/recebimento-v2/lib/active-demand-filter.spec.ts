@@ -38,6 +38,15 @@ describe('isActiveDemandProcess', () => {
     expect(isActiveDemandProcess(makeProcess('completed'), makeDemand('conferido'))).toBe(false);
   });
 
+  it('hides processes awaiting finalization sync confirmation', () => {
+    expect(
+      isActiveDemandProcess(
+        { ...makeProcess('syncing'), pendingFinalizationSync: true },
+        makeDemand('em_conferencia'),
+      ),
+    ).toBe(false);
+  });
+
   it('shows active situacoes from demand record', () => {
     expect(
       isActiveDemandProcess(makeProcess('ready'), makeDemand('liberado_para_conferencia')),

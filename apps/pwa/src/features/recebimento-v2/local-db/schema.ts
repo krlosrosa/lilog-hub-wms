@@ -40,6 +40,8 @@ export interface ProcessRecord {
   errorMessage?: string;
   /** Auto-sync paused after consecutive failures — user must retry manually */
   autoSyncPaused?: boolean;
+  /** Finalizado localmente mas sync ainda não confirmou — esconde da lista */
+  pendingFinalizationSync?: boolean;
   flowVersion: 'v2';
   /** Server recebimento id — cached after sync for photo uploads */
   recebimentoId?: string;
