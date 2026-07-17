@@ -17,6 +17,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'LiLog Admin — Sistema de Gestão Logística',
   description: 'Painel administrativo para operações de armazém e logística.',
+  icons: {
+    icon: '/favicon.svg',
+  },
   robots: {
     index: false,
     follow: false,

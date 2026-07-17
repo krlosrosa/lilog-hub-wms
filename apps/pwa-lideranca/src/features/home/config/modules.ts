@@ -1,14 +1,9 @@
 import {
   ClipboardCheck,
-  LogOut,
   PackageSearch,
-  ShieldCheck,
-  Truck,
   UserCheck,
   type LucideIcon,
 } from 'lucide-react';
-
-import { FUTURE_AREA_MODULES } from './operational-areas';
 
 export type ModuleStatus = 'available' | 'coming_soon';
 
@@ -37,26 +32,6 @@ export const LEADERSHIP_MODULES: LeadershipModule[] = [
     iconTone: 'primary',
   },
   {
-    id: 'expedicao',
-    title: 'Expedição',
-    description: 'Torre de controle e gestão de recursos do turno',
-    icon: Truck,
-    status: 'available',
-    to: '/expedicao',
-    section: 'operacional',
-    iconTone: 'secondary',
-  },
-  {
-    id: 'devolucao',
-    title: 'Devolução',
-    description: 'Alocações, conferentes e pausas da equipe',
-    icon: LogOut,
-    status: 'available',
-    to: '/devolucao/gestao-recursos',
-    section: 'operacional',
-    iconTone: 'warning',
-  },
-  {
     id: 'recebimento',
     title: 'Recebimento',
     description: 'Atribuição de conferentes e acompanhamento das docas',
@@ -75,25 +50,4 @@ export const LEADERSHIP_MODULES: LeadershipModule[] = [
     section: 'futuro',
     iconTone: 'primary',
   },
-  {
-    id: 'aprovacoes',
-    title: 'Aprovações',
-    description: 'Movimentações, CNC e exceções',
-    icon: ShieldCheck,
-    status: 'coming_soon',
-    section: 'futuro',
-    iconTone: 'secondary',
-  },
-  ...FUTURE_AREA_MODULES.map(
-    (item): LeadershipModule => ({
-      id: item.id,
-      title: item.title,
-      description: item.description,
-      icon: item.icon,
-      status: item.status,
-      to: item.to,
-      section: 'futuro',
-      iconTone: item.iconTone === 'tertiary' ? 'secondary' : item.iconTone,
-    }),
-  ),
 ];

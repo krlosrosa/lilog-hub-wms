@@ -1,6 +1,6 @@
 'use client';
 
-import { fieldInputClassName } from '@/features/expedicao-impressao-config/components/panel-styles';
+import { fieldInputClassName } from '@/components/ui/panel-styles';
 import type { RegraConferenciaForm } from '@/features/regras-conferencia/types/regra-conferencia.schema';
 import type { FieldErrors, UseFormRegister } from 'react-hook-form';
 

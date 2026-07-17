@@ -2,10 +2,6 @@ import { Module } from '@nestjs/common';
 
 import { RecebimentoEventPublisher } from '../../application/services/recebimento-event.publisher.js';
 import { RecebimentoParticipacaoService } from '../../application/services/recebimento/recebimento-participacao.service.js';
-import { MontarItensAguardandoArmazenagemRecebimentoService } from '../../application/services/recebimento/montar-itens-aguardando-armazenagem-recebimento.service.js';
-import { CarregarEtiquetasGeradasRecebimentoService } from '../../application/services/recebimento/carregar-etiquetas-geradas-recebimento.service.js';
-import { MontarPaletesArmazenagemService } from '../../application/services/armazenagem/montar-paletes-armazenagem.service.js';
-import { SugerirEnderecosPaletesService } from '../../application/services/armazenagem/sugerir-enderecos-paletes.service.js';
 import { CancelPreRecebimentoUseCase } from '../../application/usecases/recebimento/cancel-pre-recebimento.usecase.js';
 import { LiberarConferenciaUseCase } from '../../application/usecases/recebimento/liberar-conferencia.usecase.js';
 import { RecepcionarCarroUseCase } from '../../application/usecases/recebimento/recepcionar-carro.usecase.js';
@@ -22,10 +18,6 @@ import { CreatePreRecebimentoUseCase } from '../../application/usecases/recebime
 import { EncerrarConferenciaUseCase } from '../../application/usecases/recebimento/encerrar-conferencia.usecase.js';
 import { ReabrirConferenciaUseCase } from '../../application/usecases/recebimento/reabrir-conferencia.usecase.js';
 import { FinalizarRecebimentoUseCase } from '../../application/usecases/recebimento/finalizar-recebimento.usecase.js';
-import { ImprimirEtiquetasRecebimentoUseCase } from '../../application/usecases/recebimento/imprimir-etiquetas-recebimento.usecase.js';
-import { PreviewPaletesArmazenagemRecebimentoUseCase } from '../../application/usecases/recebimento/preview-paletes-armazenagem-recebimento.usecase.js';
-import { PreviewEnderecosPaletesBipadosRecebimentoUseCase } from '../../application/usecases/recebimento/preview-enderecos-paletes-bipados-recebimento.usecase.js';
-import { SugerirEtiquetasRecebimentoUseCase } from '../../application/usecases/recebimento/sugerir-etiquetas-recebimento.usecase.js';
 import { GetConferenciaContextUseCase } from '../../application/usecases/recebimento/get-conferencia-context.usecase.js';
 import { GetPreRecebimentoUseCase } from '../../application/usecases/recebimento/get-pre-recebimento.usecase.js';
 import { GetPreRecebimentoDetalheUseCase } from '../../application/usecases/recebimento/get-pre-recebimento-detalhe.usecase.js';
@@ -52,7 +44,6 @@ import { RemoverApoioRecebimentoUseCase } from '../../application/usecases/receb
 import { EncerrarApoioRecebimentoUseCase } from '../../application/usecases/recebimento/encerrar-apoio-recebimento.usecase.js';
 import { GetRecursosRecebimentoSessaoUseCase } from '../../application/usecases/recebimento/get-recursos-recebimento-sessao.usecase.js';
 import { GetRecebimentoPainelSnapshotUseCase } from '../../application/usecases/recebimento/get-recebimento-painel-snapshot.usecase.js';
-import { GerarMovimentacaoRecebimentoUseCase } from '../../application/usecases/recebimento/gerar-movimentacao-recebimento.usecase.js';
 import { GetRelatorioItensConferidosUseCase } from '../../application/usecases/recebimento/get-relatorio-itens-conferidos.usecase.js';
 import { RegistrarImpedimentoRecebimentoUseCase } from '../../application/usecases/recebimento/registrar-impedimento-recebimento.usecase.js';
 import { RetomarConferenciaImpedidaUseCase } from '../../application/usecases/recebimento/retomar-conferencia-impedida.usecase.js';
@@ -82,10 +73,6 @@ import { CreatePreRecebimentoController } from '../../presentation/controllers/r
 import { EncerrarConferenciaController } from '../../presentation/controllers/recebimento/encerrar-conferencia.controller.js';
 import { ReabrirConferenciaController } from '../../presentation/controllers/recebimento/reabrir-conferencia.controller.js';
 import { FinalizarRecebimentoController } from '../../presentation/controllers/recebimento/finalizar-recebimento.controller.js';
-import { ImprimirEtiquetasRecebimentoController } from '../../presentation/controllers/recebimento/imprimir-etiquetas-recebimento.controller.js';
-import { PreviewPaletesArmazenagemRecebimentoController } from '../../presentation/controllers/recebimento/preview-paletes-armazenagem-recebimento.controller.js';
-import { PreviewEnderecosPaletesBipadosRecebimentoController } from '../../presentation/controllers/recebimento/preview-enderecos-paletes-bipados-recebimento.controller.js';
-import { SugerirEtiquetasRecebimentoController } from '../../presentation/controllers/recebimento/sugerir-etiquetas-recebimento.controller.js';
 import { GetConferenciaContextController } from '../../presentation/controllers/recebimento/get-conferencia-context.controller.js';
 import { GetPreRecebimentoController } from '../../presentation/controllers/recebimento/get-pre-recebimento.controller.js';
 import { GetPreRecebimentoDetalheController } from '../../presentation/controllers/recebimento/get-pre-recebimento-detalhe.controller.js';
@@ -112,7 +99,6 @@ import {
 } from '../../presentation/controllers/recebimento/adicionar-apoio-recebimento.controller.js';
 import { GetRecursosRecebimentoSessaoController } from '../../presentation/controllers/recebimento/get-recursos-recebimento-sessao.controller.js';
 import { GetRecebimentoPainelSnapshotController } from '../../presentation/controllers/recebimento/get-recebimento-painel-snapshot.controller.js';
-import { GerarMovimentacaoRecebimentoController } from '../../presentation/controllers/recebimento/gerar-movimentacao-recebimento.controller.js';
 import { GetRelatorioItensConferidosController } from '../../presentation/controllers/recebimento/get-relatorio-itens-conferidos.controller.js';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard.js';
 import { GerarPdfDeHtmlService } from '../pdf/gerar-pdf-de-html.service.js';
@@ -128,14 +114,9 @@ import { AuditLogModule } from './audit-log.module.js';
 import { AuthModule } from './auth.module.js';
 import { CncModule } from './cnc.module.js';
 import { DocaModule } from './doca.module.js';
-import { EstoqueModule } from './estoque.module.js';
-import { ArmazenagemModule } from './armazenagem.module.js';
-import { EnderecoModule } from './endereco.module.js';
 import { FuncionarioModule } from './funcionario.module.js';
 import { OperacionalModule } from './operacional.module.js';
 import { ProdutoModule } from './produto.module.js';
-import { RecebimentoQueueModule } from './recebimento-queue.module.js';
-import { RegraProcessoModule } from './regra-processo.module.js';
 import { UnidadeModule } from './unidade.module.js';
 import { UserModule } from './user.module.js';
 import { SessaoOperacaoModule } from './sessao-operacao.module.js';
@@ -149,11 +130,6 @@ import { SessaoOperacaoModule } from './sessao-operacao.module.js';
     DocaModule,
     FuncionarioModule,
     CncModule,
-    EstoqueModule,
-    EnderecoModule,
-    RecebimentoQueueModule,
-    ArmazenagemModule,
-    RegraProcessoModule,
     OperacionalModule,
     UserModule,
     SessaoOperacaoModule,
@@ -186,10 +162,6 @@ import { SessaoOperacaoModule } from './sessao-operacao.module.js';
     EncerrarConferenciaController,
     ReabrirConferenciaController,
     FinalizarRecebimentoController,
-    ImprimirEtiquetasRecebimentoController,
-    PreviewPaletesArmazenagemRecebimentoController,
-    PreviewEnderecosPaletesBipadosRecebimentoController,
-    SugerirEtiquetasRecebimentoController,
     GetRecebimentoController,
     RegistrarAvariaController,
     RemoverAvariasRecebimentoController,
@@ -204,7 +176,6 @@ import { SessaoOperacaoModule } from './sessao-operacao.module.js';
     EncerrarApoioRecebimentoController,
     GetRecursosRecebimentoSessaoController,
     GetRecebimentoPainelSnapshotController,
-    GerarMovimentacaoRecebimentoController,
     GetRelatorioItensConferidosController,
   ],
   exports: [
@@ -248,14 +219,6 @@ import { SessaoOperacaoModule } from './sessao-operacao.module.js';
     EncerrarConferenciaUseCase,
     ReabrirConferenciaUseCase,
     FinalizarRecebimentoUseCase,
-    ImprimirEtiquetasRecebimentoUseCase,
-    PreviewPaletesArmazenagemRecebimentoUseCase,
-    PreviewEnderecosPaletesBipadosRecebimentoUseCase,
-    SugerirEtiquetasRecebimentoUseCase,
-    MontarItensAguardandoArmazenagemRecebimentoService,
-    CarregarEtiquetasGeradasRecebimentoService,
-    MontarPaletesArmazenagemService,
-    SugerirEnderecosPaletesService,
     ListPreRecebimentosUseCase,
     ListRecebimentosUseCase,
     GetPreRecebimentoUseCase,
@@ -278,7 +241,6 @@ import { SessaoOperacaoModule } from './sessao-operacao.module.js';
     EncerrarApoioRecebimentoUseCase,
     GetRecursosRecebimentoSessaoUseCase,
     GetRecebimentoPainelSnapshotUseCase,
-    GerarMovimentacaoRecebimentoUseCase,
     GetRelatorioItensConferidosUseCase,
     RegistrarImpedimentoRecebimentoUseCase,
     RetomarConferenciaImpedidaUseCase,

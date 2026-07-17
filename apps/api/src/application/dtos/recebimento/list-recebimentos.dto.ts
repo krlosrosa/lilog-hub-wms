@@ -1,7 +1,7 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
-import { ModoUnitizacaoSchema } from '../../../domain/model/armazenagem/armazenagem.model.js';
+import { ModoUnitizacaoSchema } from '../../../domain/model/recebimento/recebimento.model.js';
 import {
   GrauPrioridadePreRecebimentoSchema,
   OrigemDadosPreRecebimentoSchema,

@@ -12,7 +12,7 @@ import {
 } from '../../../shared/decorators/api-responses.decorator.js';
 import { Auditable } from '../../../shared/decorators/auditable.decorator.js';
 import { RequirePermissions } from '../../../shared/decorators/require-permissions.decorator.js';
-import { EXPEDICAO_PERMISSION } from '../../../shared/constants/expedicao-permissions.js';
+import { RECEBIMENTO_PERMISSION } from '../../../shared/constants/recebimento-permissions.js';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard.js';
 
@@ -43,7 +43,7 @@ export class CriarConfiguracaoOperacionalController {
     private readonly criarConfiguracaoOperacionalUseCase: CriarConfiguracaoOperacionalUseCase,
   ) {}
 
-  @RequirePermissions(EXPEDICAO_PERMISSION.UPLOAD)
+  @RequirePermissions(RECEBIMENTO_PERMISSION.GERENCIAR)
   @Auditable({ action: 'create', resource: 'configuracao_operacional' })
   @Post()
   @ApiOperation({

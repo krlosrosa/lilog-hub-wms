@@ -14,7 +14,7 @@ import {
 import {
   normalizeLote,
   normalizeNumeroSerie,
-} from '../estoque/map-estoque.drizzle.js';
+} from '../../../shared/utils/normalize-lote-serie.js';
 import { createPesagemRecebimentoDb } from './create-pesagem-recebimento.drizzle.js';
 import {
   mapItemRecebimentoRow,

@@ -194,7 +194,7 @@ describe('applyGs1BarcodeInput', () => {
     ).toEqual({
       applied: true,
       pesoKg: '13.207',
-      etiqueta: '7891097104275',
+      etiqueta: null,
       lote: null,
       validade: null,
     });
@@ -204,7 +204,7 @@ describe('applyGs1BarcodeInput', () => {
     expect(applyGs1BarcodeInput(PESO_GS1_IMAGEM)).toEqual({
       applied: true,
       pesoKg: '13.207',
-      etiqueta: '7891097104275',
+      etiqueta: null,
       lote: null,
       validade: null,
     });
@@ -214,7 +214,7 @@ describe('applyGs1BarcodeInput', () => {
     expect(applyGs1BarcodeInput(`${PESO_GS1_IMAGEM}\t`)).toEqual({
       applied: true,
       pesoKg: '13.207',
-      etiqueta: '7891097104275',
+      etiqueta: null,
       lote: null,
       validade: null,
     });
@@ -244,7 +244,7 @@ describe('applyGs1BarcodeInput', () => {
     expect(applyGs1BarcodeInput('(01)7891097104275(17)261231(10)LOTE123')).toEqual({
       applied: true,
       pesoKg: null,
-      etiqueta: '7891097104275',
+      etiqueta: null,
       lote: 'LOTE123',
       validade: '2026-12-31',
     });
@@ -273,7 +273,7 @@ describe('applyGs1BarcodeInput', () => {
     expect(applyGs1BarcodeInput('017891097104275310301320733030138603001')).toEqual({
       applied: true,
       pesoKg: '13.207',
-      etiqueta: '7891097104275',
+      etiqueta: null,
       lote: null,
       validade: null,
     });

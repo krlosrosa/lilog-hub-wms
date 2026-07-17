@@ -1,11 +1,6 @@
-import { Body, Controller, Param, Put, Req, UseGuards } from '@nestjs/common';
+import { Controller, Param, Put, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { createZodDto } from 'nestjs-zod';
 
-import {
-  FinalizarRecebimentoBodySchema,
-  FinalizarRecebimentoResponseDto,
-} from '../../../application/dtos/recebimento/etiqueta-armazenagem.dto.js';
 import { FinalizarRecebimentoUseCase } from '../../../application/usecases/recebimento/finalizar-recebimento.usecase.js';
 import {
   ApiErrorResponses,
@@ -21,10 +16,6 @@ import {
   type RequestUser,
 } from '../../../shared/utils/request-user.js';
 
-class FinalizarRecebimentoBodyDto extends createZodDto(
-  FinalizarRecebimentoBodySchema,
-) {}
-
 @ApiTags('Recebimento')
 @Controller('recebimentos')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -39,20 +30,17 @@ export class FinalizarRecebimentoController {
   @Auditable({ action: 'finish', resource: 'recebimento' })
   @Put(':id/finalizar')
   @ApiOperation({
-    summary: 'Finalizar recebimento e gerar tarefas de armazenagem',
+    summary: 'Finalizar recebimento',
     operationId: 'finalizarRecebimento',
   })
-  @ApiSuccessResponse(FinalizarRecebimentoResponseDto)
+  @ApiSuccessResponse(Object)
   handle(
     @Param('id') id: string,
-    @Body() body: FinalizarRecebimentoBodyDto,
     @Req() request: { user?: RequestUser },
   ) {
     return this.finalizarRecebimentoUseCase.execute({
       recebimentoId: id,
       userId: getRequestUser(request)?.id ?? null,
-      paletes: body.paletes,
-      paletesBipadosValidados: body.paletesBipadosValidados,
     });
   }
 }

@@ -16,28 +16,15 @@ import { Route as RecebimentoIndexRouteImport } from './routes/recebimento/index
 import { Route as RecebimentoV2IndexRouteImport } from './routes/recebimento-v2/index'
 import { Route as PesoVariavelIndexRouteImport } from './routes/peso-variavel/index'
 import { Route as PassagemBastaoIndexRouteImport } from './routes/passagem-bastao/index'
-import { Route as MovimentacaoIndexRouteImport } from './routes/movimentacao/index'
 import { Route as ManobraIndexRouteImport } from './routes/manobra/index'
-import { Route as ExpedicaoIndexRouteImport } from './routes/expedicao/index'
-import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
-import { Route as DevolucaoIndexRouteImport } from './routes/devolucao/index'
 import { Route as RecebimentoIdRouteImport } from './routes/recebimento/$id'
 import { Route as RecebimentoV2IdRouteImport } from './routes/recebimento-v2/$id'
 import { Route as RastreioTokenRouteImport } from './routes/rastreio/$token'
 import { Route as PesoVariavelIdRouteImport } from './routes/peso-variavel/$id'
 import { Route as PassagemBastaoResumoRouteImport } from './routes/passagem-bastao/resumo'
-import { Route as DevolucaoIdRouteImport } from './routes/devolucao/$id'
 import { Route as RecebimentoIdIndexRouteImport } from './routes/recebimento/$id.index'
 import { Route as RecebimentoV2IdIndexRouteImport } from './routes/recebimento-v2/$id.index'
 import { Route as PesoVariavelIdIndexRouteImport } from './routes/peso-variavel/$id.index'
-import { Route as MovimentacaoRessuprimentoIndexRouteImport } from './routes/movimentacao/ressuprimento/index'
-import { Route as MovimentacaoArmazenagemIndexRouteImport } from './routes/movimentacao/armazenagem/index'
-import { Route as ExpedicaoSeparacaoIndexRouteImport } from './routes/expedicao/separacao/index'
-import { Route as EstoqueRecuperacaoIndexRouteImport } from './routes/estoque/recuperacao/index'
-import { Route as EstoqueContagemIndexRouteImport } from './routes/estoque/contagem/index'
-import { Route as EstoqueConsultaIndexRouteImport } from './routes/estoque/consulta/index'
-import { Route as EstoqueArmazenagemIndexRouteImport } from './routes/estoque/armazenagem/index'
-import { Route as DevolucaoIdIndexRouteImport } from './routes/devolucao/$id.index'
 import { Route as RecebimentoIdTerminoRouteImport } from './routes/recebimento/$id.termino'
 import { Route as RecebimentoIdItensRouteImport } from './routes/recebimento/$id.itens'
 import { Route as RecebimentoIdChecklistRouteImport } from './routes/recebimento/$id.checklist'
@@ -50,33 +37,6 @@ import { Route as RecebimentoV2IdConflitoRouteImport } from './routes/recebiment
 import { Route as RecebimentoV2IdChecklistRouteImport } from './routes/recebimento-v2/$id.checklist'
 import { Route as RecebimentoV2IdAvariasRouteImport } from './routes/recebimento-v2/$id.avarias'
 import { Route as PesoVariavelIdResumoRouteImport } from './routes/peso-variavel/$id.resumo'
-import { Route as MovimentacaoRessuprimentoIdRouteImport } from './routes/movimentacao/ressuprimento/$id'
-import { Route as ExpedicaoSeparacaoIdRouteImport } from './routes/expedicao/separacao/$id'
-import { Route as EstoqueRecuperacaoDemandaIdRouteImport } from './routes/estoque/recuperacao/$demandaId'
-import { Route as EstoqueContagemIdRouteImport } from './routes/estoque/contagem/$id'
-import { Route as EstoqueArmazenagemIdRouteImport } from './routes/estoque/armazenagem/$id'
-import { Route as DevolucaoIdTerminoRouteImport } from './routes/devolucao/$id.termino'
-import { Route as DevolucaoIdItensRouteImport } from './routes/devolucao/$id.itens'
-import { Route as DevolucaoIdChecklistRouteImport } from './routes/devolucao/$id.checklist'
-import { Route as DevolucaoIdAvariaRouteImport } from './routes/devolucao/$id.avaria'
-import { Route as MovimentacaoRessuprimentoIdIndexRouteImport } from './routes/movimentacao/ressuprimento/$id.index'
-import { Route as MovimentacaoArmazenagemIdIndexRouteImport } from './routes/movimentacao/armazenagem/$id.index'
-import { Route as ExpedicaoSeparacaoIdIndexRouteImport } from './routes/expedicao/separacao/$id.index'
-import { Route as EstoqueRecuperacaoDemandaIdIndexRouteImport } from './routes/estoque/recuperacao/$demandaId/index'
-import { Route as EstoqueArmazenagemIdIndexRouteImport } from './routes/estoque/armazenagem/$id.index'
-import { Route as MovimentacaoRessuprimentoIdDirecionamentoRouteImport } from './routes/movimentacao/ressuprimento/$id.direcionamento'
-import { Route as MovimentacaoRessuprimentoIdConfirmacaoColetaRouteImport } from './routes/movimentacao/ressuprimento/$id.confirmacao-coleta'
-import { Route as MovimentacaoRessuprimentoIdConclusaoRouteImport } from './routes/movimentacao/ressuprimento/$id.conclusao'
-import { Route as EstoqueRecuperacaoDemandaIdResumoRouteImport } from './routes/estoque/recuperacao/$demandaId/resumo'
-import { Route as EstoqueRecuperacaoDemandaIdItemIdRouteImport } from './routes/estoque/recuperacao/$demandaId/$itemId'
-import { Route as EstoqueContagemIdValidacaoRouteImport } from './routes/estoque/contagem/$id.validacao'
-import { Route as EstoqueContagemIdCegaRouteImport } from './routes/estoque/contagem/$id.cega'
-import { Route as EstoqueContagemIdValidacaoIndexRouteImport } from './routes/estoque/contagem/$id.validacao.index'
-import { Route as EstoqueContagemIdCegaIndexRouteImport } from './routes/estoque/contagem/$id.cega.index'
-import { Route as EstoqueRecuperacaoDemandaIdItemIdExecucaoRouteImport } from './routes/estoque/recuperacao/$demandaId/$itemId/execucao'
-import { Route as EstoqueRecuperacaoDemandaIdItemIdDetalheRouteImport } from './routes/estoque/recuperacao/$demandaId/$itemId/detalhe'
-import { Route as EstoqueContagemIdValidacaoAvariaRouteImport } from './routes/estoque/contagem/$id.validacao.avaria'
-import { Route as EstoqueContagemIdCegaAvariaRouteImport } from './routes/estoque/contagem/$id.cega.avaria'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -113,29 +73,9 @@ const PassagemBastaoIndexRoute = PassagemBastaoIndexRouteImport.update({
   path: '/passagem-bastao/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MovimentacaoIndexRoute = MovimentacaoIndexRouteImport.update({
-  id: '/movimentacao/',
-  path: '/movimentacao/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ManobraIndexRoute = ManobraIndexRouteImport.update({
   id: '/manobra/',
   path: '/manobra/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ExpedicaoIndexRoute = ExpedicaoIndexRouteImport.update({
-  id: '/expedicao/',
-  path: '/expedicao/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstoqueIndexRoute = EstoqueIndexRouteImport.update({
-  id: '/estoque/',
-  path: '/estoque/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DevolucaoIndexRoute = DevolucaoIndexRouteImport.update({
-  id: '/devolucao/',
-  path: '/devolucao/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RecebimentoIdRoute = RecebimentoIdRouteImport.update({
@@ -163,11 +103,6 @@ const PassagemBastaoResumoRoute = PassagemBastaoResumoRouteImport.update({
   path: '/passagem-bastao/resumo',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DevolucaoIdRoute = DevolucaoIdRouteImport.update({
-  id: '/devolucao/$id',
-  path: '/devolucao/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const RecebimentoIdIndexRoute = RecebimentoIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -182,48 +117,6 @@ const PesoVariavelIdIndexRoute = PesoVariavelIdIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PesoVariavelIdRoute,
-} as any)
-const MovimentacaoRessuprimentoIndexRoute =
-  MovimentacaoRessuprimentoIndexRouteImport.update({
-    id: '/movimentacao/ressuprimento/',
-    path: '/movimentacao/ressuprimento/',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const MovimentacaoArmazenagemIndexRoute =
-  MovimentacaoArmazenagemIndexRouteImport.update({
-    id: '/movimentacao/armazenagem/',
-    path: '/movimentacao/armazenagem/',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ExpedicaoSeparacaoIndexRoute = ExpedicaoSeparacaoIndexRouteImport.update({
-  id: '/expedicao/separacao/',
-  path: '/expedicao/separacao/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstoqueRecuperacaoIndexRoute = EstoqueRecuperacaoIndexRouteImport.update({
-  id: '/estoque/recuperacao/',
-  path: '/estoque/recuperacao/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstoqueContagemIndexRoute = EstoqueContagemIndexRouteImport.update({
-  id: '/estoque/contagem/',
-  path: '/estoque/contagem/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstoqueConsultaIndexRoute = EstoqueConsultaIndexRouteImport.update({
-  id: '/estoque/consulta/',
-  path: '/estoque/consulta/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstoqueArmazenagemIndexRoute = EstoqueArmazenagemIndexRouteImport.update({
-  id: '/estoque/armazenagem/',
-  path: '/estoque/armazenagem/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DevolucaoIdIndexRoute = DevolucaoIdIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => DevolucaoIdRoute,
 } as any)
 const RecebimentoIdTerminoRoute = RecebimentoIdTerminoRouteImport.update({
   id: '/termino',
@@ -287,189 +180,21 @@ const PesoVariavelIdResumoRoute = PesoVariavelIdResumoRouteImport.update({
   path: '/resumo',
   getParentRoute: () => PesoVariavelIdRoute,
 } as any)
-const MovimentacaoRessuprimentoIdRoute =
-  MovimentacaoRessuprimentoIdRouteImport.update({
-    id: '/movimentacao/ressuprimento/$id',
-    path: '/movimentacao/ressuprimento/$id',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ExpedicaoSeparacaoIdRoute = ExpedicaoSeparacaoIdRouteImport.update({
-  id: '/expedicao/separacao/$id',
-  path: '/expedicao/separacao/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstoqueRecuperacaoDemandaIdRoute =
-  EstoqueRecuperacaoDemandaIdRouteImport.update({
-    id: '/estoque/recuperacao/$demandaId',
-    path: '/estoque/recuperacao/$demandaId',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const EstoqueContagemIdRoute = EstoqueContagemIdRouteImport.update({
-  id: '/estoque/contagem/$id',
-  path: '/estoque/contagem/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstoqueArmazenagemIdRoute = EstoqueArmazenagemIdRouteImport.update({
-  id: '/estoque/armazenagem/$id',
-  path: '/estoque/armazenagem/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DevolucaoIdTerminoRoute = DevolucaoIdTerminoRouteImport.update({
-  id: '/termino',
-  path: '/termino',
-  getParentRoute: () => DevolucaoIdRoute,
-} as any)
-const DevolucaoIdItensRoute = DevolucaoIdItensRouteImport.update({
-  id: '/itens',
-  path: '/itens',
-  getParentRoute: () => DevolucaoIdRoute,
-} as any)
-const DevolucaoIdChecklistRoute = DevolucaoIdChecklistRouteImport.update({
-  id: '/checklist',
-  path: '/checklist',
-  getParentRoute: () => DevolucaoIdRoute,
-} as any)
-const DevolucaoIdAvariaRoute = DevolucaoIdAvariaRouteImport.update({
-  id: '/avaria',
-  path: '/avaria',
-  getParentRoute: () => DevolucaoIdRoute,
-} as any)
-const MovimentacaoRessuprimentoIdIndexRoute =
-  MovimentacaoRessuprimentoIdIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => MovimentacaoRessuprimentoIdRoute,
-  } as any)
-const MovimentacaoArmazenagemIdIndexRoute =
-  MovimentacaoArmazenagemIdIndexRouteImport.update({
-    id: '/movimentacao/armazenagem/$id/',
-    path: '/movimentacao/armazenagem/$id/',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ExpedicaoSeparacaoIdIndexRoute =
-  ExpedicaoSeparacaoIdIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => ExpedicaoSeparacaoIdRoute,
-  } as any)
-const EstoqueRecuperacaoDemandaIdIndexRoute =
-  EstoqueRecuperacaoDemandaIdIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => EstoqueRecuperacaoDemandaIdRoute,
-  } as any)
-const EstoqueArmazenagemIdIndexRoute =
-  EstoqueArmazenagemIdIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => EstoqueArmazenagemIdRoute,
-  } as any)
-const MovimentacaoRessuprimentoIdDirecionamentoRoute =
-  MovimentacaoRessuprimentoIdDirecionamentoRouteImport.update({
-    id: '/direcionamento',
-    path: '/direcionamento',
-    getParentRoute: () => MovimentacaoRessuprimentoIdRoute,
-  } as any)
-const MovimentacaoRessuprimentoIdConfirmacaoColetaRoute =
-  MovimentacaoRessuprimentoIdConfirmacaoColetaRouteImport.update({
-    id: '/confirmacao-coleta',
-    path: '/confirmacao-coleta',
-    getParentRoute: () => MovimentacaoRessuprimentoIdRoute,
-  } as any)
-const MovimentacaoRessuprimentoIdConclusaoRoute =
-  MovimentacaoRessuprimentoIdConclusaoRouteImport.update({
-    id: '/conclusao',
-    path: '/conclusao',
-    getParentRoute: () => MovimentacaoRessuprimentoIdRoute,
-  } as any)
-const EstoqueRecuperacaoDemandaIdResumoRoute =
-  EstoqueRecuperacaoDemandaIdResumoRouteImport.update({
-    id: '/resumo',
-    path: '/resumo',
-    getParentRoute: () => EstoqueRecuperacaoDemandaIdRoute,
-  } as any)
-const EstoqueRecuperacaoDemandaIdItemIdRoute =
-  EstoqueRecuperacaoDemandaIdItemIdRouteImport.update({
-    id: '/$itemId',
-    path: '/$itemId',
-    getParentRoute: () => EstoqueRecuperacaoDemandaIdRoute,
-  } as any)
-const EstoqueContagemIdValidacaoRoute =
-  EstoqueContagemIdValidacaoRouteImport.update({
-    id: '/validacao',
-    path: '/validacao',
-    getParentRoute: () => EstoqueContagemIdRoute,
-  } as any)
-const EstoqueContagemIdCegaRoute = EstoqueContagemIdCegaRouteImport.update({
-  id: '/cega',
-  path: '/cega',
-  getParentRoute: () => EstoqueContagemIdRoute,
-} as any)
-const EstoqueContagemIdValidacaoIndexRoute =
-  EstoqueContagemIdValidacaoIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => EstoqueContagemIdValidacaoRoute,
-  } as any)
-const EstoqueContagemIdCegaIndexRoute =
-  EstoqueContagemIdCegaIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => EstoqueContagemIdCegaRoute,
-  } as any)
-const EstoqueRecuperacaoDemandaIdItemIdExecucaoRoute =
-  EstoqueRecuperacaoDemandaIdItemIdExecucaoRouteImport.update({
-    id: '/execucao',
-    path: '/execucao',
-    getParentRoute: () => EstoqueRecuperacaoDemandaIdItemIdRoute,
-  } as any)
-const EstoqueRecuperacaoDemandaIdItemIdDetalheRoute =
-  EstoqueRecuperacaoDemandaIdItemIdDetalheRouteImport.update({
-    id: '/detalhe',
-    path: '/detalhe',
-    getParentRoute: () => EstoqueRecuperacaoDemandaIdItemIdRoute,
-  } as any)
-const EstoqueContagemIdValidacaoAvariaRoute =
-  EstoqueContagemIdValidacaoAvariaRouteImport.update({
-    id: '/avaria',
-    path: '/avaria',
-    getParentRoute: () => EstoqueContagemIdValidacaoRoute,
-  } as any)
-const EstoqueContagemIdCegaAvariaRoute =
-  EstoqueContagemIdCegaAvariaRouteImport.update({
-    id: '/avaria',
-    path: '/avaria',
-    getParentRoute: () => EstoqueContagemIdCegaRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/alterar-senha': typeof AlterarSenhaRoute
   '/login': typeof LoginRoute
-  '/devolucao/$id': typeof DevolucaoIdRouteWithChildren
   '/passagem-bastao/resumo': typeof PassagemBastaoResumoRoute
   '/peso-variavel/$id': typeof PesoVariavelIdRouteWithChildren
   '/rastreio/$token': typeof RastreioTokenRoute
   '/recebimento-v2/$id': typeof RecebimentoV2IdRouteWithChildren
   '/recebimento/$id': typeof RecebimentoIdRouteWithChildren
-  '/devolucao/': typeof DevolucaoIndexRoute
-  '/estoque/': typeof EstoqueIndexRoute
-  '/expedicao/': typeof ExpedicaoIndexRoute
   '/manobra/': typeof ManobraIndexRoute
-  '/movimentacao/': typeof MovimentacaoIndexRoute
   '/passagem-bastao/': typeof PassagemBastaoIndexRoute
   '/peso-variavel/': typeof PesoVariavelIndexRoute
   '/recebimento-v2/': typeof RecebimentoV2IndexRoute
   '/recebimento/': typeof RecebimentoIndexRoute
-  '/devolucao/$id/avaria': typeof DevolucaoIdAvariaRoute
-  '/devolucao/$id/checklist': typeof DevolucaoIdChecklistRoute
-  '/devolucao/$id/itens': typeof DevolucaoIdItensRoute
-  '/devolucao/$id/termino': typeof DevolucaoIdTerminoRoute
-  '/estoque/armazenagem/$id': typeof EstoqueArmazenagemIdRouteWithChildren
-  '/estoque/contagem/$id': typeof EstoqueContagemIdRouteWithChildren
-  '/estoque/recuperacao/$demandaId': typeof EstoqueRecuperacaoDemandaIdRouteWithChildren
-  '/expedicao/separacao/$id': typeof ExpedicaoSeparacaoIdRouteWithChildren
-  '/movimentacao/ressuprimento/$id': typeof MovimentacaoRessuprimentoIdRouteWithChildren
   '/peso-variavel/$id/resumo': typeof PesoVariavelIdResumoRoute
   '/recebimento-v2/$id/avarias': typeof RecebimentoV2IdAvariasRoute
   '/recebimento-v2/$id/checklist': typeof RecebimentoV2IdChecklistRoute
@@ -482,35 +207,9 @@ export interface FileRoutesByFullPath {
   '/recebimento/$id/checklist': typeof RecebimentoIdChecklistRoute
   '/recebimento/$id/itens': typeof RecebimentoIdItensRoute
   '/recebimento/$id/termino': typeof RecebimentoIdTerminoRoute
-  '/devolucao/$id/': typeof DevolucaoIdIndexRoute
-  '/estoque/armazenagem/': typeof EstoqueArmazenagemIndexRoute
-  '/estoque/consulta/': typeof EstoqueConsultaIndexRoute
-  '/estoque/contagem/': typeof EstoqueContagemIndexRoute
-  '/estoque/recuperacao/': typeof EstoqueRecuperacaoIndexRoute
-  '/expedicao/separacao/': typeof ExpedicaoSeparacaoIndexRoute
-  '/movimentacao/armazenagem/': typeof MovimentacaoArmazenagemIndexRoute
-  '/movimentacao/ressuprimento/': typeof MovimentacaoRessuprimentoIndexRoute
   '/peso-variavel/$id/': typeof PesoVariavelIdIndexRoute
   '/recebimento-v2/$id/': typeof RecebimentoV2IdIndexRoute
   '/recebimento/$id/': typeof RecebimentoIdIndexRoute
-  '/estoque/contagem/$id/cega': typeof EstoqueContagemIdCegaRouteWithChildren
-  '/estoque/contagem/$id/validacao': typeof EstoqueContagemIdValidacaoRouteWithChildren
-  '/estoque/recuperacao/$demandaId/$itemId': typeof EstoqueRecuperacaoDemandaIdItemIdRouteWithChildren
-  '/estoque/recuperacao/$demandaId/resumo': typeof EstoqueRecuperacaoDemandaIdResumoRoute
-  '/movimentacao/ressuprimento/$id/conclusao': typeof MovimentacaoRessuprimentoIdConclusaoRoute
-  '/movimentacao/ressuprimento/$id/confirmacao-coleta': typeof MovimentacaoRessuprimentoIdConfirmacaoColetaRoute
-  '/movimentacao/ressuprimento/$id/direcionamento': typeof MovimentacaoRessuprimentoIdDirecionamentoRoute
-  '/estoque/armazenagem/$id/': typeof EstoqueArmazenagemIdIndexRoute
-  '/estoque/recuperacao/$demandaId/': typeof EstoqueRecuperacaoDemandaIdIndexRoute
-  '/expedicao/separacao/$id/': typeof ExpedicaoSeparacaoIdIndexRoute
-  '/movimentacao/armazenagem/$id/': typeof MovimentacaoArmazenagemIdIndexRoute
-  '/movimentacao/ressuprimento/$id/': typeof MovimentacaoRessuprimentoIdIndexRoute
-  '/estoque/contagem/$id/cega/avaria': typeof EstoqueContagemIdCegaAvariaRoute
-  '/estoque/contagem/$id/validacao/avaria': typeof EstoqueContagemIdValidacaoAvariaRoute
-  '/estoque/recuperacao/$demandaId/$itemId/detalhe': typeof EstoqueRecuperacaoDemandaIdItemIdDetalheRoute
-  '/estoque/recuperacao/$demandaId/$itemId/execucao': typeof EstoqueRecuperacaoDemandaIdItemIdExecucaoRoute
-  '/estoque/contagem/$id/cega/': typeof EstoqueContagemIdCegaIndexRoute
-  '/estoque/contagem/$id/validacao/': typeof EstoqueContagemIdValidacaoIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -518,20 +217,11 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/passagem-bastao/resumo': typeof PassagemBastaoResumoRoute
   '/rastreio/$token': typeof RastreioTokenRoute
-  '/devolucao': typeof DevolucaoIndexRoute
-  '/estoque': typeof EstoqueIndexRoute
-  '/expedicao': typeof ExpedicaoIndexRoute
   '/manobra': typeof ManobraIndexRoute
-  '/movimentacao': typeof MovimentacaoIndexRoute
   '/passagem-bastao': typeof PassagemBastaoIndexRoute
   '/peso-variavel': typeof PesoVariavelIndexRoute
   '/recebimento-v2': typeof RecebimentoV2IndexRoute
   '/recebimento': typeof RecebimentoIndexRoute
-  '/devolucao/$id/avaria': typeof DevolucaoIdAvariaRoute
-  '/devolucao/$id/checklist': typeof DevolucaoIdChecklistRoute
-  '/devolucao/$id/itens': typeof DevolucaoIdItensRoute
-  '/devolucao/$id/termino': typeof DevolucaoIdTerminoRoute
-  '/estoque/contagem/$id': typeof EstoqueContagemIdRouteWithChildren
   '/peso-variavel/$id/resumo': typeof PesoVariavelIdResumoRoute
   '/recebimento-v2/$id/avarias': typeof RecebimentoV2IdAvariasRoute
   '/recebimento-v2/$id/checklist': typeof RecebimentoV2IdChecklistRoute
@@ -544,63 +234,25 @@ export interface FileRoutesByTo {
   '/recebimento/$id/checklist': typeof RecebimentoIdChecklistRoute
   '/recebimento/$id/itens': typeof RecebimentoIdItensRoute
   '/recebimento/$id/termino': typeof RecebimentoIdTerminoRoute
-  '/devolucao/$id': typeof DevolucaoIdIndexRoute
-  '/estoque/armazenagem': typeof EstoqueArmazenagemIndexRoute
-  '/estoque/consulta': typeof EstoqueConsultaIndexRoute
-  '/estoque/contagem': typeof EstoqueContagemIndexRoute
-  '/estoque/recuperacao': typeof EstoqueRecuperacaoIndexRoute
-  '/expedicao/separacao': typeof ExpedicaoSeparacaoIndexRoute
-  '/movimentacao/armazenagem': typeof MovimentacaoArmazenagemIndexRoute
-  '/movimentacao/ressuprimento': typeof MovimentacaoRessuprimentoIndexRoute
   '/peso-variavel/$id': typeof PesoVariavelIdIndexRoute
   '/recebimento-v2/$id': typeof RecebimentoV2IdIndexRoute
   '/recebimento/$id': typeof RecebimentoIdIndexRoute
-  '/estoque/recuperacao/$demandaId/$itemId': typeof EstoqueRecuperacaoDemandaIdItemIdRouteWithChildren
-  '/estoque/recuperacao/$demandaId/resumo': typeof EstoqueRecuperacaoDemandaIdResumoRoute
-  '/movimentacao/ressuprimento/$id/conclusao': typeof MovimentacaoRessuprimentoIdConclusaoRoute
-  '/movimentacao/ressuprimento/$id/confirmacao-coleta': typeof MovimentacaoRessuprimentoIdConfirmacaoColetaRoute
-  '/movimentacao/ressuprimento/$id/direcionamento': typeof MovimentacaoRessuprimentoIdDirecionamentoRoute
-  '/estoque/armazenagem/$id': typeof EstoqueArmazenagemIdIndexRoute
-  '/estoque/recuperacao/$demandaId': typeof EstoqueRecuperacaoDemandaIdIndexRoute
-  '/expedicao/separacao/$id': typeof ExpedicaoSeparacaoIdIndexRoute
-  '/movimentacao/armazenagem/$id': typeof MovimentacaoArmazenagemIdIndexRoute
-  '/movimentacao/ressuprimento/$id': typeof MovimentacaoRessuprimentoIdIndexRoute
-  '/estoque/contagem/$id/cega/avaria': typeof EstoqueContagemIdCegaAvariaRoute
-  '/estoque/contagem/$id/validacao/avaria': typeof EstoqueContagemIdValidacaoAvariaRoute
-  '/estoque/recuperacao/$demandaId/$itemId/detalhe': typeof EstoqueRecuperacaoDemandaIdItemIdDetalheRoute
-  '/estoque/recuperacao/$demandaId/$itemId/execucao': typeof EstoqueRecuperacaoDemandaIdItemIdExecucaoRoute
-  '/estoque/contagem/$id/cega': typeof EstoqueContagemIdCegaIndexRoute
-  '/estoque/contagem/$id/validacao': typeof EstoqueContagemIdValidacaoIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/alterar-senha': typeof AlterarSenhaRoute
   '/login': typeof LoginRoute
-  '/devolucao/$id': typeof DevolucaoIdRouteWithChildren
   '/passagem-bastao/resumo': typeof PassagemBastaoResumoRoute
   '/peso-variavel/$id': typeof PesoVariavelIdRouteWithChildren
   '/rastreio/$token': typeof RastreioTokenRoute
   '/recebimento-v2/$id': typeof RecebimentoV2IdRouteWithChildren
   '/recebimento/$id': typeof RecebimentoIdRouteWithChildren
-  '/devolucao/': typeof DevolucaoIndexRoute
-  '/estoque/': typeof EstoqueIndexRoute
-  '/expedicao/': typeof ExpedicaoIndexRoute
   '/manobra/': typeof ManobraIndexRoute
-  '/movimentacao/': typeof MovimentacaoIndexRoute
   '/passagem-bastao/': typeof PassagemBastaoIndexRoute
   '/peso-variavel/': typeof PesoVariavelIndexRoute
   '/recebimento-v2/': typeof RecebimentoV2IndexRoute
   '/recebimento/': typeof RecebimentoIndexRoute
-  '/devolucao/$id/avaria': typeof DevolucaoIdAvariaRoute
-  '/devolucao/$id/checklist': typeof DevolucaoIdChecklistRoute
-  '/devolucao/$id/itens': typeof DevolucaoIdItensRoute
-  '/devolucao/$id/termino': typeof DevolucaoIdTerminoRoute
-  '/estoque/armazenagem/$id': typeof EstoqueArmazenagemIdRouteWithChildren
-  '/estoque/contagem/$id': typeof EstoqueContagemIdRouteWithChildren
-  '/estoque/recuperacao/$demandaId': typeof EstoqueRecuperacaoDemandaIdRouteWithChildren
-  '/expedicao/separacao/$id': typeof ExpedicaoSeparacaoIdRouteWithChildren
-  '/movimentacao/ressuprimento/$id': typeof MovimentacaoRessuprimentoIdRouteWithChildren
   '/peso-variavel/$id/resumo': typeof PesoVariavelIdResumoRoute
   '/recebimento-v2/$id/avarias': typeof RecebimentoV2IdAvariasRoute
   '/recebimento-v2/$id/checklist': typeof RecebimentoV2IdChecklistRoute
@@ -613,35 +265,9 @@ export interface FileRoutesById {
   '/recebimento/$id/checklist': typeof RecebimentoIdChecklistRoute
   '/recebimento/$id/itens': typeof RecebimentoIdItensRoute
   '/recebimento/$id/termino': typeof RecebimentoIdTerminoRoute
-  '/devolucao/$id/': typeof DevolucaoIdIndexRoute
-  '/estoque/armazenagem/': typeof EstoqueArmazenagemIndexRoute
-  '/estoque/consulta/': typeof EstoqueConsultaIndexRoute
-  '/estoque/contagem/': typeof EstoqueContagemIndexRoute
-  '/estoque/recuperacao/': typeof EstoqueRecuperacaoIndexRoute
-  '/expedicao/separacao/': typeof ExpedicaoSeparacaoIndexRoute
-  '/movimentacao/armazenagem/': typeof MovimentacaoArmazenagemIndexRoute
-  '/movimentacao/ressuprimento/': typeof MovimentacaoRessuprimentoIndexRoute
   '/peso-variavel/$id/': typeof PesoVariavelIdIndexRoute
   '/recebimento-v2/$id/': typeof RecebimentoV2IdIndexRoute
   '/recebimento/$id/': typeof RecebimentoIdIndexRoute
-  '/estoque/contagem/$id/cega': typeof EstoqueContagemIdCegaRouteWithChildren
-  '/estoque/contagem/$id/validacao': typeof EstoqueContagemIdValidacaoRouteWithChildren
-  '/estoque/recuperacao/$demandaId/$itemId': typeof EstoqueRecuperacaoDemandaIdItemIdRouteWithChildren
-  '/estoque/recuperacao/$demandaId/resumo': typeof EstoqueRecuperacaoDemandaIdResumoRoute
-  '/movimentacao/ressuprimento/$id/conclusao': typeof MovimentacaoRessuprimentoIdConclusaoRoute
-  '/movimentacao/ressuprimento/$id/confirmacao-coleta': typeof MovimentacaoRessuprimentoIdConfirmacaoColetaRoute
-  '/movimentacao/ressuprimento/$id/direcionamento': typeof MovimentacaoRessuprimentoIdDirecionamentoRoute
-  '/estoque/armazenagem/$id/': typeof EstoqueArmazenagemIdIndexRoute
-  '/estoque/recuperacao/$demandaId/': typeof EstoqueRecuperacaoDemandaIdIndexRoute
-  '/expedicao/separacao/$id/': typeof ExpedicaoSeparacaoIdIndexRoute
-  '/movimentacao/armazenagem/$id/': typeof MovimentacaoArmazenagemIdIndexRoute
-  '/movimentacao/ressuprimento/$id/': typeof MovimentacaoRessuprimentoIdIndexRoute
-  '/estoque/contagem/$id/cega/avaria': typeof EstoqueContagemIdCegaAvariaRoute
-  '/estoque/contagem/$id/validacao/avaria': typeof EstoqueContagemIdValidacaoAvariaRoute
-  '/estoque/recuperacao/$demandaId/$itemId/detalhe': typeof EstoqueRecuperacaoDemandaIdItemIdDetalheRoute
-  '/estoque/recuperacao/$demandaId/$itemId/execucao': typeof EstoqueRecuperacaoDemandaIdItemIdExecucaoRoute
-  '/estoque/contagem/$id/cega/': typeof EstoqueContagemIdCegaIndexRoute
-  '/estoque/contagem/$id/validacao/': typeof EstoqueContagemIdValidacaoIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -649,30 +275,16 @@ export interface FileRouteTypes {
     | '/'
     | '/alterar-senha'
     | '/login'
-    | '/devolucao/$id'
     | '/passagem-bastao/resumo'
     | '/peso-variavel/$id'
     | '/rastreio/$token'
     | '/recebimento-v2/$id'
     | '/recebimento/$id'
-    | '/devolucao/'
-    | '/estoque/'
-    | '/expedicao/'
     | '/manobra/'
-    | '/movimentacao/'
     | '/passagem-bastao/'
     | '/peso-variavel/'
     | '/recebimento-v2/'
     | '/recebimento/'
-    | '/devolucao/$id/avaria'
-    | '/devolucao/$id/checklist'
-    | '/devolucao/$id/itens'
-    | '/devolucao/$id/termino'
-    | '/estoque/armazenagem/$id'
-    | '/estoque/contagem/$id'
-    | '/estoque/recuperacao/$demandaId'
-    | '/expedicao/separacao/$id'
-    | '/movimentacao/ressuprimento/$id'
     | '/peso-variavel/$id/resumo'
     | '/recebimento-v2/$id/avarias'
     | '/recebimento-v2/$id/checklist'
@@ -685,35 +297,9 @@ export interface FileRouteTypes {
     | '/recebimento/$id/checklist'
     | '/recebimento/$id/itens'
     | '/recebimento/$id/termino'
-    | '/devolucao/$id/'
-    | '/estoque/armazenagem/'
-    | '/estoque/consulta/'
-    | '/estoque/contagem/'
-    | '/estoque/recuperacao/'
-    | '/expedicao/separacao/'
-    | '/movimentacao/armazenagem/'
-    | '/movimentacao/ressuprimento/'
     | '/peso-variavel/$id/'
     | '/recebimento-v2/$id/'
     | '/recebimento/$id/'
-    | '/estoque/contagem/$id/cega'
-    | '/estoque/contagem/$id/validacao'
-    | '/estoque/recuperacao/$demandaId/$itemId'
-    | '/estoque/recuperacao/$demandaId/resumo'
-    | '/movimentacao/ressuprimento/$id/conclusao'
-    | '/movimentacao/ressuprimento/$id/confirmacao-coleta'
-    | '/movimentacao/ressuprimento/$id/direcionamento'
-    | '/estoque/armazenagem/$id/'
-    | '/estoque/recuperacao/$demandaId/'
-    | '/expedicao/separacao/$id/'
-    | '/movimentacao/armazenagem/$id/'
-    | '/movimentacao/ressuprimento/$id/'
-    | '/estoque/contagem/$id/cega/avaria'
-    | '/estoque/contagem/$id/validacao/avaria'
-    | '/estoque/recuperacao/$demandaId/$itemId/detalhe'
-    | '/estoque/recuperacao/$demandaId/$itemId/execucao'
-    | '/estoque/contagem/$id/cega/'
-    | '/estoque/contagem/$id/validacao/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -721,20 +307,11 @@ export interface FileRouteTypes {
     | '/login'
     | '/passagem-bastao/resumo'
     | '/rastreio/$token'
-    | '/devolucao'
-    | '/estoque'
-    | '/expedicao'
     | '/manobra'
-    | '/movimentacao'
     | '/passagem-bastao'
     | '/peso-variavel'
     | '/recebimento-v2'
     | '/recebimento'
-    | '/devolucao/$id/avaria'
-    | '/devolucao/$id/checklist'
-    | '/devolucao/$id/itens'
-    | '/devolucao/$id/termino'
-    | '/estoque/contagem/$id'
     | '/peso-variavel/$id/resumo'
     | '/recebimento-v2/$id/avarias'
     | '/recebimento-v2/$id/checklist'
@@ -747,62 +324,24 @@ export interface FileRouteTypes {
     | '/recebimento/$id/checklist'
     | '/recebimento/$id/itens'
     | '/recebimento/$id/termino'
-    | '/devolucao/$id'
-    | '/estoque/armazenagem'
-    | '/estoque/consulta'
-    | '/estoque/contagem'
-    | '/estoque/recuperacao'
-    | '/expedicao/separacao'
-    | '/movimentacao/armazenagem'
-    | '/movimentacao/ressuprimento'
     | '/peso-variavel/$id'
     | '/recebimento-v2/$id'
     | '/recebimento/$id'
-    | '/estoque/recuperacao/$demandaId/$itemId'
-    | '/estoque/recuperacao/$demandaId/resumo'
-    | '/movimentacao/ressuprimento/$id/conclusao'
-    | '/movimentacao/ressuprimento/$id/confirmacao-coleta'
-    | '/movimentacao/ressuprimento/$id/direcionamento'
-    | '/estoque/armazenagem/$id'
-    | '/estoque/recuperacao/$demandaId'
-    | '/expedicao/separacao/$id'
-    | '/movimentacao/armazenagem/$id'
-    | '/movimentacao/ressuprimento/$id'
-    | '/estoque/contagem/$id/cega/avaria'
-    | '/estoque/contagem/$id/validacao/avaria'
-    | '/estoque/recuperacao/$demandaId/$itemId/detalhe'
-    | '/estoque/recuperacao/$demandaId/$itemId/execucao'
-    | '/estoque/contagem/$id/cega'
-    | '/estoque/contagem/$id/validacao'
   id:
     | '__root__'
     | '/'
     | '/alterar-senha'
     | '/login'
-    | '/devolucao/$id'
     | '/passagem-bastao/resumo'
     | '/peso-variavel/$id'
     | '/rastreio/$token'
     | '/recebimento-v2/$id'
     | '/recebimento/$id'
-    | '/devolucao/'
-    | '/estoque/'
-    | '/expedicao/'
     | '/manobra/'
-    | '/movimentacao/'
     | '/passagem-bastao/'
     | '/peso-variavel/'
     | '/recebimento-v2/'
     | '/recebimento/'
-    | '/devolucao/$id/avaria'
-    | '/devolucao/$id/checklist'
-    | '/devolucao/$id/itens'
-    | '/devolucao/$id/termino'
-    | '/estoque/armazenagem/$id'
-    | '/estoque/contagem/$id'
-    | '/estoque/recuperacao/$demandaId'
-    | '/expedicao/separacao/$id'
-    | '/movimentacao/ressuprimento/$id'
     | '/peso-variavel/$id/resumo'
     | '/recebimento-v2/$id/avarias'
     | '/recebimento-v2/$id/checklist'
@@ -815,69 +354,25 @@ export interface FileRouteTypes {
     | '/recebimento/$id/checklist'
     | '/recebimento/$id/itens'
     | '/recebimento/$id/termino'
-    | '/devolucao/$id/'
-    | '/estoque/armazenagem/'
-    | '/estoque/consulta/'
-    | '/estoque/contagem/'
-    | '/estoque/recuperacao/'
-    | '/expedicao/separacao/'
-    | '/movimentacao/armazenagem/'
-    | '/movimentacao/ressuprimento/'
     | '/peso-variavel/$id/'
     | '/recebimento-v2/$id/'
     | '/recebimento/$id/'
-    | '/estoque/contagem/$id/cega'
-    | '/estoque/contagem/$id/validacao'
-    | '/estoque/recuperacao/$demandaId/$itemId'
-    | '/estoque/recuperacao/$demandaId/resumo'
-    | '/movimentacao/ressuprimento/$id/conclusao'
-    | '/movimentacao/ressuprimento/$id/confirmacao-coleta'
-    | '/movimentacao/ressuprimento/$id/direcionamento'
-    | '/estoque/armazenagem/$id/'
-    | '/estoque/recuperacao/$demandaId/'
-    | '/expedicao/separacao/$id/'
-    | '/movimentacao/armazenagem/$id/'
-    | '/movimentacao/ressuprimento/$id/'
-    | '/estoque/contagem/$id/cega/avaria'
-    | '/estoque/contagem/$id/validacao/avaria'
-    | '/estoque/recuperacao/$demandaId/$itemId/detalhe'
-    | '/estoque/recuperacao/$demandaId/$itemId/execucao'
-    | '/estoque/contagem/$id/cega/'
-    | '/estoque/contagem/$id/validacao/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AlterarSenhaRoute: typeof AlterarSenhaRoute
   LoginRoute: typeof LoginRoute
-  DevolucaoIdRoute: typeof DevolucaoIdRouteWithChildren
   PassagemBastaoResumoRoute: typeof PassagemBastaoResumoRoute
   PesoVariavelIdRoute: typeof PesoVariavelIdRouteWithChildren
   RastreioTokenRoute: typeof RastreioTokenRoute
   RecebimentoV2IdRoute: typeof RecebimentoV2IdRouteWithChildren
   RecebimentoIdRoute: typeof RecebimentoIdRouteWithChildren
-  DevolucaoIndexRoute: typeof DevolucaoIndexRoute
-  EstoqueIndexRoute: typeof EstoqueIndexRoute
-  ExpedicaoIndexRoute: typeof ExpedicaoIndexRoute
   ManobraIndexRoute: typeof ManobraIndexRoute
-  MovimentacaoIndexRoute: typeof MovimentacaoIndexRoute
   PassagemBastaoIndexRoute: typeof PassagemBastaoIndexRoute
   PesoVariavelIndexRoute: typeof PesoVariavelIndexRoute
   RecebimentoV2IndexRoute: typeof RecebimentoV2IndexRoute
   RecebimentoIndexRoute: typeof RecebimentoIndexRoute
-  EstoqueArmazenagemIdRoute: typeof EstoqueArmazenagemIdRouteWithChildren
-  EstoqueContagemIdRoute: typeof EstoqueContagemIdRouteWithChildren
-  EstoqueRecuperacaoDemandaIdRoute: typeof EstoqueRecuperacaoDemandaIdRouteWithChildren
-  ExpedicaoSeparacaoIdRoute: typeof ExpedicaoSeparacaoIdRouteWithChildren
-  MovimentacaoRessuprimentoIdRoute: typeof MovimentacaoRessuprimentoIdRouteWithChildren
-  EstoqueArmazenagemIndexRoute: typeof EstoqueArmazenagemIndexRoute
-  EstoqueConsultaIndexRoute: typeof EstoqueConsultaIndexRoute
-  EstoqueContagemIndexRoute: typeof EstoqueContagemIndexRoute
-  EstoqueRecuperacaoIndexRoute: typeof EstoqueRecuperacaoIndexRoute
-  ExpedicaoSeparacaoIndexRoute: typeof ExpedicaoSeparacaoIndexRoute
-  MovimentacaoArmazenagemIndexRoute: typeof MovimentacaoArmazenagemIndexRoute
-  MovimentacaoRessuprimentoIndexRoute: typeof MovimentacaoRessuprimentoIndexRoute
-  MovimentacaoArmazenagemIdIndexRoute: typeof MovimentacaoArmazenagemIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -931,39 +426,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PassagemBastaoIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/movimentacao/': {
-      id: '/movimentacao/'
-      path: '/movimentacao'
-      fullPath: '/movimentacao/'
-      preLoaderRoute: typeof MovimentacaoIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/manobra/': {
       id: '/manobra/'
       path: '/manobra'
       fullPath: '/manobra/'
       preLoaderRoute: typeof ManobraIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/expedicao/': {
-      id: '/expedicao/'
-      path: '/expedicao'
-      fullPath: '/expedicao/'
-      preLoaderRoute: typeof ExpedicaoIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estoque/': {
-      id: '/estoque/'
-      path: '/estoque'
-      fullPath: '/estoque/'
-      preLoaderRoute: typeof EstoqueIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/devolucao/': {
-      id: '/devolucao/'
-      path: '/devolucao'
-      fullPath: '/devolucao/'
-      preLoaderRoute: typeof DevolucaoIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/recebimento/$id': {
@@ -1001,13 +468,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PassagemBastaoResumoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/devolucao/$id': {
-      id: '/devolucao/$id'
-      path: '/devolucao/$id'
-      fullPath: '/devolucao/$id'
-      preLoaderRoute: typeof DevolucaoIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/recebimento/$id/': {
       id: '/recebimento/$id/'
       path: '/'
@@ -1028,62 +488,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/peso-variavel/$id/'
       preLoaderRoute: typeof PesoVariavelIdIndexRouteImport
       parentRoute: typeof PesoVariavelIdRoute
-    }
-    '/movimentacao/ressuprimento/': {
-      id: '/movimentacao/ressuprimento/'
-      path: '/movimentacao/ressuprimento'
-      fullPath: '/movimentacao/ressuprimento/'
-      preLoaderRoute: typeof MovimentacaoRessuprimentoIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/movimentacao/armazenagem/': {
-      id: '/movimentacao/armazenagem/'
-      path: '/movimentacao/armazenagem'
-      fullPath: '/movimentacao/armazenagem/'
-      preLoaderRoute: typeof MovimentacaoArmazenagemIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/expedicao/separacao/': {
-      id: '/expedicao/separacao/'
-      path: '/expedicao/separacao'
-      fullPath: '/expedicao/separacao/'
-      preLoaderRoute: typeof ExpedicaoSeparacaoIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estoque/recuperacao/': {
-      id: '/estoque/recuperacao/'
-      path: '/estoque/recuperacao'
-      fullPath: '/estoque/recuperacao/'
-      preLoaderRoute: typeof EstoqueRecuperacaoIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estoque/contagem/': {
-      id: '/estoque/contagem/'
-      path: '/estoque/contagem'
-      fullPath: '/estoque/contagem/'
-      preLoaderRoute: typeof EstoqueContagemIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estoque/consulta/': {
-      id: '/estoque/consulta/'
-      path: '/estoque/consulta'
-      fullPath: '/estoque/consulta/'
-      preLoaderRoute: typeof EstoqueConsultaIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estoque/armazenagem/': {
-      id: '/estoque/armazenagem/'
-      path: '/estoque/armazenagem'
-      fullPath: '/estoque/armazenagem/'
-      preLoaderRoute: typeof EstoqueArmazenagemIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/devolucao/$id/': {
-      id: '/devolucao/$id/'
-      path: '/'
-      fullPath: '/devolucao/$id/'
-      preLoaderRoute: typeof DevolucaoIdIndexRouteImport
-      parentRoute: typeof DevolucaoIdRoute
     }
     '/recebimento/$id/termino': {
       id: '/recebimento/$id/termino'
@@ -1169,217 +573,8 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PesoVariavelIdResumoRouteImport
       parentRoute: typeof PesoVariavelIdRoute
     }
-    '/movimentacao/ressuprimento/$id': {
-      id: '/movimentacao/ressuprimento/$id'
-      path: '/movimentacao/ressuprimento/$id'
-      fullPath: '/movimentacao/ressuprimento/$id'
-      preLoaderRoute: typeof MovimentacaoRessuprimentoIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/expedicao/separacao/$id': {
-      id: '/expedicao/separacao/$id'
-      path: '/expedicao/separacao/$id'
-      fullPath: '/expedicao/separacao/$id'
-      preLoaderRoute: typeof ExpedicaoSeparacaoIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estoque/recuperacao/$demandaId': {
-      id: '/estoque/recuperacao/$demandaId'
-      path: '/estoque/recuperacao/$demandaId'
-      fullPath: '/estoque/recuperacao/$demandaId'
-      preLoaderRoute: typeof EstoqueRecuperacaoDemandaIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estoque/contagem/$id': {
-      id: '/estoque/contagem/$id'
-      path: '/estoque/contagem/$id'
-      fullPath: '/estoque/contagem/$id'
-      preLoaderRoute: typeof EstoqueContagemIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estoque/armazenagem/$id': {
-      id: '/estoque/armazenagem/$id'
-      path: '/estoque/armazenagem/$id'
-      fullPath: '/estoque/armazenagem/$id'
-      preLoaderRoute: typeof EstoqueArmazenagemIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/devolucao/$id/termino': {
-      id: '/devolucao/$id/termino'
-      path: '/termino'
-      fullPath: '/devolucao/$id/termino'
-      preLoaderRoute: typeof DevolucaoIdTerminoRouteImport
-      parentRoute: typeof DevolucaoIdRoute
-    }
-    '/devolucao/$id/itens': {
-      id: '/devolucao/$id/itens'
-      path: '/itens'
-      fullPath: '/devolucao/$id/itens'
-      preLoaderRoute: typeof DevolucaoIdItensRouteImport
-      parentRoute: typeof DevolucaoIdRoute
-    }
-    '/devolucao/$id/checklist': {
-      id: '/devolucao/$id/checklist'
-      path: '/checklist'
-      fullPath: '/devolucao/$id/checklist'
-      preLoaderRoute: typeof DevolucaoIdChecklistRouteImport
-      parentRoute: typeof DevolucaoIdRoute
-    }
-    '/devolucao/$id/avaria': {
-      id: '/devolucao/$id/avaria'
-      path: '/avaria'
-      fullPath: '/devolucao/$id/avaria'
-      preLoaderRoute: typeof DevolucaoIdAvariaRouteImport
-      parentRoute: typeof DevolucaoIdRoute
-    }
-    '/movimentacao/ressuprimento/$id/': {
-      id: '/movimentacao/ressuprimento/$id/'
-      path: '/'
-      fullPath: '/movimentacao/ressuprimento/$id/'
-      preLoaderRoute: typeof MovimentacaoRessuprimentoIdIndexRouteImport
-      parentRoute: typeof MovimentacaoRessuprimentoIdRoute
-    }
-    '/movimentacao/armazenagem/$id/': {
-      id: '/movimentacao/armazenagem/$id/'
-      path: '/movimentacao/armazenagem/$id'
-      fullPath: '/movimentacao/armazenagem/$id/'
-      preLoaderRoute: typeof MovimentacaoArmazenagemIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/expedicao/separacao/$id/': {
-      id: '/expedicao/separacao/$id/'
-      path: '/'
-      fullPath: '/expedicao/separacao/$id/'
-      preLoaderRoute: typeof ExpedicaoSeparacaoIdIndexRouteImport
-      parentRoute: typeof ExpedicaoSeparacaoIdRoute
-    }
-    '/estoque/recuperacao/$demandaId/': {
-      id: '/estoque/recuperacao/$demandaId/'
-      path: '/'
-      fullPath: '/estoque/recuperacao/$demandaId/'
-      preLoaderRoute: typeof EstoqueRecuperacaoDemandaIdIndexRouteImport
-      parentRoute: typeof EstoqueRecuperacaoDemandaIdRoute
-    }
-    '/estoque/armazenagem/$id/': {
-      id: '/estoque/armazenagem/$id/'
-      path: '/'
-      fullPath: '/estoque/armazenagem/$id/'
-      preLoaderRoute: typeof EstoqueArmazenagemIdIndexRouteImport
-      parentRoute: typeof EstoqueArmazenagemIdRoute
-    }
-    '/movimentacao/ressuprimento/$id/direcionamento': {
-      id: '/movimentacao/ressuprimento/$id/direcionamento'
-      path: '/direcionamento'
-      fullPath: '/movimentacao/ressuprimento/$id/direcionamento'
-      preLoaderRoute: typeof MovimentacaoRessuprimentoIdDirecionamentoRouteImport
-      parentRoute: typeof MovimentacaoRessuprimentoIdRoute
-    }
-    '/movimentacao/ressuprimento/$id/confirmacao-coleta': {
-      id: '/movimentacao/ressuprimento/$id/confirmacao-coleta'
-      path: '/confirmacao-coleta'
-      fullPath: '/movimentacao/ressuprimento/$id/confirmacao-coleta'
-      preLoaderRoute: typeof MovimentacaoRessuprimentoIdConfirmacaoColetaRouteImport
-      parentRoute: typeof MovimentacaoRessuprimentoIdRoute
-    }
-    '/movimentacao/ressuprimento/$id/conclusao': {
-      id: '/movimentacao/ressuprimento/$id/conclusao'
-      path: '/conclusao'
-      fullPath: '/movimentacao/ressuprimento/$id/conclusao'
-      preLoaderRoute: typeof MovimentacaoRessuprimentoIdConclusaoRouteImport
-      parentRoute: typeof MovimentacaoRessuprimentoIdRoute
-    }
-    '/estoque/recuperacao/$demandaId/resumo': {
-      id: '/estoque/recuperacao/$demandaId/resumo'
-      path: '/resumo'
-      fullPath: '/estoque/recuperacao/$demandaId/resumo'
-      preLoaderRoute: typeof EstoqueRecuperacaoDemandaIdResumoRouteImport
-      parentRoute: typeof EstoqueRecuperacaoDemandaIdRoute
-    }
-    '/estoque/recuperacao/$demandaId/$itemId': {
-      id: '/estoque/recuperacao/$demandaId/$itemId'
-      path: '/$itemId'
-      fullPath: '/estoque/recuperacao/$demandaId/$itemId'
-      preLoaderRoute: typeof EstoqueRecuperacaoDemandaIdItemIdRouteImport
-      parentRoute: typeof EstoqueRecuperacaoDemandaIdRoute
-    }
-    '/estoque/contagem/$id/validacao': {
-      id: '/estoque/contagem/$id/validacao'
-      path: '/validacao'
-      fullPath: '/estoque/contagem/$id/validacao'
-      preLoaderRoute: typeof EstoqueContagemIdValidacaoRouteImport
-      parentRoute: typeof EstoqueContagemIdRoute
-    }
-    '/estoque/contagem/$id/cega': {
-      id: '/estoque/contagem/$id/cega'
-      path: '/cega'
-      fullPath: '/estoque/contagem/$id/cega'
-      preLoaderRoute: typeof EstoqueContagemIdCegaRouteImport
-      parentRoute: typeof EstoqueContagemIdRoute
-    }
-    '/estoque/contagem/$id/validacao/': {
-      id: '/estoque/contagem/$id/validacao/'
-      path: '/'
-      fullPath: '/estoque/contagem/$id/validacao/'
-      preLoaderRoute: typeof EstoqueContagemIdValidacaoIndexRouteImport
-      parentRoute: typeof EstoqueContagemIdValidacaoRoute
-    }
-    '/estoque/contagem/$id/cega/': {
-      id: '/estoque/contagem/$id/cega/'
-      path: '/'
-      fullPath: '/estoque/contagem/$id/cega/'
-      preLoaderRoute: typeof EstoqueContagemIdCegaIndexRouteImport
-      parentRoute: typeof EstoqueContagemIdCegaRoute
-    }
-    '/estoque/recuperacao/$demandaId/$itemId/execucao': {
-      id: '/estoque/recuperacao/$demandaId/$itemId/execucao'
-      path: '/execucao'
-      fullPath: '/estoque/recuperacao/$demandaId/$itemId/execucao'
-      preLoaderRoute: typeof EstoqueRecuperacaoDemandaIdItemIdExecucaoRouteImport
-      parentRoute: typeof EstoqueRecuperacaoDemandaIdItemIdRoute
-    }
-    '/estoque/recuperacao/$demandaId/$itemId/detalhe': {
-      id: '/estoque/recuperacao/$demandaId/$itemId/detalhe'
-      path: '/detalhe'
-      fullPath: '/estoque/recuperacao/$demandaId/$itemId/detalhe'
-      preLoaderRoute: typeof EstoqueRecuperacaoDemandaIdItemIdDetalheRouteImport
-      parentRoute: typeof EstoqueRecuperacaoDemandaIdItemIdRoute
-    }
-    '/estoque/contagem/$id/validacao/avaria': {
-      id: '/estoque/contagem/$id/validacao/avaria'
-      path: '/avaria'
-      fullPath: '/estoque/contagem/$id/validacao/avaria'
-      preLoaderRoute: typeof EstoqueContagemIdValidacaoAvariaRouteImport
-      parentRoute: typeof EstoqueContagemIdValidacaoRoute
-    }
-    '/estoque/contagem/$id/cega/avaria': {
-      id: '/estoque/contagem/$id/cega/avaria'
-      path: '/avaria'
-      fullPath: '/estoque/contagem/$id/cega/avaria'
-      preLoaderRoute: typeof EstoqueContagemIdCegaAvariaRouteImport
-      parentRoute: typeof EstoqueContagemIdCegaRoute
-    }
   }
 }
-
-interface DevolucaoIdRouteChildren {
-  DevolucaoIdAvariaRoute: typeof DevolucaoIdAvariaRoute
-  DevolucaoIdChecklistRoute: typeof DevolucaoIdChecklistRoute
-  DevolucaoIdItensRoute: typeof DevolucaoIdItensRoute
-  DevolucaoIdTerminoRoute: typeof DevolucaoIdTerminoRoute
-  DevolucaoIdIndexRoute: typeof DevolucaoIdIndexRoute
-}
-
-const DevolucaoIdRouteChildren: DevolucaoIdRouteChildren = {
-  DevolucaoIdAvariaRoute: DevolucaoIdAvariaRoute,
-  DevolucaoIdChecklistRoute: DevolucaoIdChecklistRoute,
-  DevolucaoIdItensRoute: DevolucaoIdItensRoute,
-  DevolucaoIdTerminoRoute: DevolucaoIdTerminoRoute,
-  DevolucaoIdIndexRoute: DevolucaoIdIndexRoute,
-}
-
-const DevolucaoIdRouteWithChildren = DevolucaoIdRoute._addFileChildren(
-  DevolucaoIdRouteChildren,
-)
 
 interface PesoVariavelIdRouteChildren {
   PesoVariavelIdResumoRoute: typeof PesoVariavelIdResumoRoute
@@ -1441,170 +636,20 @@ const RecebimentoIdRouteWithChildren = RecebimentoIdRoute._addFileChildren(
   RecebimentoIdRouteChildren,
 )
 
-interface EstoqueArmazenagemIdRouteChildren {
-  EstoqueArmazenagemIdIndexRoute: typeof EstoqueArmazenagemIdIndexRoute
-}
-
-const EstoqueArmazenagemIdRouteChildren: EstoqueArmazenagemIdRouteChildren = {
-  EstoqueArmazenagemIdIndexRoute: EstoqueArmazenagemIdIndexRoute,
-}
-
-const EstoqueArmazenagemIdRouteWithChildren =
-  EstoqueArmazenagemIdRoute._addFileChildren(EstoqueArmazenagemIdRouteChildren)
-
-interface EstoqueContagemIdCegaRouteChildren {
-  EstoqueContagemIdCegaAvariaRoute: typeof EstoqueContagemIdCegaAvariaRoute
-  EstoqueContagemIdCegaIndexRoute: typeof EstoqueContagemIdCegaIndexRoute
-}
-
-const EstoqueContagemIdCegaRouteChildren: EstoqueContagemIdCegaRouteChildren = {
-  EstoqueContagemIdCegaAvariaRoute: EstoqueContagemIdCegaAvariaRoute,
-  EstoqueContagemIdCegaIndexRoute: EstoqueContagemIdCegaIndexRoute,
-}
-
-const EstoqueContagemIdCegaRouteWithChildren =
-  EstoqueContagemIdCegaRoute._addFileChildren(
-    EstoqueContagemIdCegaRouteChildren,
-  )
-
-interface EstoqueContagemIdValidacaoRouteChildren {
-  EstoqueContagemIdValidacaoAvariaRoute: typeof EstoqueContagemIdValidacaoAvariaRoute
-  EstoqueContagemIdValidacaoIndexRoute: typeof EstoqueContagemIdValidacaoIndexRoute
-}
-
-const EstoqueContagemIdValidacaoRouteChildren: EstoqueContagemIdValidacaoRouteChildren =
-  {
-    EstoqueContagemIdValidacaoAvariaRoute:
-      EstoqueContagemIdValidacaoAvariaRoute,
-    EstoqueContagemIdValidacaoIndexRoute: EstoqueContagemIdValidacaoIndexRoute,
-  }
-
-const EstoqueContagemIdValidacaoRouteWithChildren =
-  EstoqueContagemIdValidacaoRoute._addFileChildren(
-    EstoqueContagemIdValidacaoRouteChildren,
-  )
-
-interface EstoqueContagemIdRouteChildren {
-  EstoqueContagemIdCegaRoute: typeof EstoqueContagemIdCegaRouteWithChildren
-  EstoqueContagemIdValidacaoRoute: typeof EstoqueContagemIdValidacaoRouteWithChildren
-}
-
-const EstoqueContagemIdRouteChildren: EstoqueContagemIdRouteChildren = {
-  EstoqueContagemIdCegaRoute: EstoqueContagemIdCegaRouteWithChildren,
-  EstoqueContagemIdValidacaoRoute: EstoqueContagemIdValidacaoRouteWithChildren,
-}
-
-const EstoqueContagemIdRouteWithChildren =
-  EstoqueContagemIdRoute._addFileChildren(EstoqueContagemIdRouteChildren)
-
-interface EstoqueRecuperacaoDemandaIdItemIdRouteChildren {
-  EstoqueRecuperacaoDemandaIdItemIdDetalheRoute: typeof EstoqueRecuperacaoDemandaIdItemIdDetalheRoute
-  EstoqueRecuperacaoDemandaIdItemIdExecucaoRoute: typeof EstoqueRecuperacaoDemandaIdItemIdExecucaoRoute
-}
-
-const EstoqueRecuperacaoDemandaIdItemIdRouteChildren: EstoqueRecuperacaoDemandaIdItemIdRouteChildren =
-  {
-    EstoqueRecuperacaoDemandaIdItemIdDetalheRoute:
-      EstoqueRecuperacaoDemandaIdItemIdDetalheRoute,
-    EstoqueRecuperacaoDemandaIdItemIdExecucaoRoute:
-      EstoqueRecuperacaoDemandaIdItemIdExecucaoRoute,
-  }
-
-const EstoqueRecuperacaoDemandaIdItemIdRouteWithChildren =
-  EstoqueRecuperacaoDemandaIdItemIdRoute._addFileChildren(
-    EstoqueRecuperacaoDemandaIdItemIdRouteChildren,
-  )
-
-interface EstoqueRecuperacaoDemandaIdRouteChildren {
-  EstoqueRecuperacaoDemandaIdItemIdRoute: typeof EstoqueRecuperacaoDemandaIdItemIdRouteWithChildren
-  EstoqueRecuperacaoDemandaIdResumoRoute: typeof EstoqueRecuperacaoDemandaIdResumoRoute
-  EstoqueRecuperacaoDemandaIdIndexRoute: typeof EstoqueRecuperacaoDemandaIdIndexRoute
-}
-
-const EstoqueRecuperacaoDemandaIdRouteChildren: EstoqueRecuperacaoDemandaIdRouteChildren =
-  {
-    EstoqueRecuperacaoDemandaIdItemIdRoute:
-      EstoqueRecuperacaoDemandaIdItemIdRouteWithChildren,
-    EstoqueRecuperacaoDemandaIdResumoRoute:
-      EstoqueRecuperacaoDemandaIdResumoRoute,
-    EstoqueRecuperacaoDemandaIdIndexRoute:
-      EstoqueRecuperacaoDemandaIdIndexRoute,
-  }
-
-const EstoqueRecuperacaoDemandaIdRouteWithChildren =
-  EstoqueRecuperacaoDemandaIdRoute._addFileChildren(
-    EstoqueRecuperacaoDemandaIdRouteChildren,
-  )
-
-interface ExpedicaoSeparacaoIdRouteChildren {
-  ExpedicaoSeparacaoIdIndexRoute: typeof ExpedicaoSeparacaoIdIndexRoute
-}
-
-const ExpedicaoSeparacaoIdRouteChildren: ExpedicaoSeparacaoIdRouteChildren = {
-  ExpedicaoSeparacaoIdIndexRoute: ExpedicaoSeparacaoIdIndexRoute,
-}
-
-const ExpedicaoSeparacaoIdRouteWithChildren =
-  ExpedicaoSeparacaoIdRoute._addFileChildren(ExpedicaoSeparacaoIdRouteChildren)
-
-interface MovimentacaoRessuprimentoIdRouteChildren {
-  MovimentacaoRessuprimentoIdConclusaoRoute: typeof MovimentacaoRessuprimentoIdConclusaoRoute
-  MovimentacaoRessuprimentoIdConfirmacaoColetaRoute: typeof MovimentacaoRessuprimentoIdConfirmacaoColetaRoute
-  MovimentacaoRessuprimentoIdDirecionamentoRoute: typeof MovimentacaoRessuprimentoIdDirecionamentoRoute
-  MovimentacaoRessuprimentoIdIndexRoute: typeof MovimentacaoRessuprimentoIdIndexRoute
-}
-
-const MovimentacaoRessuprimentoIdRouteChildren: MovimentacaoRessuprimentoIdRouteChildren =
-  {
-    MovimentacaoRessuprimentoIdConclusaoRoute:
-      MovimentacaoRessuprimentoIdConclusaoRoute,
-    MovimentacaoRessuprimentoIdConfirmacaoColetaRoute:
-      MovimentacaoRessuprimentoIdConfirmacaoColetaRoute,
-    MovimentacaoRessuprimentoIdDirecionamentoRoute:
-      MovimentacaoRessuprimentoIdDirecionamentoRoute,
-    MovimentacaoRessuprimentoIdIndexRoute:
-      MovimentacaoRessuprimentoIdIndexRoute,
-  }
-
-const MovimentacaoRessuprimentoIdRouteWithChildren =
-  MovimentacaoRessuprimentoIdRoute._addFileChildren(
-    MovimentacaoRessuprimentoIdRouteChildren,
-  )
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlterarSenhaRoute: AlterarSenhaRoute,
   LoginRoute: LoginRoute,
-  DevolucaoIdRoute: DevolucaoIdRouteWithChildren,
   PassagemBastaoResumoRoute: PassagemBastaoResumoRoute,
   PesoVariavelIdRoute: PesoVariavelIdRouteWithChildren,
   RastreioTokenRoute: RastreioTokenRoute,
   RecebimentoV2IdRoute: RecebimentoV2IdRouteWithChildren,
   RecebimentoIdRoute: RecebimentoIdRouteWithChildren,
-  DevolucaoIndexRoute: DevolucaoIndexRoute,
-  EstoqueIndexRoute: EstoqueIndexRoute,
-  ExpedicaoIndexRoute: ExpedicaoIndexRoute,
   ManobraIndexRoute: ManobraIndexRoute,
-  MovimentacaoIndexRoute: MovimentacaoIndexRoute,
   PassagemBastaoIndexRoute: PassagemBastaoIndexRoute,
   PesoVariavelIndexRoute: PesoVariavelIndexRoute,
   RecebimentoV2IndexRoute: RecebimentoV2IndexRoute,
   RecebimentoIndexRoute: RecebimentoIndexRoute,
-  EstoqueArmazenagemIdRoute: EstoqueArmazenagemIdRouteWithChildren,
-  EstoqueContagemIdRoute: EstoqueContagemIdRouteWithChildren,
-  EstoqueRecuperacaoDemandaIdRoute:
-    EstoqueRecuperacaoDemandaIdRouteWithChildren,
-  ExpedicaoSeparacaoIdRoute: ExpedicaoSeparacaoIdRouteWithChildren,
-  MovimentacaoRessuprimentoIdRoute:
-    MovimentacaoRessuprimentoIdRouteWithChildren,
-  EstoqueArmazenagemIndexRoute: EstoqueArmazenagemIndexRoute,
-  EstoqueConsultaIndexRoute: EstoqueConsultaIndexRoute,
-  EstoqueContagemIndexRoute: EstoqueContagemIndexRoute,
-  EstoqueRecuperacaoIndexRoute: EstoqueRecuperacaoIndexRoute,
-  ExpedicaoSeparacaoIndexRoute: ExpedicaoSeparacaoIndexRoute,
-  MovimentacaoArmazenagemIndexRoute: MovimentacaoArmazenagemIndexRoute,
-  MovimentacaoRessuprimentoIndexRoute: MovimentacaoRessuprimentoIndexRoute,
-  MovimentacaoArmazenagemIdIndexRoute: MovimentacaoArmazenagemIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

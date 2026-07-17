@@ -967,6 +967,20 @@
       "when": 1791923200000,
       "tag": "0136_pesagens_client_conference_id",
       "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1792096000000,
+      "tag": "0137_remove_wms_schemas",
+      "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1792268800000,
+      "tag": "0138_rename_configuracoes_schema",
+      "breakpoints": true
     }
   ]
 }

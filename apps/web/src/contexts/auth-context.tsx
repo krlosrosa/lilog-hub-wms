@@ -67,7 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         setUser(null);
 
-        if (error instanceof ApiClientError && error.status === 401) {
+        if (
+          error instanceof ApiClientError &&
+          (error.status === 401 || error.status === 404)
+        ) {
           await invalidateSession();
         }
       } finally {

@@ -1,25 +1,16 @@
-export type EtapaProdutividade = 'separacao' | 'conferencia' | 'carregamento';
+export type EtapaProdutividade = 'conferencia';
 
 export const ETAPAS_PRODUTIVIDADE: {
   id: EtapaProdutividade;
   label: string;
-}[] = [
-  { id: 'separacao', label: 'Separação' },
-  { id: 'conferencia', label: 'Conferência' },
-  { id: 'carregamento', label: 'Carregamento' },
-];
+}[] = [{ id: 'conferencia', label: 'Conferência' }];
 
 export const ETAPA_PRODUTIVIDADE_LABELS: Record<EtapaProdutividade, string> = {
-  separacao: 'Separação',
   conferencia: 'Conferência',
-  carregamento: 'Carregamento',
 };
 
 export function parseEtapaProdutividade(
-  value: string | null | undefined,
+  _value: string | null | undefined,
 ): EtapaProdutividade {
-  if (value === 'conferencia' || value === 'carregamento') {
-    return value;
-  }
-  return 'separacao';
+  return 'conferencia';
 }

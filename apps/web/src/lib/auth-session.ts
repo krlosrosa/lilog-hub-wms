@@ -13,11 +13,22 @@ export function registerSessionInvalidationHandler(
 }
 
 export function shouldInvalidateSession(path: string, status: number): boolean {
-  if (status !== 401) {
+  if (path.startsWith('/auth/login')) {
     return false;
   }
 
-  return !path.startsWith('/auth/login');
+  if (status === 401) {
+    return true;
+  }
+
+  if (
+    status === 404 &&
+    (path === '/auth/me' || path.startsWith('/auth/me/'))
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 export async function invalidateSession(): Promise<void> {

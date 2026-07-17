@@ -5,7 +5,7 @@ import {
   AlertaPausaDtoSchema,
   ProximaPausaDtoSchema,
   RecursosSessaoKpiDtoSchema,
-} from '../op-wms/demanda-separacao.dto.js';
+} from '../sessao-operacao/sessao-recursos.dto.js';
 
 export const RecebimentoAlocacaoStatusDtoSchema = z.enum([
   'atribuida',

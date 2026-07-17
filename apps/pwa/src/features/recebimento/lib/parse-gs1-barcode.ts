@@ -421,7 +421,7 @@ export function applyGs1BarcodeInput(input: string): Gs1BarcodeApplyResult {
   return {
     applied: true,
     pesoKg: hasWeight ? formatPesoFromGs1Kg(parsed.netWeightKg!) : null,
-    etiqueta: hasGtin ? parsed.gtin : null,
+    etiqueta: null,
     lote: hasLote ? parsed.batchLot : null,
     validade,
   };

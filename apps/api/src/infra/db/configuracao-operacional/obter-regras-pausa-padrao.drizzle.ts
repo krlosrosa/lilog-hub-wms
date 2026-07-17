@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 
 import {
   CATEGORIA_PAUSAS,
-  DOMINIO_OPERACIONAL,
+  DOMINIO_CONFIGURACOES,
   isSubtipoPausa,
   parseParametrosConfig,
   type ParametrosPausa,
@@ -26,7 +26,7 @@ export async function obterRegrasPausaPadraoDb(
     .where(
       and(
         eq(configuracoesOperacionais.unidadeId, unidadeId),
-        eq(configuracoesOperacionais.dominio, DOMINIO_OPERACIONAL),
+        eq(configuracoesOperacionais.dominio, DOMINIO_CONFIGURACOES),
         eq(configuracoesOperacionais.categoria, CATEGORIA_PAUSAS),
         eq(configuracoesOperacionais.ativo, true),
       ),

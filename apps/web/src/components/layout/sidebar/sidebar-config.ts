@@ -1,56 +1,35 @@
 import {
-  Activity,
   ArrowLeftRight,
   BarChart4,
-  ClipboardCheck,
+  Building2,
+  CalendarClock,
   ClipboardList,
+  Coffee,
   FileText,
-  FileWarning,
   FolderTree,
   HandHeart,
-  Headphones,
   Home,
   LineChart,
-  LayoutGrid,
-  Map,
   MapPin,
   Monitor,
-  Warehouse as WarehouseIcon,
-  PlayCircle,
-  Printer,
   Package,
   PackageCheck,
-  Boxes,
-  Container,
-  Receipt,
-  Shuffle,
-  Scale,
-  Timer,
-  Coffee,
-  Truck,
-  Forklift,
+  PlayCircle,
   Plus,
-  CalendarClock,
-  Wrench,
-  Undo2,
-  Warehouse,
-  Building2,
-  ShieldCheck,
-  ScrollText,
+  Receipt,
   Settings2,
-  Scissors,
   ShieldAlert,
-  AlertTriangle,
+  ShieldCheck,
+  Timer,
+  Truck,
   Users,
   UsersRound,
+  Warehouse,
 } from 'lucide-react';
 
 import type { NavEntry, NavGroup } from './sidebar.types';
 import { isNavSubgroup } from './sidebar.types';
 
-/**
- * Sidebar navigation — grouped by operational journey (entrada → estoque → saída → rotina → config).
- */
 const baseSidebarConfig: NavGroup[] = [
   {
     id: 'painel',
@@ -63,24 +42,6 @@ const baseSidebarConfig: NavGroup[] = [
         label: 'Início',
         icon: Home,
         href: '/',
-      },
-      {
-        id: 'painel-operacional',
-        label: 'Painel Operacional',
-        icon: Monitor,
-        href: '/dashboard-operacional',
-      },
-      {
-        id: 'indicadores',
-        label: 'Indicadores',
-        icon: Activity,
-        href: '/indicadores',
-      },
-      {
-        id: 'relatorios',
-        label: 'Relatórios',
-        icon: BarChart4,
-        href: '/relatorios',
       },
     ],
   },
@@ -101,30 +62,6 @@ const baseSidebarConfig: NavGroup[] = [
             href: '/produtos',
           },
           { id: 'docas', label: 'Docas', icon: Warehouse, href: '/docas' },
-          {
-            id: 'enderecos',
-            label: 'Endereços',
-            icon: MapPin,
-            href: '/enderecos',
-          },
-          {
-            id: 'produto-enderecos',
-            label: 'Produto x Endereço',
-            icon: Shuffle,
-            href: '/produto-enderecos',
-          },
-          {
-            id: 'armazem-mapa',
-            label: 'Mapa do Armazém',
-            icon: Warehouse,
-            href: '/armazem/mapa',
-          },
-          {
-            id: 'depositos',
-            label: 'Depósitos',
-            icon: Container,
-            href: '/depositos',
-          },
         ],
       },
       {
@@ -177,31 +114,6 @@ const baseSidebarConfig: NavGroup[] = [
           },
         ],
       },
-      {
-        id: 'cadastros-equipamento',
-        label: 'Equipamentos',
-        icon: Forklift,
-        items: [
-          {
-            id: 'equipamento',
-            label: 'Equipamentos',
-            icon: Forklift,
-            href: '/equipamento',
-          },
-          {
-            id: 'equipamento-manutencao',
-            label: 'Manutenção',
-            icon: Wrench,
-            href: '/equipamento/manutencao',
-          },
-          {
-            id: 'equipamento-cadastro',
-            label: 'Cadastrar Equipamento',
-            icon: Plus,
-            href: '/equipamento/novo',
-          },
-        ],
-      },
     ],
   },
   {
@@ -224,225 +136,15 @@ const baseSidebarConfig: NavGroup[] = [
     ],
   },
   {
-    id: 'estoque-armazenagem',
-    label: 'Estoque e Armazenagem',
-    icon: Boxes,
+    id: 'qualidade',
+    label: 'Qualidade',
+    icon: ShieldAlert,
     items: [
       {
-        id: 'estoque',
-        label: 'Estoque',
-        icon: Boxes,
-        href: '/estoque',
-      },
-      {
-        id: 'estoque-mapa-ocupacao',
-        label: 'Estoque por Posição',
-        icon: LayoutGrid,
-        href: '/estoque/mapa-ocupacao',
-      },
-      {
-        id: 'inventario',
-        label: 'Inventários',
-        icon: ClipboardList,
-        href: '/inventario',
-      },
-      {
-        id: 'armazenagem',
-        label: 'Armazenagem',
-        icon: Warehouse,
-        href: '/armazenagem',
-      },
-      {
-        id: 'regras-enderecamento',
-        label: 'Regras de Endereçamento',
-        icon: MapPin,
-        href: '/armazenagem/regras-enderecamento',
-      },
-      {
-        id: 'estoque-anomalias',
-        label: 'Anomalias de Estoque',
-        icon: AlertTriangle,
-        items: [
-          {
-            id: 'cnc',
-            label: 'CNC',
-            icon: ShieldAlert,
-            href: '/cnc',
-          },
-          {
-            id: 'debito-transportadora',
-            label: 'Débito Transportadora',
-            icon: FileWarning,
-            href: '/debito-transportadora',
-          },
-          {
-            id: 'divergencia-estoque',
-            label: 'Divergência de Estoque',
-            icon: ClipboardList,
-            href: '/estoque/divergencias',
-          },
-        ],
-      },
-      {
-        id: 'aprovacao-movimentacao',
-        label: 'Aprovações de Estoque',
-        icon: ClipboardCheck,
-        href: '/aprovacao-movimentacao',
-      },
-      {
-        id: 'wms-operacoes',
-        label: 'Operações WMS',
-        icon: WarehouseIcon,
-        items: [
-          {
-            id: 'op-wms-dashboard',
-            label: 'Painel do Operador',
-            icon: Monitor,
-            href: '/op-wms',
-          },
-          {
-            id: 'op-wms-ressuprimento',
-            label: 'Ressuprimento',
-            icon: PackageCheck,
-            href: '/op-wms/ressuprimento',
-          },
-          {
-            id: 'op-wms-gestao-picking',
-            label: 'Gestão de Picking',
-            icon: ClipboardList,
-            href: '/op-wms/gestao-picking',
-          },
-          {
-            id: 'op-wms-gestao-recursos',
-            label: 'Gestão de Recursos',
-            icon: Activity,
-            href: '/op-wms/gestao-recursos',
-          },
-          {
-            id: 'op-wms-distribuicao-demandas',
-            label: 'Planejamento de Demandas',
-            icon: Shuffle,
-            href: '/op-wms/distribuicao-demandas',
-          },
-          {
-            id: 'op-wms-regras',
-            label: 'Regras WMS',
-            icon: ScrollText,
-            href: '/regras-wms',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'devolucao',
-    label: 'Devoluções',
-    icon: Undo2,
-    items: [
-      {
-        id: 'devolucao-gestao',
-        label: 'Gestão de Demandas',
-        icon: Undo2,
-        href: '/devolucao',
-      },
-      {
-        id: 'devolucao-relatorios',
-        label: 'Relatórios',
-        icon: BarChart4,
-        href: '/devolucao/relatorios',
-      },
-    ],
-  },
-  {
-    id: 'expedicao-transporte',
-    label: 'Expedição e Transporte',
-    icon: Container,
-    items: [
-      {
-        id: 'expedicao',
-        label: 'Expedição',
-        icon: PackageCheck,
-        items: [
-          {
-            id: 'torre-controle-expedicao',
-            label: 'Torre de Controle',
-            icon: Monitor,
-            href: '/expedicao/torre-controle',
-          },
-          {
-            id: 'corte-operacional',
-            label: 'Corte Operacional',
-            icon: Scissors,
-            href: '/expedicao/corte-operacional',
-          },
-          {
-            id: 'clientes-especiais',
-            label: 'Clientes Especiais',
-            icon: AlertTriangle,
-            href: '/expedicao/clientes-especiais',
-          },
-          {
-            id: 'peso-variavel',
-            label: 'Peso Variável',
-            icon: Scale,
-            href: '/peso-variavel',
-          },
-        ],
-      },
-      {
-        id: 'transporte',
-        label: 'Transporte',
-        icon: Truck,
-        items: [
-          {
-            id: 'transporte-alocacao',
-            label: 'Alocação de Cargas',
-            icon: Container,
-            href: '/transporte',
-          },
-          {
-            id: 'transporte-transportadoras',
-            label: 'Transportadoras',
-            icon: Building2,
-            href: '/transporte/transportadoras',
-          },
-          {
-            id: 'transporte-placas',
-            label: 'Placas',
-            icon: Truck,
-            href: '/transporte/placas',
-          },
-          {
-            id: 'transporte-impressao-mapa-separacao',
-            label: 'Geração de Mapas',
-            icon: Printer,
-            href: '/transporte/impressao-mapa-separacao',
-          },
-          {
-            id: 'transporte-portal',
-            label: 'Portal Transportador',
-            icon: Truck,
-            href: '/transporte/portal',
-          },
-          {
-            id: 'transporte-custos',
-            label: 'Custos de Frete',
-            icon: Receipt,
-            href: '/transporte/custos-frete',
-          },
-          {
-            id: 'transporte-custos-dashboard',
-            label: 'Painel de Frete',
-            icon: BarChart4,
-            href: '/transporte/custos-frete/dashboard',
-          },
-          {
-            id: 'transporte-perfis-tarifas',
-            label: 'Perfis e Tarifas',
-            icon: Settings2,
-            href: '/transporte/perfis-tarifas',
-          },
-        ],
+        id: 'cnc',
+        label: 'CNC',
+        icon: ShieldAlert,
+        href: '/cnc',
       },
     ],
   },
@@ -526,18 +228,6 @@ const baseSidebarConfig: NavGroup[] = [
         icon: Coffee,
         href: '/config-operacional/regras-pausas',
       },
-      {
-        id: 'config-mapa',
-        label: 'Configuração de Mapa',
-        icon: Map,
-        href: '/expedicao/config-mapa',
-      },
-      {
-        id: 'config-impressao',
-        label: 'Configuração de Impressão',
-        icon: Printer,
-        href: '/expedicao/config-impressao',
-      },
     ],
   },
   {
@@ -557,12 +247,6 @@ const baseSidebarConfig: NavGroup[] = [
         icon: MapPin,
         href: '/centros-origem',
       },
-      {
-        id: 'financeiro',
-        label: 'Financeiro',
-        icon: Receipt,
-        href: '/financeiro',
-      },
     ],
   },
   {
@@ -570,12 +254,6 @@ const baseSidebarConfig: NavGroup[] = [
     label: 'Suporte',
     icon: HandHeart,
     items: [
-      {
-        id: 'suporte',
-        label: 'Central de Suporte',
-        icon: Headphones,
-        href: '/suporte',
-      },
       {
         id: 'documentacao',
         label: 'Documentação',
@@ -596,21 +274,12 @@ function filterSidebarForProd(groups: NavGroup[]): NavGroup[] {
 
   for (const group of groups) {
     switch (group.id) {
-      // Omitir Painel
       case 'painel':
-      // Remover Devolução
-      case 'devolucao':
-      // Remover Expedição e Transporte
-      case 'expedicao-transporte':
-      // Remover demais grupos globais (Rotina, Gestão, Suporte)
       case 'rotina-operacional':
       case 'gestao':
       case 'suporte':
         continue;
 
-      // Cadastros e Estrutura:
-      // - manter apenas Produtos, Docas
-      // - manter submenu de Pessoas inteiro
       case 'cadastros-estrutura': {
         const items: NavEntry[] = [];
 
@@ -637,21 +306,6 @@ function filterSidebarForProd(groups: NavGroup[]): NavGroup[] {
         continue;
       }
 
-      // Estoque e Armazenagem:
-      // - manter apenas "Anomalias de Estoque" e seus submenus
-      case 'estoque-armazenagem': {
-        const anomalias = group.items.find(
-          (entry) => isNavSubgroup(entry) && entry.id === 'estoque-anomalias',
-        );
-
-        if (anomalias && isNavSubgroup(anomalias)) {
-          result.push({ ...group, items: [anomalias] });
-        }
-        continue;
-      }
-
-      // Configurações:
-      // - manter apenas Parâmetros e Regras de Pausa
       case 'configuracoes': {
         result.push({
           ...group,

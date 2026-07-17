@@ -2,14 +2,11 @@ import { cn } from '@lilog/ui';
 import { Link } from '@tanstack/react-router';
 import {
   ArrowLeftRight,
-  Boxes,
   ChevronRight,
   ClipboardCheck,
   CloudUpload,
   FlaskConical,
   LogIn,
-  LogOut,
-  PackageCheck,
   Sparkles,
   Wifi,
   WifiOff,
@@ -39,9 +36,6 @@ interface ModuleItem {
 const QUICK_ACCESS = [
   { id: 'recebimento', to: '/recebimento', label: 'Recebimento', icon: LogIn },
   { id: 'recebimento-v2', to: '/recebimento-v2', label: 'Receb. V2', icon: FlaskConical },
-  { id: 'devolucao', to: '/devolucao', label: 'Devolução', icon: LogOut },
-  { id: 'estoque', to: '/estoque', label: 'Estoque', icon: Boxes },
-  { id: 'movimentacao', to: '/movimentacao', label: 'Movimentação', icon: ArrowLeftRight },
 ] as const;
 
 const MODULES: ModuleItem[] = [
@@ -64,42 +58,6 @@ const MODULES: ModuleItem[] = [
     to: '/passagem-bastao',
     featured: true,
     iconTone: 'warning',
-  },
-  {
-    id: 'devolucao',
-    title: 'Devolução',
-    description: 'Processamento de devoluções',
-    icon: LogOut,
-    status: 'available',
-    to: '/devolucao',
-    iconTone: 'primary',
-  },
-  {
-    id: 'movimentacao',
-    title: 'Movimentação',
-    description: 'Movimentação interna de estoque',
-    icon: ArrowLeftRight,
-    status: 'available',
-    to: '/movimentacao',
-    iconTone: 'secondary',
-  },
-  {
-    id: 'estoque',
-    title: 'Estoque',
-    description: 'Contagem, ajuste e gestão de estoque',
-    icon: Boxes,
-    status: 'available',
-    to: '/estoque',
-    iconTone: 'secondary',
-  },
-  {
-    id: 'expedicao',
-    title: 'Expedição',
-    description: 'Separação e conferência de expedição',
-    icon: PackageCheck,
-    status: 'available',
-    to: '/expedicao',
-    iconTone: 'primary',
   },
   {
     id: 'recebimento-v2',

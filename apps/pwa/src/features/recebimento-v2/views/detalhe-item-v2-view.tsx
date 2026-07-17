@@ -22,6 +22,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -488,6 +489,22 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
       ),
     [conferences],
   );
+
+  const conferencesByPalete = useMemo(() => {
+    if (!isPvar) return null;
+    const groups = new Map<string, ConferenceRecord[]>();
+    for (const record of conferences) {
+      const key = record.unitizadorCodigo ?? '(sem palete)';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(record);
+    }
+    return Array.from(groups.entries()).map(([paleteCodigo, records]) => ({
+      paleteCodigo,
+      records,
+      caixa: records.reduce((sum, record) => sum + (record.recebidaCaixa ?? 1), 0),
+      peso: records.reduce((sum, record) => sum + (record.peso ?? 0), 0),
+    }));
+  }, [isPvar, conferences]);
 
   const conferidoTotaisNonPvar = useMemo(
     () =>
@@ -1107,9 +1124,6 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
 
       setSaveError(null);
       setValue('peso', result.pesoKg, { shouldDirty: true, shouldValidate: true });
-      if (result.etiqueta) {
-        setValue('etiqueta', result.etiqueta, { shouldDirty: true, shouldValidate: true });
-      }
       setGs1PesoWedgeValue('');
       hapticMedium();
 
@@ -1642,53 +1656,85 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
                         : 'Nenhum lote conferido ainda. Preencha os dados acima e registre a conferência.'
                     }
                   >
-                    {conferences.map((record) => {
-                      const quantidade = resolveConferenceQuantidadePar(
-                        record,
-                        quantidadeModo,
-                        unidadesPorCaixa,
-                      );
+                    {conferencesByPalete
+                      ? conferencesByPalete.map((group) => (
+                          <Fragment key={group.paleteCodigo}>
+                            <li className="flex items-center gap-1.5 px-1 pt-2 pb-0.5 first:pt-0">
+                              <Package
+                                className="h-3 w-3 shrink-0 text-on-surface-variant"
+                                aria-hidden
+                              />
+                              <span className="min-w-0 flex-1 truncate font-mono text-xs font-semibold text-on-surface-variant">
+                                {group.paleteCodigo}
+                              </span>
+                              <span className="shrink-0 tabular-nums text-xs text-on-surface-variant/70">
+                                {group.caixa} cx
+                                {group.peso > 0 ? ` · ${group.peso.toFixed(3)} kg` : ''}
+                              </span>
+                            </li>
+                            {group.records.map((record) => (
+                              <RecordListItem
+                                key={record.id}
+                                onRemove={() => void handleDelete(record.id)}
+                                removeLabel={`Excluir caixa ${record.peso ?? ''} kg`}
+                              >
+                                <p className="truncate font-mono text-label-md font-semibold text-on-surface">
+                                  {record.peso ?? '—'} kg
+                                </p>
+                                <p className="text-label-sm text-on-surface-variant">
+                                  {[
+                                    '1 cx',
+                                    record.lote ? `Lote ${record.lote}` : null,
+                                    showValidade && (record.fabricacao || record.validade)
+                                      ? `Fab. ${formatIsoDateForDisplay(record.fabricacao ?? record.validade ?? '')}`
+                                      : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' · ') || '—'}
+                                </p>
+                              </RecordListItem>
+                            ))}
+                          </Fragment>
+                        ))
+                      : conferences.map((record) => {
+                          const quantidade = resolveConferenceQuantidadePar(
+                            record,
+                            quantidadeModo,
+                            unidadesPorCaixa,
+                          );
 
-                      return (
-                        <RecordListItem
-                          key={record.id}
-                          onRemove={() => void handleDelete(record.id)}
-                          removeLabel={
-                            isPvar
-                              ? `Excluir caixa ${record.peso ?? ''} kg`
-                              : `Excluir lote ${record.lote || record.validade || ''}`
-                          }
-                        >
-                          <p className="truncate font-mono text-label-md font-semibold text-on-surface">
-                            {isPvar
-                              ? `${record.peso ?? '—'} kg`
-                              : record.lote || record.validade || '—'}
-                          </p>
-                          <p className="text-label-sm text-on-surface-variant">
-                            {[
-                              isPvar ? '1 cx' : null,
-                              !isPvar && showCaixa && quantidade.caixa > 0
-                                ? `${quantidade.caixa} cx`
-                                : null,
-                              !isPvar && showUnidade && quantidade.unidade > 0
-                                ? `${quantidade.unidade} un`
-                                : null,
-                              !isPvar &&
-                              (produtoConfig?.pesoVariavel || produtoConfig?.controlaPeso) &&
-                              record.peso
-                                ? `${record.peso} kg`
-                                : null,
-                              record.lote ? `Lote ${record.lote}` : null,
-                              showValidade && (record.fabricacao || record.validade)
-                                ? `Fab. ${formatIsoDateForDisplay(record.fabricacao ?? record.validade ?? '')}`
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(' · ') || '—'}
-                          </p>
-                        </RecordListItem>
-                      );
-                    })}
+                          return (
+                            <RecordListItem
+                              key={record.id}
+                              onRemove={() => void handleDelete(record.id)}
+                              removeLabel={`Excluir lote ${record.lote || record.validade || ''}`}
+                            >
+                              <p className="truncate font-mono text-label-md font-semibold text-on-surface">
+                                {record.lote || record.validade || '—'}
+                              </p>
+                              <p className="text-label-sm text-on-surface-variant">
+                                {[
+                                  showCaixa && quantidade.caixa > 0
+                                    ? `${quantidade.caixa} cx`
+                                    : null,
+                                  showUnidade && quantidade.unidade > 0
+                                    ? `${quantidade.unidade} un`
+                                    : null,
+                                  (produtoConfig?.pesoVariavel || produtoConfig?.controlaPeso) &&
+                                  record.peso
+                                    ? `${record.peso} kg`
+                                    : null,
+                                  record.lote ? `Lote ${record.lote}` : null,
+                                  showValidade && (record.fabricacao || record.validade)
+                                    ? `Fab. ${formatIsoDateForDisplay(record.fabricacao ?? record.validade ?? '')}`
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ') || '—'}
+                              </p>
+                            </RecordListItem>
+                          );
+                        })}
                   </CollapsibleRecordCard>
                 </div>
               ) : null}

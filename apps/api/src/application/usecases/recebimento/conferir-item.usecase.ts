@@ -32,10 +32,7 @@ import {
   RECEBIMENTO_REPOSITORY,
   type IRecebimentoRepository,
 } from '../../../domain/repositories/recebimento/recebimento.repository.js';
-import {
-  ARMAZENAGEM_REPOSITORY,
-  type IArmazenagemRepository,
-} from '../../../domain/repositories/armazenagem/armazenagem.repository.js';
+import { unitizadorIdFromCodigo } from '../../../shared/utils/unitizador-id-from-codigo.js';
 import {
   USER_REPOSITORY,
   type IUserRepository,
@@ -89,8 +86,6 @@ export class ConferirItemUseCase {
     private readonly produtoRepository: IProdutoRepository,
     @Inject(CONFIGURACAO_OPERACIONAL_REPOSITORY)
     private readonly configuracaoOperacionalRepository: IConfiguracaoOperacionalRepository,
-    @Inject(ARMAZENAGEM_REPOSITORY)
-    private readonly armazenagemRepository: IArmazenagemRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: IUserRepository,
     private readonly recebimentoParticipacaoService: RecebimentoParticipacaoService,
@@ -199,54 +194,10 @@ export class ConferirItemUseCase {
         );
       }
 
-      const existing = await this.armazenagemRepository.findUnitizadorByCodigo(
-        preRecebimento.unidadeId,
+      unitizadorId = unitizadorIdFromCodigo(
+        recebimentoId,
         parsed.unitizadorCodigo,
       );
-
-      if (existing) {
-        if (
-          existing.recebimentoId &&
-          existing.recebimentoId !== recebimentoId
-        ) {
-          throw new BadRequestException(
-            `Unitizador "${parsed.unitizadorCodigo}" já está em uso em outro recebimento`,
-          );
-        }
-
-        if (existing.status === 'cancelado') {
-          throw new BadRequestException(
-            `Unitizador "${parsed.unitizadorCodigo}" está cancelado`,
-          );
-        }
-
-        unitizadorId = existing.id;
-
-        if (existing.status === 'virgem') {
-          await this.armazenagemRepository.updateUnitizadorStatus(
-            existing.id,
-            'em_recebimento',
-            { recebimentoId },
-          );
-        } else if (!existing.recebimentoId) {
-          await this.armazenagemRepository.updateUnitizadorStatus(
-            existing.id,
-            existing.status,
-            { recebimentoId },
-          );
-        }
-      } else {
-        const created = await this.armazenagemRepository.criarUnitizador({
-          unidadeId: preRecebimento.unidadeId,
-          codigo: parsed.unitizadorCodigo,
-          tipo: 'palete',
-          origem: 'palete_virgem',
-          status: 'em_recebimento',
-          recebimentoId,
-          enderecoAtualId: null,
-        });
-        unitizadorId = created.id;
-      }
     } else if (parsed.unitizadorCodigo) {
       throw new BadRequestException(
         'unitizadorCodigo não é permitido quando o controle de palete está desativado',

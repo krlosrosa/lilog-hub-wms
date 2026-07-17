@@ -9,7 +9,7 @@ import {
 import {
   segmentGroupClassName,
   segmentButtonClassName,
-} from '@/features/expedicao-impressao-config/components/panel-styles';
+} from '@/components/ui/panel-styles';
 
 type RegrasProdutividadeTabsProps = {
   abaAtiva: EtapaProdutividade;

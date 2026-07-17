@@ -14,12 +14,12 @@ import {
 import { Controller, FormProvider } from 'react-hook-form';
 
 import { SidebarMain } from '@/components/layout/sidebar';
-import { CollapsiblePanelSection } from '@/features/expedicao-impressao-config/components/collapsible-panel-section';
+import { CollapsiblePanelSection } from '@/components/ui/collapsible-panel-section';
 import {
   fieldInputClassName,
   sectionLabelClassName,
-} from '@/features/expedicao-impressao-config/components/panel-styles';
-import { SwitchToggle } from '@/features/expedicao-config-mapa/components/switch-toggle';
+} from '@/components/ui/panel-styles';
+import { SwitchToggle } from '@/components/ui/switch-toggle';
 import { ParametrosConferenciaPanel } from '@/features/regras-conferencia/components/parametros-conferencia-panel';
 import { TempoConferenciaPreview } from '@/features/regras-conferencia/components/tempo-conferencia-preview';
 import { regrasProdutividadeListaPath } from '@/features/config-operacional/lib/regras-produtividade-paths';

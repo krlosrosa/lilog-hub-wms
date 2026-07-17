@@ -25,6 +25,13 @@ export const RecebimentoSituacaoSchema = z.enum([
 
 export type RecebimentoSituacao = z.infer<typeof RecebimentoSituacaoSchema>;
 
+export const ModoUnitizacaoSchema = z.enum([
+  'gerar_etiqueta_na_armazenagem',
+  'bipar_palete_no_recebimento',
+]);
+
+export type ModoUnitizacao = z.infer<typeof ModoUnitizacaoSchema>;
+
 export const TipoDivergenciaSchema = z.enum([
   'quantidade_maior',
   'quantidade_menor',

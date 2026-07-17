@@ -17,7 +17,6 @@ import {
 
 import { funcionarios, users } from './auth.schema.js';
 import { produtos, unidades } from './master-data.schema.js';
-import { unitizadores } from './armazenagem.schema.js';
 import { docas } from './doca.schema.js';
 import {
   sessaoFuncionarios,
@@ -198,9 +197,7 @@ export const itensRecebimento = recebimentoPgSchema.table(
     pesoRecebido: numeric('peso_recebido', { precision: 12, scale: 3 }),
     validade: timestamp('validade', { withTimezone: true }),
     numeroSerie: varchar('numero_serie', { length: 100 }),
-    unitizadorId: uuid('unitizador_id').references(() => unitizadores.id, {
-      onDelete: 'set null',
-    }),
+    unitizadorId: uuid('unitizador_id'),
     conferidoPorId: integer('conferido_por_id').references(() => funcionarios.id, {
       onDelete: 'set null',
     }),

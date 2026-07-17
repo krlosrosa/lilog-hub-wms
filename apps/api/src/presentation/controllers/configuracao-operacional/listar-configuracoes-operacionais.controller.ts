@@ -11,7 +11,7 @@ import {
   ApiSuccessResponse,
 } from '../../../shared/decorators/api-responses.decorator.js';
 import { RequirePermissions } from '../../../shared/decorators/require-permissions.decorator.js';
-import { EXPEDICAO_PERMISSION } from '../../../shared/constants/expedicao-permissions.js';
+import { RECEBIMENTO_PERMISSION } from '../../../shared/constants/recebimento-permissions.js';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard.js';
 
@@ -25,7 +25,7 @@ export class ListarConfiguracoesOperacionaisController {
     private readonly listarConfiguracoesOperacionaisUseCase: ListarConfiguracoesOperacionaisUseCase,
   ) {}
 
-  @RequirePermissions(EXPEDICAO_PERMISSION.VISUALIZAR)
+  @RequirePermissions(RECEBIMENTO_PERMISSION.GERENCIAR)
   @Get()
   @ApiOperation({
     summary: 'Listar configurações operacionais',

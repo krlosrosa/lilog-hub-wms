@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const DOMINIO_EXPEDICAO = 'expedicao' as const;
-export const DOMINIO_OPERACIONAL = 'operacional' as const;
+export const DOMINIO_CONFIGURACOES = 'configuracoes' as const;
 export const DOMINIO_DEVOLUCAO = 'devolucao' as const;
 export const DOMINIO_RECEBIMENTO = 'recebimento' as const;
 export const CATEGORIA_PRODUTIVIDADE = 'produtividade' as const;

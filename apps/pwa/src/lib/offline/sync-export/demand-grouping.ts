@@ -1,12 +1,7 @@
 import type { OutboxEntry } from '../db';
 import { OFFLINE_RECEBIMENTO_PLACEHOLDER } from '@/features/recebimento/lib/recebimento-sync';
 
-export type SyncExportModule =
-  | 'recebimento'
-  | 'devolucao'
-  | 'estoque'
-  | 'armazenagem'
-  | 'outro';
+export type SyncExportModule = 'recebimento' | 'outro';
 
 export interface DemandGroupKey {
   demandId: string;
@@ -24,9 +19,6 @@ export interface DemandErrorGroup {
 
 const MODULE_LABELS: Record<SyncExportModule, string> = {
   recebimento: 'Recebimento',
-  devolucao: 'Devolução',
-  estoque: 'Estoque',
-  armazenagem: 'Armazenagem',
   outro: 'Outros',
 };
 
@@ -37,18 +29,6 @@ const ENDPOINT_PATTERNS: Array<{
   {
     module: 'recebimento',
     regex: /^\/recebimentos\/([^/?#]+)/i,
-  },
-  {
-    module: 'devolucao',
-    regex: /^\/devolucao\/demandas\/([^/?#]+)/i,
-  },
-  {
-    module: 'estoque',
-    regex: /^\/estoque\/recuperacao\/demands\/([^/?#]+)/i,
-  },
-  {
-    module: 'armazenagem',
-    regex: /^\/armazenagem\/demandas\/([^/?#]+)/i,
   },
 ];
 

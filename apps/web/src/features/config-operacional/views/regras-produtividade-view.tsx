@@ -16,52 +16,23 @@ import {
   parseEtapaProdutividade,
   type EtapaProdutividade,
 } from '@/features/config-operacional/types/regra-produtividade-tabs';
-import { RegraCarregamentoRow } from '@/features/regras-carregamento/components/regra-carregamento-row';
-import { useRegrasCarregamentoLista } from '@/features/regras-carregamento/hooks/use-regras-carregamento-lista';
 import { RegraConferenciaRow } from '@/features/regras-conferencia/components/regra-conferencia-row';
 import { useRegrasConferenciaLista } from '@/features/regras-conferencia/hooks/use-regras-conferencia-lista';
-import { RegraExpedicaoRow } from '@/features/regras-expedicao/components/regra-expedicao-row';
-import { useRegrasExpedicaoLista } from '@/features/regras-expedicao/hooks/use-regras-expedicao-lista';
-
-const DESCRICOES: Record<EtapaProdutividade, string> = {
-  separacao:
-    'Tempo esperado para separação no armazém — deslocamento, pegada de caixas e gordura de mapa.',
-  conferencia:
-    'Tempo esperado para conferência no staging — validação por linha, palete e cliente.',
-  carregamento:
-    'Tempo esperado para carregamento na doca — paletes, minutas, amarração e liberação.',
-};
-
-const META_LABELS: Record<EtapaProdutividade, string> = {
-  separacao: 'Meta de tempo por mapa',
-  conferencia: 'Meta de tempo por conferência',
-  carregamento: 'Meta de tempo por minuta',
-};
 
 export function RegrasProdutividadeView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const abaAtiva = parseEtapaProdutividade(searchParams.get('aba'));
-
-  const separacao = useRegrasExpedicaoLista();
   const conferencia = useRegrasConferenciaLista();
-  const carregamento = useRegrasCarregamentoLista();
 
   const setAba = (aba: EtapaProdutividade) => {
     router.replace(regrasProdutividadeListaPath(aba));
   };
 
-  const listaAtiva =
-    abaAtiva === 'conferencia'
-      ? conferencia
-      : abaAtiva === 'carregamento'
-        ? carregamento
-        : separacao;
-
   const temFiltrosAtivos =
-    listaAtiva.filtroAtivo !== 'todos' || listaAtiva.busca.trim().length > 0;
+    conferencia.filtroAtivo !== 'todos' || conferencia.busca.trim().length > 0;
   const listaVazia =
-    !listaAtiva.isLoading && listaAtiva.itemsPagina.length === 0;
+    !conferencia.isLoading && conferencia.itemsPagina.length === 0;
 
   return (
     <SidebarMain>
@@ -74,14 +45,15 @@ export function RegrasProdutividadeView() {
                   <Timer className="size-5" aria-hidden />
                 </span>
                 <span className="text-caption font-bold uppercase tracking-widest text-primary">
-                  Configurações · Expedição
+                  Configurações · Recebimento
                 </span>
               </div>
               <h1 className="text-headline-lg-mobile font-semibold tracking-tight text-foreground md:text-headline-lg">
                 Regras de produtividade
               </h1>
               <p className="mt-1 max-w-xl text-body-md text-muted-foreground">
-                {DESCRICOES[abaAtiva]}
+                Tempo esperado para conferência no recebimento — validação por
+                linha, palete e cliente.
               </p>
             </div>
 
@@ -98,22 +70,22 @@ export function RegrasProdutividadeView() {
           </div>
 
           <RegrasProdutividadeListaPanel
-            stats={listaAtiva.stats}
-            metaLabel={META_LABELS[abaAtiva]}
-            busca={listaAtiva.busca}
-            onBuscaChange={listaAtiva.setBusca}
-            filtroAtivo={listaAtiva.filtroAtivo}
-            onFiltroAtivoChange={listaAtiva.setFiltroAtivo}
-            totalFiltrados={listaAtiva.totalFiltrados}
-            pagina={listaAtiva.pagina}
-            totalPaginas={listaAtiva.totalPaginas}
-            onChangePagina={listaAtiva.setPagina}
-            itemsInicio={listaAtiva.itemsInicio}
-            pageSize={listaAtiva.pageSize}
+            stats={conferencia.stats}
+            metaLabel="Meta de tempo por conferência"
+            busca={conferencia.busca}
+            onBuscaChange={conferencia.setBusca}
+            filtroAtivo={conferencia.filtroAtivo}
+            onFiltroAtivoChange={conferencia.setFiltroAtivo}
+            totalFiltrados={conferencia.totalFiltrados}
+            pagina={conferencia.pagina}
+            totalPaginas={conferencia.totalPaginas}
+            onChangePagina={conferencia.setPagina}
+            itemsInicio={conferencia.itemsInicio}
+            pageSize={conferencia.pageSize}
             listaVazia={listaVazia}
             temFiltrosAtivos={temFiltrosAtivos}
           >
-            {listaAtiva.isLoading && (
+            {conferencia.isLoading && (
               <tr>
                 <td colSpan={5} className="px-6 py-16 text-center">
                   <Loader2
@@ -126,18 +98,7 @@ export function RegrasProdutividadeView() {
                 </td>
               </tr>
             )}
-            {!listaAtiva.isLoading && abaAtiva === 'separacao' &&
-              separacao.itemsPagina.map((regra) => (
-                <RegraExpedicaoRow
-                  key={regra.id}
-                  regra={regra}
-                  tempoPreviewSeg={separacao.calcularPreview(regra)}
-                  onToggleAtivo={separacao.toggleAtivo}
-                  onDuplicar={separacao.duplicarRegra}
-                  onExcluir={separacao.excluirRegra}
-                />
-              ))}
-            {!listaAtiva.isLoading && abaAtiva === 'conferencia' &&
+            {!conferencia.isLoading &&
               conferencia.itemsPagina.map((regra) => (
                 <RegraConferenciaRow
                   key={regra.id}
@@ -146,17 +107,6 @@ export function RegrasProdutividadeView() {
                   onToggleAtivo={conferencia.toggleAtivo}
                   onDuplicar={conferencia.duplicarRegra}
                   onExcluir={conferencia.excluirRegra}
-                />
-              ))}
-            {!listaAtiva.isLoading && abaAtiva === 'carregamento' &&
-              carregamento.itemsPagina.map((regra) => (
-                <RegraCarregamentoRow
-                  key={regra.id}
-                  regra={regra}
-                  tempoPreviewSeg={carregamento.calcularPreview(regra)}
-                  onToggleAtivo={carregamento.toggleAtivo}
-                  onDuplicar={carregamento.duplicarRegra}
-                  onExcluir={carregamento.excluirRegra}
                 />
               ))}
           </RegrasProdutividadeListaPanel>

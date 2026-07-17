@@ -3,7 +3,7 @@
 import { Calculator } from 'lucide-react';
 
 import { formatarTempoEsperado } from '@/features/config-operacional/lib/formatar-tempo-esperado';
-import { fieldInputClassName } from '@/features/expedicao-impressao-config/components/panel-styles';
+import { fieldInputClassName } from '@/components/ui/panel-styles';
 import { calcularTempoConferenciaSeg } from '@/features/regras-conferencia/lib/calcular-tempo-esperado';
 import type { RegraConferenciaForm } from '@/features/regras-conferencia/types/regra-conferencia.schema';
 

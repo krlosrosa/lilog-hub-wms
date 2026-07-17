@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Printer } from 'lucide-react';
 
 import { Button, cn } from '@lilog/ui';
 
-import { sectionCardClassName } from '@/features/enderecos/components/form-field-classes';
+import { sectionCardClassName } from '@/components/ui/form-field-classes';
 import { EtiquetaCompacta } from '@/features/peso-variavel/components/etiqueta-compact';
 import type { EtiquetaSeparacao } from '@/features/peso-variavel/types/peso-variavel-etiquetas.schema';
 

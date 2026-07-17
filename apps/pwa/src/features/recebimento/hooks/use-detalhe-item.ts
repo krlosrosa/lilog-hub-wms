@@ -36,7 +36,6 @@ import {
   isScannerSubmitKey,
   looksLikeGs1Barcode,
   looksLikeGs1TraceabilityBarcode,
-  parseGs1Barcode,
   resolveLoteFieldInput,
   resolvePesoInputValue,
 } from '../lib/parse-gs1-barcode';
@@ -1038,24 +1037,32 @@ export function useDetalheItem(demandId: string, initKey?: string) {
       if (!scanTarget) return;
 
       if (scanTarget === 'peso' || (scanTarget === 'etiqueta' && looksLikeGs1Barcode(text))) {
-        const parsed = parseGs1Barcode(text);
+        const result = applyGs1BarcodeInput(text);
 
-        if (parsed.netWeightKg != null) {
-          form.setValue('peso', resolvePesoInputValue(text), {
-            shouldDirty: true,
-            shouldValidate: true,
-          });
-        }
+        if (result.applied) {
+          if (result.pesoKg) {
+            form.setValue('peso', result.pesoKg, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+          }
 
-        if (scanTarget === 'etiqueta') {
-          form.setValue('etiqueta', parsed.gtin ?? text.trim(), {
-            shouldDirty: true,
-            shouldValidate: true,
-          });
-          return;
-        }
+          if (result.lote) {
+            form.setValue('lote', result.lote, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+            setIgnoreMaintainedLote(false);
+            setLoteDraftConfirmed(true);
+          }
 
-        if (parsed.netWeightKg == null) {
+          if (result.validade) {
+            form.setValue('validade', result.validade, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+          }
+        } else if (scanTarget === 'peso') {
           form.setValue('peso', resolvePesoInputValue(text), {
             shouldDirty: true,
             shouldValidate: true,
@@ -1081,13 +1088,6 @@ export function useDetalheItem(demandId: string, initKey?: string) {
 
       if (result.pesoKg) {
         form.setValue('peso', result.pesoKg, {
-          shouldDirty: true,
-          shouldValidate: true,
-        });
-      }
-
-      if (result.etiqueta) {
-        form.setValue('etiqueta', result.etiqueta, {
           shouldDirty: true,
           shouldValidate: true,
         });
@@ -1219,13 +1219,6 @@ export function useDetalheItem(demandId: string, initKey?: string) {
         shouldDirty: true,
         shouldValidate: true,
       });
-
-      if (result.etiqueta) {
-        form.setValue('etiqueta', result.etiqueta, {
-          shouldDirty: true,
-          shouldValidate: true,
-        });
-      }
 
       if (result.lote) {
         form.setValue('lote', result.lote, {
