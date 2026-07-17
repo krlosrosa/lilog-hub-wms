@@ -237,10 +237,14 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
       continue;
     }
 
-    if (REMOVAL_OP_TYPES.has(op.opType) && op.status === 'rejected') {
-      await recebimentoV2Db.syncOperations.delete(op.id);
-      changed += 1;
-      continue;
+    if (REMOVAL_OP_TYPES.has(op.opType) && (op.status === 'rejected' || op.status === 'retry')) {
+      const payload = (op.payload ?? {}) as RemoveOpPayload;
+      const conferenceId = payload.conferenceId;
+      if (op.status === 'rejected' || (conferenceId && !conferenceById.has(conferenceId))) {
+        await recebimentoV2Db.syncOperations.delete(op.id);
+        changed += 1;
+        continue;
+      }
     }
 
     if (op.opType === RECEBIMENTO_V2_OP_TYPES.ITEM_LINHA_REMOVE) {

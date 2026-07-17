@@ -245,6 +245,35 @@ describe('repairSyncOperations', () => {
     expect(changed).toBe(1);
     expect(await recebimentoV2Db.syncOperations.get(rejectedAvariaOp.id)).toBeUndefined();
   });
+
+  it('auto-discards PESAGEM_REMOVE retry when local conference was already deleted', async () => {
+    const conferenceId = crypto.randomUUID();
+    const opId = crypto.randomUUID();
+    await recebimentoV2Db.syncOperations.put({
+      id: opId,
+      aggregateId: DEMAND_ID,
+      module: 'conference',
+      opType: RECEBIMENTO_V2_OP_TYPES.PESAGEM_REMOVE,
+      sequence: 1,
+      dependsOn: [],
+      idempotencyKey: crypto.randomUUID(),
+      payload: {
+        pesagemId: 'pesagem-orphan',
+        conferenceId,
+      },
+      attachmentIds: [],
+      status: 'retry',
+      attempts: 2,
+      errorMessage: 'Pesagem "pesagem-orphan" não encontrada neste recebimento',
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    const changed = await repairSyncOperations(DEMAND_ID);
+
+    expect(changed).toBe(1);
+    expect(await recebimentoV2Db.syncOperations.get(opId)).toBeUndefined();
+  });
 });
 
 describe('dismissSyncOperation', () => {

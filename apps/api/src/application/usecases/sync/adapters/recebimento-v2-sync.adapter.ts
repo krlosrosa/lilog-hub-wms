@@ -470,7 +470,7 @@ export class RecebimentoV2SyncAdapter implements ISyncAdapter {
         userId: context.userId,
       });
     } catch (err) {
-      if (err instanceof ConflictException) {
+      if (err instanceof NotFoundException || err instanceof ConflictException) {
         return { opId: operation.opId, status: 'skipped', message: 'Linha já removida' };
       }
       throw err;
@@ -497,7 +497,7 @@ export class RecebimentoV2SyncAdapter implements ISyncAdapter {
         userId: context.userId,
       });
     } catch (err) {
-      if (err instanceof ConflictException) {
+      if (err instanceof NotFoundException || err instanceof ConflictException) {
         return { opId: operation.opId, status: 'skipped', message: 'Palete já removido' };
       }
       throw err;
@@ -532,7 +532,7 @@ export class RecebimentoV2SyncAdapter implements ISyncAdapter {
         userId: context.userId,
       });
     } catch (err) {
-      if (err instanceof ConflictException) {
+      if (err instanceof NotFoundException || err instanceof ConflictException) {
         return { opId: operation.opId, status: 'skipped', message: 'Pesagem já removida' };
       }
       throw err;

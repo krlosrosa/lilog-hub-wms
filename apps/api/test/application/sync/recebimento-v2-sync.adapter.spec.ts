@@ -400,6 +400,56 @@ describe('RecebimentoV2SyncAdapter', () => {
       expect(result.status).toBe('rejected');
       expect(result.message).toContain('itemId');
     });
+
+    it('returns skipped when linha is not found on server', async () => {
+      removerLinhaConferenciaRecebimentoUseCase.execute = vi
+        .fn()
+        .mockRejectedValue(new NotFoundException('Linha de conferência "item-1" não encontrada neste recebimento'));
+
+      const result = await adapter.apply(
+        makeOperation('recebimento.item_linha.remove', { itemId: 'item-1' }),
+        makeContext(),
+      );
+
+      expect(result.status).toBe('skipped');
+      expect(result.message).toBe('Linha já removida');
+    });
+  });
+
+  describe('palete.remove', () => {
+    it('returns skipped when palete is not found on server', async () => {
+      removerPaleteConferenciaRecebimentoUseCase.execute = vi
+        .fn()
+        .mockRejectedValue(
+          new NotFoundException('Nenhuma linha de conferência encontrada para o palete "PLT-1"'),
+        );
+
+      const result = await adapter.apply(
+        makeOperation('recebimento.palete.remove', { unitizadorCodigo: 'PLT-1' }),
+        makeContext(),
+      );
+
+      expect(result.status).toBe('skipped');
+      expect(result.message).toBe('Palete já removido');
+    });
+  });
+
+  describe('pesagem.remove', () => {
+    it('returns skipped when pesagem is not found on server', async () => {
+      removePesagemRecebimentoUseCase.execute = vi
+        .fn()
+        .mockRejectedValue(
+          new NotFoundException('Pesagem "pesagem-1" não encontrada neste recebimento'),
+        );
+
+      const result = await adapter.apply(
+        makeOperation('recebimento.pesagem.remove', { pesagemId: 'pesagem-1' }),
+        makeContext(),
+      );
+
+      expect(result.status).toBe('skipped');
+      expect(result.message).toBe('Pesagem já removida');
+    });
   });
 
   // -------------------------------------------------------------------------
