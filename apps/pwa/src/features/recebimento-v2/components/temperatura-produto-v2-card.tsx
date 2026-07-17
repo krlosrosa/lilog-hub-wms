@@ -10,6 +10,7 @@ import { CheckCircle2, Loader2, Thermometer } from 'lucide-react';
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 
 import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { useVisualViewportInset } from '@/lib/use-visual-viewport-inset';
 
 import {
   useTemperaturaProdutoV2,
@@ -57,6 +58,7 @@ export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string
   const { etapas, preenchidas, completo, saveError, saveEtapas, clearSaveError } =
     useTemperaturaProdutoV2(demandId);
   const [values, setValues] = useState<TemperaturaFormValues>(EMPTY_FORM);
+  const keyboardInset = useVisualViewportInset();
 
   const collectPendingEntries = useCallback((): Array<{
     etapa: TemperaturaEtapaV2;
@@ -180,10 +182,17 @@ export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string
       <Sheet open={open} onOpenChange={handleOpenChange}>
         <SheetContent
           side="bottom"
-          className="max-h-[85vh] rounded-t-2xl border-outline-variant bg-surface px-margin-mobile pb-[calc(16px+env(safe-area-inset-bottom,0px))] pt-2"
+          className="flex max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top,0px)-1rem))] flex-col overflow-hidden rounded-t-2xl border-outline-variant bg-surface px-margin-mobile pb-safe-offset-4 pt-2"
+          style={
+            keyboardInset > 0
+              ? {
+                  maxHeight: `calc(${window.innerHeight}px - ${keyboardInset}px - 1rem)`,
+                }
+              : undefined
+          }
         >
-          <div className="mx-auto mb-4 h-1 w-10 rounded-lg bg-outline-variant" aria-hidden />
-          <SheetHeader className="text-left">
+          <div className="mx-auto mb-4 h-1 w-10 shrink-0 rounded-lg bg-outline-variant" aria-hidden />
+          <SheetHeader className="shrink-0 text-left">
             <SheetTitle className="text-headline-md text-on-surface">
               Temperatura por etapa
             </SheetTitle>
@@ -193,7 +202,14 @@ export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string
             </SheetDescription>
           </SheetHeader>
 
-          <div className="mt-4 space-y-4">
+          <div
+            className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto scroll-native"
+            style={
+              keyboardInset > 0
+                ? { paddingBottom: `${keyboardInset + 16}px` }
+                : undefined
+            }
+          >
             {INPUTS.map((input, index) => {
               const raw = values[input.etapa];
               const invalid = raw.trim() !== '' && parseTemperatura(raw) == null;

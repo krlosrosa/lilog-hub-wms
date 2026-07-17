@@ -189,11 +189,13 @@ export class ConferirItemUseCase {
     }
 
     let unitizadorId: string | null = null;
+    const requiresUnitizador =
+      parametrosConferencia.controlaPalete || config.pesoVariavel;
 
-    if (parametrosConferencia.controlaPalete) {
+    if (requiresUnitizador) {
       if (!parsed.unitizadorCodigo) {
         throw new BadRequestException(
-          'unitizadorCodigo é obrigatório quando o controle de palete está ativo',
+          'unitizadorCodigo é obrigatório para este tipo de conferência',
         );
       }
 

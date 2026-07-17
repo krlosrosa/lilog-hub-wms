@@ -49,6 +49,7 @@ import {
   type QuantidadeModo,
 } from '@/features/recebimento/types/recebimento.schema';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { useVisualViewportInset } from '@/lib/use-visual-viewport-inset';
 
 import { PaleteV2Toolbar, type PaleteSheetIntent } from '../components/palete-v2-toolbar';
 import {
@@ -451,6 +452,14 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   const showConferenciaActionBar = Boolean(
     selectedProduct && (isPvar ? showPvarGs1PesoScan : true),
   );
+  const keyboardInset = useVisualViewportInset();
+  const keyboardOpen = keyboardInset > 0;
+  const showFixedActionBar = showConferenciaActionBar && !keyboardOpen;
+  const contentBottomPaddingClass = showFixedActionBar
+    ? saveError
+      ? 'pb-safe-offset-36'
+      : 'pb-safe-offset-32'
+    : undefined;
   const effectiveLote = maintainedLoteContext.lote || loteValue;
 
   const fabricacaoFromLote = useMemo(() => {
@@ -1065,14 +1074,9 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
         return;
       }
 
-      if (!looksLikeGs1TraceabilityBarcode(text)) {
-        setSaveError('Código GS1 de lote inválido ou incompleto');
-        return;
-      }
-
       const resolved = resolveLoteFieldInput(text);
       if (!resolved.lote) {
-        setSaveError('Código GS1 de lote inválido ou incompleto');
+        setSaveError('Lote inválido ou incompleto');
         return;
       }
 
@@ -1254,8 +1258,13 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
       <div
         className={cn(
           'mt-4 space-y-5 px-margin-mobile',
-          showConferenciaActionBar && 'pb-safe-offset-20',
+          contentBottomPaddingClass,
         )}
+        style={
+          keyboardOpen
+            ? { paddingBottom: `${keyboardInset + 24}px` }
+            : undefined
+        }
       >
         {!product && (
           <div className="space-y-2">
@@ -1707,7 +1716,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
         )}
       </div>
 
-      {showConferenciaActionBar ? (
+      {showFixedActionBar ? (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-outline-variant/60 bg-surface/95 px-margin-mobile pb-safe-offset-4 pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur-md supports-[backdrop-filter]:bg-surface/90">
           {saveError ? (
             <div

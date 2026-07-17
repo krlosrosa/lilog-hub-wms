@@ -155,16 +155,16 @@ export function useConferenciaV2(demandId: string): UseConferenciaV2Result {
       resolvedProduct.unidadesPorCaixa,
     );
 
-    const activePalete = await getActivePaleteCodigo(input.demandId);
-    const unitizadorCodigo =
-      input.unitizadorCodigo?.trim() ||
-      activePalete ||
-      undefined;
+    const needsUnitizador =
+      input.parametros.controlaPalete || produtoConfig.pesoVariavel;
+    const activePalete = needsUnitizador
+      ? await getActivePaleteCodigo(input.demandId)
+      : null;
+    const unitizadorCodigo = needsUnitizador
+      ? input.unitizadorCodigo?.trim() || activePalete || undefined
+      : undefined;
 
-    if (
-      (input.parametros.controlaPalete || produtoConfig.pesoVariavel) &&
-      !unitizadorCodigo
-    ) {
+    if (needsUnitizador && !unitizadorCodigo) {
       throw new Error(PALETE_OBRIGATORIO_MSG);
     }
 

@@ -360,6 +360,15 @@ describe('applyGs1NonPvarScanInput', () => {
       quantidadeCaixas: null,
     });
   });
+
+  it('aceita lote digitado diretamente sem GS1', () => {
+    expect(applyGs1NonPvarScanInput('4022260708')).toEqual({
+      applied: true,
+      lote: '4022260708',
+      fabricacao: '2026-07-08',
+      quantidadeCaixas: null,
+    });
+  });
 });
 
 describe('formatPesoFromGs1Kg', () => {

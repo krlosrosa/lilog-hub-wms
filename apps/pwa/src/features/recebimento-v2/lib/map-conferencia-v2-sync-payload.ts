@@ -53,7 +53,10 @@ export function mapConferenciaV2SyncPayload(
     payload.etiquetaCodigo = record.etiquetaCodigo.trim();
   }
 
-  if (record.unitizadorCodigo?.trim()) {
+  if (
+    (meta.pesoVariavel || meta.controlaPalete) &&
+    record.unitizadorCodigo?.trim()
+  ) {
     payload.unitizadorCodigo = record.unitizadorCodigo.trim();
   }
 

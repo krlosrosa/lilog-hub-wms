@@ -10,6 +10,8 @@ import {
 import { Barcode, Loader2, Wand2 } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
+import { useVisualViewportInset } from '@/lib/use-visual-viewport-inset';
+
 interface PaleteBipSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -33,6 +35,7 @@ export function PaleteBipSheet({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const keyboardInset = useVisualViewportInset();
 
   useEffect(() => {
     if (!open) {
@@ -93,16 +96,31 @@ export function PaleteBipSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="rounded-t-2xl border-t border-outline-variant bg-surface px-margin-mobile pb-safe-offset-4"
+        className="flex max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top,0px)-1rem))] flex-col overflow-hidden rounded-t-2xl border-t border-outline-variant bg-surface px-margin-mobile pb-safe-offset-4"
+        style={
+          keyboardInset > 0
+            ? {
+                maxHeight: `calc(${window.innerHeight}px - ${keyboardInset}px - 1rem)`,
+              }
+            : undefined
+        }
       >
-        <SheetHeader className="text-left">
+        <SheetHeader className="shrink-0 text-left">
           <SheetTitle className="text-headline-sm text-on-surface">{title}</SheetTitle>
           <SheetDescription className="text-body-sm text-on-surface-variant">
             {description}
           </SheetDescription>
         </SheetHeader>
 
-        <form onSubmit={(event) => void handleSubmit(event)} className="mt-4 space-y-3">
+        <form
+          onSubmit={(event) => void handleSubmit(event)}
+          className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto scroll-native"
+          style={
+            keyboardInset > 0
+              ? { paddingBottom: `${keyboardInset + 16}px` }
+              : undefined
+          }
+        >
           <label className="flex items-center gap-1.5 text-label-sm font-medium text-on-surface" htmlFor="palete-codigo">
             <Barcode className="h-3.5 w-3.5" aria-hidden />
             ID do palete / WMS

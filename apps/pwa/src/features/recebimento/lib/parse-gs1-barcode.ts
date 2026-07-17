@@ -18,6 +18,7 @@ export type Gs1BarcodeParseResult = {
 
 const FNC1 = '\u001d';
 const AI10_FIXED_NUMERIC_LENGTH = 10;
+const MIN_PLAIN_LOTE_DIGITS = 10;
 
 export function normalizeGs1ScannerInput(input: string): string {
   return input.replace(/[\t\r\n]+/g, '').trim();
@@ -505,15 +506,53 @@ export type Gs1NonPvarScanResult = {
   quantidadeCaixas: number | null;
 };
 
+export function looksLikePlainLoteInput(input: string): boolean {
+  const trimmed = normalizeGs1ScannerInput(input);
+  if (!trimmed || /[\(\)\u001d]/.test(trimmed)) {
+    return false;
+  }
+
+  const compact = trimmed.replace(/\s/g, '');
+  if (/^01\d{13,14}/.test(compact)) {
+    return false;
+  }
+
+  const digits = compact.replace(/\D/g, '');
+  return digits.length >= MIN_PLAIN_LOTE_DIGITS && /^\d+$/.test(compact);
+}
+
 export function applyGs1NonPvarScanInput(input: string): Gs1NonPvarScanResult {
   const trimmed = normalizeGs1ScannerInput(input);
-  if (!trimmed || !looksLikeGs1Barcode(trimmed)) {
+  if (!trimmed) {
     return {
       applied: false,
       lote: null,
       fabricacao: null,
       quantidadeCaixas: null,
     };
+  }
+
+  if (!looksLikeGs1Barcode(trimmed)) {
+    if (looksLikePlainLoteInput(trimmed)) {
+      const resolved = resolveLoteFieldInput(trimmed);
+      if (resolved.lote) {
+        return {
+          applied: true,
+          lote: resolved.lote,
+          fabricacao: resolved.validade,
+          quantidadeCaixas: null,
+        };
+      }
+    }
+
+    if (!trimmed.includes('(')) {
+      return {
+        applied: false,
+        lote: null,
+        fabricacao: null,
+        quantidadeCaixas: null,
+      };
+    }
   }
 
   const parsed = parseGs1Barcode(trimmed);

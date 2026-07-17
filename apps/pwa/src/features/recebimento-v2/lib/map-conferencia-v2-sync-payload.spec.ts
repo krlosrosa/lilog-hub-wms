@@ -109,4 +109,17 @@ describe('mapConferenciaV2SyncPayload', () => {
 
     expect(payload.clientConferenceId).toBeUndefined();
   });
+
+  it('does not include unitizadorCodigo for non-PVAR items without controlaPalete', () => {
+    const payload = mapConferenciaV2SyncPayload(
+      {
+        ...baseRecord,
+        unitizadorCodigo: 'PAL-001',
+      },
+      { ...baseMeta, controlaPalete: false, pesoVariavel: false },
+      'lote',
+    );
+
+    expect(payload.unitizadorCodigo).toBeUndefined();
+  });
 });

@@ -92,7 +92,13 @@ function createUseCase(overrides?: {
     ]),
   } as unknown as IConfiguracaoOperacionalRepository;
 
-  const armazenagemRepository = {} as IArmazenagemRepository;
+  const armazenagemRepository = {
+    findUnitizadorByCodigo: vi.fn().mockResolvedValue(null),
+    criarUnitizador: vi.fn().mockResolvedValue({
+      id: 'unitizador-1',
+      codigo: 'PLT-001',
+    }),
+  } as unknown as IArmazenagemRepository;
   const userRepository = {
     findById: vi.fn().mockResolvedValue({ funcionarioId: 10 }),
   } as unknown as IUserRepository;
@@ -119,8 +125,16 @@ function createUseCase(overrides?: {
   };
 }
 
+const pvarPayloadBase = {
+  produtoId: 'PVAR-001',
+  quantidadeRecebida: 1,
+  unidadeMedida: 'CX' as const,
+  pesoRecebido: 12.5,
+  unitizadorCodigo: 'PLT-001',
+};
+
 describe('ConferirItemUseCase PVAR', () => {
-  it('rejects when etiqueta is required but missing', async () => {
+  it('rejects when unitizadorCodigo is missing', async () => {
     const { useCase } = createUseCase();
 
     await expect(
@@ -131,6 +145,21 @@ describe('ConferirItemUseCase PVAR', () => {
           quantidadeRecebida: 1,
           unidadeMedida: 'CX',
           pesoRecebido: 12.5,
+          etiquetaCodigo: 'ETQ-001',
+        },
+        userId: 1,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects when etiqueta is required but missing', async () => {
+    const { useCase } = createUseCase();
+
+    await expect(
+      useCase.execute({
+        recebimentoId: 'rec-1',
+        data: {
+          ...pvarPayloadBase,
         },
         userId: 1,
       }),
@@ -151,10 +180,7 @@ describe('ConferirItemUseCase PVAR', () => {
       useCase.execute({
         recebimentoId: 'rec-1',
         data: {
-          produtoId: 'PVAR-001',
-          quantidadeRecebida: 1,
-          unidadeMedida: 'CX',
-          pesoRecebido: 12.5,
+          ...pvarPayloadBase,
           etiquetaCodigo: 'ETQ-001',
         },
         userId: 1,
@@ -189,10 +215,7 @@ describe('ConferirItemUseCase PVAR', () => {
     const result = await useCase.execute({
       recebimentoId: 'rec-1',
       data: {
-        produtoId: 'PVAR-001',
-        quantidadeRecebida: 1,
-        unidadeMedida: 'CX',
-        pesoRecebido: 12.5,
+        ...pvarPayloadBase,
         etiquetaCodigo: 'ETQ-001',
       },
       userId: 1,
@@ -240,10 +263,7 @@ describe('ConferirItemUseCase PVAR', () => {
     await useCase.execute({
       recebimentoId: 'rec-1',
       data: {
-        produtoId: 'PVAR-001',
-        quantidadeRecebida: 1,
-        unidadeMedida: 'CX',
-        pesoRecebido: 12.5,
+        ...pvarPayloadBase,
         etiquetaCodigo: 'ETQ-001',
       },
       userId: 1,
