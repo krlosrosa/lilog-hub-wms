@@ -90,6 +90,7 @@ describe('auto-sync-v2.service', () => {
       conflicts: 0,
       newRevision: 6,
       photosUploaded: 0,
+      photosFailed: 0,
       photosPending: 0,
     });
 
@@ -141,6 +142,7 @@ describe('auto-sync-v2.service', () => {
       conflicts: 0,
       newRevision: 5,
       photosUploaded: 0,
+      photosFailed: 0,
       photosPending: 0,
     });
 
@@ -187,6 +189,7 @@ describe('auto-sync-v2.service', () => {
       conflicts: 0,
       newRevision: 6,
       photosUploaded: 0,
+      photosFailed: 0,
       photosPending: 0,
     });
 
@@ -205,6 +208,7 @@ describe('auto-sync-v2.service', () => {
       conflicts: 0,
       newRevision: 6,
       photosUploaded: 0,
+      photosFailed: 0,
       photosPending: 0,
     });
 

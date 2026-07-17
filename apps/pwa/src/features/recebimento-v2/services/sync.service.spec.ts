@@ -123,6 +123,7 @@ describe('sync.service – pushDemand', () => {
       conflicts: 0,
       newRevision: 5,
       photosUploaded: 0,
+      photosFailed: 0,
       photosPending: 0,
     });
   });

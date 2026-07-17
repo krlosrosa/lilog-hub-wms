@@ -1,6 +1,8 @@
-import { uploadDocumentToBucket } from '@/lib/offline/document-upload';
+import { UploadError, uploadDocumentToBucket } from '@/lib/offline/document-upload';
 
 import { recebimentoV2Db } from '../local-db/db';
+
+const AVARIA_ENTIDADE_TIPO = 'recebimento_avaria';
 
 export interface AvariaPhotoUploadResult {
   uploaded: number;
@@ -20,7 +22,16 @@ async function uploadSingleAvariaMedia(
   }
 
   if (!media.blob) {
-    await recebimentoV2Db.media.update(mediaId, { status: 'error' });
+    const errorMessage = 'Blob não encontrado no armazenamento local';
+    console.error(
+      `[PHOTO UPLOAD] tipo=${AVARIA_ENTIDADE_TIPO} mediaId=${mediaId}`,
+      errorMessage,
+    );
+    await recebimentoV2Db.media.update(mediaId, {
+      status: 'error',
+      errorMessage,
+      errorStep: 'unknown',
+    });
     return 'failed';
   }
 
@@ -34,7 +45,7 @@ async function uploadSingleAvariaMedia(
       },
       {
         nome: `avaria-${mediaId}.jpg`,
-        entidadeTipo: 'recebimento_avaria',
+        entidadeTipo: AVARIA_ENTIDADE_TIPO,
         entidadeId: avariaId,
       },
     );
@@ -43,11 +54,22 @@ async function uploadSingleAvariaMedia(
       status: 'uploaded',
       remoteUrl,
       uploadedAt: new Date().toISOString(),
+      errorMessage: undefined,
+      errorStep: undefined,
     });
 
     return 'uploaded';
-  } catch {
-    await recebimentoV2Db.media.update(mediaId, { status: 'error' });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[PHOTO UPLOAD] tipo=${AVARIA_ENTIDADE_TIPO} mediaId=${mediaId}`,
+      err,
+    );
+    await recebimentoV2Db.media.update(mediaId, {
+      status: 'error',
+      errorMessage,
+      errorStep: err instanceof UploadError ? err.step : 'unknown',
+    });
     return 'failed';
   }
 }

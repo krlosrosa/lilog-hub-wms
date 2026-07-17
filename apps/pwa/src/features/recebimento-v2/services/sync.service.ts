@@ -58,7 +58,22 @@ export interface PushResult {
   conflicts: number;
   newRevision: number;
   photosUploaded: number;
+  photosFailed: number;
   photosPending: number;
+}
+
+function sumPhotoUploadCounts(
+  ...results: Array<{ uploaded: number; failed: number }>
+): { photosUploaded: number; photosFailed: number } {
+  let photosUploaded = 0;
+  let photosFailed = 0;
+
+  for (const result of results) {
+    photosUploaded += result.uploaded;
+    photosFailed += result.failed;
+  }
+
+  return { photosUploaded, photosFailed };
 }
 
 export type PullDemandOptions = {
@@ -704,6 +719,7 @@ export async function pushDemand(
 
   if (syncableOps.length === 0) {
     let photosUploaded = 0;
+    let photosFailed = 0;
 
     try {
       const [checklistResult, avariaResult, impedimentoResult] = await Promise.all([
@@ -711,10 +727,15 @@ export async function pushDemand(
         ensureAvariaPhotosUploaded(demandId),
         ensureImpedimentoPhotosUploaded(demandId),
       ]);
-      photosUploaded =
-        checklistResult.uploaded + avariaResult.uploaded + impedimentoResult.uploaded;
-    } catch {
-      // Retry upload on a later sync cycle without blocking the caller.
+      const totals = sumPhotoUploadCounts(
+        checklistResult,
+        avariaResult,
+        impedimentoResult,
+      );
+      photosUploaded = totals.photosUploaded;
+      photosFailed = totals.photosFailed;
+    } catch (err) {
+      console.error('[PHOTO UPLOAD] Falha ao enviar fotos pendentes', { demandId, err });
     }
 
     return {
@@ -723,6 +744,7 @@ export async function pushDemand(
       conflicts: 0,
       newRevision: process.serverRevision,
       photosUploaded,
+      photosFailed,
       photosPending: await countRemainingPendingPhotos(demandId),
     };
   }
@@ -782,6 +804,7 @@ export async function pushDemand(
         conflicts: 0,
         newRevision: updatedProcess?.serverRevision ?? process.serverRevision,
         photosUploaded: 0,
+        photosFailed: 0,
         photosPending: await countRemainingPendingPhotos(demandId),
       };
     }
@@ -971,18 +994,24 @@ export async function pushDemand(
   }
 
   let photosUploaded = 0;
+  let photosFailed = 0;
 
   try {
-    const recebimentoId = await resolveRecebimentoId(demandId, result, syncableOps);
+    await resolveRecebimentoId(demandId, result, syncableOps);
     const [checklistResult, avariaResult, impedimentoResult] = await Promise.all([
       uploadChecklistPhotosAfterSync(demandId, result, syncableOps),
       uploadAvariaPhotosAfterSync(demandId, result, syncableOps),
       uploadImpedimentoPhotosAfterSync(demandId, result, syncableOps),
     ]);
-    photosUploaded =
-      checklistResult.uploaded + avariaResult.uploaded + impedimentoResult.uploaded;
-  } catch {
-    // Photo upload must not fail the metadata sync batch.
+    const totals = sumPhotoUploadCounts(
+      checklistResult,
+      avariaResult,
+      impedimentoResult,
+    );
+    photosUploaded = totals.photosUploaded;
+    photosFailed = totals.photosFailed;
+  } catch (err) {
+    console.error('[PHOTO UPLOAD] Falha ao enviar fotos após sync', { demandId, err });
   }
 
   const { repairSyncOperations } = await import('./repair-sync-operations.service');
@@ -994,6 +1023,7 @@ export async function pushDemand(
     conflicts: conflictCount,
     newRevision: result.serverRevision,
     photosUploaded,
+    photosFailed,
     photosPending: await countRemainingPendingPhotos(demandId),
   };
 }

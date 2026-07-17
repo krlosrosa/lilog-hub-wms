@@ -36,6 +36,8 @@ export interface PendingPhotoOperation {
   mimeType: string;
   sizeBytes: number;
   createdAt: string;
+  errorMessage?: string;
+  errorStep?: string;
 }
 
 const OP_TYPE_LABELS: Record<string, string> = {

@@ -239,6 +239,8 @@ export interface UnitConfigRecord {
   cachedAt: number;
 }
 
+export type MediaUploadErrorStep = 'upload-url' | 'put-blob' | 'confirm' | 'unknown';
+
 export interface MediaRecord {
   id: string; // uuid (PK)
   processId: string;
@@ -251,6 +253,8 @@ export interface MediaRecord {
   status: 'local' | 'uploading' | 'uploaded' | 'error';
   remoteUrl?: string;
   uploadedAt?: string;
+  errorMessage?: string;
+  errorStep?: MediaUploadErrorStep;
   createdAt: string;
 }
 

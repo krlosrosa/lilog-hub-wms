@@ -228,6 +228,8 @@ export async function listPendingPhotoUploads(demandId: string): Promise<
     mimeType: string;
     sizeBytes: number;
     createdAt: string;
+    errorMessage?: string;
+    errorStep?: string;
   }>
 > {
   const ids = await collectAllPendingPhotoIds(demandId);
@@ -245,6 +247,8 @@ export async function listPendingPhotoUploads(demandId: string): Promise<
     mimeType: string;
     sizeBytes: number;
     createdAt: string;
+    errorMessage?: string;
+    errorStep?: string;
   }> = [];
 
   for (const record of records) {
@@ -259,6 +263,8 @@ export async function listPendingPhotoUploads(demandId: string): Promise<
       mimeType: record.mimeType,
       sizeBytes: record.blob.size,
       createdAt: record.createdAt,
+      errorMessage: record.errorMessage,
+      errorStep: record.errorStep,
     });
   }
 

@@ -1,7 +1,9 @@
-import { uploadDocumentToBucket } from '@/lib/offline/document-upload';
+import { UploadError, uploadDocumentToBucket } from '@/lib/offline/document-upload';
 
 import type { ChecklistPhotoMediaIds } from '../local-db/schema';
 import { recebimentoV2Db } from '../local-db/db';
+
+const CHECKLIST_ENTIDADE_TIPO = 'checklist_recebimento';
 
 const CHECKLIST_SLOT_UPLOAD_NAMES: Record<keyof ChecklistPhotoMediaIds, string> = {
   lacre: 'lacre',
@@ -29,7 +31,16 @@ async function uploadSingleChecklistMedia(
   }
 
   if (!media.blob) {
-    await recebimentoV2Db.media.update(mediaId, { status: 'error' });
+    const errorMessage = 'Blob não encontrado no armazenamento local';
+    console.error(
+      `[PHOTO UPLOAD] tipo=${CHECKLIST_ENTIDADE_TIPO} mediaId=${mediaId}`,
+      errorMessage,
+    );
+    await recebimentoV2Db.media.update(mediaId, {
+      status: 'error',
+      errorMessage,
+      errorStep: 'unknown',
+    });
     return 'failed';
   }
 
@@ -43,7 +54,7 @@ async function uploadSingleChecklistMedia(
       },
       {
         nome: `checklist-${slotUploadName}-${mediaId}.jpg`,
-        entidadeTipo: 'checklist_recebimento',
+        entidadeTipo: CHECKLIST_ENTIDADE_TIPO,
         entidadeId: recebimentoId,
       },
     );
@@ -52,11 +63,22 @@ async function uploadSingleChecklistMedia(
       status: 'uploaded',
       remoteUrl,
       uploadedAt: new Date().toISOString(),
+      errorMessage: undefined,
+      errorStep: undefined,
     });
 
     return 'uploaded';
-  } catch {
-    await recebimentoV2Db.media.update(mediaId, { status: 'error' });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[PHOTO UPLOAD] tipo=${CHECKLIST_ENTIDADE_TIPO} mediaId=${mediaId}`,
+      err,
+    );
+    await recebimentoV2Db.media.update(mediaId, {
+      status: 'error',
+      errorMessage,
+      errorStep: err instanceof UploadError ? err.step : 'unknown',
+    });
     return 'failed';
   }
 }
