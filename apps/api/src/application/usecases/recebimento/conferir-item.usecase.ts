@@ -229,6 +229,7 @@ export class ConferirItemUseCase {
         parsed,
         {
           unitizadorId,
+          unitizadorCodigo: parsed.unitizadorCodigo?.trim() || null,
           pesoVariavel: config.pesoVariavel,
           conferidoPorId,
           clientConferenceId: clientConferenceId?.trim() || null,

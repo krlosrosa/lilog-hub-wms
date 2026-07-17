@@ -33,6 +33,7 @@ function mapConferidoToSnapshot(conferido: ConferenciaConferidoRecord) {
     pesagemId: conferido.pesagemId,
     recebimentoItemId: conferido.recebimentoItemId,
     clientConferenceId: conferido.clientConferenceId,
+    unitizadorCodigo: conferido.unitizadorCodigo ?? null,
   };
 }
 

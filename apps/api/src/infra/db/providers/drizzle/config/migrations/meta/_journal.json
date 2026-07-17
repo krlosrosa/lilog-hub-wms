@@ -988,6 +988,13 @@
       "when": 1792441600000,
       "tag": "0139_itens_client_conference_id",
       "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1792614400000,
+      "tag": "0140_itens_recebimento_unitizador_codigo",
+      "breakpoints": true
     }
   ]
 }

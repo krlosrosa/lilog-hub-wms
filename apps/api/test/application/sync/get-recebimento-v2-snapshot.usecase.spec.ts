@@ -72,8 +72,8 @@ describe('GetRecebimentoV2SnapshotUseCase', () => {
             etiquetaCodigo: 'ETQ-1',
             pesagemId: 'pesagem-1',
             recebimentoItemId: 'item-aggregated',
-            unitizadorCodigo: null,
-            unitizadorId: null,
+            unitizadorCodigo: 'PLT-001',
+            unitizadorId: '00000000-0000-4000-8000-000000000001',
           },
           {
             id: 'pesagem-2',
@@ -156,6 +156,7 @@ describe('GetRecebimentoV2SnapshotUseCase', () => {
         quantidadeRecebida: 1,
         pesoRecebido: 20,
         etiquetaCodigo: 'ETQ-1',
+        unitizadorCodigo: 'PLT-001',
       }),
       expect.objectContaining({
         id: 'pesagem-2',

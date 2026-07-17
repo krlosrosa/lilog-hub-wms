@@ -195,7 +195,7 @@ export async function getConferenciaContextDb(
       unidadeMedida: mapped.unidadeMedida,
       loteRecebido: mapped.loteRecebido,
       validade: mapped.validade,
-      unitizadorCodigo: null,
+      unitizadorCodigo: mapped.unitizadorCodigo ?? null,
       unitizadorId: mapped.unitizadorId,
       recebimentoItemId: mapped.id,
     } as const;

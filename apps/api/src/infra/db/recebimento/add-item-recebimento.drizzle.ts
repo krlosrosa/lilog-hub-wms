@@ -21,6 +21,18 @@ import {
   toItemRecebimentoInsertValues,
 } from './map-recebimento.drizzle.js';
 
+function resolveConferirItemData(
+  data: ConferirItemInput,
+  options?: AddItemRecebimentoOptions,
+): ConferirItemInput {
+  const unitizadorCodigo =
+    options?.unitizadorCodigo?.trim() || data.unitizadorCodigo?.trim();
+  if (!unitizadorCodigo || unitizadorCodigo === data.unitizadorCodigo) {
+    return data;
+  }
+  return { ...data, unitizadorCodigo };
+}
+
 function matchesConferenciaKey(
   row: typeof itensRecebimento.$inferSelect,
   data: ConferirItemInput,
@@ -160,13 +172,14 @@ export async function addItemRecebimentoDb(
   const unitizadorId = options?.unitizadorId ?? null;
   const pesoVariavel = options?.pesoVariavel ?? false;
   const conferidoPorId = options?.conferidoPorId ?? null;
+  const conferirData = resolveConferirItemData(data, options);
 
   if (pesoVariavel) {
     const itemBase = await findOrCreatePvarItem(
       db,
       recebimentoId,
       unidadeId,
-      data,
+      conferirData,
       unitizadorId,
       conferidoPorId,
     );
@@ -207,7 +220,7 @@ export async function addItemRecebimentoDb(
       toItemRecebimentoInsertValues(
         recebimentoId,
         unidadeId,
-        data,
+        conferirData,
         unitizadorId,
         conferidoPorId,
         clientConferenceId,

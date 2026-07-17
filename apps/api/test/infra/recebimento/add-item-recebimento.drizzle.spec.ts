@@ -156,6 +156,43 @@ describe('addItemRecebimentoDb', () => {
     expect(db.insert).toHaveBeenCalledTimes(2);
   });
 
+  it('persists unitizadorCodigo when provided', async () => {
+    const insertedItem = {
+      ...baseExisting,
+      id: 'item-2',
+      unitizadorCodigo: 'PLT-001',
+    };
+
+    const valuesFn = vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue([insertedItem]),
+    });
+
+    const db = {
+      select: vi.fn(),
+      update: vi.fn(),
+      insert: vi.fn().mockReturnValue({ values: valuesFn }),
+    };
+
+    const result = await addItemRecebimentoDb(
+      db as never,
+      'rec-1',
+      'ITB',
+      {
+        produtoId: 'prod-1',
+        quantidadeRecebida: 48,
+        unidadeMedida: 'UN',
+        loteRecebido: '111111',
+        unitizadorCodigo: 'PLT-001',
+      },
+      { unitizadorCodigo: 'PLT-001' },
+    );
+
+    expect(result.item.unitizadorCodigo).toBe('PLT-001');
+    expect(valuesFn).toHaveBeenCalledWith(
+      expect.objectContaining({ unitizadorCodigo: 'PLT-001' }),
+    );
+  });
+
   it('returns existing item when clientConferenceId already exists for non-PVAR', async () => {
     const existingItem = {
       ...baseExisting,

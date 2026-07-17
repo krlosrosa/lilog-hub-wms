@@ -198,6 +198,7 @@ export const itensRecebimento = recebimentoPgSchema.table(
     validade: timestamp('validade', { withTimezone: true }),
     numeroSerie: varchar('numero_serie', { length: 100 }),
     unitizadorId: uuid('unitizador_id'),
+    unitizadorCodigo: varchar('unitizador_codigo', { length: 100 }),
     conferidoPorId: integer('conferido_por_id').references(() => funcionarios.id, {
       onDelete: 'set null',
     }),
