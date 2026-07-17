@@ -37,6 +37,12 @@ type RemoveOpPayload = {
   deletedAt?: string;
 };
 
+const REMOVAL_OP_TYPES = new Set<string>([
+  RECEBIMENTO_V2_OP_TYPES.PALETE_REMOVE,
+  RECEBIMENTO_V2_OP_TYPES.PESAGEM_REMOVE,
+  RECEBIMENTO_V2_OP_TYPES.ITEM_REMOVE_BY_PRODUTO,
+]);
+
 function isValidConferirPayload(payload: Record<string, unknown>): boolean {
   return (
     typeof payload.produtoId === 'string' &&
@@ -231,6 +237,12 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
       continue;
     }
 
+    if (REMOVAL_OP_TYPES.has(op.opType) && op.status === 'rejected') {
+      await recebimentoV2Db.syncOperations.delete(op.id);
+      changed += 1;
+      continue;
+    }
+
     if (op.opType === RECEBIMENTO_V2_OP_TYPES.ITEM_LINHA_REMOVE) {
       if (op.status !== 'rejected' && op.status !== 'retry') {
         continue;
@@ -271,6 +283,19 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
         continue;
       }
 
+      const payload = (op.payload ?? {}) as Record<string, unknown>;
+      const conferenceId = payload.conferenceId as string | undefined;
+      const conference = conferenceId ? conferenceById.get(conferenceId) : undefined;
+
+      if (
+        conference?.syncStatus === 'synced' &&
+        (conference.serverItemId || conference.serverPesagemId)
+      ) {
+        await recebimentoV2Db.syncOperations.delete(op.id);
+        changed += 1;
+        continue;
+      }
+
       const revisionConflict = tryParseRevisionConflictPayload(op.errorMessage);
       if (
         op.status === 'retry' &&
@@ -289,10 +314,6 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
         changed += 1;
         continue;
       }
-
-      const payload = (op.payload ?? {}) as Record<string, unknown>;
-      const conferenceId = payload.conferenceId as string | undefined;
-      const conference = conferenceId ? conferenceById.get(conferenceId) : undefined;
 
       if (
         conference?.serverPesagemId &&
@@ -401,6 +422,14 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
       updatedAt: now,
     });
     changed += 1;
+  }
+
+  if (changed > 0) {
+    if (!(await hasRemainingSyncIssueWork(demandId))) {
+      resetAutoSyncBackoff(demandId);
+    } else {
+      await refreshAutoSyncPauseState(demandId);
+    }
   }
 
   return changed;

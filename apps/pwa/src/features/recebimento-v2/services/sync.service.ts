@@ -767,6 +767,8 @@ export async function pushDemand(
 
     if (isRevisionConflictError(err)) {
       await handleRevisionConflict(demandId, opIds, previousStatus);
+      const { repairSyncOperations } = await import('./repair-sync-operations.service');
+      await repairSyncOperations(demandId).catch(() => undefined);
       const { resetAutoSyncBackoff, triggerAutoSyncIfPending } = await import(
         './auto-sync-v2.service'
       );
@@ -982,6 +984,9 @@ export async function pushDemand(
   } catch {
     // Photo upload must not fail the metadata sync batch.
   }
+
+  const { repairSyncOperations } = await import('./repair-sync-operations.service');
+  await repairSyncOperations(demandId).catch(() => undefined);
 
   return {
     accepted: result.appliedCount,
