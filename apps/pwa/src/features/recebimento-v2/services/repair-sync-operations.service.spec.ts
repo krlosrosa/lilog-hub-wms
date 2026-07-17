@@ -293,4 +293,46 @@ describe('dismissSyncOperation', () => {
     const process = await recebimentoV2Db.processes.get(DEMAND_ID);
     expect(process?.autoSyncPaused).toBe(false);
   });
+
+  it('resets ITEM_CONFERIR retry ops after serverRevision moved past REVISION_CONFLICT baseRevision', async () => {
+    await recebimentoV2Db.processes.update(DEMAND_ID, {
+      serverRevision: 33,
+    });
+
+    const opId = crypto.randomUUID();
+    await recebimentoV2Db.syncOperations.put({
+      id: opId,
+      aggregateId: DEMAND_ID,
+      module: 'conference',
+      opType: RECEBIMENTO_V2_OP_TYPES.ITEM_CONFERIR,
+      sequence: 1,
+      dependsOn: [],
+      idempotencyKey: crypto.randomUUID(),
+      payload: {
+        conferenceId: crypto.randomUUID(),
+        produtoId: '610500413',
+        quantidadeRecebida: 1,
+        unidadeMedida: 'CX',
+      },
+      attachmentIds: [],
+      status: 'retry',
+      attempts: 5,
+      errorMessage: JSON.stringify({
+        code: 'REVISION_CONFLICT',
+        baseRevision: 28,
+        currentRevision: 30,
+        message: 'Dados foram modificados desde a última sincronização. Atualize e tente novamente.',
+      }),
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    const changed = await repairSyncOperations(DEMAND_ID);
+    const repaired = await recebimentoV2Db.syncOperations.get(opId);
+
+    expect(changed).toBeGreaterThan(0);
+    expect(repaired?.status).toBe('pending');
+    expect(repaired?.attempts).toBe(0);
+    expect(repaired?.errorMessage).toBeUndefined();
+  });
 });

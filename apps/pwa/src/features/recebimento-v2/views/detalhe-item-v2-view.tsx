@@ -464,7 +464,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
   const effectiveLote = maintainedLoteContext.lote || loteValue;
 
   const fabricacaoFromLote = useMemo(() => {
-    if (!showLote || isPvar || !canParseFabricacaoFromLote(effectiveLote)) {
+    if (!showLote || !canParseFabricacaoFromLote(effectiveLote)) {
       return null;
     }
     if (
@@ -474,7 +474,7 @@ export function DetalheItemV2View({ demandId, sku: rawSku }: DetalheItemV2ViewPr
       return null;
     }
     return parseFabricacaoFromLote(effectiveLote);
-  }, [effectiveLote, isPvar, showLote]);
+  }, [effectiveLote, showLote]);
 
   const showValidadeInput = showValidade;
 

@@ -6,6 +6,7 @@ import { filterSyncableOperations } from './palete-session-v2.service';
 import { isOpAutoSyncable, nextRetryAttemptAt } from '../lib/sync-retry-policy';
 import { debugRecebimentoV2, errorRecebimentoV2 } from '../lib/sync-debug';
 import { reconcileRemoteSituacao } from '../lib/reconcile-remote-situacao';
+import { isRevisionConflictError } from '../lib/sync-revision-conflict';
 import { fetchPackage, fetchSnapshot, pushBatch } from '../api/sync-api';
 import {
   buildSkuByProdutoIdMap,
@@ -583,6 +584,99 @@ async function uploadAvariaPhotosAfterSync(
   };
 }
 
+async function handleRevisionConflict(
+  demandId: string,
+  stuckOpIds: string[],
+  previousStatus: string,
+): Promise<void> {
+  const now = Date.now();
+
+  await recebimentoV2Db.processes.update(demandId, {
+    status: previousStatus === 'syncing' ? 'working' : previousStatus,
+    pendingFinalizationSync: false,
+    updatedAt: now,
+  });
+
+  await pullDemand(demandId, { force: false });
+
+  const snapshot = await fetchSnapshot(demandId);
+  const appliedByConferenceId = new Map<string, Record<string, unknown>>();
+
+  for (const entry of resolveSnapshotConferences(snapshot)) {
+    const clientConferenceId =
+      typeof entry.clientConferenceId === 'string' && entry.clientConferenceId.trim()
+        ? entry.clientConferenceId.trim()
+        : undefined;
+
+    if (clientConferenceId) {
+      appliedByConferenceId.set(clientConferenceId, entry);
+    }
+  }
+
+  await recebimentoV2Db.transaction(
+    'rw',
+    [recebimentoV2Db.syncOperations, recebimentoV2Db.conferences],
+    async () => {
+      for (const opId of stuckOpIds) {
+        const op = await recebimentoV2Db.syncOperations.get(opId);
+        if (!op) {
+          continue;
+        }
+
+        const payload = op.payload as { conferenceId?: string };
+        const conferenceId = payload.conferenceId;
+        const serverEntry =
+          conferenceId && appliedByConferenceId.has(conferenceId)
+            ? appliedByConferenceId.get(conferenceId)
+            : undefined;
+
+        if (serverEntry) {
+          const recebimentoItemId =
+            typeof serverEntry.recebimentoItemId === 'string'
+              ? serverEntry.recebimentoItemId
+              : typeof serverEntry.id === 'string'
+                ? serverEntry.id
+                : undefined;
+          const pesagemId =
+            typeof serverEntry.pesagemId === 'string' ? serverEntry.pesagemId : undefined;
+
+          if (conferenceId) {
+            await recebimentoV2Db.conferences
+              .update(conferenceId, {
+                syncStatus: 'synced',
+                ...(recebimentoItemId ? { serverItemId: recebimentoItemId } : {}),
+                ...(pesagemId ? { serverPesagemId: pesagemId } : {}),
+                updatedAt: now,
+              })
+              .catch(() => undefined);
+          }
+
+          await recebimentoV2Db.syncOperations.update(opId, {
+            status: 'synced',
+            errorMessage: undefined,
+            nextAttemptAt: undefined,
+            payload: {
+              ...(op.payload as Record<string, unknown>),
+              ...(recebimentoItemId ? { serverItemId: recebimentoItemId } : {}),
+              ...(pesagemId ? { serverPesagemId: pesagemId } : {}),
+            },
+            updatedAt: now,
+          });
+          continue;
+        }
+
+        await recebimentoV2Db.syncOperations.update(opId, {
+          status: 'pending',
+          attempts: 0,
+          errorMessage: undefined,
+          nextAttemptAt: undefined,
+          updatedAt: now,
+        });
+      }
+    },
+  );
+}
+
 /**
  * Pushes all pending sync operations for a demand to the server.
  */
@@ -670,6 +764,26 @@ export async function pushDemand(
     });
   } catch (err) {
     errorRecebimentoV2('sync', 'pushBatch failed', { demandId, err });
+
+    if (isRevisionConflictError(err)) {
+      await handleRevisionConflict(demandId, opIds, previousStatus);
+      const { resetAutoSyncBackoff, triggerAutoSyncIfPending } = await import(
+        './auto-sync-v2.service'
+      );
+      resetAutoSyncBackoff(demandId);
+      triggerAutoSyncIfPending(demandId);
+
+      const updatedProcess = await recebimentoV2Db.processes.get(demandId);
+      return {
+        accepted: 0,
+        rejected: 0,
+        conflicts: 0,
+        newRevision: updatedProcess?.serverRevision ?? process.serverRevision,
+        photosUploaded: 0,
+        photosPending: await countRemainingPendingPhotos(demandId),
+      };
+    }
+
     // Revert to retry on network error
     await recebimentoV2Db.transaction(
       'rw',

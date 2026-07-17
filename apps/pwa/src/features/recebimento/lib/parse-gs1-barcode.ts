@@ -388,6 +388,28 @@ export type Gs1BarcodeApplyResult = {
   validade: string | null;
 };
 
+function resolveFabricacaoFromLoteOrGs1(
+  lote: string | null,
+  gs1Dates: Pick<
+    Gs1BarcodeParseResult,
+    'productionDateIso' | 'expirationDateIso' | 'bestBeforeDateIso'
+  >,
+): string | null {
+  if (lote && canParseFabricacaoFromLote(lote)) {
+    const parsedFabricacao = parseFabricacaoFromLote(lote);
+    if (parsedFabricacao.ok) {
+      return parsedFabricacao.isoDate;
+    }
+  }
+
+  return (
+    gs1Dates.productionDateIso ??
+    gs1Dates.expirationDateIso ??
+    gs1Dates.bestBeforeDateIso ??
+    null
+  );
+}
+
 export function applyGs1BarcodeInput(input: string): Gs1BarcodeApplyResult {
   const trimmed = normalizeGs1ScannerInput(input);
   if (!trimmed || !looksLikeGs1Barcode(trimmed)) {
@@ -404,8 +426,7 @@ export function applyGs1BarcodeInput(input: string): Gs1BarcodeApplyResult {
   const hasWeight = parsed.netWeightKg != null;
   const hasGtin = parsed.gtin != null;
   const hasLote = !!parsed.batchLot;
-  const validade =
-    parsed.productionDateIso ?? parsed.expirationDateIso ?? parsed.bestBeforeDateIso ?? null;
+  const validade = resolveFabricacaoFromLoteOrGs1(parsed.batchLot, parsed);
   const hasValidade = !!validade;
 
   if (!hasWeight && !hasGtin && !hasLote && !hasValidade) {
@@ -441,10 +462,10 @@ export function resolveLoteFieldInput(raw: string): LoteFieldResolveResult {
 
   if (looksLikeGs1TraceabilityBarcode(trimmed)) {
     const parsed = parseGs1Barcode(trimmed);
+    const lote = parsed.batchLot ?? '';
     return {
-      lote: parsed.batchLot ?? '',
-      validade:
-        parsed.productionDateIso ?? parsed.expirationDateIso ?? parsed.bestBeforeDateIso ?? null,
+      lote,
+      validade: resolveFabricacaoFromLoteOrGs1(lote || null, parsed),
       parsedFromGs1: true,
     };
   }
@@ -558,14 +579,7 @@ export function applyGs1NonPvarScanInput(input: string): Gs1NonPvarScanResult {
   const parsed = parseGs1Barcode(trimmed);
   const lote = parsed.batchLot;
   const quantidadeCaixas = parsed.count;
-
-  let fabricacao: string | null = null;
-  if (lote && canParseFabricacaoFromLote(lote)) {
-    const parsedFabricacao = parseFabricacaoFromLote(lote);
-    if (parsedFabricacao.ok) {
-      fabricacao = parsedFabricacao.isoDate;
-    }
-  }
+  const fabricacao = resolveFabricacaoFromLoteOrGs1(lote, parsed);
 
   if (!lote && quantidadeCaixas == null) {
     return {

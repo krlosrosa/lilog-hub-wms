@@ -131,6 +131,25 @@ async function findOrCreatePvarItem(
   return mapItemRecebimentoRow(record);
 }
 
+async function findItemByClientConferenceId(
+  db: DrizzleClient,
+  recebimentoId: string,
+  clientConferenceId: string,
+): Promise<ItemRecebimentoRecord | null> {
+  const [row] = await db
+    .select()
+    .from(itensRecebimento)
+    .where(
+      and(
+        eq(itensRecebimento.recebimentoId, recebimentoId),
+        eq(itensRecebimento.clientConferenceId, clientConferenceId),
+      ),
+    )
+    .limit(1);
+
+  return row ? mapItemRecebimentoRow(row) : null;
+}
+
 export async function addItemRecebimentoDb(
   db: DrizzleClient,
   recebimentoId: string,
@@ -170,6 +189,18 @@ export async function addItemRecebimentoDb(
     return { item, pesagem };
   }
 
+  const clientConferenceId = options?.clientConferenceId?.trim() || null;
+  if (clientConferenceId) {
+    const existing = await findItemByClientConferenceId(
+      db,
+      recebimentoId,
+      clientConferenceId,
+    );
+    if (existing) {
+      return { item: existing, pesagem: null };
+    }
+  }
+
   const [record] = await db
     .insert(itensRecebimento)
     .values(
@@ -179,6 +210,7 @@ export async function addItemRecebimentoDb(
         data,
         unitizadorId,
         conferidoPorId,
+        clientConferenceId,
       ),
     )
     .returning();

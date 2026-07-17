@@ -201,11 +201,18 @@ export const itensRecebimento = recebimentoPgSchema.table(
     conferidoPorId: integer('conferido_por_id').references(() => funcionarios.id, {
       onDelete: 'set null',
     }),
+    clientConferenceId: varchar('client_conference_id', { length: 128 }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
-  (table) => [index('itens_recebimento_unidade_id_idx').on(table.unidadeId)],
+  (table) => [
+    index('itens_recebimento_unidade_id_idx').on(table.unidadeId),
+    unique('itens_recebimento_rec_client_conf_uidx').on(
+      table.recebimentoId,
+      table.clientConferenceId,
+    ),
+  ],
 );
 
 export const pesagensRecebimento = recebimentoPgSchema.table(

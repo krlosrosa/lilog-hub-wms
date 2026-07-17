@@ -9,6 +9,7 @@ import {
   resolveProductForSkuV2,
   resolveUnidadesPorCaixa,
 } from '../lib/resolve-produto-conferencia-v2';
+import { tryParseRevisionConflictPayload } from '../lib/sync-revision-conflict';
 import { recebimentoV2Db } from '../local-db/db';
 import type { ConferenceRecord, DamageRecord, SyncOperationRecord } from '../local-db/schema';
 import type { LoteModo } from '@/features/recebimento/types/recebimento.schema';
@@ -199,10 +200,11 @@ export async function dismissSyncOperation(opId: string): Promise<void> {
 }
 
 export async function repairSyncOperations(demandId: string): Promise<number> {
-  const [ops, conferences, damages] = await Promise.all([
+  const [ops, conferences, damages, process] = await Promise.all([
     recebimentoV2Db.syncOperations.where('aggregateId').equals(demandId).toArray(),
     recebimentoV2Db.conferences.where('demandId').equals(demandId).toArray(),
     recebimentoV2Db.damages.where('demandId').equals(demandId).toArray(),
+    recebimentoV2Db.processes.get(demandId),
   ]);
 
   const conferenceById = new Map(conferences.map((item) => [item.id, item]));
@@ -266,6 +268,25 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
 
     if (op.opType === RECEBIMENTO_V2_OP_TYPES.ITEM_CONFERIR) {
       if (op.status !== 'rejected' && op.status !== 'retry') {
+        continue;
+      }
+
+      const revisionConflict = tryParseRevisionConflictPayload(op.errorMessage);
+      if (
+        op.status === 'retry' &&
+        revisionConflict != null &&
+        (op.attempts ?? 0) > 0 &&
+        process &&
+        revisionConflict.baseRevision < process.serverRevision
+      ) {
+        await recebimentoV2Db.syncOperations.update(op.id, {
+          status: 'pending',
+          attempts: 0,
+          errorMessage: undefined,
+          nextAttemptAt: undefined,
+          updatedAt: now,
+        });
+        changed += 1;
         continue;
       }
 

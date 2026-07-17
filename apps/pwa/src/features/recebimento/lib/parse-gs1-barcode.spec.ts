@@ -154,10 +154,18 @@ describe('parseGs1Barcode traceability', () => {
 });
 
 describe('resolveLoteFieldInput', () => {
-  it('extrai lote e fabricação de GS1 bipado no campo lote', () => {
+  it('extrai lote e fabricação do lote em GS1 bipado no campo lote (não do AI 15/11)', () => {
     expect(resolveLoteFieldInput(LOTE_GS1)).toEqual({
       lote: '4011260312',
-      validade: '2026-06-16',
+      validade: '2026-03-12',
+      parsedFromGs1: true,
+    });
+  });
+
+  it('extrai fabricação do lote quando GS1 traz apenas AI 15 (validade)', () => {
+    expect(resolveLoteFieldInput('(15)260901(10)4022250110')).toEqual({
+      lote: '4022250110',
+      validade: '2025-01-10',
       parsedFromGs1: true,
     });
   });
@@ -220,23 +228,23 @@ describe('applyGs1BarcodeInput', () => {
     });
   });
 
-  it('aplica lote e fabricação de GS1 de rastreabilidade', () => {
+  it('aplica lote e fabricação derivada do lote em GS1 de rastreabilidade', () => {
     expect(applyGs1BarcodeInput(LOTE_GS1)).toEqual({
       applied: true,
       pesoKg: null,
       etiqueta: null,
       lote: '4011260312',
-      validade: '2026-06-16',
+      validade: '2026-03-12',
     });
   });
 
-  it('aplica lote truncado da imagem de rastreabilidade', () => {
+  it('aplica lote truncado da imagem de rastreabilidade com fabricação do lote', () => {
     expect(applyGs1BarcodeInput(LOTE_GS1_IMAGEM)).toEqual({
       applied: true,
       pesoKg: null,
       etiqueta: null,
       lote: '4011260610',
-      validade: '2026-06-30',
+      validade: '2026-06-10',
     });
   });
 

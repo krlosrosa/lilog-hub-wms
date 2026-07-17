@@ -37,6 +37,7 @@ export type ItemRecebimentoRecord = {
   numeroSerie: string | null;
   unitizadorId: string | null;
   unitizadorCodigo?: string | null;
+  clientConferenceId?: string | null;
   createdAt: Date;
 };
 

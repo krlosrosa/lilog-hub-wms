@@ -155,4 +155,40 @@ describe('addItemRecebimentoDb', () => {
     expect(result.pesagem?.etiquetaCodigo).toBe('ETQ-001');
     expect(db.insert).toHaveBeenCalledTimes(2);
   });
+
+  it('returns existing item when clientConferenceId already exists for non-PVAR', async () => {
+    const existingItem = {
+      ...baseExisting,
+      clientConferenceId: 'conf-uuid-002',
+    };
+
+    const db = {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([existingItem]),
+          }),
+        }),
+      }),
+      update: vi.fn(),
+      insert: vi.fn(),
+    };
+
+    const result = await addItemRecebimentoDb(
+      db as never,
+      'rec-1',
+      'ITB',
+      {
+        produtoId: 'prod-1',
+        quantidadeRecebida: 48,
+        unidadeMedida: 'UN',
+        loteRecebido: '111111',
+      },
+      { clientConferenceId: 'conf-uuid-002' },
+    );
+
+    expect(result.item.id).toBe('item-1');
+    expect(result.pesagem).toBeNull();
+    expect(db.insert).not.toHaveBeenCalled();
+  });
 });

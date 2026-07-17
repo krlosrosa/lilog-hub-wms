@@ -102,6 +102,7 @@ export type ConferenciaConferidoRecord = {
   recebimentoItemId: string;
   unitizadorCodigo: string | null;
   unitizadorId: string | null;
+  clientConferenceId: string | null;
 };
 
 

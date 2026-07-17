@@ -25,7 +25,7 @@ describe('resolveNonPvarLoteOnSubmit', () => {
 
     expect(error).toBeUndefined();
     expect(form.lote).toBe('4011260312');
-    expect(form.validade).toBe('2026-06-16');
+    expect(form.validade).toBe('2026-03-12');
   });
 
   it('mantém lote digitado e extrai fabricação de lote numérico longo', () => {
@@ -77,7 +77,7 @@ describe('applyNonPvarLoteResolution', () => {
     expect(error).toBeUndefined();
     expect(changed).toBe(true);
     expect(form.lote).toBe('4011260312');
-    expect(form.validade).toBe('2026-06-16');
+    expect(form.validade).toBe('2026-03-12');
   });
 
   it('não marca changed para lote numérico curto', () => {

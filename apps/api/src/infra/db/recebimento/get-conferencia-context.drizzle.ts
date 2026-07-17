@@ -209,6 +209,7 @@ export async function getConferenciaContextDb(
           pesoRecebido: pesagem.pesoKg,
           etiquetaCodigo: pesagem.etiquetaCodigo,
           pesagemId: pesagem.id,
+          clientConferenceId: pesagem.clientConferenceId ?? null,
         });
       }
     } else {
@@ -219,6 +220,7 @@ export async function getConferenciaContextDb(
         pesoRecebido: mapped.pesoRecebido,
         etiquetaCodigo: null,
         pesagemId: null,
+        clientConferenceId: mapped.clientConferenceId ?? null,
       });
     }
   }

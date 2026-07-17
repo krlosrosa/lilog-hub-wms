@@ -43,7 +43,8 @@ function resolveApiBase(): string {
 export class ApiClientError extends Error {
   constructor(
     message: string,
-    public readonly status?: number
+    public readonly status?: number,
+    public readonly body?: unknown,
   ) {
     super(message);
     this.name = 'ApiClientError';
@@ -85,19 +86,21 @@ export async function request<T>(
   if (!response.ok) {
     const text = await response.text().catch(() => response.statusText);
     let message = text || `Erro HTTP ${response.status}`;
+    let parsedBody: unknown;
 
     try {
-      const parsed = JSON.parse(text) as { message?: string | string[] };
+      parsedBody = JSON.parse(text) as { message?: string | string[] };
+      const parsed = parsedBody as { message?: string | string[] };
       if (parsed.message) {
         message = Array.isArray(parsed.message)
           ? parsed.message.join(', ')
           : parsed.message;
       }
     } catch {
-      // keep raw text
+      parsedBody = undefined;
     }
 
-    throw new ApiClientError(message, response.status);
+    throw new ApiClientError(message, response.status, parsedBody);
   }
 
   if (response.status === 204) {
