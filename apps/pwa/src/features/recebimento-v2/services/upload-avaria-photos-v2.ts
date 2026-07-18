@@ -54,6 +54,7 @@ async function uploadSingleAvariaMedia(
       status: 'uploaded',
       remoteUrl,
       uploadedAt: new Date().toISOString(),
+      blob: undefined as unknown as Blob,
       errorMessage: undefined,
       errorStep: undefined,
     });

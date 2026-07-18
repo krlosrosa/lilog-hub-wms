@@ -20,6 +20,9 @@
     "node": ">=22"
   },
   "pnpm": {
+    "overrides": {
+      "dexie": "4.4.3"
+    },
     "onlyBuiltDependencies": [
       "@nestjs/core",
       "@swc/core",

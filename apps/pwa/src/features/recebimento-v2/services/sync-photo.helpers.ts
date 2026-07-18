@@ -165,13 +165,21 @@ export function collectChecklistPhotoIds(
 }
 
 export async function collectAvariaPhotoIds(demandId: string): Promise<string[]> {
-  const media = await recebimentoV2Db.media
-    .where('processId')
-    .equals(demandId)
-    .and((item) => item.ownerType === 'avaria')
-    .toArray();
+  const [media, damages] = await Promise.all([
+    recebimentoV2Db.media
+      .where('processId')
+      .equals(demandId)
+      .and((item) => item.ownerType === 'avaria')
+      .toArray(),
+    recebimentoV2Db.damages
+      .where('demandId')
+      .equals(demandId)
+      .and((damage) => !damage.deletedAt)
+      .toArray(),
+  ]);
 
-  return media.map((item) => item.id);
+  const activeDamageIds = new Set(damages.map((damage) => damage.id));
+  return media.filter((item) => activeDamageIds.has(item.ownerId)).map((item) => item.id);
 }
 
 export async function collectImpedimentoPhotoIds(demandId: string): Promise<string[]> {
@@ -455,8 +463,12 @@ export async function recoverStuckSyncState(demandId: string): Promise<void> {
 
   const records = await recebimentoV2Db.media.bulkGet(photoIds);
   for (const record of records) {
-    if (record?.status === 'uploading') {
-      await recebimentoV2Db.media.update(record.id, { status: 'local' });
+    if (record?.status === 'uploading' || record?.status === 'error') {
+      await recebimentoV2Db.media.update(record.id, {
+        status: 'local',
+        errorMessage: undefined,
+        errorStep: undefined,
+      });
     }
   }
 }

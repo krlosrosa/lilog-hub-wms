@@ -18,6 +18,7 @@ import {
   refreshAutoSyncPauseState,
   resetAutoSyncBackoff,
 } from './auto-sync-v2.service';
+import { reconcileOrphanedPendingSyncOps } from './mark-sync-ops-for-patch.service';
 import { countPendingPhotoUploads } from './sync-photo.helpers';
 
 type ConferirOpPayload = {
@@ -206,6 +207,8 @@ export async function dismissSyncOperation(opId: string): Promise<void> {
 }
 
 export async function repairSyncOperations(demandId: string): Promise<number> {
+  let changed = await reconcileOrphanedPendingSyncOps(demandId);
+
   const [ops, conferences, damages, process] = await Promise.all([
     recebimentoV2Db.syncOperations.where('aggregateId').equals(demandId).toArray(),
     recebimentoV2Db.conferences.where('demandId').equals(demandId).toArray(),
@@ -215,7 +218,6 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
 
   const conferenceById = new Map(conferences.map((item) => [item.id, item]));
   const damageById = new Map(damages.map((item) => [item.id, item]));
-  let changed = 0;
   const now = Date.now();
 
   for (const op of ops) {

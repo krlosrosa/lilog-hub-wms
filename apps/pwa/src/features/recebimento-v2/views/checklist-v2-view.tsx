@@ -131,18 +131,27 @@ function PhotoThumb({
   title,
   photo,
   error,
+  isProcessing = false,
   onCapture,
   onRemove,
 }: {
   title: string;
   photo?: { id: string; previewUrl: string };
   error?: string;
+  isProcessing?: boolean;
   onCapture: () => void;
   onRemove: (photoId: string) => void;
 }) {
   return (
     <div className="relative shrink-0">
-      {photo ? (
+      {isProcessing ? (
+        <div
+          className="flex h-14 w-14 items-center justify-center rounded-lg border border-secondary/40 bg-surface-container-low"
+          aria-label={`Processando foto: ${title}`}
+        >
+          <Loader2 className="h-5 w-5 animate-spin text-secondary" aria-hidden />
+        </div>
+      ) : photo ? (
         <button
           type="button"
           onClick={() => {
@@ -164,8 +173,9 @@ function PhotoThumb({
             hapticLight();
             onCapture();
           }}
+          disabled={isProcessing}
           className={cn(
-            'flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed bg-surface-container-low px-1 touch-manipulation active:scale-95',
+            'flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed bg-surface-container-low px-1 touch-manipulation active:scale-95 disabled:opacity-60',
             error
               ? 'border-destructive text-destructive'
               : 'border-outline-variant text-on-surface-variant',
@@ -582,6 +592,7 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
                   title={slot.label}
                   photo={captureBySlot[slot.id].photos[0]}
                   error={photoErrors[slot.id]}
+                  isProcessing={captureBySlot[slot.id].isProcessing}
                   onCapture={() => captureBySlot[slot.id].capture()}
                   onRemove={(id) => void captureBySlot[slot.id].removePhoto(id)}
                 />
@@ -606,9 +617,14 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
               <button
                 type="button"
                 onClick={() => extrasPhotos.capture()}
-                className="inline-flex items-center gap-1 text-label-sm text-secondary"
+                disabled={extrasPhotos.isProcessing}
+                className="inline-flex items-center gap-1 text-label-sm text-secondary disabled:opacity-50"
               >
-                <Plus className="h-3.5 w-3.5" aria-hidden />
+                {extrasPhotos.isProcessing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                )}
                 Adicionar
               </button>
             </div>
@@ -618,6 +634,7 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
                   key={photo.id}
                   title="Extra"
                   photo={photo}
+                  isProcessing={extrasPhotos.isProcessing}
                   onCapture={() => extrasPhotos.capture()}
                   onRemove={(id) => void extrasPhotos.removePhoto(id)}
                 />

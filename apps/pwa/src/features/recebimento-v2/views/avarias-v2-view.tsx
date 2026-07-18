@@ -628,9 +628,14 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
                 <button
                   type="button"
                   onClick={() => photoCapture.capture()}
-                  className="inline-flex items-center gap-1 text-label-sm text-secondary"
+                  disabled={photoCapture.isProcessing}
+                  className="inline-flex items-center gap-1 text-label-sm text-secondary disabled:opacity-50"
                 >
-                  <Camera className="h-3.5 w-3.5" aria-hidden />
+                  {photoCapture.isProcessing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <Camera className="h-3.5 w-3.5" aria-hidden />
+                  )}
                   Capturar
                 </button>
               </div>

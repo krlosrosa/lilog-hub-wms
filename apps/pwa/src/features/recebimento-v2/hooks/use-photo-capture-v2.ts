@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 
-import { optimizeImageForUpload } from '@/lib/images/optimize-image';
+import { CONFERENCE_PHOTO_OPTIONS, optimizeImageForUpload } from '@/lib/images/optimize-image';
 
 import { recebimentoV2Db } from '../local-db/db';
 import type { MediaRecord } from '../local-db/schema';
@@ -89,7 +89,7 @@ export function usePhotoCaptureV2({
       setIsProcessing(true);
 
       try {
-        const optimized = await optimizeImageForUpload(file);
+        const optimized = await optimizeImageForUpload(file, CONFERENCE_PHOTO_OPTIONS);
         await captureMedia(
           processId,
           ownerType,

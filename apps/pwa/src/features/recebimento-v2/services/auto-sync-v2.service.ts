@@ -1,6 +1,8 @@
+import { RECEBIMENTO_V2_OP_TYPES, type DemandPatchResult } from '@lilog/contracts';
+
+import { isRevisionConflictError } from '../lib/sync-revision-conflict';
 import { recebimentoV2Db } from '../local-db/db';
 import {
-  isOpAutoSyncable,
   isOpRetryExhausted,
   RECEBIMENTO_V2_RETRY_POLICY,
 } from '../lib/sync-retry-policy';
@@ -8,6 +10,8 @@ import { debugRecebimentoV2 } from '../lib/sync-debug';
 
 import { hasPendingPhotoUploads } from './sync-photo.helpers';
 import { pushDemand, type PushResult } from './sync.service';
+import { pushDemandPatchFromLocal } from './push-demand-patch.service';
+import { reconcileOrphanedPendingSyncOps } from './mark-sync-ops-for-patch.service';
 
 const AUTO_SYNC_INTERVAL_MS = 45_000;
 const AUTO_SYNC_DEBOUNCE_MS = 800;
@@ -29,6 +33,10 @@ function isBrowserOnline(): boolean {
   return navigator.onLine !== false;
 }
 
+function isDirtyStatus(status: string): boolean {
+  return status === 'pending' || status === 'retry' || status === 'syncing';
+}
+
 export async function hasPendingSyncWork(demandId: string): Promise<boolean> {
   const count = await recebimentoV2Db.syncOperations
     .where('aggregateId')
@@ -39,18 +47,59 @@ export async function hasPendingSyncWork(demandId: string): Promise<boolean> {
   return count > 0;
 }
 
-export async function hasAutoSyncableWork(demandId: string): Promise<boolean> {
-  const ops = await recebimentoV2Db.syncOperations
-    .where('aggregateId')
-    .equals(demandId)
-    .and((op) => op.status === 'pending' || op.status === 'retry')
-    .toArray();
+export async function hasDirtyPatchWork(demandId: string): Promise<boolean> {
+  const [
+    process,
+    checklist,
+    dirtyConferences,
+    dirtyDamages,
+    dirtyTemperatures,
+    dirtyImpedimento,
+    encerrarOrRetomarOp,
+  ] = await Promise.all([
+    recebimentoV2Db.processes.get(demandId),
+    recebimentoV2Db.checklists.get(demandId),
+    recebimentoV2Db.conferences
+      .where('demandId')
+      .equals(demandId)
+      .filter((record) => isDirtyStatus(record.syncStatus))
+      .count(),
+    recebimentoV2Db.damages
+      .where('demandId')
+      .equals(demandId)
+      .filter((record) => isDirtyStatus(record.syncStatus))
+      .count(),
+    recebimentoV2Db.temperatures
+      .where('demandId')
+      .equals(demandId)
+      .filter((record) => isDirtyStatus(record.syncStatus))
+      .count(),
+    recebimentoV2Db.impedimentos
+      .where('demandId')
+      .equals(demandId)
+      .filter((record) => isDirtyStatus(record.syncStatus))
+      .first(),
+    recebimentoV2Db.syncOperations
+      .where('aggregateId')
+      .equals(demandId)
+      .and(
+        (op) =>
+          (op.opType === RECEBIMENTO_V2_OP_TYPES.CONFERENCIA_ENCERRAR ||
+            op.opType === RECEBIMENTO_V2_OP_TYPES.CONFERENCIA_RETOMAR) &&
+          (op.status === 'pending' || op.status === 'retry'),
+      )
+      .count(),
+  ]);
 
-  if (ops.some((op) => isOpAutoSyncable(op))) {
-    return true;
-  }
-
-  return hasPendingPhotoUploads(demandId);
+  return (
+    process?.pendingFinalizationSync === true ||
+    (checklist != null && isDirtyStatus(checklist.syncStatus)) ||
+    dirtyConferences > 0 ||
+    dirtyDamages > 0 ||
+    dirtyTemperatures > 0 ||
+    dirtyImpedimento != null ||
+    encerrarOrRetomarOp > 0
+  );
 }
 
 async function hasExhaustedSyncOps(demandId: string): Promise<boolean> {
@@ -138,11 +187,44 @@ function cancelAllScheduledAutoSync(): void {
   }
 }
 
+function patchResultToPushResult(result: DemandPatchResult): PushResult {
+  return {
+    accepted:
+      (result.applied.conferencias?.accepted ?? 0) +
+      (result.applied.avarias?.accepted ?? 0) +
+      (result.applied.temperaturas?.accepted ?? 0) +
+      (result.applied.checklist ? 1 : 0) +
+      (result.applied.impedimento ? 1 : 0) +
+      (result.applied.encerrado ? 1 : 0),
+    rejected:
+      (result.applied.conferencias?.rejected ?? 0) +
+      (result.applied.avarias?.rejected ?? 0) +
+      (result.applied.temperaturas?.rejected ?? 0),
+    conflicts: result.conflicts?.length ?? 0,
+    newRevision: result.serverRevision,
+    photosUploaded: 0,
+    photosFailed: 0,
+    photosPending: 0,
+  };
+}
+
+function mergePushResults(base: PushResult, extra: PushResult): PushResult {
+  return {
+    accepted: base.accepted + extra.accepted,
+    rejected: base.rejected + extra.rejected,
+    conflicts: base.conflicts + extra.conflicts,
+    newRevision: Math.max(base.newRevision, extra.newRevision),
+    photosUploaded: base.photosUploaded + extra.photosUploaded,
+    photosFailed: base.photosFailed + extra.photosFailed,
+    photosPending: extra.photosPending,
+  };
+}
+
 export function scheduleAutoSync(
   demandId: string,
   delayMs = AUTO_SYNC_DEBOUNCE_MS,
 ): void {
-  if (!isBrowserOnline() || pausedDemands.has(demandId)) return;
+  if (!isBrowserOnline()) return;
 
   cancelScheduledAutoSync(demandId);
 
@@ -151,7 +233,7 @@ export function scheduleAutoSync(
     setTimeout(() => {
       scheduledSyncByDemand.delete(demandId);
 
-      if (!isBrowserOnline() || pausedDemands.has(demandId)) return;
+      if (!isBrowserOnline()) return;
 
       void syncNowV2(demandId);
     }, delayMs),
@@ -159,12 +241,19 @@ export function scheduleAutoSync(
 }
 
 export function triggerAutoSyncIfPending(demandId: string): void {
-  if (!isBrowserOnline() || pausedDemands.has(demandId)) return;
+  if (!isBrowserOnline()) return;
 
-  void hasAutoSyncableWork(demandId).then((hasWork) => {
-    if (hasWork) {
+  void hasDirtyPatchWork(demandId).then((hasWork) => {
+    if (hasWork && !pausedDemands.has(demandId)) {
       scheduleAutoSync(demandId);
+      return;
     }
+
+    void hasPendingPhotoUploads(demandId).then((hasPhotos) => {
+      if (hasPhotos) {
+        scheduleAutoSync(demandId);
+      }
+    });
   });
 }
 
@@ -181,7 +270,10 @@ async function autoPushDemandIfNeeded(
   }
 
   if (!options?.manual && (await isDemandAutoSyncPaused(demandId))) {
-    return null;
+    const photosOnly = await hasPendingPhotoUploads(demandId);
+    if (!photosOnly) {
+      return null;
+    }
   }
 
   const process = await recebimentoV2Db.processes.get(demandId);
@@ -189,9 +281,13 @@ async function autoPushDemandIfNeeded(
     return null;
   }
 
+  await reconcileOrphanedPendingSyncOps(demandId);
+
+  const hasPatch = await hasDirtyPatchWork(demandId);
+  const hasPhotos = await hasPendingPhotoUploads(demandId);
   const hasWork = options?.manual
-    ? (await hasPendingSyncWork(demandId)) || (await hasPendingPhotoUploads(demandId))
-    : await hasAutoSyncableWork(demandId);
+    ? hasPatch || (await hasPendingSyncWork(demandId)) || hasPhotos
+    : hasPatch || hasPhotos;
 
   if (!hasWork) {
     return null;
@@ -199,11 +295,30 @@ async function autoPushDemandIfNeeded(
 
   isPushing = true;
   try {
-    const result = await pushDemand(demandId, { manual: options?.manual });
+    let result: PushResult | null = null;
+
+    if (hasPatch) {
+      const patchResult = await pushDemandPatchFromLocal(demandId);
+      if (patchResult) {
+        result = patchResultToPushResult(patchResult);
+      }
+    }
+
+    if (hasPhotos) {
+      const photoResult = await pushDemand(demandId, { manual: options?.manual });
+      result = result ? mergePushResults(result, photoResult) : photoResult;
+    }
+
     consecutiveErrorsByDemand.delete(demandId);
     await refreshAutoSyncPauseState(demandId);
     return result;
-  } catch {
+  } catch (err) {
+    if (isRevisionConflictError(err)) {
+      resetAutoSyncBackoff(demandId);
+      triggerAutoSyncIfPending(demandId);
+      return null;
+    }
+
     recordAutoSyncFailure(demandId);
     await refreshAutoSyncPauseState(demandId);
     return null;
@@ -279,14 +394,14 @@ export async function registerAutoSyncForDemand(demandId: string): Promise<() =>
   const [process, ops, hasWork] = await Promise.all([
     recebimentoV2Db.processes.get(demandId),
     recebimentoV2Db.syncOperations.where('aggregateId').equals(demandId).toArray(),
-    hasAutoSyncableWork(demandId),
+    hasDirtyPatchWork(demandId),
   ]);
 
   debugRecebimentoV2('sync', 'registerAutoSync', {
     demandId,
     autoSyncPaused: process?.autoSyncPaused ?? false,
     pausedInMemory: pausedDemands.has(demandId),
-    hasAutoSyncableWork: hasWork,
+    hasDirtyPatchWork: hasWork,
     opsByStatus: ops.reduce<Record<string, number>>((acc, op) => {
       acc[op.status] = (acc[op.status] ?? 0) + 1;
       return acc;

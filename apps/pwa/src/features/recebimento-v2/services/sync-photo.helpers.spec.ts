@@ -4,8 +4,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { recebimentoV2Db } from '../local-db/db';
 import type { DamageRecord, SyncOperationRecord } from '../local-db/schema';
 import {
+  collectAvariaPhotoIds,
   collectAvariaPhotoUploadTargets,
   dismissPendingPhotos,
+  hasPendingPhotoUploads,
   recoverStuckSyncState,
   resolveMediaIdsForDamage,
   resolveServerAvariaIdForDamage,
@@ -18,6 +20,8 @@ describe('recoverStuckSyncState', () => {
     await recebimentoV2Db.damages.clear();
     await recebimentoV2Db.conferences.clear();
     await recebimentoV2Db.syncOperations.clear();
+    await recebimentoV2Db.checklists.clear();
+    await recebimentoV2Db.media.clear();
     await recebimentoV2Db.processes.put({
       id: DEMAND_ID,
       unidadeId: 'ITB',
@@ -171,6 +175,61 @@ describe('recoverStuckSyncState', () => {
     const recovered = await recebimentoV2Db.syncOperations.get(stuckConferirOp.id);
     expect(recovered?.status).toBe('synced');
   });
+
+  it('resets photos stuck in uploading or error back to local', async () => {
+    const uploadingPhotoId = crypto.randomUUID();
+    const errorPhotoId = crypto.randomUUID();
+
+    await recebimentoV2Db.media.bulkPut([
+      {
+        id: uploadingPhotoId,
+        processId: DEMAND_ID,
+        ownerType: 'checklist',
+        ownerId: `checklist-${DEMAND_ID}-lacre`,
+        blob: new Blob(['photo-1'], { type: 'image/jpeg' }),
+        mimeType: 'image/jpeg',
+        status: 'uploading',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: errorPhotoId,
+        processId: DEMAND_ID,
+        ownerType: 'checklist',
+        ownerId: `checklist-${DEMAND_ID}-bauFechado`,
+        blob: new Blob(['photo-2'], { type: 'image/jpeg' }),
+        mimeType: 'image/jpeg',
+        status: 'error',
+        errorMessage: 'Network error',
+        errorStep: 'put',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    await recebimentoV2Db.checklists.put({
+      demandId: DEMAND_ID,
+      id: crypto.randomUUID(),
+      dock: 'D1',
+      lacre: '123',
+      conditions: {},
+      photoMediaIds: {
+        lacre: [uploadingPhotoId],
+        bauFechado: [errorPhotoId],
+      },
+      savedAt: new Date().toISOString(),
+      syncStatus: 'pending',
+      updatedAt: Date.now(),
+    });
+
+    await recoverStuckSyncState(DEMAND_ID);
+
+    const uploadingPhoto = await recebimentoV2Db.media.get(uploadingPhotoId);
+    const errorPhoto = await recebimentoV2Db.media.get(errorPhotoId);
+
+    expect(uploadingPhoto?.status).toBe('local');
+    expect(errorPhoto?.status).toBe('local');
+    expect(errorPhoto?.errorMessage).toBeUndefined();
+    expect(errorPhoto?.errorStep).toBeUndefined();
+  });
 });
 
 describe('avaria photo upload resolution', () => {
@@ -262,6 +321,82 @@ describe('avaria photo upload resolution', () => {
 
     const mediaIds = await resolveMediaIdsForDamage(damage);
     expect(mediaIds).toEqual([]);
+  });
+
+  it('collectAvariaPhotoIds ignores orphan and deleted-damage media', async () => {
+    const linkedMediaId = crypto.randomUUID();
+    const orphanMediaId = crypto.randomUUID();
+    const deletedDamageMediaId = crypto.randomUUID();
+    const activeDamageId = crypto.randomUUID();
+    const deletedDamageId = crypto.randomUUID();
+
+    await recebimentoV2Db.media.bulkPut([
+      {
+        id: linkedMediaId,
+        processId: DEMAND_ID,
+        ownerType: 'avaria',
+        ownerId: activeDamageId,
+        blob: new Blob(['photo'], { type: 'image/jpeg' }),
+        mimeType: 'image/jpeg',
+        status: 'local',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: orphanMediaId,
+        processId: DEMAND_ID,
+        ownerType: 'avaria',
+        ownerId: 'missing-damage',
+        blob: new Blob(['photo'], { type: 'image/jpeg' }),
+        mimeType: 'image/jpeg',
+        status: 'local',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: deletedDamageMediaId,
+        processId: DEMAND_ID,
+        ownerType: 'avaria',
+        ownerId: deletedDamageId,
+        blob: new Blob(['photo'], { type: 'image/jpeg' }),
+        mimeType: 'image/jpeg',
+        status: 'local',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    await recebimentoV2Db.damages.bulkPut([
+      {
+        id: activeDamageId,
+        demandId: DEMAND_ID,
+        sku: '600598361',
+        description: 'Avaria ativa',
+        quantity: 1,
+        quantidadeCaixa: 1,
+        quantidadeUnidade: 0,
+        mediaIds: [linkedMediaId],
+        registradoAt: new Date().toISOString(),
+        syncStatus: 'synced',
+        serverAvariaId: 'avaria-server-active',
+        updatedAt: Date.now(),
+      },
+      {
+        id: deletedDamageId,
+        demandId: DEMAND_ID,
+        sku: '600598362',
+        description: 'Avaria removida',
+        quantity: 1,
+        quantidadeCaixa: 1,
+        quantidadeUnidade: 0,
+        mediaIds: [deletedDamageMediaId],
+        registradoAt: new Date().toISOString(),
+        syncStatus: 'synced',
+        serverAvariaId: 'avaria-server-deleted',
+        deletedAt: new Date().toISOString(),
+        updatedAt: Date.now(),
+      },
+    ]);
+
+    await expect(collectAvariaPhotoIds(DEMAND_ID)).resolves.toEqual([linkedMediaId]);
+    await expect(hasPendingPhotoUploads(DEMAND_ID)).resolves.toBe(true);
   });
 
   it('resolveServerAvariaIdForDamage reads serverAvariaId from synced op payload', async () => {

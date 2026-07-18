@@ -189,7 +189,15 @@ function buildPhotoDiagnosticText(photo: PendingPhotoOperation): string {
   );
 }
 
-function PendingPhotoCard({ photo }: { photo: PendingPhotoOperation }) {
+function PendingPhotoCard({
+  photo,
+  onRetry,
+  retryDisabled = false,
+}: {
+  photo: PendingPhotoOperation;
+  onRetry?: () => void;
+  retryDisabled?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const errorStepLabel = getPhotoErrorStepLabel(photo.errorStep);
 
@@ -233,14 +241,30 @@ function PendingPhotoCard({ photo }: { photo: PendingPhotoOperation }) {
             </p>
           ) : null}
           {photo.status === 'error' ? (
-            <button
-              type="button"
-              onClick={() => void handleCopyDiagnostic()}
-              className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground underline touch-manipulation"
-            >
-              <Copy className="h-3 w-3" aria-hidden />
-              {copied ? 'Copiado!' : 'Copiar diagnóstico'}
-            </button>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void handleCopyDiagnostic()}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground underline touch-manipulation"
+              >
+                <Copy className="h-3 w-3" aria-hidden />
+                {copied ? 'Copiado!' : 'Copiar diagnóstico'}
+              </button>
+              {onRetry ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticLight();
+                    onRetry();
+                  }}
+                  disabled={retryDisabled}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-secondary underline touch-manipulation disabled:opacity-50"
+                >
+                  <RefreshCw className="h-3 w-3" aria-hidden />
+                  Tentar novamente
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>
@@ -402,7 +426,12 @@ export function SyncStatusV2({
             Fotos ({pendingPhotos.length})
           </p>
           {pendingPhotos.map((photo) => (
-            <PendingPhotoCard key={photo.id} photo={photo} />
+            <PendingPhotoCard
+              key={photo.id}
+              photo={photo}
+              onRetry={onSync}
+              retryDisabled={busy}
+            />
           ))}
           {onDismissPendingPhotos ? (
             <>

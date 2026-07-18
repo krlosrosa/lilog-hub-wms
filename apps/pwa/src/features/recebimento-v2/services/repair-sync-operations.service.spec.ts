@@ -401,9 +401,10 @@ describe('dismissSyncOperation', () => {
     });
 
     const changed = await repairSyncOperations(DEMAND_ID);
+    const repaired = await recebimentoV2Db.syncOperations.get(opId);
 
     expect(changed).toBeGreaterThan(0);
-    expect(await recebimentoV2Db.syncOperations.get(opId)).toBeUndefined();
+    expect(repaired?.status).toBe('synced');
   });
 
   it('auto-discards rejected PALETE_REMOVE operations', async () => {
