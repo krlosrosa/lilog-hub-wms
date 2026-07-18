@@ -118,4 +118,29 @@ describe('mark-sync-ops-for-patch.service', () => {
     const stored = await recebimentoV2Db.syncOperations.get(op.id);
     expect(stored?.status).toBe('synced');
   });
+
+  it('reconcileOrphanedPendingSyncOps marks orphan avaria op synced when damage no longer exists', async () => {
+    const opId = crypto.randomUUID();
+    await recebimentoV2Db.syncOperations.put({
+      id: opId,
+      aggregateId: DEMAND_ID,
+      module: 'damage',
+      opType: RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR,
+      sequence: Date.now(),
+      dependsOn: [],
+      idempotencyKey: opId,
+      payload: { damageId: 'missing-damage-id' },
+      attachmentIds: [],
+      status: 'retry',
+      attempts: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const changed = await reconcileOrphanedPendingSyncOps(DEMAND_ID);
+
+    expect(changed).toBe(1);
+    const stored = await recebimentoV2Db.syncOperations.get(opId);
+    expect(stored?.status).toBe('synced');
+  });
 });

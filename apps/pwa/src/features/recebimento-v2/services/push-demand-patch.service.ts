@@ -17,7 +17,7 @@ import {
   resolveUnidadesPorCaixa,
 } from '../lib/resolve-produto-conferencia-v2';
 import { recebimentoV2Db, ensureRecebimentoV2DbReady } from '../local-db/db';
-import type { SyncConflictRecord } from '../local-db/schema';
+import type { DamageRecord, SyncConflictRecord } from '../local-db/schema';
 import { pushDemandPatch } from '../api/pwa-sync-api';
 
 import { markLegacySyncOpsForAppliedPatch } from './mark-sync-ops-for-patch.service';
@@ -344,10 +344,21 @@ export async function applyPatchResult(
             continue;
           }
 
-          await recebimentoV2Db.damages.update(item.clientDamageId, {
+          const damageUpdate: Partial<DamageRecord> = {
             syncStatus: 'synced',
             updatedAt: now,
-          });
+          };
+
+          if (item.serverAvariaId) {
+            damageUpdate.serverAvariaId = item.serverAvariaId;
+          } else {
+            const existing = await recebimentoV2Db.damages.get(item.clientDamageId);
+            if (existing?.serverAvariaId) {
+              damageUpdate.serverAvariaId = existing.serverAvariaId;
+            }
+          }
+
+          await recebimentoV2Db.damages.update(item.clientDamageId, damageUpdate);
         }
       }
 

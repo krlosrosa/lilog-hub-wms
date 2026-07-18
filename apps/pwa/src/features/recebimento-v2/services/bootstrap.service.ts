@@ -445,10 +445,9 @@ async function writePackageToDB(demandId: string, pkg: unknown): Promise<number>
         }
       }
 
-      // Update process revision
+      // Update process revision (status stays 'downloading' until the 'done' step)
       await recebimentoV2Db.processes.update(demandId, {
         serverRevision,
-        status: 'ready',
         ...(p.recebimento?.id ? { recebimentoId: p.recebimento.id } : {}),
         ...(p.papelDoUsuario != null
           ? { papelDoUsuario: p.papelDoUsuario }

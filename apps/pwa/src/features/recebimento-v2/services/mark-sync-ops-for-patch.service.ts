@@ -264,11 +264,15 @@ async function isOrphanedPendingOp(
 
     const damageId = getDamageIdFromOpPayload(op.payload);
     if (!damageId) {
-      return false;
+      return true;
     }
 
     const damage = await recebimentoV2Db.damages.get(damageId);
-    return damage?.syncStatus === 'synced' || damage?.deletedAt != null;
+    if (!damage) {
+      return true;
+    }
+
+    return damage.syncStatus === 'synced' || damage.deletedAt != null;
   }
 
   if (op.opType === RECEBIMENTO_V2_OP_TYPES.CONFERENCIA_SUSPENDER) {

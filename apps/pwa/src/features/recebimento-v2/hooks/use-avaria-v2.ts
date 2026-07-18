@@ -1,11 +1,9 @@
-import { RECEBIMENTO_V2_OP_TYPES } from '@lilog/contracts';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback } from 'react';
 
 import type { QuantidadeModo } from '@/features/recebimento/types/recebimento.schema';
 
 import { resolveConferenceQuantidadePar } from '../lib/conferencia-quantidade';
-import { mapAvariaV2SyncPayload, mapAvariaRemoverV2SyncPayload } from '../lib/map-avaria-v2-sync-payload';
 import { debugRecebimentoV2 } from '../lib/sync-debug';
 import {
   normalizeSkuParam,
@@ -14,7 +12,7 @@ import {
   resolveUnidadesPorCaixa,
 } from '../lib/resolve-produto-conferencia-v2';
 import { recebimentoV2Db } from '../local-db/db';
-import type { DamageRecord, SyncOperationRecord } from '../local-db/schema';
+import type { DamageRecord } from '../local-db/schema';
 import { triggerAutoSyncIfPending } from '../services/auto-sync-v2.service';
 import type { DamageForm } from '../types/recebimento-v2.schema';
 
@@ -45,26 +43,7 @@ function matchesSkuTarget(sku: string, targets: Set<string>): boolean {
   return targets.has(normalizeSkuParam(sku).toUpperCase());
 }
 
-async function findPendingConferirOpId(
-  demandId: string,
-  conferenceId: string,
-): Promise<string | undefined> {
-  const ops = await recebimentoV2Db.syncOperations
-    .where('aggregateId')
-    .equals(demandId)
-    .toArray();
-
-  const conferirOp = ops.find(
-    (op) =>
-      op.opType === RECEBIMENTO_V2_OP_TYPES.ITEM_CONFERIR &&
-      (op.payload as { conferenceId?: string }).conferenceId === conferenceId &&
-      (op.status === 'pending' || op.status === 'retry' || op.status === 'syncing'),
-  );
-
-  return conferirOp?.id;
-}
-
-async function createAvariaRecordAndSyncOp(params: {
+async function createAvariaRecord(params: {
   demandId: string;
   input: RegistrarAvariaInput;
   sku?: string;
@@ -73,12 +52,9 @@ async function createAvariaRecordAndSyncOp(params: {
   quantidadeUnidade: number;
   replicarParaTodos?: boolean;
   skusAlvo?: string[];
-  conferenceId?: string;
-  dependsOn?: string[];
   now: string;
   nowMs: number;
-  sequence: number;
-}): Promise<{ record: DamageRecord; syncOp: SyncOperationRecord }> {
+}): Promise<DamageRecord> {
   const {
     demandId,
     input,
@@ -88,23 +64,18 @@ async function createAvariaRecordAndSyncOp(params: {
     quantidadeUnidade,
     replicarParaTodos,
     skusAlvo,
-    conferenceId,
-    dependsOn,
     now,
     nowMs,
-    sequence,
   } = params;
 
   const id = crypto.randomUUID();
-  const opId = crypto.randomUUID();
-  const qty = quantidadeCaixa + quantidadeUnidade > 0
-    ? quantidadeCaixa + quantidadeUnidade
-    : totalQuantity({ quantidadeCaixa, quantidadeUnidade });
+  const qty =
+    quantidadeCaixa + quantidadeUnidade > 0
+      ? quantidadeCaixa + quantidadeUnidade
+      : totalQuantity({ quantidadeCaixa, quantidadeUnidade });
 
   const product = sku ? await resolveProductForSkuV2(demandId, sku) : null;
-  const produtoId = sku
-    ? await resolveProdutoIdForSkuV2(demandId, sku, product)
-    : undefined;
+  const produtoId = sku ? await resolveProdutoIdForSkuV2(demandId, sku, product) : undefined;
 
   const record: DamageRecord = {
     id,
@@ -127,37 +98,15 @@ async function createAvariaRecordAndSyncOp(params: {
     updatedAt: nowMs,
   };
 
-  const syncPayload = {
-    ...mapAvariaV2SyncPayload(record, produtoId),
-    ...(conferenceId ? { conferenceId } : {}),
-  };
-
-  debugRecebimentoV2('avaria', 'enqueue', {
+  debugRecebimentoV2('avaria', 'save-local', {
     demandId,
     sku,
     produtoId,
     productFound: Boolean(product),
-    productProdutoId: product?.produtoId,
-    syncPayload,
+    damageId: id,
   });
 
-  const syncOp: SyncOperationRecord = {
-    id: opId,
-    aggregateId: demandId,
-    module: 'damage',
-    opType: RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR,
-    sequence,
-    dependsOn: dependsOn ?? [],
-    idempotencyKey: opId,
-    payload: syncPayload,
-    attachmentIds: input.mediaIds ?? [],
-    status: 'pending',
-    attempts: 0,
-    createdAt: nowMs,
-    updatedAt: nowMs,
-  };
-
-  return { record, syncOp };
+  return record;
 }
 
 async function registrarAvariaReplicada(
@@ -187,10 +136,8 @@ async function registrarAvariaReplicada(
   const nowMs = Date.now();
   const quantidadeModo = input.quantidadeModo ?? 'ambos';
   const records: DamageRecord[] = [];
-  const syncOps: SyncOperationRecord[] = [];
 
-  for (let index = 0; index < targets.length; index += 1) {
-    const conference = targets[index]!;
+  for (const conference of targets) {
     const sku = normalizeSkuParam(conference.sku);
     const product = await resolveProductForSkuV2(demandId, sku);
     const unidadesPorCaixa = product ? resolveUnidadesPorCaixa(product) : 1;
@@ -204,45 +151,27 @@ async function registrarAvariaReplicada(
       continue;
     }
 
-    const dependsOn = conference.serverItemId
-      ? []
-      : [await findPendingConferirOpId(demandId, conference.id)].filter(
-          (opId): opId is string => Boolean(opId),
-        );
-
-    const { record, syncOp } = await createAvariaRecordAndSyncOp({
-      demandId,
-      input,
-      sku,
-      lote: conference.lote?.trim() || undefined,
-      quantidadeCaixa: quantidade.caixa,
-      quantidadeUnidade: quantidade.unidade,
-      replicarParaTodos: true,
-      skusAlvo,
-      conferenceId: conference.id,
-      dependsOn,
-      now,
-      nowMs,
-      sequence: nowMs + index,
-    });
-
-    records.push(record);
-    syncOps.push(syncOp);
+    records.push(
+      await createAvariaRecord({
+        demandId,
+        input,
+        sku,
+        lote: conference.lote?.trim() || undefined,
+        quantidadeCaixa: quantidade.caixa,
+        quantidadeUnidade: quantidade.unidade,
+        replicarParaTodos: true,
+        skusAlvo,
+        now,
+        nowMs,
+      }),
+    );
   }
 
   if (records.length === 0) {
     throw new Error('Não há quantidade conferida para replicar avaria');
   }
 
-  await recebimentoV2Db.transaction(
-    'rw',
-    [recebimentoV2Db.damages, recebimentoV2Db.syncOperations],
-    async () => {
-      await recebimentoV2Db.damages.bulkPut(records);
-      await recebimentoV2Db.syncOperations.bulkPut(syncOps);
-    },
-  );
-
+  await recebimentoV2Db.damages.bulkPut(records);
   triggerAutoSyncIfPending(demandId);
   return records[0]!.id;
 }
@@ -268,7 +197,7 @@ export function useAvariaV2(demandId: string): UseAvariaV2Result {
       const nowMs = Date.now();
       const sku = input.sku?.trim() || undefined;
 
-      const { record, syncOp } = await createAvariaRecordAndSyncOp({
+      const record = await createAvariaRecord({
         demandId,
         input,
         sku,
@@ -277,18 +206,9 @@ export function useAvariaV2(demandId: string): UseAvariaV2Result {
         quantidadeUnidade: input.quantidadeUnidade ?? 0,
         now,
         nowMs,
-        sequence: nowMs,
       });
 
-      await recebimentoV2Db.transaction(
-        'rw',
-        [recebimentoV2Db.damages, recebimentoV2Db.syncOperations],
-        async () => {
-          await recebimentoV2Db.damages.put(record);
-          await recebimentoV2Db.syncOperations.put(syncOp);
-        },
-      );
-
+      await recebimentoV2Db.damages.put(record);
       triggerAutoSyncIfPending(demandId);
       return record.id;
     },
@@ -303,55 +223,17 @@ export function useAvariaV2(demandId: string): UseAvariaV2Result {
       const damage = await recebimentoV2Db.damages.get(damageId);
       if (!damage || damage.deletedAt) return;
 
-      const removeSyncOp: SyncOperationRecord | null = damage.serverAvariaId
-        ? {
-            id: crypto.randomUUID(),
-            aggregateId: demandId,
-            module: 'damage',
-            opType: RECEBIMENTO_V2_OP_TYPES.AVARIA_REMOVER,
-            sequence: nowMs,
-            dependsOn: [],
-            idempotencyKey: crypto.randomUUID(),
-            payload: mapAvariaRemoverV2SyncPayload(damageId, damage.serverAvariaId),
-            attachmentIds: [],
-            status: 'pending',
-            attempts: 0,
-            createdAt: nowMs,
-            updatedAt: nowMs,
-          }
-        : null;
+      const needsSync = damage.syncStatus !== 'synced' || damage.serverAvariaId != null;
 
       await recebimentoV2Db.transaction(
         'rw',
-        [recebimentoV2Db.damages, recebimentoV2Db.syncOperations, recebimentoV2Db.media],
+        [recebimentoV2Db.damages, recebimentoV2Db.media],
         async () => {
           await recebimentoV2Db.damages.update(damageId, {
             deletedAt: now,
-            syncStatus: removeSyncOp ? 'pending' : 'synced',
+            syncStatus: needsSync ? 'pending' : 'synced',
             updatedAt: nowMs,
           });
-
-          const pendingOps = await recebimentoV2Db.syncOperations
-            .where('aggregateId')
-            .equals(demandId)
-            .and(
-              (op) =>
-                (op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR ||
-                  op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REMOVER) &&
-                (op.status === 'pending' || op.status === 'retry'),
-            )
-            .toArray();
-
-          for (const op of pendingOps) {
-            const payload = op.payload as { damageId?: string };
-            if (payload.damageId === damageId) {
-              await recebimentoV2Db.syncOperations.delete(op.id);
-            }
-          }
-
-          if (removeSyncOp) {
-            await recebimentoV2Db.syncOperations.put(removeSyncOp);
-          }
 
           if (damage.mediaIds?.length) {
             await recebimentoV2Db.media.bulkDelete(damage.mediaIds);
@@ -359,7 +241,7 @@ export function useAvariaV2(demandId: string): UseAvariaV2Result {
         },
       );
 
-      if (removeSyncOp) {
+      if (needsSync) {
         triggerAutoSyncIfPending(demandId);
       }
     },
@@ -368,7 +250,6 @@ export function useAvariaV2(demandId: string): UseAvariaV2Result {
 
   const limparAvarias = useCallback(async (): Promise<void> => {
     const nowMs = Date.now();
-    const opId = crypto.randomUUID();
 
     const activeAvarias = await recebimentoV2Db.damages
       .where('demandId')
@@ -379,60 +260,32 @@ export function useAvariaV2(demandId: string): UseAvariaV2Result {
     if (activeAvarias.length === 0) return;
 
     const now = new Date().toISOString();
-
-    const syncOp: SyncOperationRecord = {
-      id: opId,
-      aggregateId: demandId,
-      module: 'damage',
-      opType: RECEBIMENTO_V2_OP_TYPES.AVARIA_CLEAR,
-      sequence: nowMs,
-      dependsOn: [],
-      idempotencyKey: opId,
-      payload: { demandId, clearedAt: now },
-      attachmentIds: [],
-      status: 'pending',
-      attempts: 0,
-      createdAt: nowMs,
-      updatedAt: nowMs,
-    };
+    const needsSync = activeAvarias.some(
+      (avaria) => avaria.syncStatus !== 'synced' || avaria.serverAvariaId != null,
+    );
 
     await recebimentoV2Db.transaction(
       'rw',
-      [recebimentoV2Db.damages, recebimentoV2Db.syncOperations, recebimentoV2Db.media],
+      [recebimentoV2Db.damages, recebimentoV2Db.media],
       async () => {
         for (const avaria of activeAvarias) {
           await recebimentoV2Db.damages.update(avaria.id, {
             deletedAt: now,
-            syncStatus: 'pending',
+            syncStatus: needsSync ? 'pending' : 'synced',
             updatedAt: nowMs,
           });
-        }
-
-        const pendingRegisterOps = await recebimentoV2Db.syncOperations
-          .where('aggregateId')
-          .equals(demandId)
-          .and(
-            (op) =>
-              (op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR ||
-                op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REMOVER) &&
-              (op.status === 'pending' || op.status === 'retry'),
-          )
-          .toArray();
-
-        for (const op of pendingRegisterOps) {
-          await recebimentoV2Db.syncOperations.delete(op.id);
         }
 
         const mediaIds = activeAvarias.flatMap((avaria) => avaria.mediaIds ?? []);
         if (mediaIds.length > 0) {
           await recebimentoV2Db.media.bulkDelete(mediaIds);
         }
-
-        await recebimentoV2Db.syncOperations.put(syncOp);
       },
     );
 
-    triggerAutoSyncIfPending(demandId);
+    if (needsSync) {
+      triggerAutoSyncIfPending(demandId);
+    }
   }, [demandId]);
 
   const avariasBySku = useCallback(
@@ -448,4 +301,4 @@ export function useAvariaV2(demandId: string): UseAvariaV2Result {
     avariasBySku,
     isLoading: avarias === undefined,
   };
-}
+};

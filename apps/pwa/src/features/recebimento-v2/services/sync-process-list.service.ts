@@ -146,15 +146,14 @@ export async function syncProcessList(unidadeId: string): Promise<SyncProcessLis
 
       const demandAfterReconcile =
         (await recebimentoV2Db.demands.get(item.demandId)) ?? mapRemoteToDemand(item);
-      const processAfterReconcile =
-        (await recebimentoV2Db.processes.get(item.demandId)) ?? existing;
 
       await recebimentoV2Db.transaction(
         'rw',
         [recebimentoV2Db.processes, recebimentoV2Db.demands],
         async () => {
+          const freshProcess = await recebimentoV2Db.processes.get(item.demandId);
           await recebimentoV2Db.processes.put(
-            mapRemoteToProcess(item, processAfterReconcile),
+            mapRemoteToProcess(item, freshProcess ?? existing),
           );
           await recebimentoV2Db.demands.put(demandAfterReconcile);
         },

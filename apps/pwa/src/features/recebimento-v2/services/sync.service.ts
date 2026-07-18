@@ -23,6 +23,8 @@ import {
   resolveSnapshotChecklist,
 } from '../lib/map-server-checklist-v2';
 import { recebimentoV2Db, ensureRecebimentoV2DbReady } from '../local-db/db';
+
+import { reconcileOrphanedPendingSyncOps } from './mark-sync-ops-for-patch.service';
 import type {
   ChecklistPhotoMediaIds,
   ExpectedItemRecord,
@@ -1292,4 +1294,6 @@ export async function pullDemand(
       }).catch(() => undefined);
     }
   });
+
+  await reconcileOrphanedPendingSyncOps(demandId);
 }
