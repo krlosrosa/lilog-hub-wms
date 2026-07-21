@@ -14,6 +14,7 @@ export type RecebimentoAvariaRecord = {
   numeroSerie: string | null;
   photoCount: number;
   replicado: boolean;
+  clientDamageId: string | null;
   operatorId: number;
   createdAt: Date;
 };

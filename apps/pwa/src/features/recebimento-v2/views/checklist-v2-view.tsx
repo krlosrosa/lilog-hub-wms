@@ -23,8 +23,9 @@ import {
   resolveDockDisplayLabel,
 } from '@/lib/offline/checklist-cache';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { UppyCaptureModal } from '@/lib/uppy/uppy-capture-modal';
+import { useUppyCapture } from '@/lib/uppy/use-uppy-capture';
 
-import { PhotoCaptureHiddenInputV2 } from '../components/photo-capture-hidden-input-v2';
 import { ChecklistResumoV2Card } from '../components/checklist-resumo-v2-card';
 import { SyncStatusV2 } from '../components/sync-status-v2';
 import { useChecklistV2 } from '../hooks/use-checklist-v2';
@@ -33,7 +34,6 @@ import { recebimentoV2Db } from '../local-db/db';
 import { useDismissPendingPhotosV2 } from '../hooks/use-dismiss-pending-photos-v2';
 import { useForcePullV2 } from '../hooks/use-force-pull-v2';
 import { useImpedimentoV2 } from '../hooks/use-impedimento-v2';
-import { usePhotoCaptureV2 } from '../hooks/use-photo-capture-v2';
 import { useReabrirV2 } from '../hooks/use-reabrir-v2';
 import { useSyncStatusV2 } from '../hooks/use-sync-status-v2';
 import {
@@ -231,22 +231,25 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
   const [isImpedimentoSheetOpen, setIsImpedimentoSheetOpen] = useState(false);
   const [isRetomando, setIsRetomando] = useState(false);
 
-  const lacrePhotos = usePhotoCaptureV2({
+  const lacrePhotos = useUppyCapture({
     processId: demandId,
     ownerType: 'checklist',
     ownerId: checklistOwnerId(demandId, 'lacre'),
+    maxNumberOfFiles: 1,
   });
-  const bauFechadoPhotos = usePhotoCaptureV2({
+  const bauFechadoPhotos = useUppyCapture({
     processId: demandId,
     ownerType: 'checklist',
     ownerId: checklistOwnerId(demandId, 'bauFechado'),
+    maxNumberOfFiles: 1,
   });
-  const bauAbertoPhotos = usePhotoCaptureV2({
+  const bauAbertoPhotos = useUppyCapture({
     processId: demandId,
     ownerType: 'checklist',
     ownerId: checklistOwnerId(demandId, 'bauAberto'),
+    maxNumberOfFiles: 1,
   });
-  const extrasPhotos = usePhotoCaptureV2({
+  const extrasPhotos = useUppyCapture({
     processId: demandId,
     ownerType: 'checklist',
     ownerId: checklistOwnerId(demandId, 'extras'),
@@ -604,9 +607,16 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
                   )}
                 </div>
               </div>
-              <PhotoCaptureHiddenInputV2
-                inputRef={captureBySlot[slot.id].inputRef}
-                onChange={captureBySlot[slot.id].handleFileChange}
+              <UppyCaptureModal
+                uppy={captureBySlot[slot.id].uppy}
+                open={captureBySlot[slot.id].isModalOpen}
+                onRequestClose={captureBySlot[slot.id].closeModal}
+                onPickFromDevice={captureBySlot[slot.id].pickFromDevice}
+                isProcessing={captureBySlot[slot.id].isProcessing}
+                fileInputRef={captureBySlot[slot.id].fileInputRef}
+                fileInputAccept={captureBySlot[slot.id].fileInputAccept}
+                onNativeFileChange={captureBySlot[slot.id].handleNativeFileChange}
+                note={`Capture a foto: ${slot.label}`}
               />
             </div>
           ))}
@@ -640,9 +650,16 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
                 />
               ))}
             </div>
-            <PhotoCaptureHiddenInputV2
-              inputRef={extrasPhotos.inputRef}
-              onChange={extrasPhotos.handleFileChange}
+            <UppyCaptureModal
+              uppy={extrasPhotos.uppy}
+              open={extrasPhotos.isModalOpen}
+              onRequestClose={extrasPhotos.closeModal}
+              onPickFromDevice={extrasPhotos.pickFromDevice}
+              isProcessing={extrasPhotos.isProcessing}
+              fileInputRef={extrasPhotos.fileInputRef}
+              fileInputAccept={extrasPhotos.fileInputAccept}
+              onNativeFileChange={extrasPhotos.handleNativeFileChange}
+              note="Adicione fotos extras do checklist."
             />
           </div>
         </div>

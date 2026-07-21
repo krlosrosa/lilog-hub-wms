@@ -9,6 +9,8 @@ import { countChecklistPhotoMediaIds } from '../lib/checklist-sync-payload';
 import { mapAvariaV2SyncPayload } from '../lib/map-avaria-v2-sync-payload';
 import { mapConferenciaV2SyncPayload } from '../lib/map-conferencia-v2-sync-payload';
 import { normalizeParametrosConferenciaV2 } from '../lib/parametros-conferencia';
+import { resolveProductIdForAvariaPatch } from '../lib/resolve-produto-id-for-avaria-patch';
+import { deriveLifecycleFromStatus } from '../lib/sync-operation-lifecycle';
 import {
   resolveProductCatalogFlags,
   resolveProductForSkuV2,
@@ -21,6 +23,14 @@ import type { DamageRecord, SyncConflictRecord } from '../local-db/schema';
 import { pushDemandPatch } from '../api/pwa-sync-api';
 
 import { markLegacySyncOpsForAppliedPatch } from './mark-sync-ops-for-patch.service';
+import {
+  collectChecklistPhotoIds,
+  resolveAndStampAllPhotoTargets,
+  stampAvariaMediaTargets,
+  stampChecklistMediaTargets,
+  stampImpedimentoMediaTargets,
+} from './sync-photo.helpers';
+import { triggerPhotoQueue } from './photo-upload-queue.service';
 
 function isDirtySyncStatus(status: string): boolean {
   return status === 'pending' || status === 'retry' || status === 'syncing';
@@ -36,6 +46,31 @@ function hasSectionConflict(
       conflict.section === section &&
       (clientId == null || conflict.clientId === clientId),
   );
+}
+
+function sortAvariaPatchItems<T extends { deletedAt?: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    if (a.deletedAt && !b.deletedAt) return -1;
+    if (!a.deletedAt && b.deletedAt) return 1;
+    return 0;
+  });
+}
+
+function partitionPatchConflicts(result: DemandPatchResult): {
+  avariaConflictClientIds: Set<string>;
+  nonAvariaConflicts: NonNullable<DemandPatchResult['conflicts']>;
+  avariaConflicts: NonNullable<DemandPatchResult['conflicts']>;
+} {
+  const patchConflicts = result.conflicts ?? [];
+  const avariaConflicts = patchConflicts.filter((conflict) => conflict.section === 'avarias');
+  const nonAvariaConflicts = patchConflicts.filter((conflict) => conflict.section !== 'avarias');
+  const avariaConflictClientIds = new Set(
+    avariaConflicts
+      .map((conflict) => conflict.clientId)
+      .filter((clientId): clientId is string => Boolean(clientId)),
+  );
+
+  return { avariaConflictClientIds, nonAvariaConflicts, avariaConflicts };
 }
 
 async function resolveChecklistDockId(demandId: string): Promise<string> {
@@ -186,11 +221,8 @@ export async function buildDemandPatch(demandId: string): Promise<DemandPatchReq
         continue;
       }
 
-      const product = record.sku
-        ? await resolveProductForSkuV2(demandId, record.sku)
-        : null;
       const produtoId = record.sku
-        ? await resolveProdutoIdForSkuV2(demandId, record.sku, product)
+        ? await resolveProductIdForAvariaPatch(demandId, record.sku)
         : undefined;
 
       const syncPayload = mapAvariaV2SyncPayload(record, produtoId);
@@ -212,6 +244,8 @@ export async function buildDemandPatch(demandId: string): Promise<DemandPatchReq
         serverAvariaId: record.serverAvariaId,
       });
     }
+
+    patch.avarias = sortAvariaPatchItems(patch.avarias);
   }
 
   const dirtyTemperatures = await recebimentoV2Db.temperatures
@@ -314,6 +348,7 @@ export async function applyPatchResult(
       recebimentoV2Db.demands,
       recebimentoV2Db.syncOperations,
       recebimentoV2Db.syncConflicts,
+      recebimentoV2Db.media,
     ],
     async () => {
       if (result.applied.checklist && request.patch.checklist) {
@@ -322,6 +357,16 @@ export async function applyPatchResult(
             syncStatus: 'synced',
             updatedAt: now,
           });
+
+          const recebimentoId =
+            result.resourceId ??
+            (await recebimentoV2Db.processes.get(demandId))?.recebimentoId;
+          if (recebimentoId) {
+            await stampChecklistMediaTargets(
+              collectChecklistPhotoIds(request.patch.checklist.photoMediaIds),
+              recebimentoId,
+            );
+          }
         }
       }
 
@@ -344,21 +389,48 @@ export async function applyPatchResult(
             continue;
           }
 
+          if (item.deletedAt) {
+            await recebimentoV2Db.damages.delete(item.clientDamageId);
+            continue;
+          }
+
           const damageUpdate: Partial<DamageRecord> = {
             syncStatus: 'synced',
             updatedAt: now,
           };
 
-          if (item.serverAvariaId) {
-            damageUpdate.serverAvariaId = item.serverAvariaId;
-          } else {
-            const existing = await recebimentoV2Db.damages.get(item.clientDamageId);
-            if (existing?.serverAvariaId) {
-              damageUpdate.serverAvariaId = existing.serverAvariaId;
-            }
+          const existing = await recebimentoV2Db.damages.get(item.clientDamageId);
+          const serverAvariaId =
+            result.avariaIds?.[item.clientDamageId] ??
+            item.serverAvariaId ??
+            existing?.serverAvariaId;
+
+          if (serverAvariaId) {
+            damageUpdate.serverAvariaId = serverAvariaId;
           }
 
+          damageUpdate.syncErrorMessage = undefined;
+
           await recebimentoV2Db.damages.update(item.clientDamageId, damageUpdate);
+
+          const mediaIds = item.mediaIds ?? existing?.mediaIds;
+          if (serverAvariaId && mediaIds?.length) {
+            await stampAvariaMediaTargets(mediaIds, serverAvariaId);
+          }
+        }
+
+        const { avariaConflicts } = partitionPatchConflicts(result);
+
+        for (const conflict of avariaConflicts) {
+          if (!conflict.clientId) {
+            continue;
+          }
+
+          await recebimentoV2Db.damages.update(conflict.clientId, {
+            syncStatus: 'retry',
+            syncErrorMessage: conflict.reason,
+            updatedAt: now,
+          });
         }
       }
 
@@ -386,6 +458,11 @@ export async function applyPatchResult(
               updatedAt: now,
             },
           );
+
+          const mediaIds = request.patch.impedimento.mediaIds;
+          if (mediaIds?.length) {
+            await stampImpedimentoMediaTargets(mediaIds, demandId);
+          }
         }
       }
 
@@ -396,6 +473,7 @@ export async function applyPatchResult(
           .and((op) => op.opType === RECEBIMENTO_V2_OP_TYPES.CONFERENCIA_ENCERRAR)
           .modify((op) => {
             op.status = 'synced';
+            op.lifecycleStatus = deriveLifecycleFromStatus('synced');
             op.updatedAt = now;
           });
       }
@@ -407,6 +485,7 @@ export async function applyPatchResult(
           .and((op) => op.opType === RECEBIMENTO_V2_OP_TYPES.CONFERENCIA_RETOMAR)
           .modify((op) => {
             op.status = 'synced';
+            op.lifecycleStatus = deriveLifecycleFromStatus('synced');
             op.updatedAt = now;
           });
       }
@@ -419,10 +498,17 @@ export async function applyPatchResult(
         .filter((op) => op.status === 'pending' || op.status === 'retry')
         .count();
 
-      const hasConflicts = (result.conflicts?.length ?? 0) > 0;
-      const nextStatus = hasConflicts
+      const { avariaConflictClientIds, nonAvariaConflicts } = partitionPatchConflicts(result);
+      const hasBlockingConflicts = nonAvariaConflicts.length > 0;
+      const hasDirtyDamages = await recebimentoV2Db.damages
+        .where('demandId')
+        .equals(demandId)
+        .filter((record) => isDirtySyncStatus(record.syncStatus))
+        .count();
+
+      const nextStatus = hasBlockingConflicts
         ? 'conflict'
-        : remainingPendingOps > 0
+        : remainingPendingOps > 0 || hasDirtyDamages > 0 || avariaConflictClientIds.size > 0
           ? 'pendingSync'
           : result.applied.encerrado
             ? 'completed'
@@ -453,19 +539,50 @@ export async function applyPatchResult(
         });
       }
 
-      if (hasConflicts) {
+      if (hasBlockingConflicts) {
         const conflict: SyncConflictRecord = {
           id: crypto.randomUUID(),
           aggregateId: demandId,
           batchId: crypto.randomUUID(),
           serverRevision: result.serverRevision,
           localRevision: request.baseRevision,
-          sections: [...new Set((result.conflicts ?? []).map((item) => item.section))],
+          sections: [...new Set(nonAvariaConflicts.map((item) => item.section))],
+          conflictReasons: nonAvariaConflicts.map((item) => item.reason),
+          conflictDetails: nonAvariaConflicts.map((item) => ({
+            section: item.section,
+            clientId: item.clientId,
+            reason: item.reason,
+          })),
           serverSnapshot: undefined,
           resolved: false,
           createdAt: now,
         };
         await recebimentoV2Db.syncConflicts.put(conflict);
+      } else if ((result.conflicts?.length ?? 0) > 0) {
+        const avariaConflicts = (result.conflicts ?? []).filter(
+          (conflict) => conflict.section === 'avarias',
+        );
+        if (avariaConflicts.length > 0) {
+          const conflict: SyncConflictRecord = {
+            id: crypto.randomUUID(),
+            aggregateId: demandId,
+            batchId: crypto.randomUUID(),
+            serverRevision: result.serverRevision,
+            localRevision: request.baseRevision,
+            sections: ['avarias'],
+            conflictReasons: avariaConflicts.map((item) => item.reason),
+            conflictDetails: avariaConflicts.map((item) => ({
+              section: item.section,
+              clientId: item.clientId,
+              reason: item.reason,
+            })),
+            serverSnapshot: undefined,
+            resolved: true,
+            resolvedAt: now,
+            createdAt: now,
+          };
+          await recebimentoV2Db.syncConflicts.put(conflict);
+        }
       }
     },
   );
@@ -479,5 +596,11 @@ export async function pushDemandPatchFromLocal(demandId: string): Promise<Demand
 
   const result = await pushDemandPatch(demandId, request);
   await applyPatchResult(demandId, request, result);
+
+  // Safety net: re-stamps any media targets not resolved inside the transaction
+  // (covers the case where result.avariaIds was absent or partial)
+  await resolveAndStampAllPhotoTargets(demandId).catch(() => undefined);
+
+  triggerPhotoQueue(demandId);
   return result;
 }

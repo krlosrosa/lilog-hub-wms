@@ -165,21 +165,146 @@ export function collectChecklistPhotoIds(
 }
 
 export async function collectAvariaPhotoIds(demandId: string): Promise<string[]> {
-  const [media, damages] = await Promise.all([
-    recebimentoV2Db.media
-      .where('processId')
-      .equals(demandId)
-      .and((item) => item.ownerType === 'avaria')
-      .toArray(),
-    recebimentoV2Db.damages
-      .where('demandId')
-      .equals(demandId)
-      .and((damage) => !damage.deletedAt)
-      .toArray(),
+  const damages = await recebimentoV2Db.damages
+    .where('demandId')
+    .equals(demandId)
+    .and((damage) => !damage.deletedAt)
+    .toArray();
+
+  return [...new Set(damages.flatMap((damage) => damage.mediaIds ?? []))];
+}
+
+export const AVARIA_TARGET_ENTITY_TYPE = 'recebimento_avaria';
+export const CHECKLIST_TARGET_ENTITY_TYPE = 'checklist_recebimento';
+export const IMPEDIMENTO_TARGET_ENTITY_TYPE = 'impedimento_recebimento';
+
+export async function stampAvariaMediaTargets(
+  mediaIds: string[],
+  serverAvariaId: string,
+): Promise<void> {
+  if (mediaIds.length === 0) {
+    return;
+  }
+
+  await recebimentoV2Db.media
+    .where('id')
+    .anyOf(mediaIds)
+    .modify({
+      targetEntityId: serverAvariaId,
+      targetEntityType: AVARIA_TARGET_ENTITY_TYPE,
+    });
+}
+
+export async function stampChecklistMediaTargets(
+  mediaIds: string[],
+  recebimentoId: string,
+): Promise<void> {
+  if (mediaIds.length === 0) {
+    return;
+  }
+
+  await recebimentoV2Db.media
+    .where('id')
+    .anyOf(mediaIds)
+    .modify({
+      targetEntityId: recebimentoId,
+      targetEntityType: CHECKLIST_TARGET_ENTITY_TYPE,
+    });
+}
+
+export async function stampImpedimentoMediaTargets(
+  mediaIds: string[],
+  demandId: string,
+): Promise<void> {
+  if (mediaIds.length === 0) {
+    return;
+  }
+
+  await recebimentoV2Db.media
+    .where('id')
+    .anyOf(mediaIds)
+    .modify({
+      targetEntityId: demandId,
+      targetEntityType: IMPEDIMENTO_TARGET_ENTITY_TYPE,
+    });
+}
+
+/**
+ * Resolves server entity IDs from domain state and stamps pending media for upload.
+ */
+export async function resolveAndStampAllPhotoTargets(demandId: string): Promise<void> {
+  const [avariaTargets, recebimentoId, checklist, impedimento] = await Promise.all([
+    collectAvariaPhotoUploadTargets(demandId),
+    resolveRecebimentoIdForDemand(demandId),
+    recebimentoV2Db.checklists.get(demandId),
+    recebimentoV2Db.impedimentos.where('demandId').equals(demandId).first(),
   ]);
 
-  const activeDamageIds = new Set(damages.map((damage) => damage.id));
-  return media.filter((item) => activeDamageIds.has(item.ownerId)).map((item) => item.id);
+  await Promise.all(
+    avariaTargets.map(({ serverAvariaId, mediaIds }) =>
+      stampAvariaMediaTargets(mediaIds, serverAvariaId),
+    ),
+  );
+
+  if (recebimentoId) {
+    const checklistPhotoIds = collectChecklistPhotoIds(checklist?.photoMediaIds);
+    await stampChecklistMediaTargets(checklistPhotoIds, recebimentoId);
+  }
+
+  if (impedimento?.mediaIds?.length) {
+    await stampImpedimentoMediaTargets(impedimento.mediaIds, demandId);
+  }
+}
+
+/** Removes every local avaria media blob/record for a demand (used when clearing all avarias). */
+export async function deleteAllAvariaMediaForDemand(demandId: string): Promise<number> {
+  const media = await recebimentoV2Db.media
+    .where('processId')
+    .equals(demandId)
+    .filter((item) => item.ownerType === 'avaria')
+    .toArray();
+
+  if (media.length === 0) {
+    return 0;
+  }
+
+  await recebimentoV2Db.media.bulkDelete(media.map((item) => item.id));
+  return media.length;
+}
+
+/**
+ * Deletes avaria media not referenced by any active (non-deleted) damage —
+ * covers orphan session photos and shared mediaIds after partial deletes.
+ */
+export async function deleteAvariaMediaUnreferencedByActiveDamages(
+  demandId: string,
+): Promise<number> {
+  const activeDamages = await recebimentoV2Db.damages
+    .where('demandId')
+    .equals(demandId)
+    .filter((damage) => !damage.deletedAt)
+    .toArray();
+
+  const referencedIds = new Set(
+    activeDamages.flatMap((damage) => damage.mediaIds ?? []),
+  );
+
+  const media = await recebimentoV2Db.media
+    .where('processId')
+    .equals(demandId)
+    .filter((item) => item.ownerType === 'avaria')
+    .toArray();
+
+  const orphanIds = media
+    .filter((item) => !referencedIds.has(item.id))
+    .map((item) => item.id);
+
+  if (orphanIds.length === 0) {
+    return 0;
+  }
+
+  await recebimentoV2Db.media.bulkDelete(orphanIds);
+  return orphanIds.length;
 }
 
 export async function collectImpedimentoPhotoIds(demandId: string): Promise<string[]> {
@@ -464,6 +589,27 @@ export async function recoverStuckSyncState(demandId: string): Promise<void> {
   const records = await recebimentoV2Db.media.bulkGet(photoIds);
   for (const record of records) {
     if (record?.status === 'uploading' || record?.status === 'error') {
+      await recebimentoV2Db.media.update(record.id, {
+        status: 'local',
+        errorMessage: undefined,
+        errorStep: undefined,
+      });
+    }
+  }
+}
+
+/**
+ * Resets photos stuck in 'uploading' back to 'local' for a demand.
+ * Called at the start of processPhotoQueue to recover from app crashes
+ * or offline interruptions mid-upload.
+ */
+export async function recoverStuckUploadingPhotos(demandId: string): Promise<void> {
+  const photoIds = await collectAllPendingPhotoIds(demandId);
+  if (photoIds.length === 0) return;
+
+  const records = await recebimentoV2Db.media.bulkGet(photoIds);
+  for (const record of records) {
+    if (record?.status === 'uploading') {
       await recebimentoV2Db.media.update(record.id, {
         status: 'local',
         errorMessage: undefined,

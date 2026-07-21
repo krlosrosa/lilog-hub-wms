@@ -55,6 +55,10 @@ export function isApiConfigured(): boolean {
   return Boolean(resolveApiBase());
 }
 
+export function resolveApiBaseUrl(): string {
+  return resolveApiBase();
+}
+
 export async function request<T>(
   path: string,
   init?: RequestInit

@@ -14,12 +14,13 @@ vi.mock('@/features/recebimento/lib/recebimento-api', () => ({
   getRecebimentoByPreRecebimento: vi.fn(),
 }));
 
-vi.mock('./upload-checklist-photos-v2', () => ({
-  uploadChecklistPhotosV2: vi.fn(),
+vi.mock('./photo-upload-queue.service', () => ({
+  processPhotoQueue: vi.fn(),
+  triggerPhotoQueue: vi.fn(),
 }));
 
-vi.mock('./upload-avaria-photos-v2', () => ({
-  uploadAvariaPhotosV2: vi.fn(),
+vi.mock('./repair-sync-operations.service', () => ({
+  repairSyncOperations: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock('./sync-photo.helpers', async (importOriginal) => {
@@ -37,12 +38,12 @@ const mockFetchSnapshot = vi.mocked(await import('../api/sync-api')).fetchSnapsh
 const mockGetRecebimentoByPreRecebimento = vi.mocked(
   await import('@/features/recebimento/lib/recebimento-api'),
 ).getRecebimentoByPreRecebimento;
-const mockUploadChecklistPhotosV2 = vi.mocked(
-  await import('./upload-checklist-photos-v2'),
-).uploadChecklistPhotosV2;
-const mockUploadAvariaPhotosV2 = vi.mocked(
-  await import('./upload-avaria-photos-v2'),
-).uploadAvariaPhotosV2;
+const mockProcessPhotoQueue = vi.mocked(
+  await import('./photo-upload-queue.service'),
+).processPhotoQueue;
+const mockTriggerPhotoQueue = vi.mocked(
+  await import('./photo-upload-queue.service'),
+).triggerPhotoQueue;
 const mockResolveRecebimentoIdForDemand = vi.mocked(
   await import('./sync-photo.helpers'),
 ).resolveRecebimentoIdForDemand;
@@ -96,8 +97,8 @@ describe('sync.service – pushDemand', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockGetRecebimentoByPreRecebimento.mockResolvedValue(null);
-    mockUploadChecklistPhotosV2.mockResolvedValue({ uploaded: 0, failed: 0, skipped: 0 });
-    mockUploadAvariaPhotosV2.mockResolvedValue({ uploaded: 0, failed: 0, skipped: 0 });
+    mockProcessPhotoQueue.mockResolvedValue({ uploaded: 0, failed: 0, skipped: 0 });
+    mockTriggerPhotoQueue.mockImplementation(() => undefined);
     mockResolveRecebimentoIdForDemand.mockResolvedValue(null);
     mockCountPendingPhotoUploads.mockResolvedValue({ pending: 0, uploading: 0, error: 0 });
 
@@ -155,17 +156,12 @@ describe('sync.service – pushDemand', () => {
       createdAt: new Date().toISOString(),
     });
 
-    mockResolveRecebimentoIdForDemand.mockResolvedValue(recebimentoId);
-    mockUploadChecklistPhotosV2.mockResolvedValue({ uploaded: 1, failed: 0, skipped: 0 });
+    mockProcessPhotoQueue.mockResolvedValue({ uploaded: 1, failed: 0, skipped: 0 });
     mockCountPendingPhotoUploads.mockResolvedValue({ pending: 0, uploading: 0, error: 0 });
 
     const result = await pushDemand(DEMAND_ID);
 
-    expect(mockResolveRecebimentoIdForDemand).toHaveBeenCalledWith(DEMAND_ID, undefined);
-    expect(mockUploadChecklistPhotosV2).toHaveBeenCalledWith(
-      recebimentoId,
-      { lacre: [mediaId] },
-    );
+    expect(mockProcessPhotoQueue).toHaveBeenCalledWith(DEMAND_ID);
     expect(result.photosUploaded).toBe(1);
     expect(result.photosPending).toBe(0);
   });
@@ -370,6 +366,7 @@ describe('sync.service – pushDemand', () => {
       peso: 12.5,
       isPvarBox: true,
       recebidaCaixa: 1,
+      unitizadorCodigo: 'PAL-001',
       conferidoAt: new Date().toISOString(),
       syncStatus: 'pending',
       updatedAt: Date.now(),
@@ -383,6 +380,7 @@ describe('sync.service – pushDemand', () => {
         unidadeMedida: 'CX',
         pesoRecebido: 12.5,
         pesoVariavel: true,
+        unitizadorCodigo: 'PAL-001',
       },
     });
 

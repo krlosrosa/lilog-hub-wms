@@ -28,14 +28,18 @@ import {
 import {
   buildAvariaSchema,
   type AvariaForm,
+  type ParametrosRecebimentoConferencia,
 } from '@/features/recebimento/types/recebimento.schema';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { UppyCaptureModal } from '@/lib/uppy/uppy-capture-modal';
+import { useUppyCapture } from '@/lib/uppy/use-uppy-capture';
+import { UppyUploadStatusBar } from '@/lib/uppy/uppy-upload-status-bar';
+import { PhotoCaptureModalV3 } from '@/features/recebimento-v3/components/photo-capture-modal-v3';
+import { usePhotoCaptureV3 } from '@/features/recebimento-v3/hooks/use-photo-capture-v3';
 
-import { PhotoCaptureHiddenInputV2 } from '../components/photo-capture-hidden-input-v2';
-import { useAvariaV2 } from '../hooks/use-avaria-v2';
+import { useAvariaV2, type UseAvariaV2Result } from '../hooks/use-avaria-v2';
 import { useConferenciaV2 } from '../hooks/use-conferencia-v2';
 import { useParametrosConferenciaV2 } from '../hooks/use-parametros-conferencia-v2';
-import { usePhotoCaptureV2 } from '../hooks/use-photo-capture-v2';
 import { useProcessV2 } from '../hooks/use-process-v2';
 import {
   resolveConferidoTotaisForSkuV2,
@@ -46,7 +50,7 @@ import {
   resolveProductForSkuV2,
   resolveUnidadesPorCaixa,
 } from '../lib/resolve-produto-conferencia-v2';
-import type { DamageRecord } from '../local-db/schema';
+import type { ConferenceRecord, DamageRecord } from '../local-db/schema';
 import { recebimentoV2Db } from '../local-db/db';
 
 const MIN_PHOTOS = 2;
@@ -114,6 +118,27 @@ function DamageCard({
 interface AvariasV2ViewProps {
   demandId: string;
   sku?: string;
+  /** RC: conferências vindas do Replicache em vez do Dexie */
+  conferencesOverride?: ConferenceRecord[];
+  /** RC: parâmetros já resolvidos via Replicache */
+  parametrosConferenciaOverride?: ParametrosRecebimentoConferencia;
+  /** RC: rota de voltar */
+  backTo?: { to: string; params?: Record<string, string> };
+  /** RC: resolver unidades por caixa sem Dexie */
+  unidadesPorCaixaResolver?: (sku: string) => number;
+  /** RC: avarias via Replicache em vez do Dexie/sync v2 */
+  avariaApi: UseAvariaV2Result;
+  /** V3 offline: captura nativa sem Uppy */
+  photoCaptureMode?: 'uppy' | 'native';
+}
+
+interface AvariasV2ViewShellProps extends Omit<AvariasV2ViewProps, 'avariaApi'> {
+  avariaApi?: UseAvariaV2Result;
+}
+
+export function AvariasV2View(props: AvariasV2ViewShellProps) {
+  const avariaFromHook = useAvariaV2(props.demandId);
+  return <AvariasV2ViewContent {...props} avariaApi={props.avariaApi ?? avariaFromHook} />;
 }
 
 interface AvariaFormV2 extends AvariaForm {
@@ -121,19 +146,29 @@ interface AvariaFormV2 extends AvariaForm {
   replicarParaTodosConferidos?: boolean;
 }
 
-export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
+export function AvariasV2ViewContent({
+  demandId,
+  sku: rawSku,
+  conferencesOverride,
+  parametrosConferenciaOverride,
+  backTo,
+  unidadesPorCaixaResolver,
+  avariaApi,
+  photoCaptureMode = 'uppy',
+}: AvariasV2ViewProps) {
   const initialSku = normalizeSkuParam(rawSku);
   const { process } = useProcessV2(demandId);
-  const parametrosConferencia = useParametrosConferenciaV2(process?.unidadeId);
+  const parametrosFromHook = useParametrosConferenciaV2(process?.unidadeId);
+  const parametrosConferencia = parametrosConferenciaOverride ?? parametrosFromHook;
   const { quantidadeModo, loteModo } = parametrosConferencia;
   const showCaixa = quantidadeModo === 'caixa' || quantidadeModo === 'ambos';
   const showUnidade = quantidadeModo === 'unidade' || quantidadeModo === 'ambos';
   const quantidadeGridClass =
     showCaixa && showUnidade ? 'grid-cols-2' : 'grid-cols-1';
 
-  const { avarias, registrarAvaria, removerAvaria, limparAvarias, isLoading } =
-    useAvariaV2(demandId);
-  const { conferences } = useConferenciaV2(demandId);
+  const { avarias, registrarAvaria, removerAvaria, limparAvarias, isLoading } = avariaApi;
+  const { conferences: dexieConferences } = useConferenciaV2(demandId);
+  const conferences = conferencesOverride ?? dexieConferences;
   const [showForm, setShowForm] = useState(Boolean(initialSku));
   const [captureSessionId, setCaptureSessionId] = useState(() => crypto.randomUUID());
   const [isClearing, setIsClearing] = useState(false);
@@ -149,18 +184,31 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
       return;
     }
 
+    if (unidadesPorCaixaResolver) {
+      setUnidadesPorCaixa(unidadesPorCaixaResolver(activeSku));
+      return;
+    }
+
     void resolveProductForSkuV2(demandId, activeSku).then((product) => {
       setUnidadesPorCaixa(product ? resolveUnidadesPorCaixa(product) : 1);
     });
-  }, [activeSku, demandId]);
+  }, [activeSku, demandId, unidadesPorCaixaResolver]);
 
   const captureOwnerId = avariaCaptureSessionOwnerId(captureSessionId);
 
-  const photoCapture = usePhotoCaptureV2({
+  const uppyPhotoCapture = useUppyCapture({
     processId: demandId,
     ownerType: 'avaria',
     ownerId: captureOwnerId,
   });
+
+  const nativePhotoCapture = usePhotoCaptureV3({
+    processId: demandId,
+    ownerType: 'avaria',
+    ownerId: captureOwnerId,
+  });
+
+  const photoCapture = photoCaptureMode === 'native' ? nativePhotoCapture : uppyPhotoCapture;
 
   const lotesConferidos = useMemo(() => {
     if (!activeSku) return [];
@@ -307,6 +355,7 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
         skusAlvo: replicar ? itensConferidosSkus : undefined,
         quantidadeModo,
         mediaIds: photoCapture.getPhotoIds(),
+        conferencesForReplication: replicar ? conferences : undefined,
       });
       reset({
         sku: form.sku || activeSku,
@@ -365,8 +414,8 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
       <div className="sticky top-0 z-20 border-b border-outline-variant/60 bg-surface/95 backdrop-blur-md supports-[backdrop-filter]:bg-surface/80">
         <div className="flex items-center gap-3 px-margin-mobile py-3">
           <Link
-            to="/recebimento-v2/$id/itens"
-            params={{ id: demandId }}
+            to={backTo?.to ?? '/recebimento-v2/$id/itens'}
+            params={backTo?.params ?? { id: demandId }}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant touch-manipulation transition-transform active:scale-90"
             aria-label="Voltar"
           >
@@ -400,6 +449,7 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
       </div>
 
       <div className="mt-4 space-y-4 px-margin-mobile">
+        {photoCaptureMode === 'uppy' ? <UppyUploadStatusBar /> : null}
         {showForm && (
           <form
             onSubmit={handleSubmit(onSubmit)}
@@ -655,10 +705,24 @@ export function AvariasV2View({ demandId, sku: rawSku }: AvariasV2ViewProps) {
                 ))}
               </div>
               {photoError && <p className="text-label-sm text-destructive">{photoError}</p>}
-              <PhotoCaptureHiddenInputV2
-                inputRef={photoCapture.inputRef}
-                onChange={photoCapture.handleFileChange}
-              />
+              {photoCaptureMode === 'native' ? (
+                <PhotoCaptureModalV3
+                  capture={nativePhotoCapture}
+                  note="Capture pelo menos duas evidências fotográficas da avaria."
+                />
+              ) : (
+                <UppyCaptureModal
+                  uppy={uppyPhotoCapture.uppy}
+                  open={uppyPhotoCapture.isModalOpen}
+                  onRequestClose={uppyPhotoCapture.closeModal}
+                  onPickFromDevice={uppyPhotoCapture.pickFromDevice}
+                  isProcessing={uppyPhotoCapture.isProcessing}
+                  fileInputRef={uppyPhotoCapture.fileInputRef}
+                  fileInputAccept={uppyPhotoCapture.fileInputAccept}
+                  onNativeFileChange={uppyPhotoCapture.handleNativeFileChange}
+                  note="Capture pelo menos duas evidências fotográficas da avaria."
+                />
+              )}
             </div>
 
             <Button

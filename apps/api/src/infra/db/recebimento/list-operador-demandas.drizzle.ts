@@ -1,7 +1,11 @@
-import { and, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, isNull, ne, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-import type { ListOperadorDemandasFilter } from '../../../domain/repositories/recebimento/conferencia.repository.js';
+import type {
+  ListOperadorDemandasFilter,
+  OperadorDemandaRecord,
+} from '../../../domain/repositories/recebimento/conferencia.repository.js';
+import { resolveAuthoritativeDemandSituacao } from '../../../domain/services/resolve-authoritative-demand-situacao.js';
 import type { DrizzleClient } from '../providers/drizzle/drizzle.provider.js';
 import { funcionarios } from '../providers/drizzle/config/schemas/auth.schema.js';
 import {
@@ -36,6 +40,15 @@ function buildApoioAlocacaoIdSubquery(funcionarioId: number) {
   )`;
 }
 
+function buildNaoEncerradaCondition() {
+  return and(
+    ne(preRecebimentos.situacao, 'conferido'),
+    ne(preRecebimentos.situacao, 'finalizado'),
+    or(isNull(recebimentos.id), ne(recebimentos.situacao, 'conferido')),
+    or(isNull(recebimentos.id), ne(recebimentos.situacao, 'finalizado')),
+  );
+}
+
 function buildSituacaoCondition(filter: ListOperadorDemandasFilter) {
   const liberadoSemRecebimento = and(
     eq(preRecebimentos.situacao, 'liberado_para_conferencia'),
@@ -54,7 +67,7 @@ function buildSituacaoCondition(filter: ListOperadorDemandasFilter) {
       : liberadoSemRecebimento;
 
   if (!filter.responsavelId) {
-    return disponivelParaOperador;
+    return and(disponivelParaOperador, buildNaoEncerradaCondition());
   }
 
   const conferenciaDoOperador = and(
@@ -70,31 +83,20 @@ function buildSituacaoCondition(filter: ListOperadorDemandasFilter) {
     or(
       eq(preRecebimentos.situacao, 'liberado_para_conferencia'),
       eq(preRecebimentos.situacao, 'em_conferencia'),
+      eq(recebimentos.situacao, 'em_conferencia'),
     ),
   );
 
-  const impedidoParaOperador = and(
-    eq(preRecebimentos.situacao, 'impedido'),
-    or(
-      isNull(recebimentoAlocacoes.id),
-      eq(recebimentoAlocacoes.funcionarioId, filter.responsavelId),
-      eq(recebimentos.responsavelId, filter.responsavelId),
-      buildApoioAtivoExists(filter.responsavelId),
-    ),
-  );
-
-  return or(
-    disponivelParaOperador,
-    conferenciaDoOperador,
-    apoioDoOperador,
-    impedidoParaOperador,
+  return and(
+    or(disponivelParaOperador, conferenciaDoOperador, apoioDoOperador),
+    buildNaoEncerradaCondition(),
   );
 }
 
 export async function listOperadorDemandasDb(
   db: DrizzleClient,
   filter: ListOperadorDemandasFilter,
-) {
+): Promise<OperadorDemandaRecord[]> {
   const conditions = [buildSituacaoCondition(filter)];
 
   if (filter.unidadeId) {
@@ -161,7 +163,10 @@ export async function listOperadorDemandasDb(
       unidadeId: preRecebimento.unidadeId,
       placa: preRecebimento.placa,
       transportadoraNome: preRecebimento.transportadoraNome,
-      situacao: preRecebimento.situacao,
+      situacao: resolveAuthoritativeDemandSituacao({
+        preRecebimentoSituacao: preRecebimento.situacao,
+        recebimentoSituacao: recebimento?.situacao ?? null,
+      }),
       dock: docaCodigo ?? preDocaCodigo ?? null,
       skuCount: skuCount ?? 0,
       horarioPrevisto: preRecebimento.horarioPrevisto,

@@ -8,10 +8,16 @@ import {
 } from '../lib/sync-retry-policy';
 import { debugRecebimentoV2 } from '../lib/sync-debug';
 
-import { hasPendingPhotoUploads } from './sync-photo.helpers';
+import { countPendingPhotoUploads, hasPendingPhotoUploads } from './sync-photo.helpers';
 import { pushDemand, type PushResult } from './sync.service';
 import { pushDemandPatchFromLocal } from './push-demand-patch.service';
 import { reconcileOrphanedPendingSyncOps } from './mark-sync-ops-for-patch.service';
+import {
+  processPhotoQueue,
+  registerPhotoQueueForDemand,
+  resetPhotoUploadQueueState,
+  triggerPhotoQueue,
+} from './photo-upload-queue.service';
 
 const AUTO_SYNC_INTERVAL_MS = 45_000;
 const AUTO_SYNC_DEBOUNCE_MS = 800;
@@ -21,8 +27,8 @@ const activeDemands = new Set<string>();
 const scheduledSyncByDemand = new Map<string, ReturnType<typeof setTimeout>>();
 const consecutiveErrorsByDemand = new Map<string, number>();
 const pausedDemands = new Set<string>();
+const pushingDemands = new Set<string>();
 
-let isPushing = false;
 let listenersCleanup: (() => void) | null = null;
 
 function isBrowserOnline(): boolean {
@@ -220,6 +226,23 @@ function mergePushResults(base: PushResult, extra: PushResult): PushResult {
   };
 }
 
+async function buildPhotoOnlyPushResult(demandId: string): Promise<PushResult> {
+  const process = await recebimentoV2Db.processes.get(demandId);
+  const photoResult = await processPhotoQueue(demandId);
+  const pendingCounts = await countPendingPhotoUploads(demandId);
+
+  return {
+    accepted: 0,
+    rejected: 0,
+    conflicts: 0,
+    newRevision: process?.serverRevision ?? 0,
+    photosUploaded: photoResult.uploaded,
+    photosFailed: photoResult.failed,
+    photosPending:
+      pendingCounts.pending + pendingCounts.uploading + pendingCounts.error,
+  };
+}
+
 export function scheduleAutoSync(
   demandId: string,
   delayMs = AUTO_SYNC_DEBOUNCE_MS,
@@ -246,14 +269,13 @@ export function triggerAutoSyncIfPending(demandId: string): void {
   void hasDirtyPatchWork(demandId).then((hasWork) => {
     if (hasWork && !pausedDemands.has(demandId)) {
       scheduleAutoSync(demandId);
-      return;
     }
+  });
 
-    void hasPendingPhotoUploads(demandId).then((hasPhotos) => {
-      if (hasPhotos) {
-        scheduleAutoSync(demandId);
-      }
-    });
+  void hasPendingPhotoUploads(demandId).then((hasPhotos) => {
+    if (hasPhotos) {
+      triggerPhotoQueue(demandId);
+    }
   });
 }
 
@@ -265,15 +287,12 @@ async function autoPushDemandIfNeeded(
     return null;
   }
 
-  if (isPushing && !options?.manual) {
+  if (pushingDemands.has(demandId) && !options?.manual) {
     return null;
   }
 
   if (!options?.manual && (await isDemandAutoSyncPaused(demandId))) {
-    const photosOnly = await hasPendingPhotoUploads(demandId);
-    if (!photosOnly) {
-      return null;
-    }
+    return null;
   }
 
   const process = await recebimentoV2Db.processes.get(demandId);
@@ -284,16 +303,14 @@ async function autoPushDemandIfNeeded(
   await reconcileOrphanedPendingSyncOps(demandId);
 
   const hasPatch = await hasDirtyPatchWork(demandId);
-  const hasPhotos = await hasPendingPhotoUploads(demandId);
-  const hasWork = options?.manual
-    ? hasPatch || (await hasPendingSyncWork(demandId)) || hasPhotos
-    : hasPatch || hasPhotos;
+  const hasPendingOps = options?.manual ? await hasPendingSyncWork(demandId) : false;
+  const hasWork = hasPatch || hasPendingOps;
 
   if (!hasWork) {
     return null;
   }
 
-  isPushing = true;
+  pushingDemands.add(demandId);
   try {
     let result: PushResult | null = null;
 
@@ -302,15 +319,13 @@ async function autoPushDemandIfNeeded(
       if (patchResult) {
         result = patchResultToPushResult(patchResult);
       }
-    }
-
-    if (hasPhotos) {
-      const photoResult = await pushDemand(demandId, { manual: options?.manual });
-      result = result ? mergePushResults(result, photoResult) : photoResult;
+    } else if (hasPendingOps) {
+      result = await pushDemand(demandId, { manual: options?.manual });
     }
 
     consecutiveErrorsByDemand.delete(demandId);
     await refreshAutoSyncPauseState(demandId);
+    triggerPhotoQueue(demandId);
     return result;
   } catch (err) {
     if (isRevisionConflictError(err)) {
@@ -323,7 +338,7 @@ async function autoPushDemandIfNeeded(
     await refreshAutoSyncPauseState(demandId);
     return null;
   } finally {
-    isPushing = false;
+    pushingDemands.delete(demandId);
   }
 }
 
@@ -335,7 +350,22 @@ export async function syncNowV2(
     resetAutoSyncBackoff(demandId);
   }
 
-  return autoPushDemandIfNeeded(demandId, options);
+  const dataResult = await autoPushDemandIfNeeded(demandId, options);
+  const shouldProcessPhotos =
+    options?.manual || (await hasPendingPhotoUploads(demandId));
+
+  if (!shouldProcessPhotos) {
+    return dataResult;
+  }
+
+  const photoResult = await buildPhotoOnlyPushResult(demandId);
+  triggerPhotoQueue(demandId);
+
+  if (dataResult) {
+    return mergePushResults(dataResult, photoResult);
+  }
+
+  return photoResult;
 }
 
 function requestAutoSyncForActiveDemands(): void {
@@ -390,6 +420,7 @@ export async function registerAutoSyncForDemand(demandId: string): Promise<() =>
   activeDemands.add(demandId);
   ensureGlobalListenersRegistered();
   await hydrateAutoSyncPauseState(demandId);
+  const unregisterPhotoQueue = registerPhotoQueueForDemand(demandId);
 
   const [process, ops, hasWork] = await Promise.all([
     recebimentoV2Db.processes.get(demandId),
@@ -413,6 +444,7 @@ export async function registerAutoSyncForDemand(demandId: string): Promise<() =>
   return () => {
     activeDemands.delete(demandId);
     cancelScheduledAutoSync(demandId);
+    unregisterPhotoQueue();
 
     if (activeDemands.size === 0 && listenersCleanup) {
       listenersCleanup();
@@ -426,7 +458,9 @@ export function resetAutoSyncV2State(): void {
   activeDemands.clear();
   consecutiveErrorsByDemand.clear();
   pausedDemands.clear();
-  isPushing = false;
+  pushingDemands.clear();
+
+  resetPhotoUploadQueueState();
 
   if (listenersCleanup) {
     listenersCleanup();

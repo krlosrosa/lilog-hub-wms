@@ -12,8 +12,13 @@ import {
   resolveUnidadesPorCaixa,
 } from '../lib/resolve-produto-conferencia-v2';
 import { recebimentoV2Db } from '../local-db/db';
-import type { DamageRecord } from '../local-db/schema';
+import type { ConferenceRecord, DamageRecord } from '../local-db/schema';
 import { triggerAutoSyncIfPending } from '../services/auto-sync-v2.service';
+import { removeDamageRecordLocally } from '../services/damage-removal.helpers';
+import {
+  deleteAllAvariaMediaForDemand,
+  deleteAvariaMediaUnreferencedByActiveDamages,
+} from '../services/sync-photo.helpers';
 import type { DamageForm } from '../types/recebimento-v2.schema';
 
 export interface RegistrarAvariaInput extends DamageForm {
@@ -21,6 +26,8 @@ export interface RegistrarAvariaInput extends DamageForm {
   replicarParaTodos?: boolean;
   skusAlvo?: string[];
   quantidadeModo?: QuantidadeModo;
+  /** Conferências externas (ex.: Replicache RC) para replicação sem Dexie */
+  conferencesForReplication?: ConferenceRecord[];
 }
 
 export interface UseAvariaV2Result {
@@ -119,10 +126,9 @@ async function registrarAvariaReplicada(
   }
 
   const skuTargets = new Set(skusAlvo.map((sku) => sku.toUpperCase()));
-  const conferences = await recebimentoV2Db.conferences
-    .where('demandId')
-    .equals(demandId)
-    .toArray();
+  const conferences =
+    input.conferencesForReplication ??
+    (await recebimentoV2Db.conferences.where('demandId').equals(demandId).toArray());
 
   const targets = conferences.filter((conference) =>
     matchesSkuTarget(conference.sku, skuTargets),
@@ -217,27 +223,16 @@ export function useAvariaV2(demandId: string): UseAvariaV2Result {
 
   const removerAvaria = useCallback(
     async (damageId: string): Promise<void> => {
-      const now = new Date().toISOString();
-      const nowMs = Date.now();
-
       const damage = await recebimentoV2Db.damages.get(damageId);
       if (!damage || damage.deletedAt) return;
 
-      const needsSync = damage.syncStatus !== 'synced' || damage.serverAvariaId != null;
-
-      await recebimentoV2Db.transaction(
+      const needsSync = await recebimentoV2Db.transaction(
         'rw',
         [recebimentoV2Db.damages, recebimentoV2Db.media],
         async () => {
-          await recebimentoV2Db.damages.update(damageId, {
-            deletedAt: now,
-            syncStatus: needsSync ? 'pending' : 'synced',
-            updatedAt: nowMs,
-          });
-
-          if (damage.mediaIds?.length) {
-            await recebimentoV2Db.media.bulkDelete(damage.mediaIds);
-          }
+          const requiresSync = await removeDamageRecordLocally(demandId, damage);
+          await deleteAvariaMediaUnreferencedByActiveDamages(demandId);
+          return requiresSync;
         },
       );
 
@@ -249,8 +244,6 @@ export function useAvariaV2(demandId: string): UseAvariaV2Result {
   );
 
   const limparAvarias = useCallback(async (): Promise<void> => {
-    const nowMs = Date.now();
-
     const activeAvarias = await recebimentoV2Db.damages
       .where('demandId')
       .equals(demandId)
@@ -259,27 +252,20 @@ export function useAvariaV2(demandId: string): UseAvariaV2Result {
 
     if (activeAvarias.length === 0) return;
 
-    const now = new Date().toISOString();
-    const needsSync = activeAvarias.some(
-      (avaria) => avaria.syncStatus !== 'synced' || avaria.serverAvariaId != null,
-    );
-
-    await recebimentoV2Db.transaction(
+    const needsSync = await recebimentoV2Db.transaction(
       'rw',
       [recebimentoV2Db.damages, recebimentoV2Db.media],
       async () => {
+        let requiresSync = false;
+
         for (const avaria of activeAvarias) {
-          await recebimentoV2Db.damages.update(avaria.id, {
-            deletedAt: now,
-            syncStatus: needsSync ? 'pending' : 'synced',
-            updatedAt: nowMs,
-          });
+          if (await removeDamageRecordLocally(demandId, avaria)) {
+            requiresSync = true;
+          }
         }
 
-        const mediaIds = activeAvarias.flatMap((avaria) => avaria.mediaIds ?? []);
-        if (mediaIds.length > 0) {
-          await recebimentoV2Db.media.bulkDelete(mediaIds);
-        }
+        await deleteAllAvariaMediaForDemand(demandId);
+        return requiresSync;
       },
     );
 

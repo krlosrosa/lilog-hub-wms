@@ -11,10 +11,20 @@ vi.mock('./sync.service', () => ({
   pushDemand: vi.fn(),
 }));
 
+vi.mock('./photo-upload-queue.service', () => ({
+  processPhotoQueue: vi.fn(),
+  triggerPhotoQueue: vi.fn(),
+  registerPhotoQueueForDemand: vi.fn(() => () => undefined),
+  resetPhotoUploadQueueState: vi.fn(),
+}));
+
 const mockPushDemandPatchFromLocal = vi.mocked(
   (await import('./push-demand-patch.service')).pushDemandPatchFromLocal,
 );
 const mockPushDemand = vi.mocked((await import('./sync.service')).pushDemand);
+const mockProcessPhotoQueue = vi.mocked(
+  (await import('./photo-upload-queue.service')).processPhotoQueue,
+);
 
 const {
   hasDirtyPatchWork,
@@ -105,6 +115,7 @@ describe('auto-sync-v2.service', () => {
     await recebimentoV2Db.conferences.clear();
     await recebimentoV2Db.checklists.clear();
     await recebimentoV2Db.media.clear();
+    mockProcessPhotoQueue.mockResolvedValue({ uploaded: 0, failed: 0, skipped: 0 });
     await recebimentoV2Db.processes.put(makeProcess());
   });
 
@@ -251,20 +262,17 @@ describe('auto-sync-v2.service', () => {
       updatedAt: Date.now(),
     });
 
-    mockPushDemand.mockResolvedValue({
-      accepted: 0,
-      rejected: 0,
-      conflicts: 0,
-      newRevision: 5,
-      photosUploaded: 1,
-      photosFailed: 0,
-      photosPending: 0,
+    mockProcessPhotoQueue.mockResolvedValue({
+      uploaded: 1,
+      failed: 0,
+      skipped: 0,
     });
 
     const result = await syncNowV2(DEMAND_ID);
 
     expect(mockPushDemandPatchFromLocal).not.toHaveBeenCalled();
-    expect(mockPushDemand).toHaveBeenCalledWith(DEMAND_ID, { manual: undefined });
+    expect(mockPushDemand).not.toHaveBeenCalled();
+    expect(mockProcessPhotoQueue).toHaveBeenCalledWith(DEMAND_ID);
     expect(result?.photosUploaded).toBe(1);
   });
 

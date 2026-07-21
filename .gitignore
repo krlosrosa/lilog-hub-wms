@@ -15,8 +15,12 @@ storybook-static
 # Local dev file storage (API sem R2)
 apps/api/.local-storage
 
-# Misc
-coverage
+# Playwright
+playwright-report/
+test-results/
+e2e/.auth/
+e2e/fixtures/test-photo.png
+
 .vercel
 
 # Env

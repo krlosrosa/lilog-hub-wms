@@ -1,4 +1,5 @@
 import { recebimentoV2Db } from '../local-db/db';
+import { deriveLifecycleFromStatus } from '../lib/sync-operation-lifecycle';
 import { isConferenciaBloqueadaError } from '../lib/sync-conferencia-bloqueada';
 import { reabrirConferencia } from '../api/sync-api';
 import {
@@ -52,6 +53,7 @@ export async function reabrirConferenciaV2(demandId: string): Promise<void> {
         blockedOps.map((op) =>
           recebimentoV2Db.syncOperations.update(op.id, {
             status: 'pending',
+            lifecycleStatus: deriveLifecycleFromStatus('pending'),
             attempts: 0,
             nextAttemptAt: undefined,
             errorMessage: undefined,

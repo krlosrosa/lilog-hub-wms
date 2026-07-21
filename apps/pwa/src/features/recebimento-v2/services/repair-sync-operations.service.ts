@@ -3,6 +3,7 @@ import { RECEBIMENTO_V2_OP_TYPES } from '@lilog/contracts';
 import { mapAvariaV2SyncPayload, isValidAvariaV2SyncPayload } from '../lib/map-avaria-v2-sync-payload';
 import { mapConferenciaV2SyncPayload } from '../lib/map-conferencia-v2-sync-payload';
 import { normalizeParametrosConferenciaV2 } from '../lib/parametros-conferencia';
+import { deriveLifecycleFromStatus } from '../lib/sync-operation-lifecycle';
 import {
   resolveProdutoConferenciaV2,
   resolveProdutoIdForSkuV2,
@@ -259,6 +260,7 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
         if (op.status === 'rejected') {
           await recebimentoV2Db.syncOperations.update(op.id, {
             status: 'pending',
+            lifecycleStatus: deriveLifecycleFromStatus('pending'),
             errorMessage: undefined,
             updatedAt: now,
           });
@@ -271,6 +273,7 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
       if (itemId) {
         await recebimentoV2Db.syncOperations.update(op.id, {
           status: 'pending',
+          lifecycleStatus: deriveLifecycleFromStatus('pending'),
           payload: { ...payload, itemId },
           errorMessage: undefined,
           updatedAt: now,
@@ -312,6 +315,7 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
       ) {
         await recebimentoV2Db.syncOperations.update(op.id, {
           status: 'pending',
+          lifecycleStatus: deriveLifecycleFromStatus('pending'),
           attempts: 0,
           errorMessage: undefined,
           nextAttemptAt: undefined,
@@ -334,6 +338,7 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
         if (op.status === 'rejected') {
           await recebimentoV2Db.syncOperations.update(op.id, {
             status: 'pending',
+            lifecycleStatus: deriveLifecycleFromStatus('pending'),
             errorMessage: undefined,
             updatedAt: now,
           });
@@ -357,6 +362,7 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
 
       await recebimentoV2Db.syncOperations.update(op.id, {
         status: 'pending',
+        lifecycleStatus: deriveLifecycleFromStatus('pending'),
         payload: rebuilt,
         errorMessage: undefined,
         updatedAt: now,
@@ -392,6 +398,7 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
     ) {
       await recebimentoV2Db.syncOperations.update(op.id, {
         status: 'pending',
+        lifecycleStatus: deriveLifecycleFromStatus('pending'),
         errorMessage: undefined,
         updatedAt: now,
       });
@@ -423,6 +430,7 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
 
     await recebimentoV2Db.syncOperations.update(op.id, {
       status: 'pending',
+      lifecycleStatus: deriveLifecycleFromStatus('pending'),
       payload: rebuilt,
       errorMessage: undefined,
       updatedAt: now,

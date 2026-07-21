@@ -11,6 +11,7 @@ import type {
 import { toBaseUnits } from '@/features/recebimento/lib/resolve-recebimento-divergencia';
 
 import { mapConferenciaV2SyncPayload } from '../lib/map-conferencia-v2-sync-payload';
+import { deriveLifecycleFromStatus } from '../lib/sync-operation-lifecycle';
 import {
   calcConferenceQuantityInUnidades,
   calcConferenceBaseUnitsFromRecord,
@@ -225,6 +226,7 @@ export function useConferenciaV2(demandId: string): UseConferenciaV2Result {
       },
       attachmentIds: [],
       status: 'pending',
+      lifecycleStatus: deriveLifecycleFromStatus('pending'),
       attempts: 0,
       createdAt: nowMs,
       updatedAt: nowMs,

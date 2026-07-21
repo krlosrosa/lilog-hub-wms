@@ -4,6 +4,7 @@ import {
   type DemandPatchResult,
 } from '@lilog/contracts';
 
+import { deriveLifecycleFromStatus } from '../lib/sync-operation-lifecycle';
 import { recebimentoV2Db } from '../local-db/db';
 import type { SyncOperationRecord } from '../local-db/schema';
 
@@ -88,6 +89,7 @@ async function markOpsSynced(opIds: Iterable<string>, now: number): Promise<void
     .anyOf(ids)
     .modify((op) => {
       op.status = 'synced';
+      op.lifecycleStatus = deriveLifecycleFromStatus('synced');
       op.errorMessage = undefined;
       op.nextAttemptAt = undefined;
       op.updatedAt = now;

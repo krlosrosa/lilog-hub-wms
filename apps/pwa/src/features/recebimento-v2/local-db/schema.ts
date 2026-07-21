@@ -28,7 +28,7 @@ export interface RecebimentoCapabilities {
 export interface ProcessRecord {
   id: string; // demandId (PK)
   unidadeId: string;
-  adapter: 'recebimento-v2';
+  adapter: 'recebimento-v2' | 'recebimento-v5';
   status: ProcessStatus;
   serverRevision: number;
   baseRevision: number;
@@ -42,7 +42,7 @@ export interface ProcessRecord {
   autoSyncPaused?: boolean;
   /** Finalizado localmente mas sync ainda não confirmou — esconde da lista */
   pendingFinalizationSync?: boolean;
-  flowVersion: 'v2';
+  flowVersion: 'v2' | 'v5';
   /** Server recebimento id — cached after sync for photo uploads */
   recebimentoId?: string;
   // Display helpers (populated from demand package)
@@ -128,6 +128,9 @@ export interface ChecklistPhotoMediaIds {
 export interface ChecklistRecord {
   demandId: string; // PK
   id: string; // uuid for sync reference
+  /** UUID da doca selecionada (para sync Replicache). */
+  dockId?: string;
+  /** Label exibido da doca (pode ser texto, não UUID). */
   dock: string;
   lacre: string;
   tempBau?: number;
@@ -141,6 +144,21 @@ export interface ChecklistRecord {
   serverChecklistId?: string;
   /** Quantidade de fotos já enviadas no servidor */
   serverPhotoCount?: number;
+  /** Finalização aguardando confirmação no servidor (RC offline-first). */
+  pendingFinalizationSync?: boolean;
+  finalizacaoPayload?: {
+    quantidadePaletes: number;
+    teveSobreposicaoCarga: boolean;
+  };
+  /** Usuário finalizou pelo PWA (mutação local), aguardando confirmação do servidor. */
+  localFinalizationAttempted?: boolean;
+  /** Finalização confirmada pelo servidor após push/pull bem-sucedido. */
+  finalizationServerConfirmed?: boolean;
+  /**
+   * Fotos de avaria RC aguardando stamp com serverAvariaId (persistidas para retry offline).
+   * Keyed por clientDamageId; preenchido antes do push para garantir que fotos não se percam.
+   */
+  pendingAvariaPhotos?: Array<{ clientDamageId: string; mediaIds: string[] }>;
   updatedAt: number;
 }
 
@@ -183,6 +201,8 @@ export interface DamageRecord {
   /** SKUs afetados quando replicarParaTodos = true */
   skusAlvo?: string[];
   deletedAt?: string; // ISO string
+  /** Last patch/sync error for debug and retry UX */
+  syncErrorMessage?: string;
   updatedAt: number;
 }
 
@@ -255,6 +275,14 @@ export interface MediaRecord {
   uploadedAt?: string;
   errorMessage?: string;
   errorStep?: MediaUploadErrorStep;
+  /** ID da entidade no servidor (serverAvariaId, recebimentoId, etc.) */
+  targetEntityId?: string;
+  /** Tipo da entidade para o bucket (recebimento_avaria, checklist_recebimento, etc.) */
+  targetEntityType?: string;
+  /** Tentativas de upload pela fila de fotos */
+  uploadAttempts?: number;
+  /** Próxima tentativa de upload (ISO string) */
+  nextUploadAttemptAt?: string;
   createdAt: string;
 }
 
@@ -300,6 +328,12 @@ export interface SyncConflictRecord {
   localRevision: number;
   sections: string[];
   serverSnapshot?: unknown;
+  conflictReasons?: string[];
+  conflictDetails?: Array<{
+    section: string;
+    clientId?: string;
+    reason: string;
+  }>;
   resolved: boolean;
   resolvedAt?: number;
   createdAt: number;

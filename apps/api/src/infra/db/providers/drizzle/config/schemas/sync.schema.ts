@@ -71,7 +71,35 @@ export const syncOperations = syncPgSchema.table(
       table.batchId,
       table.opId,
     ),
+    uniqueIndex('sync_operations_op_uidx').on(table.opId),
     index('sync_operations_batch_idx').on(table.batchId),
+  ],
+);
+
+export const syncOperationLogs = syncPgSchema.table(
+  'sync_operation_logs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    batchId: uuid('batch_id')
+      .notNull()
+      .references(() => syncBatches.id, { onDelete: 'cascade' }),
+    opId: varchar('op_id', { length: 128 }).notNull(),
+    opType: varchar('op_type', { length: 100 }).notNull(),
+    status: varchar('status', { length: 20 }).notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }).notNull(),
+    durationMs: integer('duration_ms').notNull().default(0),
+    attempt: integer('attempt').notNull().default(1),
+    errorMessage: text('error_message'),
+    response: text('response'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('sync_operation_logs_batch_idx').on(table.batchId),
+    index('sync_operation_logs_op_idx').on(table.opId),
+    index('sync_operation_logs_created_at_idx').on(table.createdAt),
   ],
 );
 

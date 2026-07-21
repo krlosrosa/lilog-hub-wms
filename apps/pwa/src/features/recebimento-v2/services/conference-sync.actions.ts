@@ -1,6 +1,7 @@
 import { RECEBIMENTO_V2_OP_TYPES } from '@lilog/contracts';
 
 import { normalizeSkuParam } from '../lib/resolve-produto-conferencia-v2.js';
+import { deriveLifecycleFromStatus } from '../lib/sync-operation-lifecycle.js';
 import { recebimentoV2Db } from '../local-db/db.js';
 import type { ConferenceRecord, SyncOperationRecord } from '../local-db/schema.js';
 
@@ -154,6 +155,7 @@ export async function deleteConferenceRecord(conferenceId: string): Promise<bool
       },
       attachmentIds: [],
       status: 'pending',
+      lifecycleStatus: deriveLifecycleFromStatus('pending'),
       attempts: 0,
       createdAt: nowMs,
       updatedAt: nowMs,
@@ -178,6 +180,7 @@ export async function deleteConferenceRecord(conferenceId: string): Promise<bool
         },
         attachmentIds: [],
         status: 'pending',
+        lifecycleStatus: deriveLifecycleFromStatus('pending'),
         attempts: 0,
         createdAt: nowMs,
         updatedAt: nowMs,
@@ -201,6 +204,7 @@ export async function deleteConferenceRecord(conferenceId: string): Promise<bool
       },
       attachmentIds: [],
       status: 'pending',
+      lifecycleStatus: deriveLifecycleFromStatus('pending'),
       attempts: 0,
       createdAt: nowMs,
       updatedAt: nowMs,
@@ -214,7 +218,12 @@ export async function deleteConferenceRecord(conferenceId: string): Promise<bool
       await recebimentoV2Db.conferences.delete(conferenceId);
 
       for (const op of pendingConferirOps) {
-        await recebimentoV2Db.syncOperations.delete(op.id);
+        await recebimentoV2Db.syncOperations.update(op.id, {
+          status: 'rejected',
+          lifecycleStatus: 'CANCELLED',
+          errorMessage: 'Operação cancelada por exclusão local antes do envio',
+          updatedAt: nowMs,
+        });
       }
 
       for (const op of staleRemoveOps) {

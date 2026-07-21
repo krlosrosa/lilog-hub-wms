@@ -995,6 +995,27 @@
       "when": 1792614400000,
       "tag": "0140_itens_recebimento_unitizador_codigo",
       "breakpoints": true
+    },
+    {
+      "idx": 142,
+      "version": "7",
+      "when": 1792787200000,
+      "tag": "0141_replicache_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1792873600000,
+      "tag": "0142_sync_operations_opid_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1792960000000,
+      "tag": "0143_sync_operation_logs",
+      "breakpoints": true
     }
   ]
 }

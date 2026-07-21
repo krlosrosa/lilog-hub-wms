@@ -11,31 +11,23 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AlterarSenhaRouteImport } from './routes/alterar-senha'
+import { Route as RecebimentoRcRouteRouteImport } from './routes/recebimento-rc/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as RecebimentoIndexRouteImport } from './routes/recebimento/index'
-import { Route as RecebimentoV2IndexRouteImport } from './routes/recebimento-v2/index'
+import { Route as RecebimentoRcIndexRouteImport } from './routes/recebimento-rc/index'
 import { Route as PesoVariavelIndexRouteImport } from './routes/peso-variavel/index'
 import { Route as PassagemBastaoIndexRouteImport } from './routes/passagem-bastao/index'
 import { Route as ManobraIndexRouteImport } from './routes/manobra/index'
-import { Route as RecebimentoIdRouteImport } from './routes/recebimento/$id'
-import { Route as RecebimentoV2IdRouteImport } from './routes/recebimento-v2/$id'
+import { Route as RecebimentoRcSyncRouteImport } from './routes/recebimento-rc/sync'
+import { Route as RecebimentoRcIdRouteImport } from './routes/recebimento-rc/$id'
 import { Route as RastreioTokenRouteImport } from './routes/rastreio/$token'
 import { Route as PesoVariavelIdRouteImport } from './routes/peso-variavel/$id'
 import { Route as PassagemBastaoResumoRouteImport } from './routes/passagem-bastao/resumo'
-import { Route as RecebimentoIdIndexRouteImport } from './routes/recebimento/$id.index'
-import { Route as RecebimentoV2IdIndexRouteImport } from './routes/recebimento-v2/$id.index'
+import { Route as RecebimentoRcIdIndexRouteImport } from './routes/recebimento-rc/$id.index'
 import { Route as PesoVariavelIdIndexRouteImport } from './routes/peso-variavel/$id.index'
-import { Route as RecebimentoIdTerminoRouteImport } from './routes/recebimento/$id.termino'
-import { Route as RecebimentoIdItensRouteImport } from './routes/recebimento/$id.itens'
-import { Route as RecebimentoIdChecklistRouteImport } from './routes/recebimento/$id.checklist'
-import { Route as RecebimentoIdAvariaRouteImport } from './routes/recebimento/$id.avaria'
-import { Route as RecebimentoV2IdSyncRouteImport } from './routes/recebimento-v2/$id.sync'
-import { Route as RecebimentoV2IdResumoRouteImport } from './routes/recebimento-v2/$id.resumo'
-import { Route as RecebimentoV2IdPreparacaoRouteImport } from './routes/recebimento-v2/$id.preparacao'
-import { Route as RecebimentoV2IdItensRouteImport } from './routes/recebimento-v2/$id.itens'
-import { Route as RecebimentoV2IdConflitoRouteImport } from './routes/recebimento-v2/$id.conflito'
-import { Route as RecebimentoV2IdChecklistRouteImport } from './routes/recebimento-v2/$id.checklist'
-import { Route as RecebimentoV2IdAvariasRouteImport } from './routes/recebimento-v2/$id.avarias'
+import { Route as RecebimentoRcIdResumoRouteImport } from './routes/recebimento-rc/$id.resumo'
+import { Route as RecebimentoRcIdItensRouteImport } from './routes/recebimento-rc/$id.itens'
+import { Route as RecebimentoRcIdChecklistRouteImport } from './routes/recebimento-rc/$id.checklist'
+import { Route as RecebimentoRcIdAvariasRouteImport } from './routes/recebimento-rc/$id.avarias'
 import { Route as PesoVariavelIdResumoRouteImport } from './routes/peso-variavel/$id.resumo'
 
 const LoginRoute = LoginRouteImport.update({
@@ -48,20 +40,20 @@ const AlterarSenhaRoute = AlterarSenhaRouteImport.update({
   path: '/alterar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecebimentoRcRouteRoute = RecebimentoRcRouteRouteImport.update({
+  id: '/recebimento-rc',
+  path: '/recebimento-rc',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RecebimentoIndexRoute = RecebimentoIndexRouteImport.update({
-  id: '/recebimento/',
-  path: '/recebimento/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RecebimentoV2IndexRoute = RecebimentoV2IndexRouteImport.update({
-  id: '/recebimento-v2/',
-  path: '/recebimento-v2/',
-  getParentRoute: () => rootRouteImport,
+const RecebimentoRcIndexRoute = RecebimentoRcIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RecebimentoRcRouteRoute,
 } as any)
 const PesoVariavelIndexRoute = PesoVariavelIndexRouteImport.update({
   id: '/peso-variavel/',
@@ -78,15 +70,15 @@ const ManobraIndexRoute = ManobraIndexRouteImport.update({
   path: '/manobra/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RecebimentoIdRoute = RecebimentoIdRouteImport.update({
-  id: '/recebimento/$id',
-  path: '/recebimento/$id',
-  getParentRoute: () => rootRouteImport,
+const RecebimentoRcSyncRoute = RecebimentoRcSyncRouteImport.update({
+  id: '/sync',
+  path: '/sync',
+  getParentRoute: () => RecebimentoRcRouteRoute,
 } as any)
-const RecebimentoV2IdRoute = RecebimentoV2IdRouteImport.update({
-  id: '/recebimento-v2/$id',
-  path: '/recebimento-v2/$id',
-  getParentRoute: () => rootRouteImport,
+const RecebimentoRcIdRoute = RecebimentoRcIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => RecebimentoRcRouteRoute,
 } as any)
 const RastreioTokenRoute = RastreioTokenRouteImport.update({
   id: '/rastreio/$token',
@@ -103,77 +95,36 @@ const PassagemBastaoResumoRoute = PassagemBastaoResumoRouteImport.update({
   path: '/passagem-bastao/resumo',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RecebimentoIdIndexRoute = RecebimentoIdIndexRouteImport.update({
+const RecebimentoRcIdIndexRoute = RecebimentoRcIdIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => RecebimentoIdRoute,
-} as any)
-const RecebimentoV2IdIndexRoute = RecebimentoV2IdIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => RecebimentoV2IdRoute,
+  getParentRoute: () => RecebimentoRcIdRoute,
 } as any)
 const PesoVariavelIdIndexRoute = PesoVariavelIdIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PesoVariavelIdRoute,
 } as any)
-const RecebimentoIdTerminoRoute = RecebimentoIdTerminoRouteImport.update({
-  id: '/termino',
-  path: '/termino',
-  getParentRoute: () => RecebimentoIdRoute,
-} as any)
-const RecebimentoIdItensRoute = RecebimentoIdItensRouteImport.update({
-  id: '/itens',
-  path: '/itens',
-  getParentRoute: () => RecebimentoIdRoute,
-} as any)
-const RecebimentoIdChecklistRoute = RecebimentoIdChecklistRouteImport.update({
-  id: '/checklist',
-  path: '/checklist',
-  getParentRoute: () => RecebimentoIdRoute,
-} as any)
-const RecebimentoIdAvariaRoute = RecebimentoIdAvariaRouteImport.update({
-  id: '/avaria',
-  path: '/avaria',
-  getParentRoute: () => RecebimentoIdRoute,
-} as any)
-const RecebimentoV2IdSyncRoute = RecebimentoV2IdSyncRouteImport.update({
-  id: '/sync',
-  path: '/sync',
-  getParentRoute: () => RecebimentoV2IdRoute,
-} as any)
-const RecebimentoV2IdResumoRoute = RecebimentoV2IdResumoRouteImport.update({
+const RecebimentoRcIdResumoRoute = RecebimentoRcIdResumoRouteImport.update({
   id: '/resumo',
   path: '/resumo',
-  getParentRoute: () => RecebimentoV2IdRoute,
+  getParentRoute: () => RecebimentoRcIdRoute,
 } as any)
-const RecebimentoV2IdPreparacaoRoute =
-  RecebimentoV2IdPreparacaoRouteImport.update({
-    id: '/preparacao',
-    path: '/preparacao',
-    getParentRoute: () => RecebimentoV2IdRoute,
-  } as any)
-const RecebimentoV2IdItensRoute = RecebimentoV2IdItensRouteImport.update({
+const RecebimentoRcIdItensRoute = RecebimentoRcIdItensRouteImport.update({
   id: '/itens',
   path: '/itens',
-  getParentRoute: () => RecebimentoV2IdRoute,
+  getParentRoute: () => RecebimentoRcIdRoute,
 } as any)
-const RecebimentoV2IdConflitoRoute = RecebimentoV2IdConflitoRouteImport.update({
-  id: '/conflito',
-  path: '/conflito',
-  getParentRoute: () => RecebimentoV2IdRoute,
-} as any)
-const RecebimentoV2IdChecklistRoute =
-  RecebimentoV2IdChecklistRouteImport.update({
+const RecebimentoRcIdChecklistRoute =
+  RecebimentoRcIdChecklistRouteImport.update({
     id: '/checklist',
     path: '/checklist',
-    getParentRoute: () => RecebimentoV2IdRoute,
+    getParentRoute: () => RecebimentoRcIdRoute,
   } as any)
-const RecebimentoV2IdAvariasRoute = RecebimentoV2IdAvariasRouteImport.update({
+const RecebimentoRcIdAvariasRoute = RecebimentoRcIdAvariasRouteImport.update({
   id: '/avarias',
   path: '/avarias',
-  getParentRoute: () => RecebimentoV2IdRoute,
+  getParentRoute: () => RecebimentoRcIdRoute,
 } as any)
 const PesoVariavelIdResumoRoute = PesoVariavelIdResumoRouteImport.update({
   id: '/resumo',
@@ -183,33 +134,25 @@ const PesoVariavelIdResumoRoute = PesoVariavelIdResumoRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/recebimento-rc': typeof RecebimentoRcRouteRouteWithChildren
   '/alterar-senha': typeof AlterarSenhaRoute
   '/login': typeof LoginRoute
   '/passagem-bastao/resumo': typeof PassagemBastaoResumoRoute
   '/peso-variavel/$id': typeof PesoVariavelIdRouteWithChildren
   '/rastreio/$token': typeof RastreioTokenRoute
-  '/recebimento-v2/$id': typeof RecebimentoV2IdRouteWithChildren
-  '/recebimento/$id': typeof RecebimentoIdRouteWithChildren
+  '/recebimento-rc/$id': typeof RecebimentoRcIdRouteWithChildren
+  '/recebimento-rc/sync': typeof RecebimentoRcSyncRoute
   '/manobra/': typeof ManobraIndexRoute
   '/passagem-bastao/': typeof PassagemBastaoIndexRoute
   '/peso-variavel/': typeof PesoVariavelIndexRoute
-  '/recebimento-v2/': typeof RecebimentoV2IndexRoute
-  '/recebimento/': typeof RecebimentoIndexRoute
+  '/recebimento-rc/': typeof RecebimentoRcIndexRoute
   '/peso-variavel/$id/resumo': typeof PesoVariavelIdResumoRoute
-  '/recebimento-v2/$id/avarias': typeof RecebimentoV2IdAvariasRoute
-  '/recebimento-v2/$id/checklist': typeof RecebimentoV2IdChecklistRoute
-  '/recebimento-v2/$id/conflito': typeof RecebimentoV2IdConflitoRoute
-  '/recebimento-v2/$id/itens': typeof RecebimentoV2IdItensRoute
-  '/recebimento-v2/$id/preparacao': typeof RecebimentoV2IdPreparacaoRoute
-  '/recebimento-v2/$id/resumo': typeof RecebimentoV2IdResumoRoute
-  '/recebimento-v2/$id/sync': typeof RecebimentoV2IdSyncRoute
-  '/recebimento/$id/avaria': typeof RecebimentoIdAvariaRoute
-  '/recebimento/$id/checklist': typeof RecebimentoIdChecklistRoute
-  '/recebimento/$id/itens': typeof RecebimentoIdItensRoute
-  '/recebimento/$id/termino': typeof RecebimentoIdTerminoRoute
+  '/recebimento-rc/$id/avarias': typeof RecebimentoRcIdAvariasRoute
+  '/recebimento-rc/$id/checklist': typeof RecebimentoRcIdChecklistRoute
+  '/recebimento-rc/$id/itens': typeof RecebimentoRcIdItensRoute
+  '/recebimento-rc/$id/resumo': typeof RecebimentoRcIdResumoRoute
   '/peso-variavel/$id/': typeof PesoVariavelIdIndexRoute
-  '/recebimento-v2/$id/': typeof RecebimentoV2IdIndexRoute
-  '/recebimento/$id/': typeof RecebimentoIdIndexRoute
+  '/recebimento-rc/$id/': typeof RecebimentoRcIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -217,89 +160,65 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/passagem-bastao/resumo': typeof PassagemBastaoResumoRoute
   '/rastreio/$token': typeof RastreioTokenRoute
+  '/recebimento-rc/sync': typeof RecebimentoRcSyncRoute
   '/manobra': typeof ManobraIndexRoute
   '/passagem-bastao': typeof PassagemBastaoIndexRoute
   '/peso-variavel': typeof PesoVariavelIndexRoute
-  '/recebimento-v2': typeof RecebimentoV2IndexRoute
-  '/recebimento': typeof RecebimentoIndexRoute
+  '/recebimento-rc': typeof RecebimentoRcIndexRoute
   '/peso-variavel/$id/resumo': typeof PesoVariavelIdResumoRoute
-  '/recebimento-v2/$id/avarias': typeof RecebimentoV2IdAvariasRoute
-  '/recebimento-v2/$id/checklist': typeof RecebimentoV2IdChecklistRoute
-  '/recebimento-v2/$id/conflito': typeof RecebimentoV2IdConflitoRoute
-  '/recebimento-v2/$id/itens': typeof RecebimentoV2IdItensRoute
-  '/recebimento-v2/$id/preparacao': typeof RecebimentoV2IdPreparacaoRoute
-  '/recebimento-v2/$id/resumo': typeof RecebimentoV2IdResumoRoute
-  '/recebimento-v2/$id/sync': typeof RecebimentoV2IdSyncRoute
-  '/recebimento/$id/avaria': typeof RecebimentoIdAvariaRoute
-  '/recebimento/$id/checklist': typeof RecebimentoIdChecklistRoute
-  '/recebimento/$id/itens': typeof RecebimentoIdItensRoute
-  '/recebimento/$id/termino': typeof RecebimentoIdTerminoRoute
+  '/recebimento-rc/$id/avarias': typeof RecebimentoRcIdAvariasRoute
+  '/recebimento-rc/$id/checklist': typeof RecebimentoRcIdChecklistRoute
+  '/recebimento-rc/$id/itens': typeof RecebimentoRcIdItensRoute
+  '/recebimento-rc/$id/resumo': typeof RecebimentoRcIdResumoRoute
   '/peso-variavel/$id': typeof PesoVariavelIdIndexRoute
-  '/recebimento-v2/$id': typeof RecebimentoV2IdIndexRoute
-  '/recebimento/$id': typeof RecebimentoIdIndexRoute
+  '/recebimento-rc/$id': typeof RecebimentoRcIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/recebimento-rc': typeof RecebimentoRcRouteRouteWithChildren
   '/alterar-senha': typeof AlterarSenhaRoute
   '/login': typeof LoginRoute
   '/passagem-bastao/resumo': typeof PassagemBastaoResumoRoute
   '/peso-variavel/$id': typeof PesoVariavelIdRouteWithChildren
   '/rastreio/$token': typeof RastreioTokenRoute
-  '/recebimento-v2/$id': typeof RecebimentoV2IdRouteWithChildren
-  '/recebimento/$id': typeof RecebimentoIdRouteWithChildren
+  '/recebimento-rc/$id': typeof RecebimentoRcIdRouteWithChildren
+  '/recebimento-rc/sync': typeof RecebimentoRcSyncRoute
   '/manobra/': typeof ManobraIndexRoute
   '/passagem-bastao/': typeof PassagemBastaoIndexRoute
   '/peso-variavel/': typeof PesoVariavelIndexRoute
-  '/recebimento-v2/': typeof RecebimentoV2IndexRoute
-  '/recebimento/': typeof RecebimentoIndexRoute
+  '/recebimento-rc/': typeof RecebimentoRcIndexRoute
   '/peso-variavel/$id/resumo': typeof PesoVariavelIdResumoRoute
-  '/recebimento-v2/$id/avarias': typeof RecebimentoV2IdAvariasRoute
-  '/recebimento-v2/$id/checklist': typeof RecebimentoV2IdChecklistRoute
-  '/recebimento-v2/$id/conflito': typeof RecebimentoV2IdConflitoRoute
-  '/recebimento-v2/$id/itens': typeof RecebimentoV2IdItensRoute
-  '/recebimento-v2/$id/preparacao': typeof RecebimentoV2IdPreparacaoRoute
-  '/recebimento-v2/$id/resumo': typeof RecebimentoV2IdResumoRoute
-  '/recebimento-v2/$id/sync': typeof RecebimentoV2IdSyncRoute
-  '/recebimento/$id/avaria': typeof RecebimentoIdAvariaRoute
-  '/recebimento/$id/checklist': typeof RecebimentoIdChecklistRoute
-  '/recebimento/$id/itens': typeof RecebimentoIdItensRoute
-  '/recebimento/$id/termino': typeof RecebimentoIdTerminoRoute
+  '/recebimento-rc/$id/avarias': typeof RecebimentoRcIdAvariasRoute
+  '/recebimento-rc/$id/checklist': typeof RecebimentoRcIdChecklistRoute
+  '/recebimento-rc/$id/itens': typeof RecebimentoRcIdItensRoute
+  '/recebimento-rc/$id/resumo': typeof RecebimentoRcIdResumoRoute
   '/peso-variavel/$id/': typeof PesoVariavelIdIndexRoute
-  '/recebimento-v2/$id/': typeof RecebimentoV2IdIndexRoute
-  '/recebimento/$id/': typeof RecebimentoIdIndexRoute
+  '/recebimento-rc/$id/': typeof RecebimentoRcIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/recebimento-rc'
     | '/alterar-senha'
     | '/login'
     | '/passagem-bastao/resumo'
     | '/peso-variavel/$id'
     | '/rastreio/$token'
-    | '/recebimento-v2/$id'
-    | '/recebimento/$id'
+    | '/recebimento-rc/$id'
+    | '/recebimento-rc/sync'
     | '/manobra/'
     | '/passagem-bastao/'
     | '/peso-variavel/'
-    | '/recebimento-v2/'
-    | '/recebimento/'
+    | '/recebimento-rc/'
     | '/peso-variavel/$id/resumo'
-    | '/recebimento-v2/$id/avarias'
-    | '/recebimento-v2/$id/checklist'
-    | '/recebimento-v2/$id/conflito'
-    | '/recebimento-v2/$id/itens'
-    | '/recebimento-v2/$id/preparacao'
-    | '/recebimento-v2/$id/resumo'
-    | '/recebimento-v2/$id/sync'
-    | '/recebimento/$id/avaria'
-    | '/recebimento/$id/checklist'
-    | '/recebimento/$id/itens'
-    | '/recebimento/$id/termino'
+    | '/recebimento-rc/$id/avarias'
+    | '/recebimento-rc/$id/checklist'
+    | '/recebimento-rc/$id/itens'
+    | '/recebimento-rc/$id/resumo'
     | '/peso-variavel/$id/'
-    | '/recebimento-v2/$id/'
-    | '/recebimento/$id/'
+    | '/recebimento-rc/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -307,72 +226,53 @@ export interface FileRouteTypes {
     | '/login'
     | '/passagem-bastao/resumo'
     | '/rastreio/$token'
+    | '/recebimento-rc/sync'
     | '/manobra'
     | '/passagem-bastao'
     | '/peso-variavel'
-    | '/recebimento-v2'
-    | '/recebimento'
+    | '/recebimento-rc'
     | '/peso-variavel/$id/resumo'
-    | '/recebimento-v2/$id/avarias'
-    | '/recebimento-v2/$id/checklist'
-    | '/recebimento-v2/$id/conflito'
-    | '/recebimento-v2/$id/itens'
-    | '/recebimento-v2/$id/preparacao'
-    | '/recebimento-v2/$id/resumo'
-    | '/recebimento-v2/$id/sync'
-    | '/recebimento/$id/avaria'
-    | '/recebimento/$id/checklist'
-    | '/recebimento/$id/itens'
-    | '/recebimento/$id/termino'
+    | '/recebimento-rc/$id/avarias'
+    | '/recebimento-rc/$id/checklist'
+    | '/recebimento-rc/$id/itens'
+    | '/recebimento-rc/$id/resumo'
     | '/peso-variavel/$id'
-    | '/recebimento-v2/$id'
-    | '/recebimento/$id'
+    | '/recebimento-rc/$id'
   id:
     | '__root__'
     | '/'
+    | '/recebimento-rc'
     | '/alterar-senha'
     | '/login'
     | '/passagem-bastao/resumo'
     | '/peso-variavel/$id'
     | '/rastreio/$token'
-    | '/recebimento-v2/$id'
-    | '/recebimento/$id'
+    | '/recebimento-rc/$id'
+    | '/recebimento-rc/sync'
     | '/manobra/'
     | '/passagem-bastao/'
     | '/peso-variavel/'
-    | '/recebimento-v2/'
-    | '/recebimento/'
+    | '/recebimento-rc/'
     | '/peso-variavel/$id/resumo'
-    | '/recebimento-v2/$id/avarias'
-    | '/recebimento-v2/$id/checklist'
-    | '/recebimento-v2/$id/conflito'
-    | '/recebimento-v2/$id/itens'
-    | '/recebimento-v2/$id/preparacao'
-    | '/recebimento-v2/$id/resumo'
-    | '/recebimento-v2/$id/sync'
-    | '/recebimento/$id/avaria'
-    | '/recebimento/$id/checklist'
-    | '/recebimento/$id/itens'
-    | '/recebimento/$id/termino'
+    | '/recebimento-rc/$id/avarias'
+    | '/recebimento-rc/$id/checklist'
+    | '/recebimento-rc/$id/itens'
+    | '/recebimento-rc/$id/resumo'
     | '/peso-variavel/$id/'
-    | '/recebimento-v2/$id/'
-    | '/recebimento/$id/'
+    | '/recebimento-rc/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  RecebimentoRcRouteRoute: typeof RecebimentoRcRouteRouteWithChildren
   AlterarSenhaRoute: typeof AlterarSenhaRoute
   LoginRoute: typeof LoginRoute
   PassagemBastaoResumoRoute: typeof PassagemBastaoResumoRoute
   PesoVariavelIdRoute: typeof PesoVariavelIdRouteWithChildren
   RastreioTokenRoute: typeof RastreioTokenRoute
-  RecebimentoV2IdRoute: typeof RecebimentoV2IdRouteWithChildren
-  RecebimentoIdRoute: typeof RecebimentoIdRouteWithChildren
   ManobraIndexRoute: typeof ManobraIndexRoute
   PassagemBastaoIndexRoute: typeof PassagemBastaoIndexRoute
   PesoVariavelIndexRoute: typeof PesoVariavelIndexRoute
-  RecebimentoV2IndexRoute: typeof RecebimentoV2IndexRoute
-  RecebimentoIndexRoute: typeof RecebimentoIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -391,6 +291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AlterarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/recebimento-rc': {
+      id: '/recebimento-rc'
+      path: '/recebimento-rc'
+      fullPath: '/recebimento-rc'
+      preLoaderRoute: typeof RecebimentoRcRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -398,19 +305,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/recebimento/': {
-      id: '/recebimento/'
-      path: '/recebimento'
-      fullPath: '/recebimento/'
-      preLoaderRoute: typeof RecebimentoIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/recebimento-v2/': {
-      id: '/recebimento-v2/'
-      path: '/recebimento-v2'
-      fullPath: '/recebimento-v2/'
-      preLoaderRoute: typeof RecebimentoV2IndexRouteImport
-      parentRoute: typeof rootRouteImport
+    '/recebimento-rc/': {
+      id: '/recebimento-rc/'
+      path: '/'
+      fullPath: '/recebimento-rc/'
+      preLoaderRoute: typeof RecebimentoRcIndexRouteImport
+      parentRoute: typeof RecebimentoRcRouteRoute
     }
     '/peso-variavel/': {
       id: '/peso-variavel/'
@@ -433,19 +333,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ManobraIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/recebimento/$id': {
-      id: '/recebimento/$id'
-      path: '/recebimento/$id'
-      fullPath: '/recebimento/$id'
-      preLoaderRoute: typeof RecebimentoIdRouteImport
-      parentRoute: typeof rootRouteImport
+    '/recebimento-rc/sync': {
+      id: '/recebimento-rc/sync'
+      path: '/sync'
+      fullPath: '/recebimento-rc/sync'
+      preLoaderRoute: typeof RecebimentoRcSyncRouteImport
+      parentRoute: typeof RecebimentoRcRouteRoute
     }
-    '/recebimento-v2/$id': {
-      id: '/recebimento-v2/$id'
-      path: '/recebimento-v2/$id'
-      fullPath: '/recebimento-v2/$id'
-      preLoaderRoute: typeof RecebimentoV2IdRouteImport
-      parentRoute: typeof rootRouteImport
+    '/recebimento-rc/$id': {
+      id: '/recebimento-rc/$id'
+      path: '/$id'
+      fullPath: '/recebimento-rc/$id'
+      preLoaderRoute: typeof RecebimentoRcIdRouteImport
+      parentRoute: typeof RecebimentoRcRouteRoute
     }
     '/rastreio/$token': {
       id: '/rastreio/$token'
@@ -468,19 +368,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PassagemBastaoResumoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/recebimento/$id/': {
-      id: '/recebimento/$id/'
+    '/recebimento-rc/$id/': {
+      id: '/recebimento-rc/$id/'
       path: '/'
-      fullPath: '/recebimento/$id/'
-      preLoaderRoute: typeof RecebimentoIdIndexRouteImport
-      parentRoute: typeof RecebimentoIdRoute
-    }
-    '/recebimento-v2/$id/': {
-      id: '/recebimento-v2/$id/'
-      path: '/'
-      fullPath: '/recebimento-v2/$id/'
-      preLoaderRoute: typeof RecebimentoV2IdIndexRouteImport
-      parentRoute: typeof RecebimentoV2IdRoute
+      fullPath: '/recebimento-rc/$id/'
+      preLoaderRoute: typeof RecebimentoRcIdIndexRouteImport
+      parentRoute: typeof RecebimentoRcIdRoute
     }
     '/peso-variavel/$id/': {
       id: '/peso-variavel/$id/'
@@ -489,82 +382,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PesoVariavelIdIndexRouteImport
       parentRoute: typeof PesoVariavelIdRoute
     }
-    '/recebimento/$id/termino': {
-      id: '/recebimento/$id/termino'
-      path: '/termino'
-      fullPath: '/recebimento/$id/termino'
-      preLoaderRoute: typeof RecebimentoIdTerminoRouteImport
-      parentRoute: typeof RecebimentoIdRoute
-    }
-    '/recebimento/$id/itens': {
-      id: '/recebimento/$id/itens'
-      path: '/itens'
-      fullPath: '/recebimento/$id/itens'
-      preLoaderRoute: typeof RecebimentoIdItensRouteImport
-      parentRoute: typeof RecebimentoIdRoute
-    }
-    '/recebimento/$id/checklist': {
-      id: '/recebimento/$id/checklist'
-      path: '/checklist'
-      fullPath: '/recebimento/$id/checklist'
-      preLoaderRoute: typeof RecebimentoIdChecklistRouteImport
-      parentRoute: typeof RecebimentoIdRoute
-    }
-    '/recebimento/$id/avaria': {
-      id: '/recebimento/$id/avaria'
-      path: '/avaria'
-      fullPath: '/recebimento/$id/avaria'
-      preLoaderRoute: typeof RecebimentoIdAvariaRouteImport
-      parentRoute: typeof RecebimentoIdRoute
-    }
-    '/recebimento-v2/$id/sync': {
-      id: '/recebimento-v2/$id/sync'
-      path: '/sync'
-      fullPath: '/recebimento-v2/$id/sync'
-      preLoaderRoute: typeof RecebimentoV2IdSyncRouteImport
-      parentRoute: typeof RecebimentoV2IdRoute
-    }
-    '/recebimento-v2/$id/resumo': {
-      id: '/recebimento-v2/$id/resumo'
+    '/recebimento-rc/$id/resumo': {
+      id: '/recebimento-rc/$id/resumo'
       path: '/resumo'
-      fullPath: '/recebimento-v2/$id/resumo'
-      preLoaderRoute: typeof RecebimentoV2IdResumoRouteImport
-      parentRoute: typeof RecebimentoV2IdRoute
+      fullPath: '/recebimento-rc/$id/resumo'
+      preLoaderRoute: typeof RecebimentoRcIdResumoRouteImport
+      parentRoute: typeof RecebimentoRcIdRoute
     }
-    '/recebimento-v2/$id/preparacao': {
-      id: '/recebimento-v2/$id/preparacao'
-      path: '/preparacao'
-      fullPath: '/recebimento-v2/$id/preparacao'
-      preLoaderRoute: typeof RecebimentoV2IdPreparacaoRouteImport
-      parentRoute: typeof RecebimentoV2IdRoute
-    }
-    '/recebimento-v2/$id/itens': {
-      id: '/recebimento-v2/$id/itens'
+    '/recebimento-rc/$id/itens': {
+      id: '/recebimento-rc/$id/itens'
       path: '/itens'
-      fullPath: '/recebimento-v2/$id/itens'
-      preLoaderRoute: typeof RecebimentoV2IdItensRouteImport
-      parentRoute: typeof RecebimentoV2IdRoute
+      fullPath: '/recebimento-rc/$id/itens'
+      preLoaderRoute: typeof RecebimentoRcIdItensRouteImport
+      parentRoute: typeof RecebimentoRcIdRoute
     }
-    '/recebimento-v2/$id/conflito': {
-      id: '/recebimento-v2/$id/conflito'
-      path: '/conflito'
-      fullPath: '/recebimento-v2/$id/conflito'
-      preLoaderRoute: typeof RecebimentoV2IdConflitoRouteImport
-      parentRoute: typeof RecebimentoV2IdRoute
-    }
-    '/recebimento-v2/$id/checklist': {
-      id: '/recebimento-v2/$id/checklist'
+    '/recebimento-rc/$id/checklist': {
+      id: '/recebimento-rc/$id/checklist'
       path: '/checklist'
-      fullPath: '/recebimento-v2/$id/checklist'
-      preLoaderRoute: typeof RecebimentoV2IdChecklistRouteImport
-      parentRoute: typeof RecebimentoV2IdRoute
+      fullPath: '/recebimento-rc/$id/checklist'
+      preLoaderRoute: typeof RecebimentoRcIdChecklistRouteImport
+      parentRoute: typeof RecebimentoRcIdRoute
     }
-    '/recebimento-v2/$id/avarias': {
-      id: '/recebimento-v2/$id/avarias'
+    '/recebimento-rc/$id/avarias': {
+      id: '/recebimento-rc/$id/avarias'
       path: '/avarias'
-      fullPath: '/recebimento-v2/$id/avarias'
-      preLoaderRoute: typeof RecebimentoV2IdAvariasRouteImport
-      parentRoute: typeof RecebimentoV2IdRoute
+      fullPath: '/recebimento-rc/$id/avarias'
+      preLoaderRoute: typeof RecebimentoRcIdAvariasRouteImport
+      parentRoute: typeof RecebimentoRcIdRoute
     }
     '/peso-variavel/$id/resumo': {
       id: '/peso-variavel/$id/resumo'
@@ -575,6 +419,41 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface RecebimentoRcIdRouteChildren {
+  RecebimentoRcIdAvariasRoute: typeof RecebimentoRcIdAvariasRoute
+  RecebimentoRcIdChecklistRoute: typeof RecebimentoRcIdChecklistRoute
+  RecebimentoRcIdItensRoute: typeof RecebimentoRcIdItensRoute
+  RecebimentoRcIdResumoRoute: typeof RecebimentoRcIdResumoRoute
+  RecebimentoRcIdIndexRoute: typeof RecebimentoRcIdIndexRoute
+}
+
+const RecebimentoRcIdRouteChildren: RecebimentoRcIdRouteChildren = {
+  RecebimentoRcIdAvariasRoute: RecebimentoRcIdAvariasRoute,
+  RecebimentoRcIdChecklistRoute: RecebimentoRcIdChecklistRoute,
+  RecebimentoRcIdItensRoute: RecebimentoRcIdItensRoute,
+  RecebimentoRcIdResumoRoute: RecebimentoRcIdResumoRoute,
+  RecebimentoRcIdIndexRoute: RecebimentoRcIdIndexRoute,
+}
+
+const RecebimentoRcIdRouteWithChildren = RecebimentoRcIdRoute._addFileChildren(
+  RecebimentoRcIdRouteChildren,
+)
+
+interface RecebimentoRcRouteRouteChildren {
+  RecebimentoRcIdRoute: typeof RecebimentoRcIdRouteWithChildren
+  RecebimentoRcSyncRoute: typeof RecebimentoRcSyncRoute
+  RecebimentoRcIndexRoute: typeof RecebimentoRcIndexRoute
+}
+
+const RecebimentoRcRouteRouteChildren: RecebimentoRcRouteRouteChildren = {
+  RecebimentoRcIdRoute: RecebimentoRcIdRouteWithChildren,
+  RecebimentoRcSyncRoute: RecebimentoRcSyncRoute,
+  RecebimentoRcIndexRoute: RecebimentoRcIndexRoute,
+}
+
+const RecebimentoRcRouteRouteWithChildren =
+  RecebimentoRcRouteRoute._addFileChildren(RecebimentoRcRouteRouteChildren)
 
 interface PesoVariavelIdRouteChildren {
   PesoVariavelIdResumoRoute: typeof PesoVariavelIdResumoRoute
@@ -590,66 +469,17 @@ const PesoVariavelIdRouteWithChildren = PesoVariavelIdRoute._addFileChildren(
   PesoVariavelIdRouteChildren,
 )
 
-interface RecebimentoV2IdRouteChildren {
-  RecebimentoV2IdAvariasRoute: typeof RecebimentoV2IdAvariasRoute
-  RecebimentoV2IdChecklistRoute: typeof RecebimentoV2IdChecklistRoute
-  RecebimentoV2IdConflitoRoute: typeof RecebimentoV2IdConflitoRoute
-  RecebimentoV2IdItensRoute: typeof RecebimentoV2IdItensRoute
-  RecebimentoV2IdPreparacaoRoute: typeof RecebimentoV2IdPreparacaoRoute
-  RecebimentoV2IdResumoRoute: typeof RecebimentoV2IdResumoRoute
-  RecebimentoV2IdSyncRoute: typeof RecebimentoV2IdSyncRoute
-  RecebimentoV2IdIndexRoute: typeof RecebimentoV2IdIndexRoute
-}
-
-const RecebimentoV2IdRouteChildren: RecebimentoV2IdRouteChildren = {
-  RecebimentoV2IdAvariasRoute: RecebimentoV2IdAvariasRoute,
-  RecebimentoV2IdChecklistRoute: RecebimentoV2IdChecklistRoute,
-  RecebimentoV2IdConflitoRoute: RecebimentoV2IdConflitoRoute,
-  RecebimentoV2IdItensRoute: RecebimentoV2IdItensRoute,
-  RecebimentoV2IdPreparacaoRoute: RecebimentoV2IdPreparacaoRoute,
-  RecebimentoV2IdResumoRoute: RecebimentoV2IdResumoRoute,
-  RecebimentoV2IdSyncRoute: RecebimentoV2IdSyncRoute,
-  RecebimentoV2IdIndexRoute: RecebimentoV2IdIndexRoute,
-}
-
-const RecebimentoV2IdRouteWithChildren = RecebimentoV2IdRoute._addFileChildren(
-  RecebimentoV2IdRouteChildren,
-)
-
-interface RecebimentoIdRouteChildren {
-  RecebimentoIdAvariaRoute: typeof RecebimentoIdAvariaRoute
-  RecebimentoIdChecklistRoute: typeof RecebimentoIdChecklistRoute
-  RecebimentoIdItensRoute: typeof RecebimentoIdItensRoute
-  RecebimentoIdTerminoRoute: typeof RecebimentoIdTerminoRoute
-  RecebimentoIdIndexRoute: typeof RecebimentoIdIndexRoute
-}
-
-const RecebimentoIdRouteChildren: RecebimentoIdRouteChildren = {
-  RecebimentoIdAvariaRoute: RecebimentoIdAvariaRoute,
-  RecebimentoIdChecklistRoute: RecebimentoIdChecklistRoute,
-  RecebimentoIdItensRoute: RecebimentoIdItensRoute,
-  RecebimentoIdTerminoRoute: RecebimentoIdTerminoRoute,
-  RecebimentoIdIndexRoute: RecebimentoIdIndexRoute,
-}
-
-const RecebimentoIdRouteWithChildren = RecebimentoIdRoute._addFileChildren(
-  RecebimentoIdRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  RecebimentoRcRouteRoute: RecebimentoRcRouteRouteWithChildren,
   AlterarSenhaRoute: AlterarSenhaRoute,
   LoginRoute: LoginRoute,
   PassagemBastaoResumoRoute: PassagemBastaoResumoRoute,
   PesoVariavelIdRoute: PesoVariavelIdRouteWithChildren,
   RastreioTokenRoute: RastreioTokenRoute,
-  RecebimentoV2IdRoute: RecebimentoV2IdRouteWithChildren,
-  RecebimentoIdRoute: RecebimentoIdRouteWithChildren,
   ManobraIndexRoute: ManobraIndexRoute,
   PassagemBastaoIndexRoute: PassagemBastaoIndexRoute,
   PesoVariavelIndexRoute: PesoVariavelIndexRoute,
-  RecebimentoV2IndexRoute: RecebimentoV2IndexRoute,
-  RecebimentoIndexRoute: RecebimentoIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

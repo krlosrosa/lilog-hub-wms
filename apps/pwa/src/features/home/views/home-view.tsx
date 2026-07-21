@@ -5,7 +5,6 @@ import {
   ChevronRight,
   ClipboardCheck,
   CloudUpload,
-  FlaskConical,
   LogIn,
   Sparkles,
   Wifi,
@@ -34,21 +33,11 @@ interface ModuleItem {
 }
 
 const QUICK_ACCESS = [
-  { id: 'recebimento', to: '/recebimento', label: 'Recebimento', icon: LogIn },
-  { id: 'recebimento-v2', to: '/recebimento-v2', label: 'Receb. V2', icon: FlaskConical },
+  { id: 'recebimento-rc', to: '/recebimento-rc', label: 'Receb. RC', icon: ArrowLeftRight },
+  { id: 'sync-rc', to: '/recebimento-rc/sync', label: 'Sync RC', icon: CloudUpload },
 ] as const;
 
 const MODULES: ModuleItem[] = [
-  {
-    id: 'recebimento',
-    title: 'Recebimento',
-    description: 'Conferência e entrada de mercadorias',
-    icon: LogIn,
-    status: 'available',
-    to: '/recebimento',
-    featured: true,
-    iconTone: 'secondary',
-  },
   {
     id: 'passagem-bastao',
     title: 'Passagem de Bastão',
@@ -60,12 +49,21 @@ const MODULES: ModuleItem[] = [
     iconTone: 'warning',
   },
   {
-    id: 'recebimento-v2',
-    title: 'Recebimento V2',
-    description: 'Conferência offline-first com sincronização inteligente',
-    icon: FlaskConical,
+    id: 'recebimento-rc',
+    title: 'Recebimento RC',
+    description: 'Piloto Replicache — sync pull/push com conferência reativa',
+    icon: ArrowLeftRight,
     status: 'available',
-    to: '/recebimento-v2',
+    to: '/recebimento-rc',
+    iconTone: 'primary',
+  },
+  {
+    id: 'sync-rc',
+    title: 'Painel Sync RC',
+    description: 'Status da fila e ações de recuperação da sincronização',
+    icon: CloudUpload,
+    status: 'available',
+    to: '/recebimento-rc/sync',
     iconTone: 'secondary',
   },
 ];

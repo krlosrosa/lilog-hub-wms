@@ -20,7 +20,7 @@ import { CncModule } from './infra/modules/cnc.module.js';
 import { SessaoOperacaoModule } from './infra/modules/sessao-operacao.module.js';
 import { OperacionalModule } from './infra/modules/operacional.module.js';
 import { SyncModule } from './infra/modules/sync.module.js';
-import { PwaSyncModule } from './infra/modules/pwa-sync.module.js';
+import { ReplicacheModule } from './infra/modules/replicache.module.js';
 import { DrizzleModule } from './infra/db/providers/drizzle/drizzle.module.js';
 import { EmailModule } from './infra/modules/email.module.js';
 
@@ -50,7 +50,7 @@ import { EmailModule } from './infra/modules/email.module.js';
     SessaoOperacaoModule,
     OperacionalModule,
     SyncModule,
-    PwaSyncModule,
+    ReplicacheModule,
   ],
   providers: [
     {

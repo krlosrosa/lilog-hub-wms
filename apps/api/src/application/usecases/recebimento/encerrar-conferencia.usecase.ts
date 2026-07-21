@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 
@@ -37,6 +38,8 @@ export type EncerrarConferenciaUseCaseInput = {
 
 @Injectable()
 export class EncerrarConferenciaUseCase {
+  private readonly logger = new Logger(EncerrarConferenciaUseCase.name);
+
   constructor(
     @Inject(RECEBIMENTO_REPOSITORY)
     private readonly recebimentoRepository: IRecebimentoRepository,
@@ -67,9 +70,17 @@ export class EncerrarConferenciaUseCase {
       throw new NotFoundException(`Recebimento "${recebimentoId}" não encontrado`);
     }
 
+    if (recebimento.situacao === 'conferido') {
+      this.logger.debug(
+        `Encerrar conferência ignorado (idempotente): recebimento=${recebimentoId} já conferido`,
+      );
+      const details = await this.recebimentoRepository.findById(recebimentoId);
+      return details ?? recebimento;
+    }
+
     if (recebimento.situacao !== 'em_conferencia') {
       throw new BadRequestException(
-        'Conferência só pode ser encerrada com recebimento em andamento',
+        `Conferência só pode ser encerrada com recebimento em andamento (situação atual: ${recebimento.situacao})`,
       );
     }
 
@@ -171,6 +182,10 @@ export class EncerrarConferenciaUseCase {
     await this.preRecebimentoRepository.updateSituacao(
       preRecebimento.id,
       novaSituacao,
+    );
+
+    this.logger.debug(
+      `Conferência encerrada: preRecebimento=${preRecebimento.id} recebimento=${recebimentoId} situacao=${novaSituacao}`,
     );
 
     await this.recebimentoEventPublisher.publish({

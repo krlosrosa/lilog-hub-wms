@@ -1,5 +1,6 @@
 import { RECEBIMENTO_V2_OP_TYPES } from '@lilog/contracts';
 
+import { deriveLifecycleFromStatus } from './sync-operation-lifecycle';
 import { recebimentoV2Db } from '../local-db/db';
 
 export const CHECKLIST_BLOCKED_DURING_IMPEDIMENTO_MSG =
@@ -32,6 +33,7 @@ export async function blockChecklistOpsDuringImpedimento(
     ops.map((op) =>
       recebimentoV2Db.syncOperations.update(op.id, {
         status: 'blocked',
+        lifecycleStatus: deriveLifecycleFromStatus('blocked'),
         errorMessage: CHECKLIST_BLOCKED_DURING_IMPEDIMENTO_MSG,
         updatedAt: now,
       }),
@@ -62,6 +64,7 @@ export async function unblockChecklistOpsAfterRetomar(
     ops.map((op) =>
       recebimentoV2Db.syncOperations.update(op.id, {
         status: 'pending',
+        lifecycleStatus: deriveLifecycleFromStatus('pending'),
         errorMessage: undefined,
         updatedAt: now,
       }),

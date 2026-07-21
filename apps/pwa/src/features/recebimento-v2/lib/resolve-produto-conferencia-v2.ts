@@ -324,10 +324,17 @@ export function isLegacyCaixaQuantityInQuantityField(
 }
 
 export function calcConferenceBaseUnitsFromRecord(
-  record: Pick<ConferenceRecordLike, 'quantity' | 'recebidaCaixa' | 'recebidaUnidade'>,
+  record: Pick<
+    ConferenceRecordLike,
+    'quantity' | 'recebidaCaixa' | 'recebidaUnidade' | 'isPvarBox'
+  >,
   unidadesPorCaixa: number,
   quantidadeModo: QuantidadeModo = 'ambos',
 ): number {
+  if (record.isPvarBox) {
+    return 1;
+  }
+
   const upc = resolveUnidadesPorCaixa(unidadesPorCaixa);
   const hasExplicit =
     (record.recebidaCaixa ?? 0) > 0 || (record.recebidaUnidade ?? 0) > 0;
@@ -349,4 +356,5 @@ type ConferenceRecordLike = {
   quantity: number;
   recebidaCaixa?: number;
   recebidaUnidade?: number;
+  isPvarBox?: boolean;
 };

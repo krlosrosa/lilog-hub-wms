@@ -8,9 +8,13 @@
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,jsx,json,md,css}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,jsx,json,md,css}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,jsx,json,md,css}\"",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "prettier": "^3.7.5",
     "turbo": "^2.8.8",
     "typescript": "~5.8.3"

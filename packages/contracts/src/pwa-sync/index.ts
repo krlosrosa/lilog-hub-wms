@@ -167,5 +167,7 @@ export const DemandPatchResultSchema = z.object({
   resourceId: z.string().uuid().optional(),
   applied: DemandPatchAppliedSchema,
   conflicts: z.array(DemandPatchConflictSchema).optional(),
+  /** clientDamageId → server avaria UUID after patch apply */
+  avariaIds: z.record(z.string(), z.string()).optional(),
 });
 export type DemandPatchResult = z.infer<typeof DemandPatchResultSchema>;

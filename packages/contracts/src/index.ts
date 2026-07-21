@@ -4,4 +4,5 @@
 export * from './recebimento/index.js';
 export * from './sync/index.js';
 export * from './pwa-sync/index.js';
+export * from './replicache/index.js';
 export * from './funcionario/cargo.js';

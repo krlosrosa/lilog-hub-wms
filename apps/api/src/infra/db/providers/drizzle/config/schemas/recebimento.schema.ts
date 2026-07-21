@@ -145,35 +145,43 @@ export const itensPreRecebimento = recebimentoPgSchema.table(
   },
 );
 
-export const recebimentos = recebimentoPgSchema.table('recebimentos', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  preRecebimentoId: uuid('pre_recebimento_id')
-    .notNull()
-    .references(() => preRecebimentos.id, { onDelete: 'cascade' }),
-  docaId: uuid('doca_id').references(() => docas.id, { onDelete: 'set null' }),
-  responsavelId: integer('responsavel_id')
-    .notNull()
-    .references(() => funcionarios.id, { onDelete: 'restrict' }),
-  dataInicio: timestamp('data_inicio', { withTimezone: true }).notNull(),
-  dataFim: timestamp('data_fim', { withTimezone: true }),
-  situacao: recebimentoSituacaoEnum('situacao')
-    .notNull()
-    .default('em_conferencia'),
-  quantidadePaletes: integer('quantidade_paletes'),
-  teveSobreposicaoCarga: boolean('teve_sobreposicao_carga')
-    .notNull()
-    .default(false),
-  modoUnitizacao: varchar('modo_unitizacao', { length: 50 })
-    .notNull()
-    .default('gerar_etiqueta_na_armazenagem'),
-  userId: integer('user_id'),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const recebimentos = recebimentoPgSchema.table(
+  'recebimentos',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    preRecebimentoId: uuid('pre_recebimento_id')
+      .notNull()
+      .references(() => preRecebimentos.id, { onDelete: 'cascade' }),
+    docaId: uuid('doca_id').references(() => docas.id, { onDelete: 'set null' }),
+    responsavelId: integer('responsavel_id')
+      .notNull()
+      .references(() => funcionarios.id, { onDelete: 'restrict' }),
+    dataInicio: timestamp('data_inicio', { withTimezone: true }).notNull(),
+    dataFim: timestamp('data_fim', { withTimezone: true }),
+    situacao: recebimentoSituacaoEnum('situacao')
+      .notNull()
+      .default('em_conferencia'),
+    quantidadePaletes: integer('quantidade_paletes'),
+    teveSobreposicaoCarga: boolean('teve_sobreposicao_carga')
+      .notNull()
+      .default(false),
+    modoUnitizacao: varchar('modo_unitizacao', { length: 50 })
+      .notNull()
+      .default('gerar_etiqueta_na_armazenagem'),
+    userId: integer('user_id'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('recebimentos_pre_recebimento_id_unique_idx').on(
+      table.preRecebimentoId,
+    ),
+  ],
+);
 
 export const itensRecebimento = recebimentoPgSchema.table(
   'itens_recebimento',

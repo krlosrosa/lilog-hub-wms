@@ -2,6 +2,8 @@ import { normalizeSkuParam } from '../lib/resolve-produto-conferencia-v2';
 import { recebimentoV2Db } from '../local-db/db';
 import type { DamageRecord } from '../local-db/schema';
 import { triggerAutoSyncIfPending } from './auto-sync-v2.service';
+import { removeDamageRecordLocally } from './damage-removal.helpers';
+import { deleteAvariaMediaUnreferencedByActiveDamages } from './sync-photo.helpers';
 import { deleteConferenceRecord } from './conference-sync.actions';
 
 function matchesSku(a: string | undefined, normalizedSku: string): boolean {
@@ -13,23 +15,13 @@ async function removeDamageRecord(
   demandId: string,
   damage: DamageRecord,
 ): Promise<boolean> {
-  const now = new Date().toISOString();
-  const nowMs = Date.now();
-  const needsSync = damage.syncStatus !== 'synced' || damage.serverAvariaId != null;
-
-  await recebimentoV2Db.transaction(
+  const needsSync = await recebimentoV2Db.transaction(
     'rw',
     [recebimentoV2Db.damages, recebimentoV2Db.media],
     async () => {
-      await recebimentoV2Db.damages.update(damage.id, {
-        deletedAt: now,
-        syncStatus: needsSync ? 'pending' : 'synced',
-        updatedAt: nowMs,
-      });
-
-      if (damage.mediaIds?.length) {
-        await recebimentoV2Db.media.bulkDelete(damage.mediaIds);
-      }
+      const requiresSync = await removeDamageRecordLocally(demandId, damage);
+      await deleteAvariaMediaUnreferencedByActiveDamages(demandId);
+      return requiresSync;
     },
   );
 

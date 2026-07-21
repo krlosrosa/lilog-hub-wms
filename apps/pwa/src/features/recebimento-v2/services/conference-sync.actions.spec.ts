@@ -62,7 +62,13 @@ describe('deleteConferenceRecord', () => {
     expect(await recebimentoV2Db.conferences.get(conference.id)).toBeUndefined();
 
     const remainingOps = await recebimentoV2Db.syncOperations.toArray();
-    expect(remainingOps).toHaveLength(0);
+    expect(remainingOps).toHaveLength(1);
+    expect(remainingOps[0]).toMatchObject({
+      id: conferirOp.id,
+      opType: RECEBIMENTO_V2_OP_TYPES.ITEM_CONFERIR,
+      status: 'rejected',
+      lifecycleStatus: 'CANCELLED',
+    });
   });
 
   it('enqueues ITEM_LINHA_REMOVE with server itemId and removes conference locally', async () => {
