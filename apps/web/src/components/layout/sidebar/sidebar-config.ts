@@ -27,8 +27,7 @@ import {
   Warehouse,
 } from 'lucide-react';
 
-import type { NavEntry, NavGroup } from './sidebar.types';
-import { isNavSubgroup } from './sidebar.types';
+import type { NavGroup } from './sidebar.types';
 
 const baseSidebarConfig: NavGroup[] = [
   {
@@ -264,66 +263,4 @@ const baseSidebarConfig: NavGroup[] = [
   },
 ];
 
-const APP_ENV = process.env.NEXT_PUBLIC_APP_ENV ?? process.env.NODE_ENV;
-const isProdMenu = APP_ENV === 'production';
-
-function filterSidebarForProd(groups: NavGroup[]): NavGroup[] {
-  if (!isProdMenu) return groups;
-
-  const result: NavGroup[] = [];
-
-  for (const group of groups) {
-    switch (group.id) {
-      case 'painel':
-      case 'rotina-operacional':
-      case 'gestao':
-      case 'suporte':
-        continue;
-
-      case 'cadastros-estrutura': {
-        const items: NavEntry[] = [];
-
-        for (const entry of group.items) {
-          if (!isNavSubgroup(entry)) continue;
-
-          if (entry.id === 'cadastros-infraestrutura') {
-            items.push({
-              ...entry,
-              items: entry.items.filter(
-                (item) =>
-                  !isNavSubgroup(item) &&
-                  (item.id === 'produtos' || item.id === 'docas'),
-              ),
-            });
-          } else if (entry.id === 'cadastros-pessoas') {
-            items.push(entry);
-          }
-        }
-
-        if (items.length > 0) {
-          result.push({ ...group, items });
-        }
-        continue;
-      }
-
-      case 'configuracoes': {
-        result.push({
-          ...group,
-          items: group.items.filter(
-            (item) =>
-              !isNavSubgroup(item) &&
-              (item.id === 'config-operacional-hub' || item.id === 'regras-pausas'),
-          ),
-        });
-        continue;
-      }
-
-      default:
-        result.push(group);
-    }
-  }
-
-  return result;
-}
-
-export const sidebarConfig: NavGroup[] = filterSidebarForProd(baseSidebarConfig);
+export const sidebarConfig: NavGroup[] = baseSidebarConfig;
