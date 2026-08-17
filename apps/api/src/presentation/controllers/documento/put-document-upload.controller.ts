@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  ForbiddenException,
   Inject,
   InternalServerErrorException,
   Logger,
@@ -9,14 +10,15 @@ import {
   Query,
   Req,
   ServiceUnavailableException,
-  UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { FastifyRequest } from 'fastify';
 
+import {
+  DOCUMENTO_REPOSITORY,
+  type IDocumentoRepository,
+} from '../../../domain/repositories/documento/documento.repository.js';
 import { ApiErrorResponses } from '../../../shared/decorators/api-responses.decorator.js';
-import { RequirePermissions } from '../../../shared/decorators/require-permissions.decorator.js';
-import { DOCUMENTO_PERMISSION } from '../../../shared/constants/documento-permissions.js';
 import {
   isLocalStorageEnabled,
   putLocalObject,
@@ -26,8 +28,6 @@ import {
   type R2Config,
 } from '../../../infra/clients/r2/r2.provider.js';
 import { putR2Object } from '../../../infra/clients/r2/r2-presign.js';
-import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard.js';
-import { PermissionsGuard } from '../../../shared/guards/permissions.guard.js';
 
 async function readRequestBody(request: FastifyRequest): Promise<Buffer> {
   const body = request.body;
@@ -50,22 +50,22 @@ async function readRequestBody(request: FastifyRequest): Promise<Buffer> {
 
 @ApiTags('Documento')
 @Controller('documentos')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
-@ApiBearerAuth('access-token')
 @ApiErrorResponses()
 export class PutDocumentUploadController {
   private readonly logger = new Logger(PutDocumentUploadController.name);
 
   constructor(
+    @Inject(DOCUMENTO_REPOSITORY)
+    private readonly documentoRepository: IDocumentoRepository,
     @Optional()
     @Inject(R2_PROVIDER)
     private readonly r2Config: R2Config | null,
   ) {}
 
-  @RequirePermissions(DOCUMENTO_PERMISSION.UPLOAD)
   @Put('upload')
   @ApiOperation({
-    summary: 'Upload de documento via proxy da API (evita CORS do R2)',
+    summary:
+      'Upload de documento via proxy da API (autenticado pela chave pending)',
     operationId: 'putDocumentoUpload',
   })
   async handle(
@@ -77,6 +77,12 @@ export class PutDocumentUploadController {
     }
 
     const decodedChave = decodeURIComponent(chave);
+    const documento = await this.documentoRepository.findByChave(decodedChave);
+
+    if (!documento || documento.status !== 'pending') {
+      throw new ForbiddenException('Chave de upload inválida ou expirada');
+    }
+
     const buffer = await readRequestBody(request);
 
     if (buffer.length === 0) {
@@ -133,7 +139,6 @@ export class PutDocumentUploadController {
   }
 
   /** @deprecated Use PUT /documentos/upload */
-  @RequirePermissions(DOCUMENTO_PERMISSION.UPLOAD)
   @Put('local-upload')
   @ApiOperation({
     summary: 'Upload local de documento (alias legado)',

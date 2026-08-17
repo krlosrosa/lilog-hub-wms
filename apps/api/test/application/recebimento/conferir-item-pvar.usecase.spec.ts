@@ -115,13 +115,13 @@ function createUseCase(overrides?: {
       preRecebimentoRepository,
       produtoRepository,
       configuracaoOperacionalRepository,
-      armazenagemRepository,
       userRepository,
       recebimentoParticipacaoService,
       recebimentoEventPublisher,
     ),
     recebimentoRepository,
     recebimentoEventPublisher,
+    armazenagemRepository,
   };
 }
 
@@ -231,7 +231,7 @@ describe('ConferirItemUseCase PVAR', () => {
         pesoRecebido: 12.5,
         etiquetaCodigo: 'ETQ-001',
       }),
-      expect.objectContaining({ pesoVariavel: true }),
+      expect.objectContaining({ pesoVariavel: true, unitizadorCodigo: 'PLT-001' }),
     );
   });
 
@@ -280,6 +280,7 @@ describe('ConferirItemUseCase PVAR', () => {
       expect.objectContaining({
         pesoVariavel: true,
         clientConferenceId: 'conf-uuid-001',
+        unitizadorCodigo: 'PLT-001',
       }),
     );
   });

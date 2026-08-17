@@ -55,7 +55,8 @@ export function useBootstrapV2(): UseBootstrapV2Result {
       } finally {
         if (activeDemandRef.current === demandId) {
           activeDemandRef.current = null;
-          setPreparingDemandId(null);
+          // Defer clearing so Dexie LiveQuery can update status before the next render
+          setTimeout(() => setPreparingDemandId(null), 0);
         }
       }
     },

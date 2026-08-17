@@ -43,7 +43,8 @@ function resolveApiBase(): string {
 export class ApiClientError extends Error {
   constructor(
     message: string,
-    public readonly status?: number
+    public readonly status?: number,
+    public readonly body?: unknown,
   ) {
     super(message);
     this.name = 'ApiClientError';
@@ -52,6 +53,10 @@ export class ApiClientError extends Error {
 
 export function isApiConfigured(): boolean {
   return Boolean(resolveApiBase());
+}
+
+export function resolveApiBaseUrl(): string {
+  return resolveApiBase();
 }
 
 export async function request<T>(
@@ -85,19 +90,21 @@ export async function request<T>(
   if (!response.ok) {
     const text = await response.text().catch(() => response.statusText);
     let message = text || `Erro HTTP ${response.status}`;
+    let parsedBody: unknown;
 
     try {
-      const parsed = JSON.parse(text) as { message?: string | string[] };
+      parsedBody = JSON.parse(text) as { message?: string | string[] };
+      const parsed = parsedBody as { message?: string | string[] };
       if (parsed.message) {
         message = Array.isArray(parsed.message)
           ? parsed.message.join(', ')
           : parsed.message;
       }
     } catch {
-      // keep raw text
+      parsedBody = undefined;
     }
 
-    throw new ApiClientError(message, response.status);
+    throw new ApiClientError(message, response.status, parsedBody);
   }
 
   if (response.status === 204) {
@@ -145,130 +152,4 @@ export async function fetchDemands<T>(unidadeId: string): Promise<T[]> {
   );
   const items = await fetchOperadorDemandas(unidadeId);
   return items.map((item) => mapOperadorDemandaToDemand(item)) as T[];
-}
-
-export async function fetchDevolucaoDemands<T>(unidadeId: string): Promise<T[]> {
-  if (!unidadeId?.trim()) {
-    throw new ApiClientError(
-      'Selecione uma unidade antes de carregar as demandas.',
-    );
-  }
-
-  const { mapDemandasDevolucaoAbertas } = await import(
-    '@/features/devolucao/lib/devolucao-api-mapper'
-  );
-  type ListResponse = import('@/features/devolucao/lib/devolucao-api-mapper').ListarDemandasDevolucaoApiResponse;
-
-  const params = new URLSearchParams({ unidadeId });
-  const response = await request<ListResponse>(
-    `/devolucao/demandas?${params.toString()}`,
-  );
-
-  const { db } = await import('@/lib/offline/db');
-  const existing = await db.devolucaoDemands.toArray();
-  const localByRouteId = new Map(existing.map((demand) => [demand.routeId, demand]));
-
-  return mapDemandasDevolucaoAbertas(
-    response.demandas ?? [],
-    localByRouteId,
-  ) as T[];
-}
-
-export async function fetchInventoryDemands<T>(): Promise<T[]> {
-  return request<T[]>('/estoque/contagem/demands');
-}
-
-export async function fetchInventoryDemandEnderecos<T>(
-  demandaId: string,
-): Promise<T[]> {
-  return request<T[]>(
-    `/estoque/contagem/demands/${encodeURIComponent(demandaId)}/enderecos`,
-  );
-}
-
-export type SubmitContagemCegaPayload = {
-  enderecoArmazenagem: string;
-  enderecoVazio?: boolean;
-  codigoProduto?: string;
-  quantidadeCaixas: number;
-  quantidadeUnidades: number;
-  lote?: string;
-  peso?: number;
-};
-
-export async function submitContagemCega(
-  demandaId: string,
-  itemId: string,
-  payload: SubmitContagemCegaPayload,
-) {
-  return request<{ id: string }>(
-    `/estoque/contagem/demands/${encodeURIComponent(demandaId)}/enderecos/${encodeURIComponent(itemId)}/cega`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    },
-  );
-}
-
-export type SubmitContagemValidacaoPayload = {
-  enderecoConfirmado?: string;
-  sscc?: string;
-  enderecoVazio: boolean;
-  anomaliaEncontrada: boolean;
-  correspondeAoEsperado: boolean;
-  quantidadeCaixas: number;
-  quantidadeUnidades: number;
-  lote?: string;
-  peso?: number;
-  codigoProduto?: string;
-  saldoEnderecoId?: string;
-};
-
-export async function submitContagemValidacao(
-  demandaId: string,
-  itemId: string,
-  payload: SubmitContagemValidacaoPayload,
-) {
-  return request<{ id: string }>(
-    `/estoque/contagem/demands/${encodeURIComponent(demandaId)}/enderecos/${encodeURIComponent(itemId)}/validacao`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    },
-  );
-}
-
-export type SubmitContagemAvariaPayload = {
-  motivo: string;
-  quantidadeCaixas: number;
-  quantidadeUnidades: number;
-  photoCount?: number;
-  contagemId?: string;
-};
-
-export async function submitContagemAvaria(
-  demandaId: string,
-  itemId: string,
-  payload: SubmitContagemAvariaPayload,
-) {
-  return request<{ id: string }>(
-    `/estoque/contagem/demands/${encodeURIComponent(demandaId)}/enderecos/${encodeURIComponent(itemId)}/avaria`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    },
-  );
-}
-
-export async function fetchRecuperacaoDemands<T>(): Promise<T[]> {
-  return request<T[]>('/estoque/recuperacao/demands');
-}
-
-export async function fetchRecuperacaoItens<T>(
-  demandaId: string,
-): Promise<T[]> {
-  return request<T[]>(`/estoque/recuperacao/demands/${demandaId}/itens`);
 }

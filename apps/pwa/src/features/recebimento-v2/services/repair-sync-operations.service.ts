@@ -3,12 +3,14 @@ import { RECEBIMENTO_V2_OP_TYPES } from '@lilog/contracts';
 import { mapAvariaV2SyncPayload, isValidAvariaV2SyncPayload } from '../lib/map-avaria-v2-sync-payload';
 import { mapConferenciaV2SyncPayload } from '../lib/map-conferencia-v2-sync-payload';
 import { normalizeParametrosConferenciaV2 } from '../lib/parametros-conferencia';
+import { deriveLifecycleFromStatus } from '../lib/sync-operation-lifecycle';
 import {
   resolveProdutoConferenciaV2,
   resolveProdutoIdForSkuV2,
   resolveProductForSkuV2,
   resolveUnidadesPorCaixa,
 } from '../lib/resolve-produto-conferencia-v2';
+import { tryParseRevisionConflictPayload } from '../lib/sync-revision-conflict';
 import { recebimentoV2Db } from '../local-db/db';
 import type { ConferenceRecord, DamageRecord, SyncOperationRecord } from '../local-db/schema';
 import type { LoteModo } from '@/features/recebimento/types/recebimento.schema';
@@ -17,6 +19,7 @@ import {
   refreshAutoSyncPauseState,
   resetAutoSyncBackoff,
 } from './auto-sync-v2.service';
+import { reconcileOrphanedPendingSyncOps } from './mark-sync-ops-for-patch.service';
 import { countPendingPhotoUploads } from './sync-photo.helpers';
 
 type ConferirOpPayload = {
@@ -35,6 +38,12 @@ type RemoveOpPayload = {
   lote?: string;
   deletedAt?: string;
 };
+
+const REMOVAL_OP_TYPES = new Set<string>([
+  RECEBIMENTO_V2_OP_TYPES.PALETE_REMOVE,
+  RECEBIMENTO_V2_OP_TYPES.PESAGEM_REMOVE,
+  RECEBIMENTO_V2_OP_TYPES.ITEM_REMOVE_BY_PRODUTO,
+]);
 
 function isValidConferirPayload(payload: Record<string, unknown>): boolean {
   return (
@@ -199,15 +208,17 @@ export async function dismissSyncOperation(opId: string): Promise<void> {
 }
 
 export async function repairSyncOperations(demandId: string): Promise<number> {
-  const [ops, conferences, damages] = await Promise.all([
+  let changed = await reconcileOrphanedPendingSyncOps(demandId);
+
+  const [ops, conferences, damages, process] = await Promise.all([
     recebimentoV2Db.syncOperations.where('aggregateId').equals(demandId).toArray(),
     recebimentoV2Db.conferences.where('demandId').equals(demandId).toArray(),
     recebimentoV2Db.damages.where('demandId').equals(demandId).toArray(),
+    recebimentoV2Db.processes.get(demandId),
   ]);
 
   const conferenceById = new Map(conferences.map((item) => [item.id, item]));
   const damageById = new Map(damages.map((item) => [item.id, item]));
-  let changed = 0;
   const now = Date.now();
 
   for (const op of ops) {
@@ -229,6 +240,16 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
       continue;
     }
 
+    if (REMOVAL_OP_TYPES.has(op.opType) && (op.status === 'rejected' || op.status === 'retry')) {
+      const payload = (op.payload ?? {}) as RemoveOpPayload;
+      const conferenceId = payload.conferenceId;
+      if (op.status === 'rejected' || (conferenceId && !conferenceById.has(conferenceId))) {
+        await recebimentoV2Db.syncOperations.delete(op.id);
+        changed += 1;
+        continue;
+      }
+    }
+
     if (op.opType === RECEBIMENTO_V2_OP_TYPES.ITEM_LINHA_REMOVE) {
       if (op.status !== 'rejected' && op.status !== 'retry') {
         continue;
@@ -239,6 +260,7 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
         if (op.status === 'rejected') {
           await recebimentoV2Db.syncOperations.update(op.id, {
             status: 'pending',
+            lifecycleStatus: deriveLifecycleFromStatus('pending'),
             errorMessage: undefined,
             updatedAt: now,
           });
@@ -251,6 +273,7 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
       if (itemId) {
         await recebimentoV2Db.syncOperations.update(op.id, {
           status: 'pending',
+          lifecycleStatus: deriveLifecycleFromStatus('pending'),
           payload: { ...payload, itemId },
           errorMessage: undefined,
           updatedAt: now,
@@ -274,6 +297,35 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
       const conference = conferenceId ? conferenceById.get(conferenceId) : undefined;
 
       if (
+        conference?.syncStatus === 'synced' &&
+        (conference.serverItemId || conference.serverPesagemId)
+      ) {
+        await recebimentoV2Db.syncOperations.delete(op.id);
+        changed += 1;
+        continue;
+      }
+
+      const revisionConflict = tryParseRevisionConflictPayload(op.errorMessage);
+      if (
+        op.status === 'retry' &&
+        revisionConflict != null &&
+        (op.attempts ?? 0) > 0 &&
+        process &&
+        revisionConflict.baseRevision < process.serverRevision
+      ) {
+        await recebimentoV2Db.syncOperations.update(op.id, {
+          status: 'pending',
+          lifecycleStatus: deriveLifecycleFromStatus('pending'),
+          attempts: 0,
+          errorMessage: undefined,
+          nextAttemptAt: undefined,
+          updatedAt: now,
+        });
+        changed += 1;
+        continue;
+      }
+
+      if (
         conference?.serverPesagemId &&
         (payload.pesoVariavel === true || conference.isPvarBox === true)
       ) {
@@ -286,6 +338,7 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
         if (op.status === 'rejected') {
           await recebimentoV2Db.syncOperations.update(op.id, {
             status: 'pending',
+            lifecycleStatus: deriveLifecycleFromStatus('pending'),
             errorMessage: undefined,
             updatedAt: now,
           });
@@ -309,6 +362,7 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
 
       await recebimentoV2Db.syncOperations.update(op.id, {
         status: 'pending',
+        lifecycleStatus: deriveLifecycleFromStatus('pending'),
         payload: rebuilt,
         errorMessage: undefined,
         updatedAt: now,
@@ -344,6 +398,7 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
     ) {
       await recebimentoV2Db.syncOperations.update(op.id, {
         status: 'pending',
+        lifecycleStatus: deriveLifecycleFromStatus('pending'),
         errorMessage: undefined,
         updatedAt: now,
       });
@@ -375,11 +430,20 @@ export async function repairSyncOperations(demandId: string): Promise<number> {
 
     await recebimentoV2Db.syncOperations.update(op.id, {
       status: 'pending',
+      lifecycleStatus: deriveLifecycleFromStatus('pending'),
       payload: rebuilt,
       errorMessage: undefined,
       updatedAt: now,
     });
     changed += 1;
+  }
+
+  if (changed > 0) {
+    if (!(await hasRemainingSyncIssueWork(demandId))) {
+      resetAutoSyncBackoff(demandId);
+    } else {
+      await refreshAutoSyncPauseState(demandId);
+    }
   }
 
   return changed;

@@ -23,14 +23,13 @@ import {
   Trash2,
 } from 'lucide-react';
 
-import { conferenciaTableCellClassName } from '@/components/ui/compact-table-classes';
+import { cncAnomaliasTableCellClassName } from '@/components/ui/compact-table-classes';
 import { ModalEditarItemCnc } from '@/features/cnc/components/modal-editar-item-cnc';
 import { useCncItemActions } from '@/features/cnc/hooks/use-cnc-item-actions';
 import { useDisplayConfig } from '@/features/config-operacional/hooks/use-display-config';
 import type { CncEvento, CncItem } from '@/features/cnc/types/cnc.schema';
 import {
   CNC_EVENTO_LABELS,
-  CNC_ITEM_TIPO_LABELS,
   CNC_RESPONSAVEL_LABELS,
   CNC_SUBTIPO_LABELS,
 } from '@/features/cnc/types/cnc.schema';
@@ -71,7 +70,7 @@ function MetaPill({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px]',
+        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[9px]',
         tone === 'danger' &&
           'border-destructive/25 bg-destructive/5 text-destructive',
         tone === 'primary' &&
@@ -227,7 +226,7 @@ export function CncAnomaliaRow({
         )}
         onClick={hasExtraDetails ? toggleExpanded : undefined}
       >
-        <td className={cn(conferenciaTableCellClassName, 'w-7 pl-2')}>
+        <td className={cn(cncAnomaliasTableCellClassName, 'w-7 pl-2')}>
           {hasExtraDetails ? (
             <button
               type="button"
@@ -255,10 +254,10 @@ export function CncAnomaliaRow({
           ) : null}
         </td>
 
-        <td className={cn(conferenciaTableCellClassName, 'text-center')}>
+        <td className={cn(cncAnomaliasTableCellClassName, 'text-center')}>
           <span
             className={cn(
-              'inline-flex size-5 items-center justify-center rounded text-[10px] font-bold tabular-nums',
+              'inline-flex size-4 items-center justify-center rounded text-[9px] font-bold tabular-nums',
               subtipoConfig
                 ? cn(subtipoConfig.bg, subtipoConfig.accent)
                 : item.tipo === 'avaria'
@@ -271,43 +270,42 @@ export function CncAnomaliaRow({
         </td>
 
         <td
-          className={cn(conferenciaTableCellClassName, 'max-w-[220px]')}
+          className={cn(cncAnomaliasTableCellClassName, 'max-w-[220px]')}
           title={item.descricaoProduto ?? undefined}
         >
-          <p className="truncate font-mono text-[10px] text-primary">
+          <p className="truncate font-mono text-[9px] text-primary">
             {item.sku ?? item.produtoId ?? '—'}
           </p>
-          <p className="truncate text-[11px] font-medium text-foreground">
+          <p className="truncate text-[10px] font-medium text-foreground">
             {item.descricaoProduto ?? 'Sem descrição'}
           </p>
         </td>
 
-        <td className={cn(conferenciaTableCellClassName, 'hidden sm:table-cell')}>
-          <span
-            className={cn(
-              'inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase',
-              item.tipo === 'avaria'
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-secondary/10 text-secondary',
-            )}
-          >
-            {CNC_ITEM_TIPO_LABELS[item.tipo]}
-          </span>
+        <td
+          className={cn(
+            cncAnomaliasTableCellClassName,
+            'hidden min-w-[132px] whitespace-nowrap sm:table-cell',
+          )}
+        >
           {item.subtipoOcorrencia ? (
-            <p
+            <span
               className={cn(
-                'mt-0.5 truncate text-[10px] font-medium',
-                subtipoConfig?.accent ?? 'text-muted-foreground',
+                'inline-flex whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-semibold',
+                subtipoConfig
+                  ? cn(subtipoConfig.bg, subtipoConfig.accent)
+                  : 'bg-muted/50 text-muted-foreground',
               )}
             >
               {CNC_SUBTIPO_LABELS[item.subtipoOcorrencia]}
-            </p>
-          ) : null}
+            </span>
+          ) : (
+            <span className="text-muted-foreground/50">—</span>
+          )}
         </td>
 
         <td
           className={cn(
-            conferenciaTableCellClassName,
+            cncAnomaliasTableCellClassName,
             'text-right tabular-nums text-muted-foreground',
           )}
         >
@@ -316,7 +314,7 @@ export function CncAnomaliaRow({
 
         <td
           className={cn(
-            conferenciaTableCellClassName,
+            cncAnomaliasTableCellClassName,
             'text-right tabular-nums font-medium text-foreground',
           )}
         >
@@ -325,7 +323,7 @@ export function CncAnomaliaRow({
 
         <td
           className={cn(
-            conferenciaTableCellClassName,
+            cncAnomaliasTableCellClassName,
             'text-right tabular-nums font-semibold',
             hasDivergencia ? 'text-destructive' : 'text-status-active',
           )}
@@ -335,8 +333,8 @@ export function CncAnomaliaRow({
 
         <td
           className={cn(
-            conferenciaTableCellClassName,
-            'hidden truncate text-[11px] md:table-cell',
+            cncAnomaliasTableCellClassName,
+            'hidden truncate md:table-cell',
           )}
           title={
             item.responsavelSugerido
@@ -349,9 +347,9 @@ export function CncAnomaliaRow({
             : '—'}
         </td>
 
-        <td className={cn(conferenciaTableCellClassName, 'text-center')}>
+        <td className={cn(cncAnomaliasTableCellClassName, 'text-center')}>
           {fotos.length > 0 ? (
-            <span className="inline-flex items-center gap-0.5 rounded border border-destructive/25 bg-destructive/5 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+            <span className="inline-flex items-center gap-0.5 rounded border border-destructive/25 bg-destructive/5 px-1.5 py-0.5 text-[9px] font-semibold text-destructive">
               <ImageIcon className="size-2.5" aria-hidden />
               {fotos.length}
             </span>
@@ -362,7 +360,7 @@ export function CncAnomaliaRow({
 
         {podeGerenciar ? (
           <td
-            className={cn(conferenciaTableCellClassName, 'text-center')}
+            className={cn(cncAnomaliasTableCellClassName, 'text-center')}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="inline-flex items-center gap-0.5">

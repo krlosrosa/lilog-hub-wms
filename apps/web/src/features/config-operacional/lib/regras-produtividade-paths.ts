@@ -2,7 +2,7 @@ import type { EtapaProdutividade } from '@/features/config-operacional/types/reg
 
 export const REGRAS_PRODUTIVIDADE_BASE = '/config-operacional/regras-produtividade';
 
-export function regrasProdutividadeListaPath(aba: EtapaProdutividade = 'separacao'): string {
+export function regrasProdutividadeListaPath(aba: EtapaProdutividade = 'conferencia'): string {
   return `${REGRAS_PRODUTIVIDADE_BASE}?aba=${aba}`;
 }
 

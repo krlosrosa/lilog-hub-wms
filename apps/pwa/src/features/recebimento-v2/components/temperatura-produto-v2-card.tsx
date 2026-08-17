@@ -49,9 +49,15 @@ function parseTemperatura(raw: string): number | null {
   return Number.isNaN(temperatura) ? null : temperatura;
 }
 
-export function TemperaturaProdutoV2ModalButton({ demandId }: { demandId: string }) {
+export function TemperaturaProdutoV2ModalButton({
+  demandId,
+  canRegistrar: canRegistrarProp,
+}: {
+  demandId: string;
+  canRegistrar?: boolean;
+}) {
   const { capabilities } = useProcessCapabilitiesV2(demandId);
-  const canRegistrar = capabilities.canRegistrarTemperatura;
+  const canRegistrar = canRegistrarProp ?? capabilities.canRegistrarTemperatura;
   const [open, setOpen] = useState(false);
   const [savingEtapa, setSavingEtapa] = useState<TemperaturaEtapaV2 | null>(null);
   const isClosingRef = useRef(false);

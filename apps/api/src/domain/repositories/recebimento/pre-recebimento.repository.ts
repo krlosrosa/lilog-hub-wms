@@ -243,4 +243,12 @@ export interface IPreRecebimentoRepository {
     options?: { regenerar?: boolean },
   ): Promise<{ token: string } | null>;
   findRastreioByToken(token: string): Promise<RastreioStatusRecord | null>;
+  addManualExpectedItem(
+    preRecebimentoId: string,
+    produtoId: string,
+  ): Promise<void>;
+  removeManualExpectedItem(
+    preRecebimentoId: string,
+    produtoId: string,
+  ): Promise<boolean>;
 }

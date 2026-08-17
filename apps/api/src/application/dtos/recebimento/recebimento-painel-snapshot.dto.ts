@@ -5,7 +5,7 @@ import {
   GrauPrioridadePreRecebimentoSchema,
   PreRecebimentoSituacaoSchema,
 } from '../../../domain/model/recebimento/recebimento.model.js';
-import { RecursosSessaoKpiDtoSchema } from '../op-wms/demanda-separacao.dto.js';
+import { RecursosSessaoKpiDtoSchema } from '../sessao-operacao/sessao-recursos.dto.js';
 
 const kpiAccentSchema = z.enum([
   'primary',

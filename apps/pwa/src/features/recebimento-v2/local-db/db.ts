@@ -82,6 +82,8 @@ export class RecebimentoV2DB extends Dexie {
     // v3: reforça stores após adição de demands/checklist hydration no pull.
     this.version(3).stores(RECEBIMENTO_V2_STORES);
     this.version(4).stores(RECEBIMENTO_V2_STORES);
+    // v5: MediaRecord targetEntityId/targetEntityType for independent photo upload queue
+    this.version(5).stores(RECEBIMENTO_V2_STORES);
   }
 }
 

@@ -11,6 +11,7 @@ import {
   clearStaleEncerrarOps,
   hasActiveEncerrarOp,
 } from '../lib/finalizar-sync-guard';
+import { deriveLifecycleFromStatus } from '../lib/sync-operation-lifecycle';
 import { triggerAutoSyncIfPending } from '../services/auto-sync-v2.service';
 import type { DivergenciaItem } from '../types/recebimento-v2.schema';
 import { useChecklistV2 } from './use-checklist-v2';
@@ -100,6 +101,7 @@ export function useFinalizarV2(demandId: string) {
           },
           attachmentIds: [],
           status: 'pending',
+          lifecycleStatus: deriveLifecycleFromStatus('pending'),
           attempts: 0,
           createdAt: nowMs,
           updatedAt: nowMs,

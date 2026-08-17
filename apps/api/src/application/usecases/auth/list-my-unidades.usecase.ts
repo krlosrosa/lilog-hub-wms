@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 
 import {
   USER_REPOSITORY,
@@ -16,7 +16,7 @@ export class ListMyUnidadesUseCase {
     const user = await this.userRepository.findById(userId);
 
     if (!user) {
-      throw new NotFoundException('Usuário não encontrado');
+      throw new UnauthorizedException('Invalid or missing token');
     }
 
     const items = await this.userRepository.listAccessibleUnidades(userId);

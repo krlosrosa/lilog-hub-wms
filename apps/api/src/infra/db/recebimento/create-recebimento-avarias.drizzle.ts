@@ -19,6 +19,7 @@ function mapRow(row: typeof recebimentoAvarias.$inferSelect) {
     numeroSerie: row.numeroSerie,
     photoCount: row.photoCount,
     replicado: row.replicado,
+    clientDamageId: row.clientDamageId,
     operatorId: row.operatorId,
     createdAt: row.createdAt,
   };

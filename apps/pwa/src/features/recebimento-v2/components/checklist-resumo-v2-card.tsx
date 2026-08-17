@@ -93,13 +93,13 @@ function ChecklistPhotoPreviews({
                     key={id}
                     className="h-16 w-16 overflow-hidden rounded-lg border border-outline-variant bg-surface-container"
                   >
-                    {previewUrl ? (
-                      <img src={previewUrl} alt={label} className="h-full w-full object-cover" />
-                    ) : record?.status === 'uploaded' ? (
+                    {record?.status === 'uploaded' ? (
                       <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 text-secondary">
                         <CheckCircle2 className="h-4 w-4" aria-hidden />
                         <span className="text-[9px] font-medium">Enviada</span>
                       </div>
+                    ) : previewUrl ? (
+                      <img src={previewUrl} alt={label} className="h-full w-full object-cover" />
                     ) : record?.status === 'error' ? (
                       <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 text-destructive">
                         <ImageOff className="h-4 w-4" aria-hidden />

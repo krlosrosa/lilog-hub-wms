@@ -4,6 +4,7 @@ import { useCallback, useEffect } from 'react';
 
 import { useAuth } from '@/features/auth';
 
+import { deriveLifecycleFromStatus } from '../lib/sync-operation-lifecycle';
 import { recebimentoV2Db } from '../local-db/db';
 import type { ImpedimentoRecord, SyncOperationRecord } from '../local-db/schema';
 import { triggerAutoSyncIfPending } from '../services/auto-sync-v2.service';
@@ -100,6 +101,7 @@ export function useImpedimentoV2(demandId: string): UseImpedimentoV2Result {
         },
         attachmentIds: input.mediaIds,
         status: 'pending',
+        lifecycleStatus: deriveLifecycleFromStatus('pending'),
         attempts: 0,
         createdAt: nowMs,
         updatedAt: nowMs,
@@ -162,6 +164,7 @@ export function useImpedimentoV2(demandId: string): UseImpedimentoV2Result {
       },
       attachmentIds: [],
       status: 'pending',
+      lifecycleStatus: deriveLifecycleFromStatus('pending'),
       attempts: 0,
       createdAt: nowMs,
       updatedAt: nowMs,

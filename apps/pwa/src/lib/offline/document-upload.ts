@@ -1,13 +1,28 @@
 import { buildImageUploadName } from '@/lib/images/image-mime';
 
 import type { PhotoEntry } from './db';
-import { isApiConfigured, request } from './api-client';
+import { ApiClientError, isApiConfigured, request } from './api-client';
 
 export type UploadDocumentOptions = {
   nome: string;
   entidadeTipo?: string;
   entidadeId?: string;
 };
+
+export type UploadStep = 'upload-url' | 'put-blob' | 'confirm';
+
+export class UploadError extends Error {
+  readonly step: UploadStep;
+
+  constructor(step: UploadStep, message: string, cause?: unknown) {
+    super(message);
+    this.name = 'UploadError';
+    this.step = step;
+    if (cause !== undefined) {
+      (this as Error & { cause?: unknown }).cause = cause;
+    }
+  }
+}
 
 type UploadUrlResponse = {
   uploadUrl: string;
@@ -19,6 +34,27 @@ type DocumentoResponse = {
   id: string;
   chave: string;
 };
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof ApiClientError) {
+    const statusSuffix = err.status != null ? ` (${err.status})` : '';
+    return `${err.message}${statusSuffix}`;
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return String(err);
+}
+
+function logUploadFailure(
+  step: UploadStep,
+  context: Record<string, unknown>,
+  err: unknown,
+): UploadError {
+  const message = getErrorMessage(err);
+  console.error(`[UPLOAD] step=${step}`, { ...context, error: message, err });
+  return new UploadError(step, message, err);
+}
 
 export async function uploadDocumentToBucket(
   photo: PhotoEntry,
@@ -36,9 +72,19 @@ export async function uploadDocumentToBucket(
     mimeType,
   );
 
-  const { uploadUrl, chave } = await request<UploadUrlResponse>(
-    '/documentos/upload-url',
-    {
+  const uploadContext = {
+    nome,
+    mimeType,
+    tamanho,
+    entidadeTipo: options.entidadeTipo,
+    entidadeId: options.entidadeId,
+  };
+
+  let uploadUrl: string;
+  let chave: string;
+
+  try {
+    const response = await request<UploadUrlResponse>('/documentos/upload-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -48,32 +94,58 @@ export async function uploadDocumentToBucket(
         entidadeTipo: options.entidadeTipo,
         entidadeId: options.entidadeId,
       }),
-    },
-  );
-
-  const putResponse = await fetch(uploadUrl, {
-    method: 'PUT',
-    body: photo.blob,
-    headers: { 'Content-Type': mimeType },
-    credentials: 'include',
-  });
-
-  if (!putResponse.ok) {
-    throw new Error(`Falha ao enviar arquivo para o storage (${putResponse.status})`);
+    });
+    uploadUrl = response.uploadUrl;
+    chave = response.chave;
+  } catch (err) {
+    throw logUploadFailure('upload-url', uploadContext, err);
   }
 
-  const documento = await request<DocumentoResponse>('/documentos/confirm', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chave,
-      nome,
-      mimeType,
-      tamanho,
-      entidadeTipo: options.entidadeTipo,
-      entidadeId: options.entidadeId,
-    }),
-  });
+  let putResponse: Response;
+  try {
+    putResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: photo.blob,
+      headers: { 'Content-Type': mimeType },
+      credentials: 'include',
+    });
+  } catch (err) {
+    throw logUploadFailure('put-blob', { ...uploadContext, uploadUrl, chave }, err);
+  }
 
-  return documento.chave;
+  if (!putResponse.ok) {
+    const bodyText = await putResponse.text().catch(() => '');
+    console.error('[UPLOAD] step=put-blob', {
+      ...uploadContext,
+      uploadUrl,
+      chave,
+      status: putResponse.status,
+      statusText: putResponse.statusText,
+      body: bodyText.slice(0, 500),
+      blobSize: tamanho,
+    });
+    throw new UploadError(
+      'put-blob',
+      `Falha ao enviar arquivo para o storage (${putResponse.status})`,
+    );
+  }
+
+  try {
+    const documento = await request<DocumentoResponse>('/documentos/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chave,
+        nome,
+        mimeType,
+        tamanho,
+        entidadeTipo: options.entidadeTipo,
+        entidadeId: options.entidadeId,
+      }),
+    });
+
+    return documento.chave;
+  } catch (err) {
+    throw logUploadFailure('confirm', { ...uploadContext, chave }, err);
+  }
 }

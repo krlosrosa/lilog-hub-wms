@@ -1,29 +1,15 @@
 import type { EtapaProdutividade } from '@/features/config-operacional/types/regra-produtividade-tabs';
-import type { RegraCarregamento } from '@/features/regras-carregamento/types/regra-carregamento.schema';
 import type { RegraConferencia } from '@/features/regras-conferencia/types/regra-conferencia.schema';
-import type { RegraExpedicao } from '@/features/regras-expedicao/types/regra-expedicao.schema';
 import type { RegraPausa } from '@/features/regras-pausas/types/regra-pausa.schema';
 import type { PausaTipo } from '@/features/pausas/types/pausas.schema';
 
 export const PRODUTIVIDADE_DOMINIO = 'expedicao' as const;
 export const PRODUTIVIDADE_CATEGORIA = 'produtividade' as const;
-export const PAUSAS_DOMINIO = 'operacional' as const;
+export const PAUSAS_DOMINIO = 'configuracoes' as const;
 export const PAUSAS_CATEGORIA = 'pausas' as const;
-export const DEVOLUCAO_DOMINIO = 'devolucao' as const;
-export const DEVOLUCAO_CONFERENCIA_CATEGORIA = 'conferencia' as const;
-export const DEVOLUCAO_PARAMETROS_SUBTIPO = 'parametros' as const;
 export const RECEBIMENTO_DOMINIO = 'recebimento' as const;
 export const RECEBIMENTO_CONFERENCIA_CATEGORIA = 'conferencia' as const;
 export const RECEBIMENTO_PARAMETROS_SUBTIPO = 'parametros' as const;
-
-export type ParametrosSeparacaoApi = {
-  deslocamentoEntreEnderecosSeg: number;
-  deslocamentoItensSemEnderecoSeg: number;
-  tempoPrimeiraCaixaSeg: number;
-  tempoDemaisCaixasSeg: number;
-  gorduraInicioMapaSeg: number;
-  gorduraFimMapaSeg: number;
-};
 
 export type ParametrosConferenciaApi = {
   gorduraInicioMapaSeg: number;
@@ -32,17 +18,6 @@ export type ParametrosConferenciaApi = {
   tempoPorPaleteSeg: number;
   tempoPorClienteSeg: number;
   gorduraFimMapaSeg: number;
-};
-
-export type ParametrosCarregamentoApi = {
-  gorduraInicioMinutaSeg: number;
-  tempoPrimeiroPaleteSeg: number;
-  tempoDemaisPaletesSeg: number;
-  tempoPorClienteSeg: number;
-  tempoPorTabelaSeg: number;
-  deslocamentoInternoDocaSeg: number;
-  tempoAmarracaoMinutaSeg: number;
-  gorduraFimMinutaSeg: number;
 };
 
 export type ParametrosPausaApi = {
@@ -65,21 +40,6 @@ export const DEFAULT_CONDICOES_CHECKLIST: CondicaoChecklistItem[] = [
   { id: 'estrutura', label: 'Integridade Estrutural' },
   { id: 'vedacao', label: 'Vedação das Portas' },
 ];
-
-export type ParametrosDevolucaoConferenciaApi = {
-  quantidadeModo: QuantidadeModoApi;
-  loteModo: LoteModoApi;
-  controlaPalete: boolean;
-  condicoesChecklist: CondicaoChecklistItem[];
-};
-
-export const DEFAULT_PARAMETROS_DEVOLUCAO_CONFERENCIA: ParametrosDevolucaoConferenciaApi =
-  {
-    quantidadeModo: 'ambos',
-    loteModo: 'lote',
-    controlaPalete: false,
-    condicoesChecklist: DEFAULT_CONDICOES_CHECKLIST,
-  };
 
 export type ParametrosRecebimentoConferenciaApi = {
   quantidadeModo: QuantidadeModoApi;
@@ -109,11 +69,8 @@ export const DEFAULT_PARAMETROS_RECEBIMENTO_CONFERENCIA: ParametrosRecebimentoCo
 export type RegrasPausaPadraoMap = Partial<Record<PausaTipo, ParametrosPausaApi>>;
 
 export type ParametrosConfiguracaoOperacionalApi =
-  | ParametrosSeparacaoApi
   | ParametrosConferenciaApi
-  | ParametrosCarregamentoApi
   | ParametrosPausaApi
-  | ParametrosDevolucaoConferenciaApi
   | ParametrosRecebimentoConferenciaApi;
 
 export type ConfiguracaoOperacionalApi = {
@@ -142,17 +99,14 @@ export type CreateConfiguracaoOperacionalApiPayload = {
   dominio:
     | typeof PRODUTIVIDADE_DOMINIO
     | typeof PAUSAS_DOMINIO
-    | typeof DEVOLUCAO_DOMINIO
     | typeof RECEBIMENTO_DOMINIO;
   categoria:
     | typeof PRODUTIVIDADE_CATEGORIA
     | typeof PAUSAS_CATEGORIA
-    | typeof DEVOLUCAO_CONFERENCIA_CATEGORIA
     | typeof RECEBIMENTO_CONFERENCIA_CATEGORIA;
   subtipo:
     | EtapaProdutividade
     | PausaTipo
-    | typeof DEVOLUCAO_PARAMETROS_SUBTIPO
     | typeof RECEBIMENTO_PARAMETROS_SUBTIPO;
   nome: string;
   descricao?: string;
@@ -168,27 +122,6 @@ export type UpdateConfiguracaoOperacionalApiPayload = {
   isPadrao?: boolean;
   ativo?: boolean;
 };
-
-export function mapApiToRegraExpedicao(
-  item: ConfiguracaoOperacionalApi,
-): RegraExpedicao {
-  const parametros = item.parametros as ParametrosSeparacaoApi;
-
-  return {
-    id: item.id,
-    nome: item.nome,
-    descricao: item.descricao ?? undefined,
-    ativo: item.ativo,
-    padrao: item.isPadrao,
-    deslocamentoEntreEnderecosSeg: parametros.deslocamentoEntreEnderecosSeg,
-    deslocamentoItensSemEnderecoSeg: parametros.deslocamentoItensSemEnderecoSeg ?? 0,
-    tempoPrimeiraCaixaSeg: parametros.tempoPrimeiraCaixaSeg,
-    tempoDemaisCaixasSeg: parametros.tempoDemaisCaixasSeg,
-    gorduraInicioMapaSeg: parametros.gorduraInicioMapaSeg,
-    gorduraFimMapaSeg: parametros.gorduraFimMapaSeg,
-    atualizadoEm: item.updatedAt,
-  };
-}
 
 export function mapApiToRegraConferencia(
   item: ConfiguracaoOperacionalApi,
@@ -211,50 +144,6 @@ export function mapApiToRegraConferencia(
   };
 }
 
-export function mapApiToRegraCarregamento(
-  item: ConfiguracaoOperacionalApi,
-): RegraCarregamento {
-  const parametros = item.parametros as ParametrosCarregamentoApi;
-
-  return {
-    id: item.id,
-    nome: item.nome,
-    descricao: item.descricao ?? undefined,
-    ativo: item.ativo,
-    padrao: item.isPadrao,
-    gorduraInicioMinutaSeg: parametros.gorduraInicioMinutaSeg,
-    tempoPrimeiroPaleteSeg: parametros.tempoPrimeiroPaleteSeg,
-    tempoDemaisPaletesSeg: parametros.tempoDemaisPaletesSeg,
-    tempoPorClienteSeg: parametros.tempoPorClienteSeg,
-    tempoPorTabelaSeg: parametros.tempoPorTabelaSeg,
-    deslocamentoInternoDocaSeg: parametros.deslocamentoInternoDocaSeg,
-    tempoAmarracaoMinutaSeg: parametros.tempoAmarracaoMinutaSeg,
-    gorduraFimMinutaSeg: parametros.gorduraFimMinutaSeg,
-    atualizadoEm: item.updatedAt,
-  };
-}
-
-export function extractParametrosSeparacao(
-  form: Pick<
-    RegraExpedicao,
-    | 'deslocamentoEntreEnderecosSeg'
-    | 'deslocamentoItensSemEnderecoSeg'
-    | 'tempoPrimeiraCaixaSeg'
-    | 'tempoDemaisCaixasSeg'
-    | 'gorduraInicioMapaSeg'
-    | 'gorduraFimMapaSeg'
-  >,
-): ParametrosSeparacaoApi {
-  return {
-    deslocamentoEntreEnderecosSeg: form.deslocamentoEntreEnderecosSeg,
-    deslocamentoItensSemEnderecoSeg: form.deslocamentoItensSemEnderecoSeg,
-    tempoPrimeiraCaixaSeg: form.tempoPrimeiraCaixaSeg,
-    tempoDemaisCaixasSeg: form.tempoDemaisCaixasSeg,
-    gorduraInicioMapaSeg: form.gorduraInicioMapaSeg,
-    gorduraFimMapaSeg: form.gorduraFimMapaSeg,
-  };
-}
-
 export function extractParametrosConferencia(
   form: Pick<
     RegraConferencia,
@@ -273,31 +162,6 @@ export function extractParametrosConferencia(
     tempoPorPaleteSeg: form.tempoPorPaleteSeg,
     tempoPorClienteSeg: form.tempoPorClienteSeg,
     gorduraFimMapaSeg: form.gorduraFimMapaSeg,
-  };
-}
-
-export function extractParametrosCarregamento(
-  form: Pick<
-    RegraCarregamento,
-    | 'gorduraInicioMinutaSeg'
-    | 'tempoPrimeiroPaleteSeg'
-    | 'tempoDemaisPaletesSeg'
-    | 'tempoPorClienteSeg'
-    | 'tempoPorTabelaSeg'
-    | 'deslocamentoInternoDocaSeg'
-    | 'tempoAmarracaoMinutaSeg'
-    | 'gorduraFimMinutaSeg'
-  >,
-): ParametrosCarregamentoApi {
-  return {
-    gorduraInicioMinutaSeg: form.gorduraInicioMinutaSeg,
-    tempoPrimeiroPaleteSeg: form.tempoPrimeiroPaleteSeg,
-    tempoDemaisPaletesSeg: form.tempoDemaisPaletesSeg,
-    tempoPorClienteSeg: form.tempoPorClienteSeg,
-    tempoPorTabelaSeg: form.tempoPorTabelaSeg,
-    deslocamentoInternoDocaSeg: form.deslocamentoInternoDocaSeg,
-    tempoAmarracaoMinutaSeg: form.tempoAmarracaoMinutaSeg,
-    gorduraFimMinutaSeg: form.gorduraFimMinutaSeg,
   };
 }
 

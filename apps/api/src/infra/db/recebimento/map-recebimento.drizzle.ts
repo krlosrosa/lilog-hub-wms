@@ -145,6 +145,8 @@ export function mapItemRecebimentoRow(
     validade: row.validade,
     numeroSerie: row.numeroSerie,
     unitizadorId: row.unitizadorId,
+    unitizadorCodigo: row.unitizadorCodigo ?? null,
+    clientConferenceId: row.clientConferenceId ?? null,
     createdAt: row.createdAt,
   };
 }
@@ -301,6 +303,7 @@ export function toItemRecebimentoInsertValues(
   data: ConferirItemInput,
   unitizadorId?: string | null,
   conferidoPorId?: number | null,
+  clientConferenceId?: string | null,
 ) {
   return {
     recebimentoId,
@@ -314,7 +317,9 @@ export function toItemRecebimentoInsertValues(
     validade: data.validade ?? null,
     numeroSerie: data.numeroSerie ?? null,
     unitizadorId: unitizadorId ?? null,
+    unitizadorCodigo: data.unitizadorCodigo?.trim() || null,
     conferidoPorId: conferidoPorId ?? null,
+    clientConferenceId: clientConferenceId?.trim() || null,
   };
 }
 

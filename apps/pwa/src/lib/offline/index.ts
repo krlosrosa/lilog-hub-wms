@@ -12,4 +12,4 @@ export {
   subscribeSyncFlushing,
   triggerAutoSyncIfPending,
 } from './sync-engine';
-export { fetchDemands, fetchDevolucaoDemands, fetchInventoryDemands } from './api-client';
+export { fetchDemands } from './api-client';

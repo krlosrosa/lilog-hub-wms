@@ -40,3 +40,19 @@ export function conferenciaTableHeadCellClassName(className?: string) {
     className,
   );
 }
+
+/** CNC anomalias — tipografia um passo abaixo da conferência. */
+export const cncAnomaliasTableClassName =
+  'w-full border-collapse text-left text-[10px]';
+
+export const cncAnomaliasTableCellClassName = 'px-2 py-1 text-[10px]';
+
+export const cncAnomaliasTableEmptyCellClassName =
+  'px-2 py-12 text-center text-[10px] text-muted-foreground';
+
+export function cncAnomaliasTableHeadCellClassName(className?: string) {
+  return cn(
+    'border-b border-outline-variant px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground',
+    className,
+  );
+}

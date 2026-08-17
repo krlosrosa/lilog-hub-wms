@@ -206,6 +206,8 @@ export class GetConferenciaContextUseCase {
 
       ...context,
 
+      parametrosConferencia,
+
       exigePaleteConferencia,
 
       itens: context.itens.map((item) => ({

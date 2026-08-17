@@ -115,6 +115,16 @@ export type SyncOperationStatus =
   | 'conflict'
   | 'rejected';
 
+export type SyncOperationLifecycleStatus =
+  | 'PENDING'
+  | 'WAITING_DEPENDENCY'
+  | 'SENDING'
+  | 'SENT'
+  | 'CONFIRMED'
+  | 'FAILED'
+  | 'RETRYING'
+  | 'CANCELLED';
+
 export interface LocalSyncOperation {
   id: string;
   aggregateId: string;
@@ -126,6 +136,7 @@ export interface LocalSyncOperation {
   payload: unknown;
   attachmentIds: string[];
   status: SyncOperationStatus;
+  lifecycleStatus?: SyncOperationLifecycleStatus;
   attempts: number;
   nextAttemptAt?: number;
   createdAt: number;

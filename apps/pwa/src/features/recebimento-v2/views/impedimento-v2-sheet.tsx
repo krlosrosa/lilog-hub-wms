@@ -14,11 +14,11 @@ import { toast } from 'sonner';
 
 import { AvariaSelectField } from '@/features/recebimento/components/avaria-select-field';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { UppyCaptureModal } from '@/lib/uppy/uppy-capture-modal';
+import { useUppyCapture } from '@/lib/uppy/use-uppy-capture';
 
-import { PhotoCaptureHiddenInputV2 } from '../components/photo-capture-hidden-input-v2';
 import { useImpedimentoV2 } from '../hooks/use-impedimento-v2';
 import { syncNowV2 } from '../services/auto-sync-v2.service';
-import { usePhotoCaptureV2 } from '../hooks/use-photo-capture-v2';
 import {
   TIPO_IMPEDIMENTO_OPTIONS,
   type ImpedimentoForm,
@@ -114,10 +114,11 @@ export function ImpedimentoV2Sheet({
   const { registrarImpedimento } = useImpedimentoV2(demandId);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
-  const photoCapture = usePhotoCaptureV2({
+  const photoCapture = useUppyCapture({
     processId: demandId,
     ownerType: 'impedimento',
     ownerId: impedimentoOwnerId(demandId),
+    maxNumberOfFiles: 1,
   });
 
   const tipoOptions = useMemo(
@@ -257,9 +258,16 @@ export function ImpedimentoV2Sheet({
                 )}
               </div>
             </div>
-            <PhotoCaptureHiddenInputV2
-              inputRef={photoCapture.inputRef}
-              onChange={photoCapture.handleFileChange}
+            <UppyCaptureModal
+              uppy={photoCapture.uppy}
+              open={photoCapture.isModalOpen}
+              onRequestClose={photoCapture.closeModal}
+              onPickFromDevice={photoCapture.pickFromDevice}
+              isProcessing={photoCapture.isProcessing}
+              fileInputRef={photoCapture.fileInputRef}
+              fileInputAccept={photoCapture.fileInputAccept}
+              onNativeFileChange={photoCapture.handleNativeFileChange}
+              note="Capture uma foto do impedimento. A imagem será salva localmente."
             />
           </div>
 

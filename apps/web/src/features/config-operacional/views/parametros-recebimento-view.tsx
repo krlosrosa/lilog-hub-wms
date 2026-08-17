@@ -7,8 +7,8 @@ import { ArrowLeft, Loader2, Plus, Save, Trash2, Truck } from 'lucide-react';
 import { Controller, FormProvider, useFieldArray } from 'react-hook-form';
 
 import { SidebarMain } from '@/components/layout/sidebar';
-import { CollapsiblePanelSection } from '@/features/expedicao-impressao-config/components/collapsible-panel-section';
-import { SwitchToggle } from '@/features/expedicao-config-mapa/components/switch-toggle';
+import { CollapsiblePanelSection } from '@/components/ui/collapsible-panel-section';
+import { SwitchToggle } from '@/components/ui/switch-toggle';
 import { useParametrosRecebimento } from '@/features/config-operacional/hooks/use-parametros-recebimento';
 
 const DISPLAY_UNIDADE_OPCOES = [

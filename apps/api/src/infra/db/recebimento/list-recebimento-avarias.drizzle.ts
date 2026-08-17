@@ -27,6 +27,7 @@ export async function listRecebimentoAvariasDb(
     numeroSerie: row.numeroSerie,
     photoCount: row.photoCount,
     replicado: row.replicado,
+    clientDamageId: row.clientDamageId,
     operatorId: row.operatorId,
     createdAt: row.createdAt,
   }));

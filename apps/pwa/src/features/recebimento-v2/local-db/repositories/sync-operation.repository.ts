@@ -1,6 +1,7 @@
 import type { Transaction } from 'dexie';
 import type { RecebimentoV2DB } from '../db.js';
 import type { SyncOperationRecord } from '../schema.js';
+import { deriveLifecycleFromStatus } from '../../lib/sync-operation-lifecycle.js';
 
 type EnqueueInput = Omit<SyncOperationRecord, 'id' | 'attempts' | 'status' | 'createdAt' | 'updatedAt'>;
 
@@ -14,6 +15,7 @@ export class SyncOperationRepository {
       id: crypto.randomUUID(),
       attempts: 0,
       status: 'pending',
+      lifecycleStatus: deriveLifecycleFromStatus('pending'),
       createdAt: now,
       updatedAt: now,
     };
@@ -55,12 +57,17 @@ export class SyncOperationRepository {
   }
 
   async markSyncing(id: string): Promise<void> {
-    await this.db.syncOperations.update(id, { status: 'syncing', updatedAt: Date.now() });
+    await this.db.syncOperations.update(id, {
+      status: 'syncing',
+      lifecycleStatus: deriveLifecycleFromStatus('syncing'),
+      updatedAt: Date.now(),
+    });
   }
 
   async markSynced(id: string, serverRevision: number): Promise<void> {
     await this.db.syncOperations.update(id, {
       status: 'synced',
+      lifecycleStatus: deriveLifecycleFromStatus('synced'),
       updatedAt: Date.now(),
       // Store serverRevision in payload as metadata (no dedicated column)
     });
@@ -70,6 +77,7 @@ export class SyncOperationRepository {
   async markRetry(id: string, message: string, nextAttemptAt: number): Promise<void> {
     await this.db.syncOperations.update(id, {
       status: 'retry',
+      lifecycleStatus: deriveLifecycleFromStatus('retry'),
       errorMessage: message,
       nextAttemptAt,
       updatedAt: Date.now(),
@@ -85,13 +93,18 @@ export class SyncOperationRepository {
   async markRejected(id: string, message: string): Promise<void> {
     await this.db.syncOperations.update(id, {
       status: 'rejected',
+      lifecycleStatus: deriveLifecycleFromStatus('rejected'),
       errorMessage: message,
       updatedAt: Date.now(),
     });
   }
 
   async markConflict(id: string): Promise<void> {
-    await this.db.syncOperations.update(id, { status: 'conflict', updatedAt: Date.now() });
+    await this.db.syncOperations.update(id, {
+      status: 'conflict',
+      lifecycleStatus: deriveLifecycleFromStatus('conflict'),
+      updatedAt: Date.now(),
+    });
   }
 
   /**
@@ -108,7 +121,11 @@ export class SyncOperationRepository {
 
     const now = Date.now();
     for (const op of orphaned) {
-      await this.db.syncOperations.update(op.id, { status: 'pending', updatedAt: now });
+      await this.db.syncOperations.update(op.id, {
+        status: 'pending',
+        lifecycleStatus: deriveLifecycleFromStatus('pending'),
+        updatedAt: now,
+      });
     }
 
     return orphaned.length;

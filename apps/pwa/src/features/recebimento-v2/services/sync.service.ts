@@ -6,6 +6,7 @@ import { filterSyncableOperations } from './palete-session-v2.service';
 import { isOpAutoSyncable, nextRetryAttemptAt } from '../lib/sync-retry-policy';
 import { debugRecebimentoV2, errorRecebimentoV2 } from '../lib/sync-debug';
 import { reconcileRemoteSituacao } from '../lib/reconcile-remote-situacao';
+import { isRevisionConflictError } from '../lib/sync-revision-conflict';
 import { fetchPackage, fetchSnapshot, pushBatch } from '../api/sync-api';
 import {
   buildSkuByProdutoIdMap,
@@ -22,34 +23,31 @@ import {
   resolveSnapshotChecklist,
 } from '../lib/map-server-checklist-v2';
 import { recebimentoV2Db, ensureRecebimentoV2DbReady } from '../local-db/db';
+
+import { reconcileOrphanedPendingSyncOps } from './mark-sync-ops-for-patch.service';
+import {
+  filterServerDamagesAgainstPendingDeletes,
+  splitDamagesForPullMerge,
+} from './damage-removal.helpers';
+import { deriveLifecycleFromStatus } from '../lib/sync-operation-lifecycle';
 import type {
-  ChecklistPhotoMediaIds,
   ExpectedItemRecord,
+  ProcessRecord,
   SyncConflictRecord,
   SyncOperationRecord,
   SyncOperationStatus,
 } from '../local-db/schema';
 import type { RecebimentoPackage } from '../types/recebimento-v2.schema';
 import {
-  collectAvariaPhotoUploadTargets,
+  collectChecklistPhotoIds,
   countPendingPhotoUploads,
-  resolveMediaIdsForDamage,
-  resolveServerAvariaIdForDamage,
   recoverStuckSyncState,
   resolveRecebimentoIdForDemand,
+  stampAvariaMediaTargets,
+  stampChecklistMediaTargets,
+  stampImpedimentoMediaTargets,
 } from './sync-photo.helpers';
-import {
-  uploadChecklistPhotosV2,
-  type ChecklistPhotoUploadResult,
-} from './upload-checklist-photos-v2';
-import {
-  uploadAvariaPhotosV2,
-  type AvariaPhotoUploadResult,
-} from './upload-avaria-photos-v2';
-import {
-  uploadImpedimentoPhotosV2,
-  type ImpedimentoPhotoUploadResult,
-} from './upload-impedimento-photos-v2';
+import { processPhotoQueue, triggerPhotoQueue } from './photo-upload-queue.service';
 
 export interface PushResult {
   accepted: number;
@@ -57,6 +55,7 @@ export interface PushResult {
   conflicts: number;
   newRevision: number;
   photosUploaded: number;
+  photosFailed: number;
   photosPending: number;
 }
 
@@ -145,7 +144,7 @@ async function applyImpedimentoSyncResults(
 
     applied = true;
 
-    const payload = op.payload as { impedimentoId?: string };
+    const payload = op.payload as { impedimentoId?: string; mediaIds?: string[] };
     if (!payload.impedimentoId) {
       continue;
     }
@@ -155,6 +154,12 @@ async function applyImpedimentoSyncResults(
       syncStatus: 'synced',
       updatedAt: now,
     }).catch(() => undefined);
+
+    const impedimento = await recebimentoV2Db.impedimentos.get(payload.impedimentoId);
+    const mediaIds = payload.mediaIds ?? impedimento?.mediaIds ?? [];
+    if (mediaIds.length > 0) {
+      await stampImpedimentoMediaTargets(mediaIds, demandId);
+    }
   }
 
   if (applied) {
@@ -187,7 +192,7 @@ async function applyDamageSyncResults(
     }
 
     if (op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR) {
-      const payload = op.payload as { damageId?: string };
+      const payload = op.payload as { damageId?: string; mediaIds?: string[] };
       if (payload.damageId) {
         await recebimentoV2Db.damages.update(payload.damageId, {
           ...(opResult.serverId ? { serverAvariaId: opResult.serverId } : {}),
@@ -205,6 +210,12 @@ async function applyDamageSyncResults(
             },
             updatedAt: now,
           }).catch(() => undefined);
+
+          const damage = await recebimentoV2Db.damages.get(payload.damageId);
+          const mediaIds = payload.mediaIds ?? damage?.mediaIds ?? op.attachmentIds ?? [];
+          if (mediaIds.length > 0) {
+            await stampAvariaMediaTargets(mediaIds, opResult.serverId);
+          }
         }
       }
       continue;
@@ -416,171 +427,99 @@ async function countRemainingPendingPhotos(demandId: string): Promise<number> {
   return photoCounts.pending + photoCounts.uploading + photoCounts.error;
 }
 
-async function uploadChecklistPhotosAfterSync(
+async function handleRevisionConflict(
   demandId: string,
-  result: SyncBatchResult,
-  pendingOps: SyncOperationRecord[],
-): Promise<ChecklistPhotoUploadResult> {
-  const recebimentoId = await resolveRecebimentoId(demandId, result, pendingOps);
-  if (!recebimentoId) {
-    return { uploaded: 0, failed: 0, skipped: 0 };
-  }
+  stuckOpIds: string[],
+  previousStatus: string,
+): Promise<void> {
+  const now = Date.now();
 
-  const syncedChecklistOps = result.operations
-    .filter((opResult) => {
-      const op = pendingOps.find((item) => item.id === opResult.opId);
-      return op != null && isSuccessfulChecklistOp(op, opResult);
-    })
-    .map((opResult) => pendingOps.find((item) => item.id === opResult.opId))
-    .filter((op): op is SyncOperationRecord => op != null);
-
-  if (syncedChecklistOps.length > 0) {
-    const latestChecklistOp = syncedChecklistOps[syncedChecklistOps.length - 1];
-    const photoMediaIds = latestChecklistOp.payload.photoMediaIds as
-      | ChecklistPhotoMediaIds
-      | undefined;
-    return uploadChecklistPhotosV2(recebimentoId, photoMediaIds);
-  }
-
-  return ensureChecklistPhotosUploaded(demandId, recebimentoId);
-}
-
-async function ensureChecklistPhotosUploaded(
-  demandId: string,
-  recebimentoId?: string | null,
-): Promise<ChecklistPhotoUploadResult> {
-  const resolvedRecebimentoId = await resolveRecebimentoIdForDemand(
-    demandId,
-    recebimentoId,
-  );
-
-  if (!resolvedRecebimentoId) {
-    return { uploaded: 0, failed: 0, skipped: 0 };
-  }
-
-  const checklist = await recebimentoV2Db.checklists.get(demandId);
-  if (!checklist?.photoMediaIds) {
-    return { uploaded: 0, failed: 0, skipped: 0 };
-  }
-
-  return uploadChecklistPhotosV2(resolvedRecebimentoId, checklist.photoMediaIds);
-}
-
-async function ensureAvariaPhotosUploaded(
-  demandId: string,
-): Promise<AvariaPhotoUploadResult> {
-  const targets = await collectAvariaPhotoUploadTargets(demandId);
-
-  let aggregate: AvariaPhotoUploadResult = { uploaded: 0, failed: 0, skipped: 0 };
-
-  for (const { serverAvariaId, mediaIds } of targets) {
-    const attempt = await uploadAvariaPhotosV2(serverAvariaId, mediaIds);
-    aggregate = {
-      uploaded: aggregate.uploaded + attempt.uploaded,
-      failed: aggregate.failed + attempt.failed,
-      skipped: aggregate.skipped + attempt.skipped,
-    };
-  }
-
-  return aggregate;
-}
-
-async function ensureImpedimentoPhotosUploaded(
-  demandId: string,
-): Promise<ImpedimentoPhotoUploadResult> {
-  const impedimento = await recebimentoV2Db.impedimentos
-    .where('demandId')
-    .equals(demandId)
-    .first();
-
-  if (!impedimento?.mediaIds?.length) {
-    return { uploaded: 0, failed: 0, skipped: 0 };
-  }
-
-  return uploadImpedimentoPhotosV2(demandId, impedimento.mediaIds);
-}
-
-async function uploadImpedimentoPhotosAfterSync(
-  demandId: string,
-  result: SyncBatchResult,
-  pendingOps: SyncOperationRecord[],
-): Promise<ImpedimentoPhotoUploadResult> {
-  const syncedImpedimentoOps = result.operations
-    .filter((opResult) => {
-      const op = pendingOps.find((item) => item.id === opResult.opId);
-      return op != null && isSuccessfulImpedimentoOp(op, opResult);
-    })
-    .map((opResult) => pendingOps.find((item) => item.id === opResult.opId))
-    .filter((op): op is SyncOperationRecord => op != null);
-
-  let aggregate: ImpedimentoPhotoUploadResult = { uploaded: 0, failed: 0, skipped: 0 };
-
-  for (const op of syncedImpedimentoOps) {
-    const payload = op.payload as { mediaIds?: string[] };
-    const mediaIds = payload.mediaIds ?? op.attachmentIds;
-    const attempt = await uploadImpedimentoPhotosV2(demandId, mediaIds);
-    aggregate = {
-      uploaded: aggregate.uploaded + attempt.uploaded,
-      failed: aggregate.failed + attempt.failed,
-      skipped: aggregate.skipped + attempt.skipped,
-    };
-  }
-
-  const remaining = await ensureImpedimentoPhotosUploaded(demandId);
-  return {
-    uploaded: aggregate.uploaded + remaining.uploaded,
-    failed: aggregate.failed + remaining.failed,
-    skipped: aggregate.skipped + remaining.skipped,
-  };
-}
-
-async function uploadAvariaPhotosAfterSync(
-  demandId: string,
-  result: SyncBatchResult,
-  pendingOps: SyncOperationRecord[],
-): Promise<AvariaPhotoUploadResult> {
-  const syncedAvariaOps = result.operations.filter((opResult) => {
-    const op = pendingOps.find((item) => item.id === opResult.opId);
-    return op != null && isSuccessfulAvariaOp(op, opResult);
+  await recebimentoV2Db.processes.update(demandId, {
+    status: previousStatus === 'syncing' ? 'working' : previousStatus,
+    pendingFinalizationSync: false,
+    updatedAt: now,
   });
 
-  let aggregate: AvariaPhotoUploadResult = { uploaded: 0, failed: 0, skipped: 0 };
+  await pullDemand(demandId, { force: false });
 
-  for (const opResult of syncedAvariaOps) {
-    const op = pendingOps.find((item) => item.id === opResult.opId)!;
-    const payload = op.payload as { damageId?: string; mediaIds?: string[] };
-    const damage = payload.damageId
-      ? await recebimentoV2Db.damages.get(payload.damageId)
-      : undefined;
+  const snapshot = await fetchSnapshot(demandId);
+  const appliedByConferenceId = new Map<string, Record<string, unknown>>();
 
-    const serverAvariaId =
-      opResult.serverId ??
-      damage?.serverAvariaId ??
-      (await (damage ? resolveServerAvariaIdForDamage(damage) : Promise.resolve(null)));
+  for (const entry of resolveSnapshotConferences(snapshot)) {
+    const clientConferenceId =
+      typeof entry.clientConferenceId === 'string' && entry.clientConferenceId.trim()
+        ? entry.clientConferenceId.trim()
+        : undefined;
 
-    if (!serverAvariaId) {
-      continue;
+    if (clientConferenceId) {
+      appliedByConferenceId.set(clientConferenceId, entry);
     }
-
-    const mediaIds =
-      payload.mediaIds ??
-      op.attachmentIds ??
-      (damage ? await resolveMediaIdsForDamage(damage) : []);
-
-    const attempt = await uploadAvariaPhotosV2(serverAvariaId, mediaIds);
-    aggregate = {
-      uploaded: aggregate.uploaded + attempt.uploaded,
-      failed: aggregate.failed + attempt.failed,
-      skipped: aggregate.skipped + attempt.skipped,
-    };
   }
 
-  const remaining = await ensureAvariaPhotosUploaded(demandId);
-  return {
-    uploaded: aggregate.uploaded + remaining.uploaded,
-    failed: aggregate.failed + remaining.failed,
-    skipped: aggregate.skipped + remaining.skipped,
-  };
+  await recebimentoV2Db.transaction(
+    'rw',
+    [recebimentoV2Db.syncOperations, recebimentoV2Db.conferences],
+    async () => {
+      for (const opId of stuckOpIds) {
+        const op = await recebimentoV2Db.syncOperations.get(opId);
+        if (!op) {
+          continue;
+        }
+
+        const payload = op.payload as { conferenceId?: string };
+        const conferenceId = payload.conferenceId;
+        const serverEntry =
+          conferenceId && appliedByConferenceId.has(conferenceId)
+            ? appliedByConferenceId.get(conferenceId)
+            : undefined;
+
+        if (serverEntry) {
+          const recebimentoItemId =
+            typeof serverEntry.recebimentoItemId === 'string'
+              ? serverEntry.recebimentoItemId
+              : typeof serverEntry.id === 'string'
+                ? serverEntry.id
+                : undefined;
+          const pesagemId =
+            typeof serverEntry.pesagemId === 'string' ? serverEntry.pesagemId : undefined;
+
+          if (conferenceId) {
+            await recebimentoV2Db.conferences
+              .update(conferenceId, {
+                syncStatus: 'synced',
+                ...(recebimentoItemId ? { serverItemId: recebimentoItemId } : {}),
+                ...(pesagemId ? { serverPesagemId: pesagemId } : {}),
+                updatedAt: now,
+              })
+              .catch(() => undefined);
+          }
+
+          await recebimentoV2Db.syncOperations.update(opId, {
+            status: 'synced',
+            lifecycleStatus: deriveLifecycleFromStatus('synced'),
+            errorMessage: undefined,
+            nextAttemptAt: undefined,
+            payload: {
+              ...(op.payload as Record<string, unknown>),
+              ...(recebimentoItemId ? { serverItemId: recebimentoItemId } : {}),
+              ...(pesagemId ? { serverPesagemId: pesagemId } : {}),
+            },
+            updatedAt: now,
+          });
+          continue;
+        }
+
+        await recebimentoV2Db.syncOperations.update(opId, {
+          status: 'pending',
+          lifecycleStatus: deriveLifecycleFromStatus('pending'),
+          attempts: 0,
+          errorMessage: undefined,
+          nextAttemptAt: undefined,
+          updatedAt: now,
+        });
+      }
+    },
+  );
 }
 
 /**
@@ -610,17 +549,14 @@ export async function pushDemand(
 
   if (syncableOps.length === 0) {
     let photosUploaded = 0;
+    let photosFailed = 0;
 
     try {
-      const [checklistResult, avariaResult, impedimentoResult] = await Promise.all([
-        ensureChecklistPhotosUploaded(demandId),
-        ensureAvariaPhotosUploaded(demandId),
-        ensureImpedimentoPhotosUploaded(demandId),
-      ]);
-      photosUploaded =
-        checklistResult.uploaded + avariaResult.uploaded + impedimentoResult.uploaded;
-    } catch {
-      // Retry upload on a later sync cycle without blocking the caller.
+      const photoResult = await processPhotoQueue(demandId);
+      photosUploaded = photoResult.uploaded;
+      photosFailed = photoResult.failed;
+    } catch (err) {
+      console.error('[PHOTO UPLOAD] Falha ao enviar fotos pendentes', { demandId, err });
     }
 
     return {
@@ -629,6 +565,7 @@ export async function pushDemand(
       conflicts: 0,
       newRevision: process.serverRevision,
       photosUploaded,
+      photosFailed,
       photosPending: await countRemainingPendingPhotos(demandId),
     };
   }
@@ -648,6 +585,7 @@ export async function pushDemand(
     .anyOf(opIds)
     .modify((op: SyncOperationRecord) => {
       op.status = 'syncing';
+      op.lifecycleStatus = deriveLifecycleFromStatus('syncing');
       op.updatedAt = Date.now();
     });
 
@@ -670,6 +608,29 @@ export async function pushDemand(
     });
   } catch (err) {
     errorRecebimentoV2('sync', 'pushBatch failed', { demandId, err });
+
+    if (isRevisionConflictError(err)) {
+      await handleRevisionConflict(demandId, opIds, previousStatus);
+      const { repairSyncOperations } = await import('./repair-sync-operations.service');
+      await repairSyncOperations(demandId).catch(() => undefined);
+      const { resetAutoSyncBackoff, triggerAutoSyncIfPending } = await import(
+        './auto-sync-v2.service'
+      );
+      resetAutoSyncBackoff(demandId);
+      triggerAutoSyncIfPending(demandId);
+
+      const updatedProcess = await recebimentoV2Db.processes.get(demandId);
+      return {
+        accepted: 0,
+        rejected: 0,
+        conflicts: 0,
+        newRevision: updatedProcess?.serverRevision ?? process.serverRevision,
+        photosUploaded: 0,
+        photosFailed: 0,
+        photosPending: await countRemainingPendingPhotos(demandId),
+      };
+    }
+
     // Revert to retry on network error
     await recebimentoV2Db.transaction(
       'rw',
@@ -681,6 +642,7 @@ export async function pushDemand(
           .modify((op: SyncOperationRecord) => {
             const nextAttempts = (op.attempts ?? 0) + 1;
             op.status = 'retry';
+            op.lifecycleStatus = deriveLifecycleFromStatus('retry');
             op.attempts = nextAttempts;
             op.errorMessage =
               err instanceof Error ? err.message : 'Falha ao enviar — erro desconhecido';
@@ -713,6 +675,7 @@ export async function pushDemand(
         recebimentoV2Db.damages,
         recebimentoV2Db.impedimentos,
         recebimentoV2Db.demands,
+        recebimentoV2Db.media,
       ],
       async () => {
         let rejectedCount = 0;
@@ -724,6 +687,7 @@ export async function pushDemand(
             case 'skipped':
               await recebimentoV2Db.syncOperations.update(opResult.opId, {
                 status: 'synced',
+                lifecycleStatus: deriveLifecycleFromStatus('synced'),
                 updatedAt: now,
               });
               break;
@@ -732,6 +696,7 @@ export async function pushDemand(
               conflictCount++;
               await recebimentoV2Db.syncOperations.update(opResult.opId, {
                 status: 'conflict',
+                lifecycleStatus: deriveLifecycleFromStatus('conflict'),
                 errorMessage: opResult.message,
                 updatedAt: now,
               });
@@ -755,6 +720,7 @@ export async function pushDemand(
               rejectedCount += 1;
               await recebimentoV2Db.syncOperations.update(opResult.opId, {
                 status: 'rejected',
+                lifecycleStatus: deriveLifecycleFromStatus('rejected'),
                 errorMessage: opResult.message,
                 updatedAt: now,
               });
@@ -766,6 +732,7 @@ export async function pushDemand(
               const nextAttempts = (currentOp?.attempts ?? 0) + 1;
               await recebimentoV2Db.syncOperations.update(opResult.opId, {
                 status: 'retry',
+                lifecycleStatus: deriveLifecycleFromStatus('retry'),
                 errorMessage: opResult.message,
                 attempts: nextAttempts,
                 nextAttemptAt: nextRetryAttemptAt(nextAttempts),
@@ -824,6 +791,15 @@ export async function pushDemand(
             syncStatus: 'synced',
             updatedAt: now,
           });
+
+          const recebimentoId = await resolveRecebimentoId(demandId, result, syncableOps);
+          if (recebimentoId) {
+            const checklist = await recebimentoV2Db.checklists.get(demandId);
+            await stampChecklistMediaTargets(
+              collectChecklistPhotoIds(checklist?.photoMediaIds),
+              recebimentoId,
+            );
+          }
         }
 
         await applyConferenceSyncResults(syncableOps, result, now);
@@ -841,6 +817,7 @@ export async function pushDemand(
           .anyOf(opIds)
           .modify((op: SyncOperationRecord) => {
             op.status = 'pending';
+            op.lifecycleStatus = deriveLifecycleFromStatus('pending');
             op.updatedAt = now;
           });
 
@@ -855,19 +832,20 @@ export async function pushDemand(
   }
 
   let photosUploaded = 0;
+  let photosFailed = 0;
 
   try {
-    const recebimentoId = await resolveRecebimentoId(demandId, result, syncableOps);
-    const [checklistResult, avariaResult, impedimentoResult] = await Promise.all([
-      uploadChecklistPhotosAfterSync(demandId, result, syncableOps),
-      uploadAvariaPhotosAfterSync(demandId, result, syncableOps),
-      uploadImpedimentoPhotosAfterSync(demandId, result, syncableOps),
-    ]);
-    photosUploaded =
-      checklistResult.uploaded + avariaResult.uploaded + impedimentoResult.uploaded;
-  } catch {
-    // Photo upload must not fail the metadata sync batch.
+    await resolveRecebimentoId(demandId, result, syncableOps);
+    const photoResult = await processPhotoQueue(demandId);
+    photosUploaded = photoResult.uploaded;
+    photosFailed = photoResult.failed;
+    triggerPhotoQueue(demandId);
+  } catch (err) {
+    console.error('[PHOTO UPLOAD] Falha ao enviar fotos após sync', { demandId, err });
   }
+
+  const { repairSyncOperations } = await import('./repair-sync-operations.service');
+  await repairSyncOperations(demandId).catch(() => undefined);
 
   return {
     accepted: result.appliedCount,
@@ -875,6 +853,7 @@ export async function pushDemand(
     conflicts: conflictCount,
     newRevision: result.serverRevision,
     photosUploaded,
+    photosFailed,
     photosPending: await countRemainingPendingPhotos(demandId),
   };
 }
@@ -1058,13 +1037,29 @@ export async function pullDemand(
         );
       }
 
+      const existingDamages = await recebimentoV2Db.damages
+        .where('demandId')
+        .equals(demandId)
+        .toArray();
+      const { pendingDeletes, pendingDeleteServerIds } =
+        splitDamagesForPullMerge(existingDamages);
+
       await recebimentoV2Db.damages.where('demandId').equals(demandId).delete();
-      if (snapshotAvarias.length > 0) {
-        await recebimentoV2Db.damages.bulkPut(
-          snapshotAvarias.map((item) =>
-            mapServerAvariaToRecord(item, demandId, now, skuByProdutoId),
-          ),
-        );
+
+      const snapshotDamages = snapshotAvarias.map((item) =>
+        mapServerAvariaToRecord(item, demandId, now, skuByProdutoId),
+      );
+      const damagesToRestore = filterServerDamagesAgainstPendingDeletes(
+        snapshotDamages,
+        pendingDeleteServerIds,
+      );
+
+      if (damagesToRestore.length > 0) {
+        await recebimentoV2Db.damages.bulkPut(damagesToRestore);
+      }
+
+      if (pendingDeletes.length > 0) {
+        await recebimentoV2Db.damages.bulkPut(pendingDeletes);
       }
 
       if (snapshotChecklist) {
@@ -1116,12 +1111,16 @@ export async function pullDemand(
       }
     }
 
-    await recebimentoV2Db.processes.update(demandId, {
-      serverRevision: snapshot.revision,
+    const processUpdate: Partial<ProcessRecord> = {
       lastPullAt: now,
       updatedAt: now,
       ...(force ? { status: 'working' as const } : {}),
-    });
+    };
+    if (shouldApplySnapshot) {
+      processUpdate.serverRevision = snapshot.revision;
+    }
+
+    await recebimentoV2Db.processes.update(demandId, processUpdate);
 
     if (snapshot.situacao && demand) {
       await reconcileRemoteSituacao(demandId, snapshot.situacao, {
@@ -1143,4 +1142,6 @@ export async function pullDemand(
       }).catch(() => undefined);
     }
   });
+
+  await reconcileOrphanedPendingSyncOps(demandId);
 }

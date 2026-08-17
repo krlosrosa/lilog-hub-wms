@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { recebimentoV2Db } from '../local-db/db';
 import type { SyncOperationRecord, TemperatureRecord } from '../local-db/schema';
 import { triggerAutoSyncIfPending } from '../services/auto-sync-v2.service';
+import { deriveLifecycleFromStatus } from '../lib/sync-operation-lifecycle';
 import {
   TEMPERATURA_BAU_ETAPA_LABELS,
   TEMPERATURA_BAU_ETAPAS,
@@ -105,6 +106,7 @@ export function useTemperaturaProdutoV2(demandId: string) {
                 payload: record,
                 attachmentIds: [],
                 status: 'pending',
+                lifecycleStatus: deriveLifecycleFromStatus('pending'),
                 attempts: 0,
                 createdAt: nowMs,
                 updatedAt: nowMs,

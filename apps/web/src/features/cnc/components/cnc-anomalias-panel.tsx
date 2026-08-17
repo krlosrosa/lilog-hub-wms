@@ -8,9 +8,9 @@ import { AlertTriangle, PackageSearch } from 'lucide-react';
 import {
   compactTableBodyClassName,
   compactTableHeadRowClassName,
-  conferenciaTableClassName,
-  conferenciaTableEmptyCellClassName,
-  conferenciaTableHeadCellClassName,
+  cncAnomaliasTableClassName,
+  cncAnomaliasTableEmptyCellClassName,
+  cncAnomaliasTableHeadCellClassName,
 } from '@/components/ui/compact-table-classes';
 import { CncAnomaliaRow } from '@/features/cnc/components/cnc-anomalia-row';
 import type { CncDetalhe, CncItemTipo } from '@/features/cnc/types/cnc.schema';
@@ -31,7 +31,7 @@ const TABLE_HEADERS_BASE = [
   { label: '', className: 'w-7' },
   { label: '#', className: 'w-8 text-center' },
   { label: 'Produto', className: 'min-w-[140px] max-w-[220px]' },
-  { label: 'Ocorrência', className: 'w-24 hidden sm:table-cell' },
+  { label: 'Ocorrência', className: 'min-w-[132px] w-36 hidden sm:table-cell' },
   { label: 'Esp.', className: 'w-14 text-right' },
   { label: 'Rec.', className: 'w-14 text-right' },
   { label: 'Δ', className: 'w-14 text-right' },
@@ -161,14 +161,14 @@ export function CncAnomaliasPanel({
       )}
 
       <div className="overflow-x-auto">
-        <table className={conferenciaTableClassName}>
+        <table className={cncAnomaliasTableClassName}>
           <thead>
             <tr className={compactTableHeadRowClassName}>
               {tableHeaders.map((header, index) => (
                 <th
                   key={header.label || `col-${index}`}
                   scope="col"
-                  className={conferenciaTableHeadCellClassName(header.className)}
+                  className={cncAnomaliasTableHeadCellClassName(header.className)}
                 >
                   {header.label}
                 </th>
@@ -180,7 +180,7 @@ export function CncAnomaliasPanel({
               <tr>
                 <td
                   colSpan={tableHeaders.length}
-                  className={conferenciaTableEmptyCellClassName}
+                  className={cncAnomaliasTableEmptyCellClassName}
                 >
                   <span className="inline-flex items-center gap-1.5">
                     <AlertTriangle className="size-3.5 shrink-0" aria-hidden />

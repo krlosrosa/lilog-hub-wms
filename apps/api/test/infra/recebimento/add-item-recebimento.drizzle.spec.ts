@@ -155,4 +155,77 @@ describe('addItemRecebimentoDb', () => {
     expect(result.pesagem?.etiquetaCodigo).toBe('ETQ-001');
     expect(db.insert).toHaveBeenCalledTimes(2);
   });
+
+  it('persists unitizadorCodigo when provided', async () => {
+    const insertedItem = {
+      ...baseExisting,
+      id: 'item-2',
+      unitizadorCodigo: 'PLT-001',
+    };
+
+    const valuesFn = vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue([insertedItem]),
+    });
+
+    const db = {
+      select: vi.fn(),
+      update: vi.fn(),
+      insert: vi.fn().mockReturnValue({ values: valuesFn }),
+    };
+
+    const result = await addItemRecebimentoDb(
+      db as never,
+      'rec-1',
+      'ITB',
+      {
+        produtoId: 'prod-1',
+        quantidadeRecebida: 48,
+        unidadeMedida: 'UN',
+        loteRecebido: '111111',
+        unitizadorCodigo: 'PLT-001',
+      },
+      { unitizadorCodigo: 'PLT-001' },
+    );
+
+    expect(result.item.unitizadorCodigo).toBe('PLT-001');
+    expect(valuesFn).toHaveBeenCalledWith(
+      expect.objectContaining({ unitizadorCodigo: 'PLT-001' }),
+    );
+  });
+
+  it('returns existing item when clientConferenceId already exists for non-PVAR', async () => {
+    const existingItem = {
+      ...baseExisting,
+      clientConferenceId: 'conf-uuid-002',
+    };
+
+    const db = {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([existingItem]),
+          }),
+        }),
+      }),
+      update: vi.fn(),
+      insert: vi.fn(),
+    };
+
+    const result = await addItemRecebimentoDb(
+      db as never,
+      'rec-1',
+      'ITB',
+      {
+        produtoId: 'prod-1',
+        quantidadeRecebida: 48,
+        unidadeMedida: 'UN',
+        loteRecebido: '111111',
+      },
+      { clientConferenceId: 'conf-uuid-002' },
+    );
+
+    expect(result.item.id).toBe('item-1');
+    expect(result.pesagem).toBeNull();
+    expect(db.insert).not.toHaveBeenCalled();
+  });
 });

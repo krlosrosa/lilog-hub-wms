@@ -23,8 +23,9 @@ import {
   resolveDockDisplayLabel,
 } from '@/lib/offline/checklist-cache';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { UppyCaptureModal } from '@/lib/uppy/uppy-capture-modal';
+import { useUppyCapture } from '@/lib/uppy/use-uppy-capture';
 
-import { PhotoCaptureHiddenInputV2 } from '../components/photo-capture-hidden-input-v2';
 import { ChecklistResumoV2Card } from '../components/checklist-resumo-v2-card';
 import { SyncStatusV2 } from '../components/sync-status-v2';
 import { useChecklistV2 } from '../hooks/use-checklist-v2';
@@ -33,7 +34,6 @@ import { recebimentoV2Db } from '../local-db/db';
 import { useDismissPendingPhotosV2 } from '../hooks/use-dismiss-pending-photos-v2';
 import { useForcePullV2 } from '../hooks/use-force-pull-v2';
 import { useImpedimentoV2 } from '../hooks/use-impedimento-v2';
-import { usePhotoCaptureV2 } from '../hooks/use-photo-capture-v2';
 import { useReabrirV2 } from '../hooks/use-reabrir-v2';
 import { useSyncStatusV2 } from '../hooks/use-sync-status-v2';
 import {
@@ -131,18 +131,27 @@ function PhotoThumb({
   title,
   photo,
   error,
+  isProcessing = false,
   onCapture,
   onRemove,
 }: {
   title: string;
   photo?: { id: string; previewUrl: string };
   error?: string;
+  isProcessing?: boolean;
   onCapture: () => void;
   onRemove: (photoId: string) => void;
 }) {
   return (
     <div className="relative shrink-0">
-      {photo ? (
+      {isProcessing ? (
+        <div
+          className="flex h-14 w-14 items-center justify-center rounded-lg border border-secondary/40 bg-surface-container-low"
+          aria-label={`Processando foto: ${title}`}
+        >
+          <Loader2 className="h-5 w-5 animate-spin text-secondary" aria-hidden />
+        </div>
+      ) : photo ? (
         <button
           type="button"
           onClick={() => {
@@ -164,8 +173,9 @@ function PhotoThumb({
             hapticLight();
             onCapture();
           }}
+          disabled={isProcessing}
           className={cn(
-            'flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed bg-surface-container-low px-1 touch-manipulation active:scale-95',
+            'flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed bg-surface-container-low px-1 touch-manipulation active:scale-95 disabled:opacity-60',
             error
               ? 'border-destructive text-destructive'
               : 'border-outline-variant text-on-surface-variant',
@@ -221,22 +231,25 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
   const [isImpedimentoSheetOpen, setIsImpedimentoSheetOpen] = useState(false);
   const [isRetomando, setIsRetomando] = useState(false);
 
-  const lacrePhotos = usePhotoCaptureV2({
+  const lacrePhotos = useUppyCapture({
     processId: demandId,
     ownerType: 'checklist',
     ownerId: checklistOwnerId(demandId, 'lacre'),
+    maxNumberOfFiles: 1,
   });
-  const bauFechadoPhotos = usePhotoCaptureV2({
+  const bauFechadoPhotos = useUppyCapture({
     processId: demandId,
     ownerType: 'checklist',
     ownerId: checklistOwnerId(demandId, 'bauFechado'),
+    maxNumberOfFiles: 1,
   });
-  const bauAbertoPhotos = usePhotoCaptureV2({
+  const bauAbertoPhotos = useUppyCapture({
     processId: demandId,
     ownerType: 'checklist',
     ownerId: checklistOwnerId(demandId, 'bauAberto'),
+    maxNumberOfFiles: 1,
   });
-  const extrasPhotos = usePhotoCaptureV2({
+  const extrasPhotos = useUppyCapture({
     processId: demandId,
     ownerType: 'checklist',
     ownerId: checklistOwnerId(demandId, 'extras'),
@@ -582,6 +595,7 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
                   title={slot.label}
                   photo={captureBySlot[slot.id].photos[0]}
                   error={photoErrors[slot.id]}
+                  isProcessing={captureBySlot[slot.id].isProcessing}
                   onCapture={() => captureBySlot[slot.id].capture()}
                   onRemove={(id) => void captureBySlot[slot.id].removePhoto(id)}
                 />
@@ -593,9 +607,16 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
                   )}
                 </div>
               </div>
-              <PhotoCaptureHiddenInputV2
-                inputRef={captureBySlot[slot.id].inputRef}
-                onChange={captureBySlot[slot.id].handleFileChange}
+              <UppyCaptureModal
+                uppy={captureBySlot[slot.id].uppy}
+                open={captureBySlot[slot.id].isModalOpen}
+                onRequestClose={captureBySlot[slot.id].closeModal}
+                onPickFromDevice={captureBySlot[slot.id].pickFromDevice}
+                isProcessing={captureBySlot[slot.id].isProcessing}
+                fileInputRef={captureBySlot[slot.id].fileInputRef}
+                fileInputAccept={captureBySlot[slot.id].fileInputAccept}
+                onNativeFileChange={captureBySlot[slot.id].handleNativeFileChange}
+                note={`Capture a foto: ${slot.label}`}
               />
             </div>
           ))}
@@ -606,9 +627,14 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
               <button
                 type="button"
                 onClick={() => extrasPhotos.capture()}
-                className="inline-flex items-center gap-1 text-label-sm text-secondary"
+                disabled={extrasPhotos.isProcessing}
+                className="inline-flex items-center gap-1 text-label-sm text-secondary disabled:opacity-50"
               >
-                <Plus className="h-3.5 w-3.5" aria-hidden />
+                {extrasPhotos.isProcessing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                )}
                 Adicionar
               </button>
             </div>
@@ -618,14 +644,22 @@ export function ChecklistV2View({ demandId, viewOnly = false }: ChecklistV2ViewP
                   key={photo.id}
                   title="Extra"
                   photo={photo}
+                  isProcessing={extrasPhotos.isProcessing}
                   onCapture={() => extrasPhotos.capture()}
                   onRemove={(id) => void extrasPhotos.removePhoto(id)}
                 />
               ))}
             </div>
-            <PhotoCaptureHiddenInputV2
-              inputRef={extrasPhotos.inputRef}
-              onChange={extrasPhotos.handleFileChange}
+            <UppyCaptureModal
+              uppy={extrasPhotos.uppy}
+              open={extrasPhotos.isModalOpen}
+              onRequestClose={extrasPhotos.closeModal}
+              onPickFromDevice={extrasPhotos.pickFromDevice}
+              isProcessing={extrasPhotos.isProcessing}
+              fileInputRef={extrasPhotos.fileInputRef}
+              fileInputAccept={extrasPhotos.fileInputAccept}
+              onNativeFileChange={extrasPhotos.handleNativeFileChange}
+              note="Adicione fotos extras do checklist."
             />
           </div>
         </div>

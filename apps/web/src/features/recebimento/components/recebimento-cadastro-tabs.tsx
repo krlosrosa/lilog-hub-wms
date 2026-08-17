@@ -6,7 +6,7 @@ import { FileSpreadsheet, PenLine } from 'lucide-react';
 import {
   segmentButtonClassName,
   segmentGroupClassName,
-} from '@/features/expedicao-impressao-config/components/panel-styles';
+} from '@/components/ui/panel-styles';
 
 export type RecebimentoCadastroAba = 'upload' | 'manual';
 

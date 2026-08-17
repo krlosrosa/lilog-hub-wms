@@ -22,7 +22,6 @@ import {
   recebimentos,
   unidades,
 } from '../providers/drizzle/config/migrations/schema.js';
-import { unitizadores } from '../providers/drizzle/config/schemas/armazenagem.schema.js';
 
 import { mapItemRecebimentoRow, mapPesagemRecebimentoRow, mapPreRecebimentoRow } from './map-recebimento.drizzle.js';
 
@@ -113,14 +112,9 @@ export async function getConferenciaContextDb(
         .select({
           item: itensRecebimento,
           produto: produtos,
-          unitizadorCodigo: unitizadores.codigo,
         })
         .from(itensRecebimento)
         .innerJoin(produtos, eq(itensRecebimento.produtoId, produtos.produtoId))
-        .leftJoin(
-          unitizadores,
-          eq(itensRecebimento.unitizadorId, unitizadores.id),
-        )
         .where(eq(itensRecebimento.recebimentoId, recebimentoRow.recebimento.id))
     : [];
 
@@ -186,7 +180,7 @@ export async function getConferenciaContextDb(
 
   const conferidos: ConferenciaConferidoRecord[] = [];
 
-  for (const { item: row, produto, unitizadorCodigo } of conferidoRows) {
+  for (const { item: row, produto } of conferidoRows) {
     const mapped = mapItemRecebimentoRow(row);
     const produtoRecord = mapProdutoRow(produto);
     const config = resolveProdutoConferenciaConfig(produtoRecord);
@@ -201,7 +195,7 @@ export async function getConferenciaContextDb(
       unidadeMedida: mapped.unidadeMedida,
       loteRecebido: mapped.loteRecebido,
       validade: mapped.validade,
-      unitizadorCodigo: unitizadorCodigo ?? null,
+      unitizadorCodigo: mapped.unitizadorCodigo ?? null,
       unitizadorId: mapped.unitizadorId,
       recebimentoItemId: mapped.id,
     } as const;
@@ -215,6 +209,7 @@ export async function getConferenciaContextDb(
           pesoRecebido: pesagem.pesoKg,
           etiquetaCodigo: pesagem.etiquetaCodigo,
           pesagemId: pesagem.id,
+          clientConferenceId: pesagem.clientConferenceId ?? null,
         });
       }
     } else {
@@ -225,6 +220,7 @@ export async function getConferenciaContextDb(
         pesoRecebido: mapped.pesoRecebido,
         etiquetaCodigo: null,
         pesagemId: null,
+        clientConferenceId: mapped.clientConferenceId ?? null,
       });
     }
   }

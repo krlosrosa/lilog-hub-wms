@@ -284,9 +284,9 @@ export interface RecebimentoSnapshot {
     unidadeMedida: string;
     updatedAt: number;
   }>;
-  conferences?: Array<Record<string, unknown>>;
+  conferences?: Array<Record<string, unknown> & { clientConferenceId?: string | null }>;
   /** Campo retornado pela API de snapshot */
-  conferencias?: Array<Record<string, unknown>>;
+  conferencias?: Array<Record<string, unknown> & { clientConferenceId?: string | null }>;
   damages?: Array<Record<string, unknown>>;
   /** Campo retornado pela API de snapshot */
   avarias?: Array<Record<string, unknown>>;

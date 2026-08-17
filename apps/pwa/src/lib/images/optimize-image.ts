@@ -19,6 +19,13 @@ const DEFAULT_MAX_EDGE = 1920;
 const DEFAULT_QUALITY = 0.82;
 const SKIP_OPTIMIZE_BELOW_BYTES = 280_000;
 
+/** Preset for conference evidence photos (checklist, avaria, impedimento). */
+export const CONFERENCE_PHOTO_OPTIONS: OptimizeImageOptions = {
+  maxWidth: 1280,
+  maxHeight: 1280,
+  quality: 0.75,
+};
+
 let webpExportSupported: boolean | null = null;
 
 function supportsWebpExport(): boolean {

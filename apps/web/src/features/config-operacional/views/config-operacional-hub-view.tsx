@@ -1,6 +1,6 @@
 'use client';
 
-import { Settings2, Timer, Truck, Warehouse, Coffee, PackageX } from 'lucide-react';
+import { Settings2, Timer, Truck, Coffee } from 'lucide-react';
 
 import { SidebarMain } from '@/components/layout/sidebar';
 import { ConfigSectionCard } from '@/features/config-operacional/components/config-section-card';
@@ -9,7 +9,7 @@ const SECTIONS = [
   {
     title: 'Regras de Produtividade',
     description:
-      'Metas de tempo para separação, conferência e carregamento — deslocamento, caixas, paletes e gordura de mapa.',
+      'Metas de tempo para conferência — itens, paletes, clientes e gordura de mapa.',
     icon: Timer,
     href: '/config-operacional/regras-produtividade',
   },
@@ -21,24 +21,11 @@ const SECTIONS = [
     href: '/config-operacional/regras-pausas',
   },
   {
-    title: 'Parâmetros de Conferência Devolução',
-    description:
-      'Modo de quantidade (caixa/unidade) e rastreabilidade (lote/fabricação) no PWA de devolução.',
-    icon: PackageX,
-    href: '/config-operacional/parametros-devolucao',
-  },
-  {
     title: 'Parâmetros de Conferência Recebimento',
     description:
       'Modo de quantidade (caixa/unidade), rastreabilidade (lote/fabricação) e checklist no PWA de recebimento.',
     icon: Truck,
     href: '/config-operacional/parametros-recebimento',
-  },
-  {
-    title: 'Parâmetros WMS',
-    description: 'Configurações gerais de movimentação e automações do armazém.',
-    icon: Warehouse,
-    comingSoon: true,
   },
 ] as const;
 
@@ -72,8 +59,7 @@ export function ConfigOperacionalHubView() {
                 title={section.title}
                 description={section.description}
                 icon={section.icon}
-                href={'href' in section ? section.href : undefined}
-                comingSoon={'comingSoon' in section ? section.comingSoon : false}
+                href={section.href}
               />
             ))}
           </div>

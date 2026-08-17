@@ -122,7 +122,9 @@ describe('repairSyncOperations', () => {
   });
 
   it('rebuilds conferir retry payload from existing conference', async () => {
-    await recebimentoV2Db.conferences.put(makeConference());
+    await recebimentoV2Db.conferences.put(
+      makeConference({ syncStatus: 'pending', serverItemId: undefined }),
+    );
     await recebimentoV2Db.products.put({
       produtoId: 'PROD-1',
       sku: '600598361',
@@ -243,6 +245,35 @@ describe('repairSyncOperations', () => {
     expect(changed).toBe(1);
     expect(await recebimentoV2Db.syncOperations.get(rejectedAvariaOp.id)).toBeUndefined();
   });
+
+  it('auto-discards PESAGEM_REMOVE retry when local conference was already deleted', async () => {
+    const conferenceId = crypto.randomUUID();
+    const opId = crypto.randomUUID();
+    await recebimentoV2Db.syncOperations.put({
+      id: opId,
+      aggregateId: DEMAND_ID,
+      module: 'conference',
+      opType: RECEBIMENTO_V2_OP_TYPES.PESAGEM_REMOVE,
+      sequence: 1,
+      dependsOn: [],
+      idempotencyKey: crypto.randomUUID(),
+      payload: {
+        pesagemId: 'pesagem-orphan',
+        conferenceId,
+      },
+      attachmentIds: [],
+      status: 'retry',
+      attempts: 2,
+      errorMessage: 'Pesagem "pesagem-orphan" não encontrada neste recebimento',
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    const changed = await repairSyncOperations(DEMAND_ID);
+
+    expect(changed).toBe(1);
+    expect(await recebimentoV2Db.syncOperations.get(opId)).toBeUndefined();
+  });
 });
 
 describe('dismissSyncOperation', () => {
@@ -292,5 +323,112 @@ describe('dismissSyncOperation', () => {
 
     const process = await recebimentoV2Db.processes.get(DEMAND_ID);
     expect(process?.autoSyncPaused).toBe(false);
+  });
+
+  it('resets ITEM_CONFERIR retry ops after serverRevision moved past REVISION_CONFLICT baseRevision', async () => {
+    await recebimentoV2Db.processes.update(DEMAND_ID, {
+      serverRevision: 33,
+    });
+
+    const opId = crypto.randomUUID();
+    await recebimentoV2Db.syncOperations.put({
+      id: opId,
+      aggregateId: DEMAND_ID,
+      module: 'conference',
+      opType: RECEBIMENTO_V2_OP_TYPES.ITEM_CONFERIR,
+      sequence: 1,
+      dependsOn: [],
+      idempotencyKey: crypto.randomUUID(),
+      payload: {
+        conferenceId: crypto.randomUUID(),
+        produtoId: '610500413',
+        quantidadeRecebida: 1,
+        unidadeMedida: 'CX',
+      },
+      attachmentIds: [],
+      status: 'retry',
+      attempts: 5,
+      errorMessage: JSON.stringify({
+        code: 'REVISION_CONFLICT',
+        baseRevision: 28,
+        currentRevision: 30,
+        message: 'Dados foram modificados desde a última sincronização. Atualize e tente novamente.',
+      }),
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    const changed = await repairSyncOperations(DEMAND_ID);
+    const repaired = await recebimentoV2Db.syncOperations.get(opId);
+
+    expect(changed).toBeGreaterThan(0);
+    expect(repaired?.status).toBe('pending');
+    expect(repaired?.attempts).toBe(0);
+    expect(repaired?.errorMessage).toBeUndefined();
+  });
+
+  it('auto-discards ITEM_CONFERIR retry when conference is already synced on server', async () => {
+    const conferenceId = crypto.randomUUID();
+    await recebimentoV2Db.conferences.put(
+      makeConference({
+        id: conferenceId,
+        syncStatus: 'synced',
+        serverItemId: 'item-server-99',
+      }),
+    );
+
+    const opId = crypto.randomUUID();
+    await recebimentoV2Db.syncOperations.put({
+      id: opId,
+      aggregateId: DEMAND_ID,
+      module: 'conference',
+      opType: RECEBIMENTO_V2_OP_TYPES.ITEM_CONFERIR,
+      sequence: 1,
+      dependsOn: [],
+      idempotencyKey: crypto.randomUUID(),
+      payload: {
+        conferenceId,
+        produtoId: '610500413',
+        quantidadeRecebida: 1,
+        unidadeMedida: 'CX',
+      },
+      attachmentIds: [],
+      status: 'retry',
+      attempts: 3,
+      errorMessage: 'REVISION_CONFLICT',
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    const changed = await repairSyncOperations(DEMAND_ID);
+    const repaired = await recebimentoV2Db.syncOperations.get(opId);
+
+    expect(changed).toBeGreaterThan(0);
+    expect(repaired?.status).toBe('synced');
+  });
+
+  it('auto-discards rejected PALETE_REMOVE operations', async () => {
+    const opId = crypto.randomUUID();
+    await recebimentoV2Db.syncOperations.put({
+      id: opId,
+      aggregateId: DEMAND_ID,
+      module: 'conference',
+      opType: RECEBIMENTO_V2_OP_TYPES.PALETE_REMOVE,
+      sequence: 1,
+      dependsOn: [],
+      idempotencyKey: crypto.randomUUID(),
+      payload: { unitizadorCodigo: 'PLT-OLD' },
+      attachmentIds: [],
+      status: 'rejected',
+      attempts: 2,
+      errorMessage: 'Palete não encontrado',
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    const changed = await repairSyncOperations(DEMAND_ID);
+
+    expect(changed).toBe(1);
+    expect(await recebimentoV2Db.syncOperations.get(opId)).toBeUndefined();
   });
 });

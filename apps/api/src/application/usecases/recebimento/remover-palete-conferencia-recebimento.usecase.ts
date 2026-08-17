@@ -7,10 +7,6 @@ import {
 
 import { RECEBIMENTO_EVENT } from '../../../domain/model/recebimento/recebimento.events.js';
 import {
-  ARMAZENAGEM_REPOSITORY,
-  type IArmazenagemRepository,
-} from '../../../domain/repositories/armazenagem/armazenagem.repository.js';
-import {
   PRE_RECEBIMENTO_REPOSITORY,
   type IPreRecebimentoRepository,
 } from '../../../domain/repositories/recebimento/pre-recebimento.repository.js';
@@ -18,6 +14,7 @@ import {
   RECEBIMENTO_REPOSITORY,
   type IRecebimentoRepository,
 } from '../../../domain/repositories/recebimento/recebimento.repository.js';
+import { unitizadorIdFromCodigo } from '../../../shared/utils/unitizador-id-from-codigo.js';
 import { RecebimentoParticipacaoService } from '../../services/recebimento/recebimento-participacao.service.js';
 import { RecebimentoEventPublisher } from '../../services/recebimento-event.publisher.js';
 
@@ -35,8 +32,6 @@ export class RemoverPaleteConferenciaRecebimentoUseCase {
     private readonly recebimentoRepository: IRecebimentoRepository,
     @Inject(PRE_RECEBIMENTO_REPOSITORY)
     private readonly preRecebimentoRepository: IPreRecebimentoRepository,
-    @Inject(ARMAZENAGEM_REPOSITORY)
-    private readonly armazenagemRepository: IArmazenagemRepository,
     private readonly recebimentoParticipacaoService: RecebimentoParticipacaoService,
     private readonly recebimentoEventPublisher: RecebimentoEventPublisher,
   ) {}
@@ -72,21 +67,12 @@ export class RemoverPaleteConferenciaRecebimentoUseCase {
       throw new NotFoundException('Pré-recebimento vinculado não encontrado');
     }
 
-    const unitizador = await this.armazenagemRepository.findUnitizadorByCodigo(
-      preRecebimento.unidadeId,
-      unitizadorCodigo,
-    );
-
-    if (!unitizador) {
-      throw new NotFoundException(
-        `Palete "${unitizadorCodigo}" não encontrado nesta unidade`,
-      );
-    }
+    const unitizadorId = unitizadorIdFromCodigo(recebimentoId, unitizadorCodigo);
 
     const result =
       await this.recebimentoRepository.removeItensConferenciaByUnitizador(
         recebimentoId,
-        unitizador.id,
+        unitizadorId,
         produtoId,
       );
 
@@ -104,7 +90,7 @@ export class RemoverPaleteConferenciaRecebimentoUseCase {
       userId,
       metadata: {
         unitizadorCodigo,
-        unitizadorId: unitizador.id,
+        unitizadorId,
         produtoId,
         removed: true,
         removedCount: result.removedCount,
@@ -113,7 +99,7 @@ export class RemoverPaleteConferenciaRecebimentoUseCase {
 
     return {
       unitizadorCodigo,
-      unitizadorId: unitizador.id,
+      unitizadorId,
       removedCount: result.removedCount,
     };
   }

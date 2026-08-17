@@ -606,6 +606,30 @@ describe('EncerrarConferenciaUseCase', () => {
     expect(result?.situacao).toBe('conferido');
   });
 
+  it('returns idempotently when recebimento is already conferido', async () => {
+    const recebimentoRepository: Partial<IRecebimentoRepository> = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        preRecebimentoId: 'pre-1',
+        situacao: 'conferido',
+        responsavelId: 10,
+      }),
+    };
+
+    const useCase = new EncerrarConferenciaUseCase(
+      recebimentoRepository as IRecebimentoRepository,
+      {} as IPreRecebimentoRepository,
+      {} as IConferenciaRepository,
+      {} as IProdutoRepository,
+      eventPublisher,
+    );
+
+    const result = await useCase.execute({ recebimentoId: 'rec-1', userId: 1 });
+
+    expect(result?.situacao).toBe('conferido');
+    expect(recebimentoRepository.findById).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects encerramento when temperaturas do baú are incomplete', async () => {
     const recebimentoRepository: Partial<IRecebimentoRepository> = {
       findById: vi.fn().mockResolvedValue({

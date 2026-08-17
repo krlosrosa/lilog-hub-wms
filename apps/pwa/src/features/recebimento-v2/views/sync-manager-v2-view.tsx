@@ -183,7 +183,14 @@ export function SyncManagerV2View({ demandId }: SyncManagerV2ViewProps) {
     try {
       const result = await syncNowV2(demandId, { manual: true });
       if (!result) {
-        toast.info('Nada para sincronizar');
+        const stillHasWork = syncStatus.pendingCount > 0 || syncStatus.retryCount > 0;
+        if (stillHasWork) {
+          toast.info(
+            'Operações na fila não puderam ser enviadas agora. Tentando novamente em breve.',
+          );
+        } else {
+          toast.info('Nada para sincronizar');
+        }
         return;
       }
       showSyncResultToast(result, { hadPhotos });

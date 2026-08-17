@@ -14,6 +14,10 @@ export function resolveConferenceQuantidadePar(
   quantidadeModo: QuantidadeModo,
   unidadesPorCaixa: number,
 ): QuantidadePar {
+  if (record.isPvarBox) {
+    return { caixa: 1, unidade: 0 };
+  }
+
   const upc = resolveUnidadesPorCaixa(unidadesPorCaixa);
   const hasExplicitCaixa = (record.recebidaCaixa ?? 0) > 0;
   const hasExplicitUnidade = (record.recebidaUnidade ?? 0) > 0;

@@ -24,6 +24,8 @@ import { liberarConferenciaPreRecebimentoDb } from './liberar-conferencia-pre-re
 import { recepcionarCarroPreRecebimentoDb } from './recepcionar-carro-pre-recebimento.drizzle.js';
 import { gerarLinkRastreioDb } from './gerar-link-rastreio.drizzle.js';
 import { findRastreioByTokenDb } from './find-rastreio-by-token.drizzle.js';
+import { addManualExpectedItemPreRecebimentoDb } from './add-manual-expected-item-pre-recebimento.drizzle.js';
+import { removeManualExpectedItemPreRecebimentoDb } from './remove-manual-expected-item-pre-recebimento.drizzle.js';
 
 @Injectable()
 export class PreRecebimentoService implements IPreRecebimentoRepository {
@@ -82,5 +84,21 @@ export class PreRecebimentoService implements IPreRecebimentoRepository {
 
   findRastreioByToken(token: string) {
     return findRastreioByTokenDb(this.db, token);
+  }
+
+  addManualExpectedItem(preRecebimentoId: string, produtoId: string) {
+    return addManualExpectedItemPreRecebimentoDb(
+      this.db,
+      preRecebimentoId,
+      produtoId,
+    );
+  }
+
+  removeManualExpectedItem(preRecebimentoId: string, produtoId: string) {
+    return removeManualExpectedItemPreRecebimentoDb(
+      this.db,
+      preRecebimentoId,
+      produtoId,
+    );
   }
 }

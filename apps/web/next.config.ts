@@ -9,6 +9,15 @@ const hasSentryUpload = Boolean(
 const nextConfig: NextConfig = {
   output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   transpilePackages: ['@lilog/ui'],
+  async redirects() {
+    return [
+      {
+        source: '/favicon.ico',
+        destination: '/favicon.svg',
+        permanent: false,
+      },
+    ];
+  },
   experimental: {
     optimizePackageImports: ['@lilog/ui', 'lucide-react'],
   },

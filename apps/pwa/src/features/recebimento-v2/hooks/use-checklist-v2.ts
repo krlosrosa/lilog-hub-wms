@@ -6,6 +6,7 @@ import { useAuth } from '@/features/auth';
 
 import { buildChecklistSyncPayload, normalizeTempBau } from '../lib/checklist-sync-payload';
 import { isChecklistComplete } from '../lib/is-checklist-complete';
+import { deriveLifecycleFromStatus } from '../lib/sync-operation-lifecycle';
 import { recebimentoV2Db } from '../local-db/db';
 import type { ChecklistPhotoMediaIds, ChecklistRecord, SyncOperationRecord } from '../local-db/schema';
 import type { ChecklistFormV2 } from '../types/recebimento-v2.schema';
@@ -104,6 +105,7 @@ export function useChecklistV2(demandId: string): UseChecklistV2Result {
         }),
         attachmentIds: allMediaIds,
         status: 'pending',
+        lifecycleStatus: deriveLifecycleFromStatus('pending'),
         attempts: 0,
         createdAt: nowMs,
         updatedAt: nowMs,

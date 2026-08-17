@@ -1,6 +1,10 @@
-import { uploadDocumentToBucket } from '@/lib/offline/document-upload';
+import { pushPhotoDebugEntry } from '@/lib/images/photo-debug-store';
+import { uppyBucketUpload } from '@/lib/uppy/uppy-bucket-upload';
 
+import { debugRecebimentoV2 } from '../lib/sync-debug';
 import { recebimentoV2Db } from '../local-db/db';
+
+const AVARIA_ENTIDADE_TIPO = 'recebimento_avaria';
 
 export interface AvariaPhotoUploadResult {
   uploaded: number;
@@ -8,48 +12,17 @@ export interface AvariaPhotoUploadResult {
   skipped: number;
 }
 
-type UploadAttempt = 'uploaded' | 'failed' | 'skipped';
-
-async function uploadSingleAvariaMedia(
-  avariaId: string,
-  mediaId: string,
-): Promise<UploadAttempt> {
-  const media = await recebimentoV2Db.media.get(mediaId);
-  if (!media || media.status === 'uploaded') {
-    return 'skipped';
-  }
-
-  if (!media.blob) {
-    await recebimentoV2Db.media.update(mediaId, { status: 'error' });
-    return 'failed';
-  }
-
-  try {
-    await recebimentoV2Db.media.update(mediaId, { status: 'uploading' });
-
-    const remoteUrl = await uploadDocumentToBucket(
-      {
-        blob: media.blob,
-        mimeType: media.mimeType,
-      },
-      {
-        nome: `avaria-${mediaId}.jpg`,
-        entidadeTipo: 'recebimento_avaria',
-        entidadeId: avariaId,
-      },
-    );
-
-    await recebimentoV2Db.media.update(mediaId, {
-      status: 'uploaded',
-      remoteUrl,
-      uploadedAt: new Date().toISOString(),
-    });
-
-    return 'uploaded';
-  } catch {
-    await recebimentoV2Db.media.update(mediaId, { status: 'error' });
-    return 'failed';
-  }
+function logAvariaPhotoUpload(
+  event: string,
+  summary: string,
+  detail: Record<string, unknown>,
+): void {
+  debugRecebimentoV2('photo-upload', event, detail);
+  pushPhotoDebugEntry({
+    event: `avaria/${event}`,
+    summary,
+    detail: JSON.stringify(detail, null, 2),
+  });
 }
 
 /**
@@ -60,27 +33,31 @@ export async function uploadAvariaPhotosV2(
   avariaId: string,
   mediaIds: string[] | undefined,
 ): Promise<AvariaPhotoUploadResult> {
-  const result: AvariaPhotoUploadResult = {
-    uploaded: 0,
-    failed: 0,
-    skipped: 0,
-  };
-
   if (!mediaIds?.length) {
-    return result;
+    logAvariaPhotoUpload('batch-skip', 'Nenhuma mediaId informada', { avariaId });
+    return { uploaded: 0, failed: 0, skipped: 0 };
   }
 
-  for (const mediaId of mediaIds) {
-    const attempt = await uploadSingleAvariaMedia(avariaId, mediaId);
+  logAvariaPhotoUpload('batch-start', `Upload de ${mediaIds.length} foto(s)`, {
+    avariaId,
+    mediaIds,
+  });
 
-    if (attempt === 'uploaded') {
-      result.uploaded += 1;
-    } else if (attempt === 'failed') {
-      result.failed += 1;
-    } else {
-      result.skipped += 1;
-    }
-  }
+  const records = (await recebimentoV2Db.media.bulkGet(mediaIds)).filter(
+    (record): record is NonNullable<typeof record> => record != null,
+  );
+
+  const result = await uppyBucketUpload(records, {
+    entidadeTipo: AVARIA_ENTIDADE_TIPO,
+    entidadeId: avariaId,
+    sessionLabel: `Upload avaria ${avariaId.slice(0, 8)}`,
+    nome: (record) => `avaria-${record.id}.jpg`,
+  });
+
+  logAvariaPhotoUpload('batch-end', 'Upload batch finalizado', {
+    avariaId,
+    ...result,
+  });
 
   return result;
 }

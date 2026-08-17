@@ -17,7 +17,6 @@ import {
 
 import { funcionarios, users } from './auth.schema.js';
 import { produtos, unidades } from './master-data.schema.js';
-import { unitizadores } from './armazenagem.schema.js';
 import { docas } from './doca.schema.js';
 import {
   sessaoFuncionarios,
@@ -146,35 +145,43 @@ export const itensPreRecebimento = recebimentoPgSchema.table(
   },
 );
 
-export const recebimentos = recebimentoPgSchema.table('recebimentos', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  preRecebimentoId: uuid('pre_recebimento_id')
-    .notNull()
-    .references(() => preRecebimentos.id, { onDelete: 'cascade' }),
-  docaId: uuid('doca_id').references(() => docas.id, { onDelete: 'set null' }),
-  responsavelId: integer('responsavel_id')
-    .notNull()
-    .references(() => funcionarios.id, { onDelete: 'restrict' }),
-  dataInicio: timestamp('data_inicio', { withTimezone: true }).notNull(),
-  dataFim: timestamp('data_fim', { withTimezone: true }),
-  situacao: recebimentoSituacaoEnum('situacao')
-    .notNull()
-    .default('em_conferencia'),
-  quantidadePaletes: integer('quantidade_paletes'),
-  teveSobreposicaoCarga: boolean('teve_sobreposicao_carga')
-    .notNull()
-    .default(false),
-  modoUnitizacao: varchar('modo_unitizacao', { length: 50 })
-    .notNull()
-    .default('gerar_etiqueta_na_armazenagem'),
-  userId: integer('user_id'),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const recebimentos = recebimentoPgSchema.table(
+  'recebimentos',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    preRecebimentoId: uuid('pre_recebimento_id')
+      .notNull()
+      .references(() => preRecebimentos.id, { onDelete: 'cascade' }),
+    docaId: uuid('doca_id').references(() => docas.id, { onDelete: 'set null' }),
+    responsavelId: integer('responsavel_id')
+      .notNull()
+      .references(() => funcionarios.id, { onDelete: 'restrict' }),
+    dataInicio: timestamp('data_inicio', { withTimezone: true }).notNull(),
+    dataFim: timestamp('data_fim', { withTimezone: true }),
+    situacao: recebimentoSituacaoEnum('situacao')
+      .notNull()
+      .default('em_conferencia'),
+    quantidadePaletes: integer('quantidade_paletes'),
+    teveSobreposicaoCarga: boolean('teve_sobreposicao_carga')
+      .notNull()
+      .default(false),
+    modoUnitizacao: varchar('modo_unitizacao', { length: 50 })
+      .notNull()
+      .default('gerar_etiqueta_na_armazenagem'),
+    userId: integer('user_id'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('recebimentos_pre_recebimento_id_unique_idx').on(
+      table.preRecebimentoId,
+    ),
+  ],
+);
 
 export const itensRecebimento = recebimentoPgSchema.table(
   'itens_recebimento',
@@ -198,17 +205,23 @@ export const itensRecebimento = recebimentoPgSchema.table(
     pesoRecebido: numeric('peso_recebido', { precision: 12, scale: 3 }),
     validade: timestamp('validade', { withTimezone: true }),
     numeroSerie: varchar('numero_serie', { length: 100 }),
-    unitizadorId: uuid('unitizador_id').references(() => unitizadores.id, {
-      onDelete: 'set null',
-    }),
+    unitizadorId: uuid('unitizador_id'),
+    unitizadorCodigo: varchar('unitizador_codigo', { length: 100 }),
     conferidoPorId: integer('conferido_por_id').references(() => funcionarios.id, {
       onDelete: 'set null',
     }),
+    clientConferenceId: varchar('client_conference_id', { length: 128 }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
-  (table) => [index('itens_recebimento_unidade_id_idx').on(table.unidadeId)],
+  (table) => [
+    index('itens_recebimento_unidade_id_idx').on(table.unidadeId),
+    unique('itens_recebimento_rec_client_conf_uidx').on(
+      table.recebimentoId,
+      table.clientConferenceId,
+    ),
+  ],
 );
 
 export const pesagensRecebimento = recebimentoPgSchema.table(

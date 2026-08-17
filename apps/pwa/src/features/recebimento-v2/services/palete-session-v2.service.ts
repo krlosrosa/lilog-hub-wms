@@ -2,6 +2,10 @@ import { RECEBIMENTO_V2_OP_TYPES } from '@lilog/contracts';
 
 import { blockChecklistOpsDuringImpedimento } from '../lib/checklist-sync-impedimento';
 import { normalizeParametrosConferenciaV2 } from '../lib/parametros-conferencia';
+import {
+  deriveLifecycleFromStatus,
+  resolveLifecycleStatus,
+} from '../lib/sync-operation-lifecycle';
 import { recebimentoV2Db } from '../local-db/db';
 import type { SyncOperationRecord } from '../local-db/schema';
 
@@ -77,16 +81,64 @@ export async function filterSyncableOperations(
     );
   }
 
+  const dependencyIds = [...new Set(filtered.flatMap((op) => op.dependsOn))];
+  const dependencyRecords =
+    dependencyIds.length > 0
+      ? await recebimentoV2Db.syncOperations.bulkGet(dependencyIds)
+      : [];
+  const dependencyById = new Map(
+    dependencyRecords
+      .filter(
+        (dependency): dependency is SyncOperationRecord => dependency != null,
+      )
+      .map((dependency) => [dependency.id, dependency]),
+  );
+  const lifecycleTransitions: Array<Promise<number>> = [];
+
   filtered = filtered.filter((op) => {
     if (op.dependsOn.length === 0) {
+      if (resolveLifecycleStatus(op) === 'WAITING_DEPENDENCY') {
+        lifecycleTransitions.push(
+          recebimentoV2Db.syncOperations.update(op.id, {
+            lifecycleStatus: deriveLifecycleFromStatus(op.status),
+            updatedAt: Date.now(),
+          }),
+        );
+      }
       return true;
     }
 
-    return op.dependsOn.every((depId) => {
-      const dep = ops.find((candidate) => candidate.id === depId);
+    const ready = op.dependsOn.every((depId) => {
+      const dep = dependencyById.get(depId);
       return dep?.status === 'synced';
     });
+
+    if (!ready) {
+      if (resolveLifecycleStatus(op) !== 'WAITING_DEPENDENCY') {
+        lifecycleTransitions.push(
+          recebimentoV2Db.syncOperations.update(op.id, {
+            lifecycleStatus: 'WAITING_DEPENDENCY',
+            updatedAt: Date.now(),
+          }),
+        );
+      }
+      return false;
+    }
+
+    if (resolveLifecycleStatus(op) === 'WAITING_DEPENDENCY') {
+      lifecycleTransitions.push(
+        recebimentoV2Db.syncOperations.update(op.id, {
+          lifecycleStatus: deriveLifecycleFromStatus(op.status),
+          updatedAt: Date.now(),
+        }),
+      );
+    }
+
+    return true;
   });
+  if (lifecycleTransitions.length > 0) {
+    await Promise.all(lifecycleTransitions);
+  }
 
   const controlaPalete = await isControlaPaleteEnabled(demandId);
 

@@ -24,8 +24,6 @@ export async function clearDemandCache(
     'rw',
     [
       db.demands,
-      db.devolucaoDemands,
-      db.inventoryDemands,
       db.demandContexts,
       db.checklistDrafts,
       db.demandProdutos,

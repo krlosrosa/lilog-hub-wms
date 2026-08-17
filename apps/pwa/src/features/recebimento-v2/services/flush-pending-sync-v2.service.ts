@@ -1,7 +1,7 @@
 import { recebimentoV2Db } from '../local-db/db';
 
 import {
-  hasPendingSyncWork,
+  hasDirtyPatchWork,
   syncNowV2,
 } from './auto-sync-v2.service';
 import { hasPendingPhotoUploads } from './sync-photo.helpers';
@@ -25,12 +25,12 @@ export async function flushPendingSyncForUnidade(unidadeId: string): Promise<voi
       continue;
     }
 
-    const [hasPendingOps, hasPhotos] = await Promise.all([
-      hasPendingSyncWork(process.id),
+    const [hasDirtyWork, hasPhotos] = await Promise.all([
+      hasDirtyPatchWork(process.id),
       hasPendingPhotoUploads(process.id),
     ]);
 
-    if (!hasPendingOps && !hasPhotos) {
+    if (!hasDirtyWork && !hasPhotos) {
       continue;
     }
 

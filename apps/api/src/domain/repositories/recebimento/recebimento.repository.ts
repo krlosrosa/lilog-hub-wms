@@ -37,6 +37,7 @@ export type ItemRecebimentoRecord = {
   numeroSerie: string | null;
   unitizadorId: string | null;
   unitizadorCodigo?: string | null;
+  clientConferenceId?: string | null;
   createdAt: Date;
 };
 
@@ -133,6 +134,7 @@ export type RemovePesagemRecebimentoResult = {
 
 export type AddItemRecebimentoOptions = {
   unitizadorId?: string | null;
+  unitizadorCodigo?: string | null;
   pesoVariavel?: boolean;
   conferidoPorId?: number | null;
   clientConferenceId?: string | null;

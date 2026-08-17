@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
+  Copy,
   Download,
   Image,
   Info,
@@ -12,6 +13,7 @@ import {
 import { useState } from 'react';
 
 import { formatBytes } from '@/lib/images/photo-debug-log';
+import { hapticLight } from '@/lib/haptics';
 
 import type { UseSyncStatusV2Result } from '../hooks/use-sync-status-v2';
 import { formatSyncIssueErrorMessage } from '../lib/sync-conferencia-bloqueada';
@@ -149,7 +151,67 @@ function QueueOperationCard({
   );
 }
 
-function PendingPhotoCard({ photo }: { photo: PendingPhotoOperation }) {
+function getPhotoErrorStepLabel(errorStep?: string): string | null {
+  switch (errorStep) {
+    case 'upload-url':
+      return 'Falha ao solicitar URL de upload';
+    case 'put-blob':
+      return 'Falha ao enviar arquivo';
+    case 'confirm':
+      return 'Falha ao confirmar upload';
+    default:
+      return null;
+  }
+}
+
+function buildPhotoDiagnosticText(photo: PendingPhotoOperation): string {
+  const errorStepLabel = getPhotoErrorStepLabel(photo.errorStep);
+  return JSON.stringify(
+    {
+      exportedAt: new Date().toISOString(),
+      appVersion: import.meta.env.VITE_APP_VERSION ?? 'unknown',
+      photo: {
+        id: photo.id,
+        ownerType: photo.ownerType,
+        ownerId: photo.ownerId,
+        status: photo.status,
+        filename: photo.filename ?? null,
+        mimeType: photo.mimeType,
+        sizeBytes: photo.sizeBytes,
+        createdAt: photo.createdAt,
+        errorStep: photo.errorStep ?? null,
+        errorStepLabel,
+        errorMessage: photo.errorMessage ?? null,
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function PendingPhotoCard({
+  photo,
+  onRetry,
+  retryDisabled = false,
+}: {
+  photo: PendingPhotoOperation;
+  onRetry?: () => void;
+  retryDisabled?: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+  const errorStepLabel = getPhotoErrorStepLabel(photo.errorStep);
+
+  const handleCopyDiagnostic = async () => {
+    hapticLight();
+    try {
+      await navigator.clipboard.writeText(buildPhotoDiagnosticText(photo));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
   return (
     <div
       className={cn(
@@ -172,6 +234,38 @@ function PendingPhotoCard({ photo }: { photo: PendingPhotoOperation }) {
             {getPhotoStatusLabel(photo.status)} · {formatBytes(photo.sizeBytes)} ·{' '}
             {formatRelativeTime(photo.createdAt, '—')}
           </p>
+          {photo.status === 'error' && (photo.errorMessage || errorStepLabel) ? (
+            <p className="mt-1 text-[11px] leading-relaxed text-destructive">
+              {errorStepLabel ? `${errorStepLabel}: ` : ''}
+              {photo.errorMessage ?? 'Erro desconhecido no envio'}
+            </p>
+          ) : null}
+          {photo.status === 'error' ? (
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void handleCopyDiagnostic()}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground underline touch-manipulation"
+              >
+                <Copy className="h-3 w-3" aria-hidden />
+                {copied ? 'Copiado!' : 'Copiar diagnóstico'}
+              </button>
+              {onRetry ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticLight();
+                    onRetry();
+                  }}
+                  disabled={retryDisabled}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-secondary underline touch-manipulation disabled:opacity-50"
+                >
+                  <RefreshCw className="h-3 w-3" aria-hidden />
+                  Tentar novamente
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -332,7 +426,12 @@ export function SyncStatusV2({
             Fotos ({pendingPhotos.length})
           </p>
           {pendingPhotos.map((photo) => (
-            <PendingPhotoCard key={photo.id} photo={photo} />
+            <PendingPhotoCard
+              key={photo.id}
+              photo={photo}
+              onRetry={onSync}
+              retryDisabled={busy}
+            />
           ))}
           {onDismissPendingPhotos ? (
             <>

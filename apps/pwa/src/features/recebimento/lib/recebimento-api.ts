@@ -11,6 +11,7 @@ import type {
   ConferirItemPayload,
   DocaApi,
   OperadorDemandaApi,
+  PreRecebimentoSituacaoApi,
   RecebimentoApi,
   RecebimentoAvariaApi,
   SubmitAvariaPayload,
@@ -47,6 +48,25 @@ export async function fetchConferenciaContext(
 ): Promise<ConferenciaContextApi> {
   return request<ConferenciaContextApi>(
     `/pre-recebimentos/${encodeURIComponent(preRecebimentoId)}/conferencia`,
+  );
+}
+
+export type PreRecebimentoDetalheApi = {
+  preRecebimento: {
+    id: string;
+    situacao: PreRecebimentoSituacaoApi;
+  };
+  recebimento: {
+    id: string;
+    situacao: string;
+  } | null;
+};
+
+export async function fetchPreRecebimentoDetalhe(
+  preRecebimentoId: string,
+): Promise<PreRecebimentoDetalheApi> {
+  return request<PreRecebimentoDetalheApi>(
+    `/pre-recebimentos/${encodeURIComponent(preRecebimentoId)}/detalhe`,
   );
 }
 

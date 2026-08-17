@@ -1,10 +1,9 @@
-import { RECEBIMENTO_V2_OP_TYPES } from '@lilog/contracts';
-
-import { mapAvariaRemoverV2SyncPayload } from '../lib/map-avaria-v2-sync-payload';
 import { normalizeSkuParam } from '../lib/resolve-produto-conferencia-v2';
 import { recebimentoV2Db } from '../local-db/db';
-import type { DamageRecord, SyncOperationRecord } from '../local-db/schema';
+import type { DamageRecord } from '../local-db/schema';
 import { triggerAutoSyncIfPending } from './auto-sync-v2.service';
+import { removeDamageRecordLocally } from './damage-removal.helpers';
+import { deleteAvariaMediaUnreferencedByActiveDamages } from './sync-photo.helpers';
 import { deleteConferenceRecord } from './conference-sync.actions';
 
 function matchesSku(a: string | undefined, normalizedSku: string): boolean {
@@ -16,66 +15,17 @@ async function removeDamageRecord(
   demandId: string,
   damage: DamageRecord,
 ): Promise<boolean> {
-  const now = new Date().toISOString();
-  const nowMs = Date.now();
-
-  const removeSyncOp: SyncOperationRecord | null = damage.serverAvariaId
-    ? {
-        id: crypto.randomUUID(),
-        aggregateId: demandId,
-        module: 'damage',
-        opType: RECEBIMENTO_V2_OP_TYPES.AVARIA_REMOVER,
-        sequence: nowMs,
-        dependsOn: [],
-        idempotencyKey: crypto.randomUUID(),
-        payload: mapAvariaRemoverV2SyncPayload(damage.id, damage.serverAvariaId),
-        attachmentIds: [],
-        status: 'pending',
-        attempts: 0,
-        createdAt: nowMs,
-        updatedAt: nowMs,
-      }
-    : null;
-
-  await recebimentoV2Db.transaction(
+  const needsSync = await recebimentoV2Db.transaction(
     'rw',
-    [recebimentoV2Db.damages, recebimentoV2Db.syncOperations, recebimentoV2Db.media],
+    [recebimentoV2Db.damages, recebimentoV2Db.media],
     async () => {
-      await recebimentoV2Db.damages.update(damage.id, {
-        deletedAt: now,
-        syncStatus: removeSyncOp ? 'pending' : 'synced',
-        updatedAt: nowMs,
-      });
-
-      const pendingOps = await recebimentoV2Db.syncOperations
-        .where('aggregateId')
-        .equals(demandId)
-        .and(
-          (op) =>
-            (op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REGISTRAR ||
-              op.opType === RECEBIMENTO_V2_OP_TYPES.AVARIA_REMOVER) &&
-            (op.status === 'pending' || op.status === 'retry'),
-        )
-        .toArray();
-
-      for (const op of pendingOps) {
-        const payload = op.payload as { damageId?: string };
-        if (payload.damageId === damage.id) {
-          await recebimentoV2Db.syncOperations.delete(op.id);
-        }
-      }
-
-      if (removeSyncOp) {
-        await recebimentoV2Db.syncOperations.put(removeSyncOp);
-      }
-
-      if (damage.mediaIds?.length) {
-        await recebimentoV2Db.media.bulkDelete(damage.mediaIds);
-      }
+      const requiresSync = await removeDamageRecordLocally(demandId, damage);
+      await deleteAvariaMediaUnreferencedByActiveDamages(demandId);
+      return requiresSync;
     },
   );
 
-  return removeSyncOp != null;
+  return needsSync;
 }
 
 export async function removeAddedItemV2(demandId: string, sku: string): Promise<void> {
